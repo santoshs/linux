@@ -1,7 +1,7 @@
 /*
- * drivers/video/r-mobile/panel/panel_hx8369_b.h
+ * drivers/video/r-mobile/panel/panel_common.h
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,14 +17,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#ifndef __PANEL_HX8369_B_H__
-#define __PANEL_HX8369_B_H__
+#ifndef __PANEL_COMMON_H__
+#define __PANEL_COMMON_H__
 
-extern int hx8369_b_dsi_read(int id, int reg, int len, char *buf);
+extern int panel_dsi_read(int id, int reg, int len, char *buf);
 
-#ifdef CONFIG_FB_R_MOBILE_PANEL_SWITCH
-#include <video/sh_mobile_lcdc.h>
-extern struct fb_panel_func hx8369_b_func_list(void);
-#endif
-
-#endif /* __PANEL_HX8369_B_H__ */
+#endif /* __PANEL_COMMON_H__ */

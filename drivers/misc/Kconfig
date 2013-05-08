@@ -469,6 +469,15 @@ config SENSORS_MAG_15BIT
          help
 	  If you say yes here you get support for the ALPS magnateic sensor
 
+config SENSORS_ATSN01P
+	depends on I2C
+	tristate "ATSN01P Grip Sensor Support"
+	default n
+	help
+	  Say Y here if you use ATSN01P.
+	  This option enables Grip sensors using AD SEMICON ATSN01P device driver.
+	  Say N here if you do not use ATSN01P.
+
 config EP93XX_PWM
 	tristate "EP93xx PWM support"
 	depends on ARCH_EP93XX
@@ -637,9 +646,36 @@ config WL127X_RFKILL
 	 Creates an rfkill entry in sysfs for power control of Bluetooth
 	 TI wl127x chips.
 
+config RMU2_CMT15
+	tristate "rmu2_cmt15"
+	default n
+	depends on RMU2_RWDT
+	select FIQ
+	select FIQ_GLUE
+
+config RWDT_CMT15_TEST
+	bool "CMT15 Test"
+	default n
+	depends on RMU2_CMT15
+	help
+	  This enables /proc/proc_watch_entry to test various crash test cases.
+
+	  You can use the echo commmad to write value into /proc/proc_watch_entry
+	  to skip clearing RWDT for debugging. RWDT counter will be overflowed
+	  after overflow time.
+
+config SHBUS_TIMEOUT_CHECK_ENABLE
+	bool "Enable bus timeout checking"
+	depends on RMU2_CMT15
+	help
+	 Say Y here to enable SHwy Bus Timeout Control Function.
+
+	 This function is to help the debugging of SHwy bus hung-up
+	 from the point of view of CPG operation.
+
 config SEC_MAKE_LCD_TEST
 	tristate "For LCD TEST Binary"
-	default n   
+	default n
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

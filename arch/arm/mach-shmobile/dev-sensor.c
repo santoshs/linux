@@ -62,6 +62,10 @@
 #include <linux/i2c/taos.h>
 #endif
 
+#if defined (CONFIG_SENSORS_ATSN01P)
+#include <linux/atsn01p.h>
+#endif
+
 #define I2C_BUS_ID_SENSOR	  2
 
 #if defined(CONFIG_OPTICAL_TAOS_TRITON)
@@ -104,8 +108,8 @@ static struct k3dh_platform_data k3dh_platform_data = {
 	0, 1, 0,
 	0, 0, 1
 #elif defined (CONFIG_MACH_LT02LTE)
-	1, 0, 0,
 	0, -1, 0,
+	-1, 0, 0,
 	0, 0, -1
 #else
 	-1, 0, 0,
@@ -282,6 +286,62 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 #endif
 };
 
+
+#if defined(CONFIG_SENSORS_ATSN01P)
+#define PROXI_INT_GRIP_PIN 199
+static struct atsn10p_platform_data atsn10p_pdata = {
+	.t_out = PROXI_INT_GRIP_PIN,
+	.adj_det = PROXI_INT_GRIP_PIN,
+};
+
+static struct i2c_board_info __initdata i2c0_devices[] = {
+	{
+		I2C_BOARD_INFO("atsn01p", 0x48 >> 1),
+		.irq = irqpin2irq(63),
+		.platform_data = &atsn10p_pdata,
+	},
+};
+
+static void grip_init_code_set(void)
+{
+	atsn10p_pdata.cr_divsr = 10;
+	atsn10p_pdata.cr_divnd = 12;
+	atsn10p_pdata.cs_divsr = 10;
+	atsn10p_pdata.cs_divnd = 12;
+	
+	atsn10p_pdata.init_code[SET_UNLOCK] = 0x5a;
+	atsn10p_pdata.init_code[SET_RST_ERR] = 0x33;
+	atsn10p_pdata.init_code[SET_PROX_PER] = 0x38;
+	atsn10p_pdata.init_code[SET_PAR_PER] = 0x38;
+	atsn10p_pdata.init_code[SET_TOUCH_PER] = 0x3c;
+	atsn10p_pdata.init_code[SET_HI_CAL_PER] = 0x30;
+	atsn10p_pdata.init_code[SET_BSMFM_SET] = 0x31;
+	atsn10p_pdata.init_code[SET_ERR_MFM_CYC] = 0x33;
+	atsn10p_pdata.init_code[SET_TOUCH_MFM_CYC] = 0x24;
+	atsn10p_pdata.init_code[SET_HI_CAL_SPD] = 0x21;
+	atsn10p_pdata.init_code[SET_CAL_SPD] = 0x04;
+	atsn10p_pdata.init_code[SET_INIT_REF] = 0x00;
+	atsn10p_pdata.init_code[SET_BFT_MOT] = 0x40;
+	atsn10p_pdata.init_code[SET_TOU_RF_EXT] = 0x00;
+	atsn10p_pdata.init_code[SET_SYS_FUNC] = 0x10;
+	atsn10p_pdata.init_code[SET_OFF_TIME] = 0x30;
+	atsn10p_pdata.init_code[SET_SENSE_TIME] = 0x48;
+	atsn10p_pdata.init_code[SET_DUTY_TIME] = 0x50;
+	atsn10p_pdata.init_code[SET_HW_CON1] = 0x78;
+	atsn10p_pdata.init_code[SET_HW_CON2] = 0x27;
+	atsn10p_pdata.init_code[SET_HW_CON3] = 0x20;
+	atsn10p_pdata.init_code[SET_HW_CON4] = 0x27;
+	atsn10p_pdata.init_code[SET_HW_CON5] = 0x83;
+	atsn10p_pdata.init_code[SET_HW_CON6] = 0x3f;
+	atsn10p_pdata.init_code[SET_HW_CON7] = 0x48;
+	atsn10p_pdata.init_code[SET_HW_CON8] = 0x20;
+	atsn10p_pdata.init_code[SET_HW_CON10] = 0x27;
+	atsn10p_pdata.init_code[SET_HW_CON11] = 0x00;
+}
+#endif //CONFIG_SENSORS_ATSN01P
+
+
+
 #if defined(CONFIG_INPUT_MPU6050) || defined(CONFIG_INPUT_MPU6500)
 void mpl_init(void)
 {
@@ -302,6 +362,15 @@ void __init board_sensor_init(void)
 	mpl_init();
 #endif
 
+#if defined(CONFIG_SENSORS_ATSN01P)
+	/* Grip Sensor */
+	gpio_request(PROXI_INT_GRIP_PIN, NULL);
+	gpio_direction_input(PROXI_INT_GRIP_PIN);
+	gpio_pull_up_port(PROXI_INT_GRIP_PIN);
+	
+	grip_init_code_set();		
+	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
+#endif
 	i2c_register_board_info(I2C_BUS_ID_SENSOR, i2c2_devices, ARRAY_SIZE(i2c2_devices));
 	return;
 }

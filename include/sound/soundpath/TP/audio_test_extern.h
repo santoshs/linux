@@ -91,6 +91,7 @@ struct audio_test_ioctl_cmd {
 #define AUDIO_TEST_IOCTL_STOPSOUNDPLAY	_IOR(AUDIO_TEST_IOC_MAGIC, 13, \
 					struct audio_test_ioctl_cmd)
 
+#ifndef __AUDIO_TEST_LIB_H__
 /*---------------------------------------------------------------------------*/
 /* enum declaration                                                          */
 /*---------------------------------------------------------------------------*/
@@ -144,6 +145,7 @@ enum audio_test_fsi_port {
 	AUDIO_TEST_DRV_FSI_PORTB,	/**< 0x01: Port B. */
 	AUDIO_TEST_DRV_FSI_MAX
 };
+#endif
 
 /*!
   @brief	VCD call kind.

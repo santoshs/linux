@@ -32,8 +32,11 @@
 #include <linux/regulator/consumer.h>
 #include <linux/lcd.h>
 #include <mach/r8a7373.h>
+#include <mach/memory-r8a7373.h>
+#include <linux/module.h>
+#include <linux/i2c.h>
 
-#include "panel_vx5b3d.h"
+#include "panel_common.h"
 
 /* #define VX5B3D_DRAW_BLACK_KERNEL */
 #define CABC_FUNCTION_ENABLE
@@ -47,9 +50,12 @@
 #define VX5B3D_VEE_ENABLE
 /* #define VX5B3D_STANDBY_CMD_ENABLE */
 
+#define VX5B3D_USE_I2C
+
 /* framebuffer address and size */
-#define R_MOBILE_M_BUFF_ADDR		0x4B400000
-#define R_MOBILE_M_BUFF_SIZE		(6 * 1024 * 1024)
+#define R_MOBILE_M_BUFF_ADDR		SDRAM_FRAME_BUFFER_START_ADDR
+#define R_MOBILE_M_BUFF_SIZE		(SDRAM_FRAME_BUFFER_END_ADDR - \
+					 SDRAM_FRAME_BUFFER_START_ADDR + 1)
 
 /* panel size (mm) */
 #define R_MOBILE_M_PANEL_SIZE_WIDTH	154
@@ -128,6 +134,12 @@
 #define POWER_IS_ON(pwr)	((pwr) <= FB_BLANK_NORMAL)
 static int vx5b3d_panel_suspend(void);
 static int vx5b3d_panel_resume(void);
+/* i2c */
+#if 0
+static int ql_i2c_read(u32 addr, u32 *val, u32 data_size);
+#endif
+static int ql_i2c_write_wrapper(u8 cmd, int size, const u8 *data);
+
 
 #define MIN_BRIGHTNESS	(0)
 #define MAX_BRIGHTNESS	(255)
@@ -215,113 +227,113 @@ struct specific_cmdset {
 };
 
 #ifdef BL_TUNE_WITH_TABLE
-struct brt_value{
-	int level;				/* Platform setting values */
-	int tune_level;	      /* Chip Setting values */
+struct brt_value {
+	int level;		/* Platform setting values */
+	int tune_level;		/* Chip Setting values */
 };
 
 /* TOTAL 95 STEPS */
 struct brt_value bl_table[] = {
-   {   20,     1},  /* MIN 20 */
-   {   23,     5 },
-   { 25,  8 },
-   {   27,    10 },
-   { 30,  12 },
-   {   32,    13 },  
-   { 35,  15 },  
-   {   38,    17 },  
-   { 40,  19 }, 
-   {   42,    21 }, 
-   { 45,  23 }, 
-   {   48,    25 }, 
-   { 50,  27 },
-   {   52,    28 },
-   { 55,  30 }, 
-   {   57,    32 }, 
-   { 60,  34 },
-   {   63,    36 }, 
-   { 65,  37 }, 
-   {   67,    39 }, 
-   { 70,  41 },
-   {   72,    43 },   
-   { 75,  45 },
-   {   77,    47 }, 
-   { 80,  49 }, 
-   {   82,    51 },   
-   { 85,  53 }, 
-   {   87,    55 },    
-   { 90,  56 }, 
-   {   93,    57 },  
-   { 95,  58 }, 
-   {   97,    60 }, 
-   { 100,  61 },   
-   { 102,    62 },     
-   { 105,  64 },
-   { 107,    66 },  
-   { 110,  67 }, 
-   { 112,    68 },   
-   { 115,  70 }, 
-   { 117,    71 },    
-   { 120,  73 },
-   { 122,    74 }, 
-   { 125,  76 },
-   { 127,    78 }, 
-   { 130,  79 },
-   { 133,    82 }, 
-   { 135,  84 },
-   { 137,    88 }, 
-   { 140,    91 },   
-   { 143,    94 }, 
-   { 145,    97 },  
-   { 147,  100 }, 
-   { 150,  103 },
-   { 152,  106 }, 
-   { 155,  109 },
-   { 157,  112 }, 
-   { 160,  115 },
-   { 162,  118 }, 
-   { 165,  121 },
-   { 167,  124 }, 
-   { 170,  127 },
-   { 173,  130 }, 
-   { 175,  133 },  /* DEFAULT 175 */
-   { 177,  136 }, 
-   { 180,  139 },
-   { 182,  142 }, 
-   { 185,  145 }, 
-   { 187,  148 }, 
-   { 190,  151 },
-   { 192,  154 }, 
-   { 195,  157 },
-   { 197,  160 }, 
-   { 200,  163 },
-   { 203,  166 }, 
-   { 205,  169 },
-   { 207,  172 }, 
-   { 210,  175 },
-   { 213,  178 }, 
-   { 215,  180 },
-   { 217,  183 }, 
-   { 220,  186 },
-   { 223,  189 }, 
-   { 225,  192 },
-   { 227,  195 }, 
-   { 230,  197 },
-   { 233,  200 }, 
-   { 235,  203 },
-   { 237,  206 }, 
-   { 240,  209 },
-   { 242,  211 }, 
-   { 245,  214 },
-   { 247,  217 }, 
-   { 250,  219 },
-   { 252,  222 }, 
-   { 255,  225 }, /* MAX 255 */
+	{ 20,  1},	/* MIN 20 */
+	{ 23,  5 },
+	{ 25,  8 },
+	{ 27, 10 },
+	{ 30, 12 },
+	{ 32, 13 },
+	{ 35, 15 },
+	{ 38, 17 },
+	{ 40, 19 },
+	{ 42, 21 },
+	{ 45, 23 },
+	{ 48, 25 },
+	{ 50, 27 },
+	{ 52, 28 },
+	{ 55, 30 },
+	{ 57, 32 },
+	{ 60, 34 },
+	{ 63, 36 },
+	{ 65, 37 },
+	{ 67, 39 },
+	{ 70, 41 },
+	{ 72, 43 },
+	{ 75, 45 },
+	{ 77, 47 },
+	{ 80, 49 },
+	{ 82, 51 },
+	{ 85, 53 },
+	{ 87, 55 },
+	{ 90, 56 },
+	{ 93, 57 },
+	{ 95, 58 },
+	{ 97, 60 },
+	{ 100, 61 },
+	{ 102, 62 },
+	{ 105, 64 },
+	{ 107, 66 },
+	{ 110, 67 },
+	{ 112, 68 },
+	{ 115, 70 },
+	{ 117, 71 },
+	{ 120, 73 },
+	{ 122, 74 },
+	{ 125, 76 },
+	{ 127, 78 },
+	{ 130, 79 },
+	{ 133, 82 },
+	{ 135, 84 },
+	{ 137, 88 },
+	{ 140, 91 },
+	{ 143, 94 },
+	{ 145, 97 },
+	{ 147, 100 },
+	{ 150, 103 },
+	{ 152, 106 },
+	{ 155, 109 },
+	{ 157, 112 },
+	{ 160, 115 },
+	{ 162, 118 },
+	{ 165, 121 },
+	{ 167, 124 },
+	{ 170, 127 },
+	{ 173, 130 },
+	{ 175, 133 },	/* DEFAULT 175 */
+	{ 177, 136 },
+	{ 180, 139 },
+	{ 182, 142 },
+	{ 185, 145 },
+	{ 187, 148 },
+	{ 190, 151 },
+	{ 192, 154 },
+	{ 195, 157 },
+	{ 197, 160 },
+	{ 200, 163 },
+	{ 203, 166 },
+	{ 205, 169 },
+	{ 207, 172 },
+	{ 210, 175 },
+	{ 213, 178 },
+	{ 215, 180 },
+	{ 217, 183 },
+	{ 220, 186 },
+	{ 223, 189 },
+	{ 225, 192 },
+	{ 227, 195 },
+	{ 230, 197 },
+	{ 233, 200 },
+	{ 235, 203 },
+	{ 237, 206 },
+	{ 240, 209 },
+	{ 242, 211 },
+	{ 245, 214 },
+	{ 247, 217 },
+	{ 250, 219 },
+	{ 252, 222 },
+	{ 255, 225 }, /* MAX 255 */
 };
 
 #define MAX_BRT_STAGE (int)(sizeof(bl_table)/sizeof(struct brt_value))
 
-int current_tune_level = 0;
+int current_tune_level;
 
 #endif
 
@@ -366,8 +378,14 @@ static unsigned char snd_data_204[] = { 0x05, 0x01, 0x40, 0x5C, 0x01,
 /* initialize sequence */
 static unsigned char snd_data_001[] = { 0x05, 0x01, 0x40, 0x00, 0x07,
 		0x40, 0x00, 0x90, 0x6C };
+// plin@ql: HBP 130
+#if 0  //0x704	0x302DB
 static unsigned char snd_data_002[] = { 0x05, 0x01, 0x40, 0x04, 0x07,
 		0xDB, 0x02, 0x03, 0x00 };
+#else  //0x704	0x302D0
+static unsigned char snd_data_002[] = { 0x05, 0x01, 0x40, 0x04, 0x07,
+		0xD0, 0x02, 0x03, 0x00 };
+#endif
 static unsigned char snd_data_003[] = { 0x05, 0x01, 0x40, 0x0C, 0x07,
 		0x04, 0x46, 0x00, 0x00 };
 #ifdef VX5B3D_VEE_ENABLE
@@ -405,8 +423,14 @@ static unsigned char snd_data_017[] = { 0x05, 0x01, 0x40, 0x24, 0x01,
 		0x00, 0xC4, 0x12, 0x05 };
 static unsigned char snd_data_018[] = { 0x05, 0x01, 0x40, 0x28, 0x01,
 		0x10, 0x40, 0x10, 0x00 };
+// plin@ql: HBP 130
+#if 0  // 0x12C	0x93
 static unsigned char snd_data_019[] = { 0x05, 0x01, 0x40, 0x2C, 0x01,
 		0x93, 0x00, 0x00, 0x00 };
+#else  // 0x12C	0x7F
+static unsigned char snd_data_019[] = { 0x05, 0x01, 0x40, 0x2C, 0x01,
+		0x7F, 0x00, 0x00, 0x00 };
+#endif
 static unsigned char snd_data_020[] = { 0x05, 0x01, 0x40, 0x30, 0x01,
 		0x18, 0x3C, 0x00, 0x00 };
 static unsigned char snd_data_021[] = { 0x05, 0x01, 0x40, 0x34, 0x01,
@@ -657,7 +681,7 @@ struct Vx5b3d_backlight_value {
 	const unsigned char dim;
 };
 
-typedef struct Vx5d3b_cabc_info {
+struct Vx5d3b_cabc_info {
 	enum OUTDOOR			outdoor;
 	enum CABC			cabc;
 	enum POWER_LUT_LEVEL		powerLut;
@@ -673,6 +697,7 @@ typedef struct Vx5d3b_cabc_info {
 	unsigned int			vee_strenght;
 };
 
+/** Unused currently.
 static struct Vx5b3d_backlight_value backlight_table[1] = {
 	{
 		.max = 236,
@@ -683,15 +708,16 @@ static struct Vx5b3d_backlight_value backlight_table[1] = {
 };
 
 struct Vx5b3d_backlight_value *pwm;
+**/
 struct class *mdnie_class;
-struct Vx5d3b_cabc_info *g_vx5d3b = NULL;
+struct Vx5d3b_cabc_info *g_vx5d3b;
 
 #define V5D3BX_VEESTRENGHT		0x00001f07
-#define V5D3BX_VEEDEFAULTVAL		7               /* 0x38 */
-#define V5D3BX_DEFAULT_STRENGHT		10       /* 0x50 */
-#define V5D3BX_DEFAULT_LOW_STRENGHT	11       /* 0x58 */
-#define V5D3BX_DEFAULT_HIGH_STRENGHT	12       /* 0x60 */
-#define V5D3BX_MAX_STRENGHT		15             /* 0x78 */
+#define V5D3BX_VEEDEFAULTVAL		7		/* 0x38 */
+#define V5D3BX_DEFAULT_STRENGHT		10		/* 0x50 */
+#define V5D3BX_DEFAULT_LOW_STRENGHT	11		/* 0x58 */
+#define V5D3BX_DEFAULT_HIGH_STRENGHT	12		/* 0x60 */
+#define V5D3BX_MAX_STRENGHT		15		/* 0x78 */
 
 #define V5D3BX_CABCBRIGHTNESSRATIO	815
 
@@ -703,9 +729,14 @@ static unsigned char snd_cabc_off[] = { 0x05, 0x01, 0x40, 0x00, 0x04,
 
 static int vx5b3d_update_cabc_ctrl(int onoff)
 {
+#ifndef VX5B3D_USE_I2C
 	screen_disp_delete disp_delete;
 	screen_disp_write_dsi_long  write_dsi_l;
 	void *screen_handle;
+#endif
+	unsigned short data_count;
+	unsigned char *write_data;
+
 	int ret;
 
 	if (!is_panel_initialized) {
@@ -717,35 +748,42 @@ static int vx5b3d_update_cabc_ctrl(int onoff)
 
 	printk("%s on_off:%d\n", __func__, onoff);
 
+	if (onoff) {
+		data_count = sizeof(snd_cabc_on);
+		write_data = snd_cabc_on;
+	} else {
+		data_count = sizeof(snd_cabc_off);
+		write_data = snd_cabc_off;
+	}
+
+#ifdef VX5B3D_USE_I2C
+	ret = ql_i2c_write_wrapper(
+		MIPI_DSI_GEN_LONG_WRITE,
+		data_count,
+		write_data);
+	if (ret)
+		printk(KERN_ERR "ql_i2c_write_wrapper err:%d\n", ret);
+
+#else
 	screen_handle = screen_display_new();
 
 	/* set brightness */
 	write_dsi_l.handle	= screen_handle;
 	write_dsi_l.output_mode = RT_DISPLAY_LCD1;
 	write_dsi_l.data_id     = MIPI_DSI_GEN_LONG_WRITE;
-
-      if(onoff){
-	    write_dsi_l.data_count  = sizeof(snd_cabc_on);
-	    write_dsi_l.write_data  = snd_cabc_on;
-      }else{
-          write_dsi_l.data_count  = sizeof(snd_cabc_off);
-	   write_dsi_l.write_data  = snd_cabc_off;
-      }
-
+	write_dsi_l.data_count  = data_count;
+	write_dsi_l.write_data  = write_data;
 	write_dsi_l.send_mode   = RT_DISPLAY_SEND_MODE_HS;
 	write_dsi_l.reception_mode = RT_DISPLAY_RECEPTION_OFF;
 	ret = screen_display_write_dsi_long_packet(&write_dsi_l);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
+	if (ret != SMAP_LIB_DISPLAY_OK)
 		printk(KERN_ERR "write_dsi_long_packet err:%d\n", ret);
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		return -1;
-	}
 
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
+#endif
 
-	return 0;
+	return ret;
 }
 
 static ssize_t cabc_show(struct device *dev,
@@ -755,7 +793,7 @@ static ssize_t cabc_show(struct device *dev,
 
 	return sprintf(buf, "%d\n", Vee_cabc->cabc);
 }
- 
+
 static ssize_t cabc_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -763,7 +801,7 @@ static ssize_t cabc_store(struct device *dev,
 	unsigned int value = 0;
 	int ret = 0;
 
-	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
+	ret = kstrtoul(buf, 0, (unsigned long *)&value);
 
 	dev_info(dev, "%s :: value=%d\n", __func__, value);
 
@@ -990,14 +1028,16 @@ static struct lcd_ops vx5b3d_lcd_ops = {
 
 static int vx5b3d_update_brightness_ctrl(int brightness)
 {
+#ifndef VX5B3D_USE_I2C
 	screen_disp_delete disp_delete;
 	screen_disp_write_dsi_long  write_dsi_l;
 	void *screen_handle;
+#endif
 	int ret;
 
-      #ifdef BL_TUNE_WITH_TABLE
-	int tune_level, i;
-       #endif
+	#ifdef BL_TUNE_WITH_TABLE
+	int tune_level = 0, i;
+	#endif
 
 	unsigned char brightness_cmd[] = { 0x05, 0x01, 0x40, 0x64, 0x01,
 		0x00, 0x00, 0x00, 0x00 };
@@ -1010,32 +1050,48 @@ static int vx5b3d_update_brightness_ctrl(int brightness)
 		return 0;
 	}
 
-	printk(KERN_DEBUG "%s brightness:%d\n", __func__, brightness);
+#ifdef VX5B3D_USE_I2C
+	printk(KERN_DEBUG "%s brightness(i2c):%d\n", __func__, brightness);
+#else
+	printk(KERN_DEBUG "%s brightness(dsi):%d\n", __func__, brightness);
+#endif
 
-	screen_handle = screen_display_new();
 
 #ifdef BL_TUNE_WITH_TABLE
-      for(i = 0; i < MAX_BRT_STAGE; i++) {
-          if(brightness <= bl_table[i].level ) {
-               tune_level = bl_table[i].tune_level;
-               break;
-           }
-      }
+	for (i = 0; i < MAX_BRT_STAGE; i++) {
+		if (brightness <= bl_table[i].level) {
+			tune_level = bl_table[i].tune_level;
+			break;
+		}
+	}
+	/**
+	printk(KERN_DEBUG "bl = %d , tune_level = %d\n", bl, tune_level);
 
-      //printk("bl = %d , tune_level = %d \n", bl, tune_level);
+	if (current_tune_level == tune_level && tune_level != 3)
+		return 0;
+	**/
 
-      //if(current_tune_level == tune_level && tune_level != 3)
-      //    return 0;
-
-      printk("brightness = %d , tune_level = %d \n", brightness, tune_level);
+	printk(KERN_INFO "brightness = %d , tune_level = %d\n",
+					brightness, tune_level);
 
 	brightness_cmd[5] = (char)tune_level;
 
-      current_tune_level = tune_level;
+	current_tune_level = tune_level;
 #else
 
 	brightness_cmd[5] = brightness;
 #endif
+
+
+#ifdef VX5B3D_USE_I2C
+	ret = ql_i2c_write_wrapper(
+		MIPI_DSI_GEN_LONG_WRITE,
+		sizeof(brightness_cmd),
+		brightness_cmd);
+	if (ret)
+		printk(KERN_ERR "ql_i2c_write_wrapper err:%d\n", ret);
+#else
+	screen_handle = screen_display_new();
 
 	/* set brightness */
 	write_dsi_l.handle	= screen_handle;
@@ -1046,17 +1102,14 @@ static int vx5b3d_update_brightness_ctrl(int brightness)
 	write_dsi_l.send_mode   = RT_DISPLAY_SEND_MODE_HS;
 	write_dsi_l.reception_mode = RT_DISPLAY_RECEPTION_OFF;
 	ret = screen_display_write_dsi_long_packet(&write_dsi_l);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
+	if (ret != SMAP_LIB_DISPLAY_OK)
 		printk(KERN_ERR "write_dsi_long_packet err:%d\n", ret);
-		disp_delete.handle = screen_handle;
-		screen_display_delete(&disp_delete);
-		return -1;
-	}
 
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
+#endif
 
-	return 0;
+	return ret;
 }
 
 static int get_brightness(struct backlight_device *bd)
@@ -1103,48 +1156,49 @@ static ssize_t auto_brightness_show(struct device *dev,
 static ssize_t auto_brightness_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
-     	struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
+	struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
 	unsigned int value = 0;
 	int ret = 0;
 
-	ret = strict_strtoul(buf, 0, (unsigned long *)&value);
+	ret = kstrtoul(buf, 0, (unsigned long *)&value);
 
 	if (ret < 0)
 		return ret;
 	else {
 
 		if (Vee_cabc->auto_brightness != value) {
-			dev_info(dev, "%s - %d, %d\n", __func__, Vee_cabc->auto_brightness, value);
- 			//mutex_lock(&lcd->bl_lock);
-      Vee_cabc->auto_brightness = value;
- 		//	mutex_unlock(&lcd->bl_lock);
-			//if (lcd->ldi_enable)
-				//update_brightness(lcd, 0);
-			if(Vee_cabc->auto_brightness == 0){
-                         Vee_cabc->cabc = 0;
-                         vx5b3d_update_cabc_ctrl(0);
-			}else if(Vee_cabc->auto_brightness >= 1 && Vee_cabc->auto_brightness < 5){
-                         Vee_cabc->cabc =1;
-                         vx5b3d_update_cabc_ctrl(1);
-			}else if(Vee_cabc->auto_brightness >= 5){
-                         Vee_cabc->cabc =0;
-                         vx5b3d_update_cabc_ctrl(0);
+			dev_info(dev, "%s - %d, %d\n", __func__,
+				Vee_cabc->auto_brightness, value);
+			Vee_cabc->auto_brightness = value;
+			if (Vee_cabc->auto_brightness == 0) {
+				Vee_cabc->cabc = 0;
+				vx5b3d_update_cabc_ctrl(0);
+			} else if ((Vee_cabc->auto_brightness >= 1) &&
+					(Vee_cabc->auto_brightness < 5)) {
+				Vee_cabc->cabc = 1;
+				vx5b3d_update_cabc_ctrl(1);
+			} else if (Vee_cabc->auto_brightness >= 5) {
+				Vee_cabc->cabc = 0;
+				vx5b3d_update_cabc_ctrl(0);
 			}
 		}
-   	}
+	}
 
-      return size;
+	return size;
 
 }
 
-static DEVICE_ATTR(auto_brightness, 0644, auto_brightness_show, auto_brightness_store);
+static DEVICE_ATTR(auto_brightness, 0644, auto_brightness_show,
+						auto_brightness_store);
 
-#endif 
+#endif
 
 static int vx5b3d_backlight_device_register(struct device *dev)
 {
 	struct backlight_device *bd;
-        int ret;
+#ifdef CABC_FUNCTION_ENABLE
+	int ret;
+#endif
 
 	is_backlight_called = 0;
 
@@ -1156,7 +1210,7 @@ static int vx5b3d_backlight_device_register(struct device *dev)
 	}
 
 #ifdef CABC_FUNCTION_ENABLE
-      ret = device_create_file(&bd->dev, &dev_attr_auto_brightness);
+	ret = device_create_file(&bd->dev, &dev_attr_auto_brightness);
 
 	if (ret < 0)
 		dev_err(dev, "failed to add sysfs entries\n");
@@ -1179,7 +1233,7 @@ static void vx5b3d_backlight_device_unregister(void)
 }
 
 
-int vx5b3d_dsi_read(int id, int reg, int len, char *buf)
+int panel_dsi_read(int id, int reg, int len, char *buf)
 {
 	void *screen_handle;
 	screen_disp_write_dsi_short write_dsi_s;
@@ -1414,23 +1468,11 @@ static void mipi_display_reset(void)
 	regulator_enable(power_ldo_1v8);
 	regulator_enable(power_ldo_3v);
 	regulator_enable(power_ldo_1v2);
-	regulator_disable(power_ldo_1v8);
-	regulator_disable(power_ldo_3v);
-	regulator_disable(power_ldo_1v2);
 
-
-	gpio_direction_output(reset_gpio, 1);
-	msleep(50);
 	gpio_direction_output(reset_gpio, 0);
-	msleep(50);
+	msleep(100);
 	gpio_direction_output(reset_gpio, 1);
-	msleep(50);
-
-	regulator_enable(power_ldo_1v8);
-	regulator_enable(power_ldo_3v);
-	regulator_enable(power_ldo_1v2);
-
-msleep(50);
+	msleep(100);
 }
 
 
@@ -1450,7 +1492,7 @@ static int vx5b3d_panel_init(unsigned int mem_size)
 	system_pmg_delete pmg_delete;
 #endif
 #ifdef CABC_FUNCTION_ENABLE
-      struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
+	struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
 #endif
 
 	printk(KERN_INFO "%s\n", __func__);
@@ -1547,7 +1589,7 @@ retry:
 		registed_bd->ops->update_status(registed_bd);
 
 #ifdef CABC_FUNCTION_ENABLE
-      vx5b3d_update_cabc_ctrl(Vee_cabc->cabc);
+	vx5b3d_update_cabc_ctrl(Vee_cabc->cabc);
 #endif
 
 out:
@@ -1645,7 +1687,7 @@ static int vx5b3d_panel_resume(void)
 	system_pmg_delete pmg_delete;
 #endif
 #ifdef CABC_FUNCTION_ENABLE
-      struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
+	struct Vx5d3b_cabc_info *Vee_cabc = g_vx5d3b;
 #endif
 	printk(KERN_INFO "%s\n", __func__);
 
@@ -1712,9 +1754,8 @@ retry:
 		registed_bd->ops->update_status(registed_bd);
 
 #ifdef CABC_FUNCTION_ENABLE
-      vx5b3d_update_cabc_ctrl(Vee_cabc->cabc);
-#endif     
-
+	vx5b3d_update_cabc_ctrl(Vee_cabc->cabc);
+#endif
 out:
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
@@ -1727,7 +1768,9 @@ static int vx5b3d_panel_probe(struct fb_info *info,
 {
 	struct platform_device *pdev;
 	int ret;
-
+#ifdef CABC_FUNCTION_ENABLE
+	struct Vx5d3b_cabc_info *vx5d3bInfo;
+#endif
 	printk(KERN_INFO "%s\n", __func__);
 
 	reset_gpio = hw_info.gpio_reg;
@@ -1793,27 +1836,24 @@ static int vx5b3d_panel_probe(struct fb_info *info,
 	lcd_info_data.power = FB_BLANK_UNBLANK;
 
 #ifdef CABC_FUNCTION_ENABLE
-      struct Vx5d3b_cabc_info *vx5d3bInfo;
-
-      	vx5d3bInfo = kzalloc(sizeof(struct Vx5d3b_cabc_info), GFP_KERNEL);
+	vx5d3bInfo = kzalloc(sizeof(struct Vx5d3b_cabc_info), GFP_KERNEL);
 
 	if (!vx5d3bInfo)
 		pr_err("failed to allocate vx5d3bInfo\n");
 
-      mutex_init(&vx5d3bInfo->lock);
-      vx5d3bInfo->cabc = CABC_OFF;
-      vx5d3bInfo->auto_brightness = false;
+	mutex_init(&vx5d3bInfo->lock);
+	vx5d3bInfo->cabc = CABC_OFF;
+	vx5d3bInfo->auto_brightness = false;
 
-      g_vx5d3b = vx5d3bInfo;
+	g_vx5d3b = vx5d3bInfo;
 
 	mdnie_class = class_create(THIS_MODULE, "mdnie");
 
-	if (IS_ERR_OR_NULL(mdnie_class)) {
+	if (IS_ERR_OR_NULL(mdnie_class))
 		pr_err("failed to create mdnie class\n");
-	}
 
 	mdnie_class->dev_attrs = mdnie_attributes;
-	
+
 	vx5d3bInfo = kzalloc(sizeof(struct Vx5d3b_cabc_info), GFP_KERNEL);
 
 	if (!vx5d3bInfo) {
@@ -1822,7 +1862,8 @@ static int vx5b3d_panel_probe(struct fb_info *info,
 		goto out;
 	}
 
-	vx5d3bInfo->dev = device_create(mdnie_class, NULL, 0, &vx5d3bInfo, "mdnie");
+	vx5d3bInfo->dev = device_create(mdnie_class, NULL, 0,
+						&vx5d3bInfo, "mdnie");
 
 	if (IS_ERR_OR_NULL(vx5d3bInfo->dev)) {
 		pr_err("failed to create mdnie device\n");
@@ -1863,7 +1904,6 @@ static struct fb_panel_info vx5b3d_panel_info(void)
 	return r_mobile_info;
 }
 
-#ifndef CONFIG_FB_R_MOBILE_PANEL_SWITCH
 struct fb_panel_func r_mobile_panel_func(int panel)
 {
 
@@ -1886,22 +1926,177 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 
 	return panel_func;
 }
-#else
-struct fb_panel_func vx5b3d_func_list()
+
+/* For I2C */
+
+/* defs */
+#define QL_ID 0x2300
+
+#define CONTROL_BYTE_DCS       (0x08u)
+#define CONTROL_BYTE_GEN       (0x09u)
+
+#define GEN_QL_CSR_OFFSET_LENGTH  {\
+		CONTROL_BYTE_GEN, \
+	0x29,  /* Data ID */\
+	0x05,  /* Vendor Id 1 */\
+	0x01,  /* Vendor Id 2 */\
+	0x41,  /* Vendor Unique Command */\
+	0x00,  /* Address LS */\
+	0x00,  /* Address MS */\
+	0x00,  /* Length LS */\
+	0x00,  /* Length MS */\
+	}
+
+#define GEN_QL_CSR_WRITE  {\
+		CONTROL_BYTE_GEN, \
+	0x29,  /* Data ID */\
+	0x05,  /* Vendor Id 1 */\
+	0x01,  /* Vendor Id 2 */\
+	0x40,  /* Vendor Unique Command */\
+	0x00,  /* Address LS */\
+	0x00,  /* Address MS */\
+	0x00,  /* data LS */\
+	0x00, \
+	0x00, \
+	0x00,  /* data MS */\
+	}
+
+static struct i2c_client *i2c_quick_client;
+
+static int i2c_quickvx_probe(struct i2c_client *client,
+				const struct i2c_device_id *idp)
 {
-	struct fb_panel_func panel_func;
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		printk(KERN_ERR "error : not compatible i2c function \r\n");
+		return -ENODEV;
+	}
+	i2c_quick_client = client;
+	return 0;
+}
 
-	printk(KERN_INFO "%s\n", __func__);
+static int __devexit i2c_quickvx_remove(struct i2c_client *client)
+{
+	i2c_set_clientdata(client, NULL);
+	return 0;
+}
 
-	memset(&panel_func, 0, sizeof(struct fb_panel_func));
+static struct i2c_device_id i2c_quickvx_idtable[] = {
+	{ "panel_vx5b3d", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(i2c, i2c_quickvx_idtable);
+static struct i2c_driver i2c_quickvx_driver = {
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = "panel_vx5b3d",
+	},
+	.id_table = i2c_quickvx_idtable,
+	.probe = i2c_quickvx_probe,
+	.remove		= __devexit_p(i2c_quickvx_remove),
+};
 
-	panel_func.panel_init    = vx5b3d_panel_init;
-	panel_func.panel_suspend = vx5b3d_panel_suspend;
-	panel_func.panel_resume  = vx5b3d_panel_resume;
-	panel_func.panel_probe   = vx5b3d_panel_probe;
-	panel_func.panel_remove  = vx5b3d_panel_remove;
-	panel_func.panel_info    = vx5b3d_panel_info;
 
-	return panel_func;
+static int __init mipi_quickvx_lcd_init(void)
+{
+	return i2c_add_driver(&i2c_quickvx_driver);
+}
+static void mipi_quickvx_lcd_exit(void)
+{
+	i2c_del_driver(&i2c_quickvx_driver);
+}
+
+#if 0
+static int ql_i2c_read(u32 addr, u32 *val, u32 data_size)
+{
+	u32 data;
+	char buf[] = GEN_QL_CSR_OFFSET_LENGTH;
+	char rx[10];
+	int ret = -1;
+	int write_size;
+
+	buf[5] = addr & 0xff;
+	buf[6] = (addr >> 8) & 0xff;
+	buf[7] = data_size & 0xff;
+	buf[8] = (data_size >> 8) & 0xff;
+
+	write_size = 9;
+
+	ret = i2c_master_send(i2c_quick_client, &buf[0], write_size);
+	if (ret != write_size) {
+		printk(KERN_ERR "%s: i2c_master_send failed (%d)!\n",
+							__func__, ret);
+		return -1;
+	}
+
+	/* generic read request 0x24 to send generic read command */
+	write_size = 4;
+
+	buf[0] = CONTROL_BYTE_GEN;
+	buf[1] =    0x24;  /* Data ID */
+	buf[2] =    0x05;  /* Vendor Id 1 */
+	buf[3] =    0x01;  /* Vendor Id 2 */
+
+	ret = i2c_master_send(i2c_quick_client, &buf[0], write_size);
+	if (ret != write_size) {
+		printk(KERN_ERR "%s: i2c_master_send failed (%d)!\n",
+							__func__, ret);
+		return -1;
+	}
+	/* return number of bytes or error */
+	ret = i2c_master_recv(i2c_quick_client, &rx[0], data_size);
+	if (ret != data_size) {
+		printk(KERN_ERR "%s: i2c_master_recv failed (%d)!\n",
+							__func__, ret);
+		return -1;
+	}
+
+	data = rx[0];
+	if (data_size > 1)
+		data |= (rx[1] << 8);
+	if (data_size > 2)
+		data |= (rx[2] << 16) | (rx[3] << 24);
+
+	*val = data;
+
+	printk(KERN_DEBUG "r0x%x=0x%x\n", addr, data);
+
+	return 0;
+
 }
 #endif
+
+/* i2c header + data type */
+#define I2C_DATA_HEADER_SIZE 2
+
+static int ql_i2c_write_wrapper(u8 cmd, int size, const u8 *data)
+{
+	int ret;
+	char buf[] = GEN_QL_CSR_WRITE;
+
+	buf[1] = cmd;
+	if (size > sizeof(buf) - I2C_DATA_HEADER_SIZE)
+		printk(KERN_ERR "size over %d > %d\n",
+				size, sizeof(buf) - I2C_DATA_HEADER_SIZE);
+	memcpy(&buf[2], data, size);
+
+	ret = i2c_master_send(i2c_quick_client, buf,
+						size + I2C_DATA_HEADER_SIZE);
+
+	if (ret != size + I2C_DATA_HEADER_SIZE) {
+		printk(KERN_ERR
+			"%s: i2c_master_send failed (%d)!\n", __func__, ret);
+		return -1;
+	}
+#if 0 /* for debug */
+	printk(KERN_DEBUG
+		"send %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+				buf[0], buf[1], buf[2], buf[3], buf[4], buf[5],
+				buf[6], buf[7], buf[8], buf[9], buf[10]);
+#endif
+	return 0;
+}
+
+module_init(mipi_quickvx_lcd_init);
+module_exit(mipi_quickvx_lcd_exit);
+
+MODULE_LICENSE("GPL");

@@ -89,6 +89,7 @@ typedef enum {
 	CHARGE_TIMER_90MIN,
 	CHARGE_TIMER_5HOUR,
 	CHARGE_TIMER_6HOUR,
+	CHARGE_TIMER_10HOUR,
 }charge_timer_t;
 
 enum
@@ -195,6 +196,7 @@ struct spa_batt_info
 	unsigned int capacity;
 	unsigned int technology;
 	unsigned int voltage;
+	unsigned int voltage_avg;
 	unsigned int vf_status;
 	unsigned int update_interval;
 

@@ -2322,8 +2322,8 @@ int rtds_memory_put_recv_queue(
 	MSG_MED("[RTDSK]   |rt_cache	[0x%08X]\n", rcv_data->rt_cache);
 	MSG_MED("[RTDSK]   |rt_trigger	[0x%08X]\n", rcv_data->rt_trigger);
 	MSG_MED("[RTDSK]   |apmem_id	[0x%08X]\n", rcv_data->apmem_id);
-	MSG_MED("[RTDSK]   |leak_data	[0x%08X]\n", (u32)leak_data);
-	MSG_MED("[RTDSK]   |leak_size	[0x%08X]\n", leak_size);
+	MSG_MED("[RTDSK]   |leak_data	[0x%08X]\n", (u32)rcv_data->leak_data);
+	MSG_MED("[RTDSK]   |leak_size	[0x%08X]\n", rcv_data->leak_size);
 	MSG_MED("[RTDSK]   |phys_addr	[0x%08X]\n", rcv_data->phys_addr);
 	MSG_MED("[RTDSK]   |mem_attr	[0x%08X]\n", rcv_data->mem_attr);
 
@@ -3210,7 +3210,8 @@ void rtds_memory_drv_close_vma(
 			MSG_MED("[RTDSK]   |flags[0x%08X]\n",
 				(u32)mem_table->task_info->flags);
 			if ((mem_table->task_info->tgid == current->tgid) &&
-				(mem_table->app_addr == vm_area->vm_start)) {
+				(mem_table->app_addr == vm_area->vm_start) &&
+				(mem_table->event != RTDS_MEM_MAP_PNC_NMA_EVENT)) {
 
 				list_add_tail(&(mem_table->list_head_leak),
 					&g_rtds_memory_list_leak_mpro);
@@ -4872,7 +4873,8 @@ void rtds_memory_leak_check_mpro(
 			(u32)mem_table->task_info->state);
 		MSG_MED("[RTDSK]   |flags[0x%08X]\n",
 			(u32)mem_table->task_info->flags);
-		if (mem_table->task_info->flags & PF_EXITPIDONE) {
+		if ((mem_table->task_info->flags & PF_EXITPIDONE) &&
+		    (mem_table->event != RTDS_MEM_MAP_PNC_NMA_EVENT)) {
 			list_add_tail(&(mem_table->list_head_leak),
 				&g_rtds_memory_list_leak_mpro);
 			list_del(&mem_table->list_head);

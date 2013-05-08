@@ -45,6 +45,7 @@ static ssize_t subcamfw_SR130PC20_show(struct device *dev,
 
 static DEVICE_ATTR(front_camtype, 0644, subcamtype_SR130PC20_show, NULL);
 static DEVICE_ATTR(front_camfw, 0644, subcamfw_SR130PC20_show, NULL);
+
 struct SR130PC20_datafmt {
 	enum v4l2_mbus_pixelcode	code;
 	enum v4l2_colorspace		colorspace;
@@ -285,8 +286,24 @@ static int SR130PC20_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 static int SR130PC20_g_chip_ident(struct v4l2_subdev *sd,
 		    struct v4l2_dbg_chip_ident *id)
 {
-	id->ident	= V4L2_IDENT_SR130PC20;
-	id->revision	= 0;
+	/* check i2c device */
+	unsigned char rcv_buf[1];
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret = 0;
+
+	sr130pc20_write(client, 0x0300); /* Page 0 */
+	ret = sr130pc20_read(client, 0x04, rcv_buf);
+	/* device id = P0(0x00) address 0x04 = 0xC0 */
+
+	if (0 > ret) {
+		dev_err(&client->dev, "%s :Read Error(%d)\n", __func__, ret);
+		id->ident = V4L2_IDENT_NONE;
+	} else {
+		dev_dbg(&client->dev, "%s :SR130PC20OK(%02x)\n", __func__,
+			rcv_buf[0]);
+		id->ident = V4L2_IDENT_SR130PC20;
+	}
+	id->revision = 0;
 
 	return 0;
 }
@@ -300,6 +317,7 @@ static int SR130PC20_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 #else
 		ctrl->value = 0;
 #endif
+		/* no break */
 	default:
 		return 0;
 	}
@@ -401,26 +419,45 @@ static int SR130PC20_probe(struct i2c_client *client,
 	priv->height	= 480;
 	priv->fmt	= &SR130PC20_colour_fmts[0];
 
+	ret = v4l2_ctrl_handler_setup(&priv->hdl);
+	if (0 > ret) {
+		dev_err(&client->dev, "v4l2_ctrl_handler_setup Error(%d)\n",
+			ret);
+		kfree(priv);
+		return ret;
+	}
 
-	{
-		/* check i2c device */
-		unsigned char rcv_buf[1];
+	if (cam_class_init == false) {
+		dev_dbg(&client->dev,
+			"Start create class for factory test mode !\n");
+		camera_class = class_create(THIS_MODULE, "camera");
+		cam_class_init = true;
+	}
 
-		sr130pc20_write(client, 0x0300); /* Page 0 */
-		ret = sr130pc20_read(client, 0x04, rcv_buf);
-			/* device id = P0(0x00) address 0x04 = 0xC0 */
+	if (camera_class) {
+		dev_dbg(&client->dev, "Create Sub camera device !\n");
+		sec_sub_cam_dev = device_create(camera_class,
+						NULL, 0, NULL, "front");
+		if (IS_ERR(sec_sub_cam_dev)) {
+			dev_err(&client->dev,
+				"Failed to create device(sec_sub_cam_dev)!\n");
+		}
 
-		if (0 > ret) {
-			printk(KERN_ALERT "%s :Read Error(%d)\n",
-					__func__, ret);
-		} else {
-			printk(KERN_ALERT "%s :SR130PC20OK(%02x)\n",
-					__func__, rcv_buf[0]);
-			ret = 0;
+		if (device_create_file(sec_sub_cam_dev,
+					&dev_attr_front_camtype) < 0) {
+			dev_err(&client->dev,
+				"failed to create sub camera device file, %s\n",
+				dev_attr_front_camtype.attr.name);
+		}
+		if (device_create_file(sec_sub_cam_dev,
+					&dev_attr_front_camfw) < 0) {
+			dev_err(&client->dev,
+				"failed to create sub camera device file, %s\n",
+				dev_attr_front_camfw.attr.name);
 		}
 	}
 
-	return v4l2_ctrl_handler_setup(&priv->hdl);
+	return ret;
 }
 
 static int SR130PC20_remove(struct i2c_client *client)

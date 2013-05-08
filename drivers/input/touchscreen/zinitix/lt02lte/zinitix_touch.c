@@ -49,6 +49,8 @@
 
 #define	ZINITIX_DEBUG		0
 
+#define TSP_DUMMY_KEY_SUPPORT
+
 #ifdef CONFIG_PM_SLEEP
 //#define	ZCONFIG_PM_SLEEP	1
 #endif
@@ -235,8 +237,28 @@ static ssize_t menu_sensitivity_show(struct device *dev, struct device_attribute
 static ssize_t back_sensitivity_show(struct device *dev, struct device_attribute *attr, char *buf);
 static ssize_t touchkey_threshold_show(struct device *dev, struct device_attribute *attr, char *buf);
 
+#ifdef TSP_DUMMY_KEY_SUPPORT
+static ssize_t enable_dummy_key(struct device *dev, struct device_attribute *attr, char *buf, size_t count);
+static ssize_t show_touchkey_sensitivity(struct device *dev, struct device_attribute *attr, char *buf);
+#endif 
+
 static DEVICE_ATTR(touchkey_menu, S_IRUGO, menu_sensitivity_show, NULL);
 static DEVICE_ATTR(touchkey_back, S_IRUGO, back_sensitivity_show, NULL);
+
+#ifdef TSP_DUMMY_KEY_SUPPORT
+static DEVICE_ATTR(extra_button_event, S_IWUSR | S_IWGRP | S_IRUGO,
+					enable_dummy_key, enable_dummy_key);
+static DEVICE_ATTR(touchkey_dummy_btn1, S_IRUGO,
+					show_touchkey_sensitivity, NULL);
+static DEVICE_ATTR(touchkey_dummy_btn3, S_IRUGO,
+					show_touchkey_sensitivity, NULL);
+static DEVICE_ATTR(touchkey_dummy_btn4, S_IRUGO,
+					show_touchkey_sensitivity, NULL);
+
+static DEVICE_ATTR(touchkey_dummy_btn6, S_IRUGO,
+					show_touchkey_sensitivity, NULL);
+#endif
+
 static DEVICE_ATTR(touchkey_threshold, S_IRUGO, touchkey_threshold_show, NULL);
 
 static DEVICE_ATTR(tsp_firm_version_phone, S_IRUGO | S_IWUSR | S_IWGRP, get_tsp_firm_version_phone, NULL);	/* PHONE */
@@ -348,8 +370,8 @@ static inline s32 ts_write_data(struct i2c_client *client,
 	u16 reg, u8 *values, u16 length)
 {
 	s32 ret;
-	u8 pkt[10];	//max packet
-	pkt[0] = (reg)&0xff;	//reg addr
+	u8 pkt[10];	/* max packet */
+	pkt[0] = (reg)&0xff; /* reg addr */
 	pkt[1] = (reg >> 8)&0xff;
 	memcpy((u8*)&pkt[2], values, length);
 	ret = i2c_master_send(client , pkt , length+2);
@@ -533,8 +555,7 @@ static bool ts_read_coord(struct zinitix_touch_dev *touch_dev)
 		return true;
 	}
 
-	//for  Debugging Tool
-
+	/* for Debugging Tool */
 	if (touch_dev->touch_mode != TOUCH_POINT_MODE) {
 		if (ts_get_raw_data(touch_dev) == false)
 			return false;
@@ -594,7 +615,7 @@ continue_check_point_data:
 		return true;
 	}
 
-	// error
+	/* error */
 	if (zinitix_bit_test(touch_dev->touch_info.status, BIT_MUST_ZERO)) {
 		zinitix_printk("must zero bit must cleared.(%04x)\r\n", touch_dev->touch_info.status);
 		ts_write_cmd(touch_dev->client, ZINITIX_CLEAR_INT_STATUS_CMD);
@@ -678,7 +699,8 @@ retry_power_sequence:
 		zinitix_printk("power sequence error (program start)\n");
 		goto fail_power_sequence;
 	}
-	msleep(FIRMWARE_ON_DELAY);	//wait for checksum cal
+	msleep(FIRMWARE_ON_DELAY); /* wait for checksum cal */
+
 	return true;
 
 fail_power_sequence:
@@ -1117,7 +1139,7 @@ retry_upgrade:
 			udelay(100);
 		}
 		if(touch_dev->cap_info.is_zmt200 == 0)
-			mdelay(30);	//for fuzing delay
+			mdelay(30);	/* for fuzing delay */
 		else
 			mdelay(15);
 	}
@@ -1365,7 +1387,7 @@ retry_init:
 	else
 		touch_dev->cap_info.ic_fw_size = 24*1024;
 
-	//for  Debugging Tool
+	/* for  Debugging Tool */
 	if (ts_read_data(touch_dev->client,
 		ZINITIX_HW_ID,
 		(u8 *)&touch_dev->cap_info.hw_id, 2) < 0)
@@ -1398,9 +1420,6 @@ retry_init:
 		goto fail_init;
 	zinitix_debug_msg("afe frequency = %d\r\n",
 		touch_dev->cap_info.afe_frequency);
-
-	//--------------------------------------------------------
-
 
 	/* get chip firmware version */
 	if (ts_read_data(touch_dev->client,
@@ -1598,7 +1617,7 @@ fail_init:
 			return false;
 		}
 		mdelay(100);
-		// hw calibration and make checksum
+		/* hw calibration and make checksum	*/
 		if(ts_hw_calibration(touch_dev) == false) {
 			zinitix_printk("failed to initiallize\r\n");
 			return false;
@@ -2236,7 +2255,7 @@ static bool ts_set_touchmode(u16 value){
 		printk(KERN_INFO "[zinitix_touch] TEST Mode : Fail to set ZINITX_TOUCH_MODE %d.\r\n", misc_touch_dev->touch_mode);
 
 
-	// clear garbage data
+	/* clear garbage data */
 	for(i=0; i < 10; i++) {
 		mdelay(20);
 		ts_write_cmd(misc_touch_dev->client, ZINITIX_CLEAR_INT_STATUS_CMD);
@@ -2550,7 +2569,23 @@ static void run_reference_read(void *device_data)
 	min = info->dnd_data[0];
 	max = info->dnd_data[0];
 
-	for(i=0; i<info->cap_info.x_node_num; i++)
+      for(i = 0 ; i < 35 ; i++)
+      {
+         if(info->dnd_data[i] < 3000){
+
+            min = 0;
+            max = 0;
+
+            sprintf(buff, "%u,%u\n", min, max);
+	      set_cmd_result(info, buff, strnlen(buff, sizeof(buff)));
+
+	      info->cmd_state = 2;
+
+            return;
+         }
+      }
+
+	for(i=0; i<info->cap_info.x_node_num - 1; i++)
 	{
 		for(j=0; j<info->cap_info.y_node_num; j++)
 		{
@@ -3091,7 +3126,7 @@ static ssize_t menu_sensitivity_show(struct device *dev, struct device_attribute
 	}
 	misc_touch_dev->work_proceedure = TS_SET_MODE;
 
-	ret = ts_read_data(misc_touch_dev->client, ZINITIX_BTN_WIDTH + 0, (u8*)&val, 2);
+	ret = ts_read_data(misc_touch_dev->client, ZINITIX_BTN_WIDTH + 1, (u8*)&val, 2);
 
 	if (ret < 0) {
 		printk(KERN_INFO "read error..\n");
@@ -3104,12 +3139,10 @@ static ssize_t menu_sensitivity_show(struct device *dev, struct device_attribute
 	enable_irq(misc_touch_dev->irq);
 	up(&misc_touch_dev->work_proceedure_lock);
 
-	sprintf(buf, "%d\n", val);
-
-	return;
+	return sprintf(buf, "%d\n", val); 
 
 err_out:
-	sprintf(buf, "%s", "abnormal");
+	return sprintf(buf, "%s", "abnormal");
 }
 
 static ssize_t back_sensitivity_show(struct device *dev,
@@ -3130,7 +3163,7 @@ static ssize_t back_sensitivity_show(struct device *dev,
 	}
 	misc_touch_dev->work_proceedure = TS_SET_MODE;
 
-	ret = ts_read_data(misc_touch_dev->client, ZINITIX_BTN_WIDTH + 1, (u8*)&val, 2);
+	ret = ts_read_data(misc_touch_dev->client, ZINITIX_BTN_WIDTH + 4, (u8*)&val, 2);
 
 	if (ret < 0) {
 		printk(KERN_INFO "read error..\n");
@@ -3143,35 +3176,111 @@ static ssize_t back_sensitivity_show(struct device *dev,
 	enable_irq(misc_touch_dev->irq);
 	up(&misc_touch_dev->work_proceedure_lock);
 
-	sprintf(buf, "%d\n", val);
-
-	return;
+	return sprintf(buf, "%d\n", val);
 
 err_out:
-	sprintf(buf, "%s", "abnormal");
+	return sprintf(buf, "%s", "abnormal"); 
 }
+
+#ifdef TSP_DUMMY_KEY_SUPPORT
+static ssize_t enable_dummy_key(struct device *dev,
+								struct device_attribute *attr,
+								char *buf, size_t count)
+{
+	static char enable = '0';
+
+	if (!strcmp(buf, ""))
+		count = sprintf(buf, "%c", enable);
+	else {
+		if ((buf[0] - '0' <= 1) && count == 2)
+			enable = *buf;
+		else {
+			dev_err(&misc_touch_dev->client, "%s: Invalid parameter\n", __func__);
+
+			goto err_out;
+		}
+	}
+
+	dev_info(&misc_touch_dev->client, "%s: Extra button event %c\n", __func__, enable);
+
+	return count;
+
+err_out:
+	return sprintf(buf, "NG");
+}
+
+
+static ssize_t show_touchkey_sensitivity(struct device *dev,
+										 struct device_attribute *attr,
+										 char *buf)
+{
+	u16 val;
+	int ret;
+	int i;
+
+	if (!strcmp(attr->attr.name, "touchkey_dummy_btn1"))
+		i = 0;
+	else if (!strcmp(attr->attr.name, "touchkey_menu"))
+		i = 1;
+	else if (!strcmp(attr->attr.name, "touchkey_dummy_btn3"))
+		i = 2;
+	else if (!strcmp(attr->attr.name, "touchkey_dummy_btn4"))
+		i = 3;
+	else if (!strcmp(attr->attr.name, "touchkey_back"))
+		i = 4;
+	else if (!strcmp(attr->attr.name, "touchkey_dummy_btn6"))
+		i = 5;
+	else {
+		dev_err(&misc_touch_dev->client->dev, "%s: Invalid attribut\n");
+
+		goto err_out;
+	}
+
+	disable_irq(misc_touch_dev->irq);
+	down(&misc_touch_dev->work_proceedure_lock);
+	if (misc_touch_dev->work_proceedure != TS_NO_WORK) {
+		printk(KERN_INFO "other process occupied.. (%d)\n",
+			misc_touch_dev->work_proceedure);
+		enable_irq(misc_touch_dev->irq);
+		up(&misc_touch_dev->work_proceedure_lock);
+		goto err_out;
+	}
+	misc_touch_dev->work_proceedure = TS_SET_MODE;
+
+	ret = ts_read_data(misc_touch_dev->client, ZINITIX_BTN_WIDTH + i, (u8*)&val, 2);
+
+	if (ret < 0) {
+		printk(KERN_INFO "read error..\n");
+		enable_irq(misc_touch_dev->irq);
+		misc_touch_dev->work_proceedure = TS_NO_WORK;
+		up(&misc_touch_dev->work_proceedure_lock);
+		goto err_out;
+	}
+	misc_touch_dev->work_proceedure = TS_NO_WORK;
+	enable_irq(misc_touch_dev->irq);
+	up(&misc_touch_dev->work_proceedure_lock);
+
+	return sprintf(buf, "%d\n", val);
+
+err_out:
+	return sprintf(buf, "%s", "abnormal"); 
+}
+#endif
 
 static ssize_t touchkey_threshold_show(struct device *dev,
 					   struct device_attribute *attr,
 					   char *buf)
 {
-
 	int ret = 0;
 	u16 threshold;
 	char buff[16] = {0};
 
 	ret = ts_read_data(misc_touch_dev->client, ZINITIX_BUTTON_SENSITIVITY, (u8*)&threshold, 2);
 
-	if (ret < 0) {
-		sprintf(buf, "%s", "fail");
+	if (ret < 0)
+		return sprintf(buf, "%s", "fail");		
 
-		return;
-	}
-
-	sprintf(buf, "%d\n", threshold);
-
-	return;
-
+       return sprintf(buf, "%d\n", threshold);
 }
 #endif
 
@@ -3527,7 +3636,7 @@ fail_hw_cal:
 		u8Data = (u8 *)&misc_touch_dev->cur_data[0];
 
 		if (copy_to_user(raw_ioctl.buf, (u8 *)u8Data,
-			raw_ioctl.sz)) {
+			(unsigned long)raw_ioctl.sz)) {
 			up(&misc_touch_dev->raw_data_lock);
 			return -1;
 		}
@@ -3665,7 +3774,7 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	set_bit(EV_ABS, touch_dev->input_dev->evbit);
 	set_bit(INPUT_PROP_DIRECT, touch_dev->input_dev->propbit);
 
-	touch_dev->cap_info.Orientation |= TOUCH_XY_SWAP | TOUCH_H_FLIP;
+	//touch_dev->cap_info.Orientation |= TOUCH_XY_SWAP | TOUCH_H_FLIP;
 
 
 	for (i = 0; i < MAX_SUPPORTED_BUTTON_NUM; i++)
@@ -3732,9 +3841,6 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	touch_dev->irq = GPIO_TOUCH_IRQ;
 #else
 	touch_dev->irq = gpio_to_irq(touch_dev->int_gpio_num);
-	if (touch_dev->irq < 0)
-		printk(KERN_INFO "error. gpio_to_irq(..) function is not \
-			supported? you should define GPIO_TOUCH_IRQ.\r\n");
 #endif
 	zinitix_debug_msg("request irq (irq = %d, pin = %d) \r\n",
 		touch_dev->irq, touch_dev->int_gpio_num);
@@ -3801,6 +3907,20 @@ static int zinitix_touch_probe(struct i2c_client *client,
 		pr_err("Failed to create device file(%s)!\n", dev_attr_touchkey_back.attr.name);
       if (device_create_file(sec_touchkey, &dev_attr_touchkey_threshold) < 0)
 		pr_err("Failed to create device file(%s)!\n", dev_attr_touchkey_threshold.attr.name);
+
+#ifdef TSP_DUMMY_KEY_SUPPORT
+      if (device_create_file(sec_touchkey, &dev_attr_extra_button_event) < 0)
+	      pr_err("Failed to create device file(%s)!\n", dev_attr_extra_button_event.attr.name);
+
+      if (device_create_file(sec_touchkey, &dev_attr_touchkey_dummy_btn1) < 0)
+	      pr_err("Failed to create device file(%s)!\n", dev_attr_touchkey_dummy_btn1.attr.name);
+      if (device_create_file(sec_touchkey, &dev_attr_touchkey_dummy_btn3) < 0)
+		pr_err("Failed to create device file(%s)!\n", dev_attr_touchkey_dummy_btn3.attr.name);
+      if (device_create_file(sec_touchkey, &dev_attr_touchkey_dummy_btn4) < 0)
+		pr_err("Failed to create device file(%s)!\n", dev_attr_touchkey_dummy_btn4.attr.name);
+      if (device_create_file(sec_touchkey, &dev_attr_touchkey_dummy_btn6) < 0)
+		pr_err("Failed to create device file(%s)!\n", dev_attr_touchkey_dummy_btn6.attr.name);
+#endif
 
       	if (device_create_file(sec_touchscreen, &dev_attr_tsp_firm_version_phone) < 0)
 		pr_err("Failed to create device file(%s)!\n", dev_attr_tsp_firm_version_phone.attr.name);

@@ -169,7 +169,6 @@ uint32_t public_id_size;
 static struct timer_list g_integ_timer;
 static uint32_t g_banked_timeout;
 
-struct mutex g_disp_mutex;
 
 /* **********************************************************************
  * USR space access
@@ -922,8 +921,6 @@ static int sec_hal_pdev_probe(struct platform_device *pdev)
 	sec_hal_init_info_t rt_init;
 
 	SEC_HAL_TRACE_ENTRY();
-
-	mutex_init(&g_disp_mutex); /* called only ONCE */
 
 	if (NULL == (mem = platform_get_resource(
 					pdev, IORESOURCE_MEM, 0))) {

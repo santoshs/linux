@@ -4,7 +4,6 @@
  */
 #include <linux/timex.h>
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
-#include <mach/board-u2evm.h>
 #include <mach/sh_cmt.h>
 #include <mach/r8a7373.h>
 #include <linux/spinlock_types.h>

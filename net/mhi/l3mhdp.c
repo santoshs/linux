@@ -69,6 +69,8 @@
 /* Print every MHDP SKB content */
 /* #define MHDP_DEBUG_SKB */
 
+//#define CONFIG_MHI_DEBUG
+
 #define UDP_PROT_TYPE	17
 
 #define EPRINTK(...)    printk(KERN_DEBUG "MHI/MHDP: " __VA_ARGS__)
@@ -313,24 +315,24 @@ static void
 mhdp_set_udp_filter(struct mhdp_net *mhdpn,
 			struct mhdp_udp_filter *filter)
 {
-	spin_lock(&mhdpn->udp_lock);
+	unsigned long flags;
+	spin_lock_irqsave(&mhdpn->udp_lock, flags);
 	mhdpn->udp_filter.port_id = filter->port_id;
 	mhdpn->udp_filter.active = 1;
-	spin_unlock(&mhdpn->udp_lock);
+	spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
 }
 
 
 static void
 mhdp_reset_udp_filter(struct mhdp_net *mhdpn)
 {
-
-	spin_lock(&mhdpn->udp_lock);
+	unsigned long flags;
+	spin_lock_irqsave(&mhdpn->udp_lock, flags);
 	mhdpn->udp_filter.port_id = 0;
 	mhdpn->udp_filter.active = 0;
-	spin_unlock(&mhdpn->udp_lock);
+	spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
 
 }
-
 
 
 static int
@@ -344,14 +346,15 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 	unsigned char next_hdr_lgth;
 	unsigned int size_of_previous_hdr;
 	struct sk_buff *newskb;
+	unsigned long flags;
 
-	spin_lock(&mhdpn->udp_lock);
+	spin_lock_irqsave(&mhdpn->udp_lock, flags);
 
 	if (mhdpn->udp_filter.active == 0) {
-		spin_unlock(&mhdpn->udp_lock);
+		spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
 		return 0;
 	}
-	spin_unlock(&mhdpn->udp_lock);
+	spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
 
 	/*if udp, check port number*/
 	if (skb->protocol == htons(ETH_P_IP)) {
@@ -378,18 +381,29 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 		ipv6header = ipv6_hdr(skb);
 		next_hdr = &ipv6header->nexthdr;
 
-		if (*next_hdr != UDP_PROT_TYPE) {
+		DPRINTK("MHDP_FILTER: IPv6 packet found 0x%02x", *next_hdr);
 
-			next_hdr += sizeof(struct ipv6hdr);
+		if ((*next_hdr != UDP_PROT_TYPE) &&
+			(*next_hdr != NEXTHDR_TCP))  {
+
+			DPRINTK("MHDP_FILTER: parsing header stack");
+
+			next_hdr = (unsigned char*)(ipv6header + sizeof(struct ipv6hdr));
 
 			/*parse the supported next_hdr until UDP is found*/
-			while ((*next_hdr != NEXTHDR_UDP) ||
-				(*next_hdr != NEXTHDR_TCP) ||
-				(*next_hdr != NEXTHDR_NONE)) {
+			while ((*next_hdr != NEXTHDR_UDP) &&
+					(*next_hdr != NEXTHDR_TCP) &&
+					(*next_hdr != NEXTHDR_ICMP) &&
+					(*next_hdr != NEXTHDR_NONE) &&
+			((u32)(ipv6header + htons(ipv6header->payload_len)
+					+ sizeof(struct ipv6hdr))
+				> (u32)next_hdr)) {
+
+				DPRINTK("MHDP_FILTER: 0x%02x @ 0x%x", *next_hdr, next_hdr);
 
 				if (*next_hdr == NEXTHDR_FRAGMENT) {
 
-					next_hdr += 2*sizeof(unsigned int);
+					next_hdr += 8*sizeof(char);
 
 				} else if (*next_hdr == NEXTHDR_IPV6) {
 
@@ -400,22 +414,29 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 					(*next_hdr == NEXTHDR_DEST)) {
 
 					next_hdr_lgth = *(next_hdr +
-								sizeof(char));
+								sizeof(char))+8*sizeof(char);
 					next_hdr += next_hdr_lgth;
+
+					DPRINTK("MHDP_FILTER: next_hdr_lgth = %d, next_hdr = 0x%x", next_hdr_lgth, next_hdr);
 
 				} else {
 					/*Not supported, force to none
 					and leave*/
 					*next_hdr = NEXTHDR_NONE;
+
+					DPRINTK("MHDP_FILTER: next_hdr NONE");
 				}
 			}
+			DPRINTK("MHDP_FILTER: finish parsing header stack");
 		}
 
 		if (*next_hdr == UDP_PROT_TYPE) {
 
 			/*UDP header*/
 			udphdr = (struct udphdr *)((unsigned char *)ipv6header +
-				sizeof(struct ipv6hdr)+2*sizeof(unsigned int));
+				sizeof(struct ipv6hdr));
+
+			DPRINTK("MHDP_FILTER: UDP header found");
 
 			if (htons(udphdr->dest) == mhdpn->udp_filter.port_id) {
 				ret = 1;
@@ -423,7 +444,11 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 					(unsigned int)(
 						(unsigned char *)udphdr -
 						(unsigned char *)ipv6header);
-				DPRINTK("MHDP_FILTER: IPv6 packet filtered out");
+				printk("MHDP_FILTER: IPv6 packet filtered out");
+			}
+			else
+			{
+				DPRINTK("MHDP_FILTER: wrong port %d != %d", htons(udphdr->dest), mhdpn->udp_filter.port_id);
 			}
 		}
 	}

@@ -564,7 +564,6 @@ static int suspend(struct platform_device *pdev, pm_message_t state)
 
 static int resume(struct platform_device *pdev)
 {
-	u32 __iomem *pram;
 
 	/* Restart system timers */
 	vibetonz_clk_on(&pdev->dev);

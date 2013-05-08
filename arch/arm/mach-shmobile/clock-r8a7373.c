@@ -891,6 +891,14 @@ static struct clk_lookup lookups[] = {
 
 	CLKDEV_CON_ID("csi21", &mstp_clks[MSTP128]), /* CSI2-RX1 */
 	CLKDEV_CON_ID("csi20", &mstp_clks[MSTP126]), /* CSI2-RX0 */
+#ifdef CONFIG_USB_R8A66597_HCD
+	CLKDEV_DEV_ID("r8a66597_hcd.0", &mstp_clks[MSTP322]),/* USBHS */
+#endif
+#ifdef CONFIG_USB_OTG
+	CLKDEV_DEV_ID("tusb1211_driver.0",\
+					&mstp_clks[MSTP322]),/*USBHS*/
+#endif
+
 
 };
 

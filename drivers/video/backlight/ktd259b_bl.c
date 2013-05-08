@@ -117,7 +117,7 @@ struct brt_value brt_table_ktd[] = {
    { 111,  24 },    
    { 122,  23 },    
    { 134,  22 },    
-   { 145,  21 },//default value     
+   { 145,  20 },//default value     
    { 153,  19 },   
    { 179,  17 },     
    { 187,  16 },       

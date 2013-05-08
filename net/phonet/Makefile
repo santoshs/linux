@@ -10,3 +10,4 @@ phonet-y := \
 	ld_phonet.o
 
 pn_pep-y := pep.o pep-gprs.o
+subdir-ccflags-y += -Werror

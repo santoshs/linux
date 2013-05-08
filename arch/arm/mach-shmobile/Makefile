@@ -6,7 +6,7 @@
 # obj-y				:= timer.o console.o clock.o pm_runtime.o
 obj-y				:= timer.o console.o clock.o cmt.o serial.o
 obj-$(CONFIG_SH_TIMER_CMT_ARM)	+= sh_cmt.o
-obj-y                           += tz_comm/
+#obj-y                           += tz_comm/
 # CPU objects
 obj-$(CONFIG_ARCH_SH7367)	+= setup-sh7367.o clock-sh7367.o intc-sh7367.o
 obj-$(CONFIG_ARCH_SH7377)	+= setup-sh7377.o clock-sh7377.o intc-sh7377.o
@@ -120,26 +120,14 @@ obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte-spa.o
 endif
 
 # current timer
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
-obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2current_timer.o
-obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2current_timer.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2current_timer.o
-
+obj-$(CONFIG_U2_CURRENTTIMER)	+= setup-u2current_timer.o
 # sdhi
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2sdhi.o
-obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2sdhi.o
-obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2sdhi.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2sdhi.o
+obj-$(CONFIG_U2_SDHI)	+= setup-u2sdhi.o
 
 # gpio_key and keysc
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
-obj-$(CONFIG_MACH_GARDALTE)	+= setup-u2gpio_key.o
-obj-$(CONFIG_MACH_LOGANLTE)	+= setup-u2gpio_key.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-u2gpio_key.o
-
+obj-$(CONFIG_U2_GPIOKEY)	+= setup-u2gpio_key.o
 # setup-u2tps80032
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
-
+obj-$(CONFIG_PMIC_INTERFACE)	+= setup-u2tps80032.o
 # WiFi objects
 obj-$(CONFIG_ARCH_SHMOBILE)	+= dev-wifi.o
 
@@ -147,9 +135,10 @@ obj-$(CONFIG_ARCH_SHMOBILE)	+= dev-wifi.o
 obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
 
 # setup-d2153
-obj-$(CONFIG_MACH_GARDALTE)	+= setup-d2153.o
-obj-$(CONFIG_MACH_LOGANLTE)	+= setup-d2153.o
-obj-$(CONFIG_MACH_LT02LTE)	+= setup-d2153.o
+obj-$(CONFIG_MFD_D2153)	+= setup-d2153.o
+
+#setup-audio
+obj-$(CONFIG_SND_SOC_SH4_FSI)	+= setup-u2audio.o
 
 # GPS
 obj-$(CONFIG_GPS_CSR_GSD5T) += dev-gps.o
@@ -190,3 +179,6 @@ obj-$(CONFIG_SH_RAMDUMP)	+= ramdump.o
 
 # Samsung features
 include arch/arm/mach-shmobile/Makefile.sec
+
+subdir-ccflags-y += -Werror
+

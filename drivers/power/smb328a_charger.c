@@ -29,6 +29,10 @@
 #include <linux/wakelock.h>
 #ifdef CONFIG_BATTERY_D2153
 #include <linux/d2153/d2153_battery.h>
+#ifdef CONFIG_D2153_EOC_CTRL
+#define NO_USE_TERMINATION_CURRENT
+
+#endif
 #endif
 
 /* Register define */
@@ -55,6 +59,11 @@
 #define SMB328A_BATTERY_CHARGING_STATUS_D	0x38
 #define SMB328A_AUTOMATIC_INPUT_CURRENT_LIMMIT_STATUS	0x39
 
+#define STATUS_A_CURRENT_TERMINATION	(0x01 << 3)
+#define STATUS_A_TAPER_CHARGING			(0x01 << 2)
+#define STATUS_A_INPUT_VALID 			(0x01 << 1)
+#define STATUS_A_AICL_COMPLETE 			(0x01 << 0)
+
 enum {
 	BAT_NOT_DETECTED,
 	BAT_DETECTED
@@ -76,6 +85,7 @@ struct smb328a_chip {
 };
 
 static struct smb328a_chip *smb_charger = NULL;
+static bool FullChargeSend;
 
 #ifdef CONFIG_PMIC_INTERFACE
 extern int pmic_get_temp_status(void);
@@ -248,11 +258,19 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 	val = smb328a_read_reg(client, SMB328A_INTERRUPT_SIGNAL_SELECTION);
 	if (val >= 0) {
 		data = (u8)val;
+#ifdef NO_USE_TERMINATION_CURRENT
+		if (data != 0x01) {
+			data = 0x01;
+			if (smb328a_write_reg(client, SMB328A_INTERRUPT_SIGNAL_SELECTION, data) < 0)
+				pr_err("%s : error!\n", __func__);
+		}
+#else
 		if (data != 0x11) {
 			data = 0x11;
 			if (smb328a_write_reg(client, SMB328A_INTERRUPT_SIGNAL_SELECTION, data) < 0)
 				pr_err("%s : error!\n", __func__);
 		}
+#endif
 	}
 #if 0
 	val = smb328a_read_reg(client, SMB328A_I2C_BUS_SLAVE_ADDRESS);
@@ -267,6 +285,10 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 #endif
 }
 
+#if 0
+/**
+ * not used function.
+ */
 static bool smb328a_check_bat_full(struct i2c_client *client)
 {
 	int val;
@@ -284,6 +306,7 @@ static bool smb328a_check_bat_full(struct i2c_client *client)
 
 	return ret;
 }
+#endif
 
 /* vf check */
 static bool smb328a_check_bat_missing(struct i2c_client *client)
@@ -305,6 +328,10 @@ static bool smb328a_check_bat_missing(struct i2c_client *client)
 	return ret;
 }
 
+#if 0
+/**
+ * not used function.
+ */
 /* whether valid dcin or not */
 static bool smb328a_check_vdcin(struct i2c_client *client)
 {
@@ -323,7 +350,12 @@ static bool smb328a_check_vdcin(struct i2c_client *client)
 
 	return ret;
 }
+#endif
 
+#if 0
+/**
+ * not used function.
+ */
 static bool smb328a_check_bmd_disabled(struct i2c_client *client)
 {
 	int val;
@@ -350,6 +382,7 @@ static bool smb328a_check_bmd_disabled(struct i2c_client *client)
 
 	return ret;
 }
+#endif
 
 static int smb328a_set_top_off(struct i2c_client *client, int set_val)
 {
@@ -364,7 +397,7 @@ static int smb328a_set_top_off(struct i2c_client *client, int set_val)
 	if (val >= 0) {
 		data = (u8)val;
 		data &= 0xF8;
-		data |= ((set_val / 25) - 1);
+		data |= ((25 / 25) - 1);		// don't use termination current
 		if (smb328a_write_reg(client, SMB328A_INPUT_AND_CHARGE_CURRENTS, data) < 0) {
 			pr_err("%s : error!\n", __func__);
 			return -1;
@@ -624,6 +657,9 @@ static int smb328a_set_full_charge (unsigned int eoc)
 	if (eoc < 25 || eoc > 200) {
 		validval = 200; //max top-off
 	}
+#ifdef NO_USE_TERMINATION_CURRENT
+	validval = 25;	//don't use charger eoc.
+#endif	
 	ret = smb328a_set_top_off(smb_charger->client, validval);
 
 	return ret;
@@ -665,7 +701,7 @@ static int smb328a_get_voltage (unsigned char opt)
 {
 #ifdef CONFIG_BATTERY_D2153
 	int volt;
-	volt = d2153_battery_read_status(D2153_BATTERY_VOLTAGE_NOW);
+	volt = d2153_battery_read_status(D2153_BATTERY_AVG_VOLTAGE);
 #else
 	int volt=3800;
 #endif
@@ -683,6 +719,11 @@ static int smb328a_get_batt_presence (unsigned int opt)
 static int smb328a_ctrl_fg (void *data)
 {
 	int ret = 0;
+
+#ifdef CONFIG_BATTERY_D2153
+	d2153_battery_set_status(D2153_RESET_SW_FG, 0);
+#endif
+	
 	return ret;
 }
 
@@ -693,6 +734,7 @@ extern void muic_set_vbus(int vbus);
 static void smb328a_work_func(struct work_struct *work)
 {
     struct smb328a_chip *p = container_of(work, struct smb328a_chip, work);
+	int val;
 #ifdef CONFIG_USE_MUIC
 	static bool pre_vbus = false;
 	bool vbus;
@@ -704,21 +746,28 @@ static void smb328a_work_func(struct work_struct *work)
         pr_err("%s: smb328a_chip is NULL\n", __func__);
 		return ;
     }
-
+	msleep(110);
+	val = smb328a_read_reg(p->client, SMB328A_BATTERY_CHARGING_STATUS_A);
 #ifdef CONFIG_USE_MUIC
-	vbus = smb328a_check_vdcin(p->client);
+	vbus = (bool)((u8)val & STATUS_A_INPUT_VALID);
 	if(pre_vbus != vbus)
 	{
 		pre_vbus = vbus;
 		muic_set_vbus(vbus == true ? 1 : 0);
+		FullChargeSend = 0;
 	}
 #endif
-
-    if(smb328a_check_bat_full(p->client))
-    {
-        pr_info("%s: EOC\n", __func__);
-        spa_event_handler(SPA_EVT_EOC, 0);
+#ifndef NO_USE_TERMINATION_CURRENT
+	if(val & (STATUS_A_CURRENT_TERMINATION|STATUS_A_TAPER_CHARGING))
+	{
+		if(FullChargeSend==0 || (val & STATUS_A_CURRENT_TERMINATION)) {
+	        pr_info("%s: EOC\n", __func__);
+	        spa_event_handler(SPA_EVT_EOC, 0);
+			FullChargeSend = 1;
+		}
     }
+#endif
+
 }
 
 static irqreturn_t smb328a_irq_handler(int irq, void *data)

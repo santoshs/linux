@@ -15,10 +15,6 @@
 #ifndef SEC_HAL_RT_H
 #define SEC_HAL_RT_H
 
-/*
-#define SEC_STORAGE_SELFTEST_ENABLE
-#define SEC_STORAGE_DS_TEST_ENABLE
-*/
 /* ************************ HEADER (INCLUDE) SECTION ********************* */
 #ifdef __KERNEL__
 #include <linux/types.h>
@@ -26,6 +22,7 @@
 #include <inttypes.h>
 #endif
 #include "sec_hal_res.h"
+
 
 /* ***************** MACROS, CONSTANTS, COMPILATION FLAGS **************** */
 /* Size of key info */
@@ -92,8 +89,7 @@ typedef struct
  */
 
 
-typedef struct
-{
+typedef struct {
   uint64_t commit_id;
   uint32_t reset_info[SEC_HAL_RESCNT_COUNT];
 } sec_hal_init_info_t;
@@ -134,10 +130,10 @@ typedef struct
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 typedef uint32_t (*sec_hal_data_alloc_handler_cb)(
-		uint32_t data_type,
-		uint32_t prot_data_id,
-		void** prot_data_ptr,
-		uint32_t* prot_data_size );
+	uint32_t data_type,
+	uint32_t prot_data_id,
+	void** prot_data_ptr,
+	uint32_t* prot_data_size );
 
 /*!
  * This type defines a callback function that must provide protected data
@@ -164,16 +160,16 @@ typedef uint32_t (*sec_hal_data_alloc_handler_cb)(
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 typedef uint32_t (*sec_hal_data_free_handler_cb)(
-		uint32_t data_type,
-		uint32_t prot_data_id,
-		void* prot_data_ptr );
+	uint32_t data_type,
+	uint32_t prot_data_id,
+	void* prot_data_ptr );
 
 typedef uint32_t (*sec_hal_rt_rpc_handler)(
-		uint32_t id,
-		uint32_t p1,
-		uint32_t p2,
-		uint32_t p3,
-		uint32_t p4);
+	uint32_t id,
+	uint32_t p1,
+	uint32_t p2,
+	uint32_t p3,
+	uint32_t p4);
 
 #define SEC_HAL_RPC_ALLOC                      0x80000001
 #define SEC_HAL_RPC_FREE                       0x80000002
@@ -190,6 +186,7 @@ typedef uint32_t (*sec_hal_rt_rpc_handler)(
 #define SEC_HAL_RPC_PROT_DATA_FREE             0x8000000D
 #define SEC_HAL_RPC_PROT_DATA_ALLOC            0x8000000E
 #define SEC_HAL_RPC_TRACE                      0x8000000F
+
 
 /* ************************** FUNCTION PROTOTYPES ************************ */
 /*!
@@ -213,18 +210,14 @@ typedef uint32_t (*sec_hal_rt_rpc_handler)(
  *                              SEC_HAL_RES_FAIL error if operation failed.
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
-uint32_t
-sec_hal_rt_init(
-    sec_hal_init_info_t *runtime_init);
+uint32_t sec_hal_rt_init(sec_hal_init_info_t *runtime_init);
 
 /*!
  * This function can be used to install rpc handler to the secure side.
  * Handler will be called whenever secure side needs something special
  * from the public domain.
  */
-uint32_t
-sec_hal_rt_install_rpc_handler(
-    sec_hal_rt_rpc_handler fptr);
+uint32_t sec_hal_rt_install_rpc_handler(sec_hal_rt_rpc_handler fptr);
 
 /*!
  * This function is used to retrieve key information from the secure side.
@@ -240,8 +233,7 @@ sec_hal_rt_install_rpc_handler(
  *                              SEC_HAL_RES_FAIL error if operation failed.
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
-uint32_t sec_hal_rt_key_info_get(
-		sec_hal_key_info_t *user_key_info_out);
+uint32_t sec_hal_rt_key_info_get(sec_hal_key_info_t *user_key_info_out);
 
 /*!
  * This function can be used to register a certificate.
@@ -293,9 +285,9 @@ uint32_t sec_hal_rt_key_info_get(
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 uint32_t sec_hal_rt_cert_register(
-		void *user_cert_in,
-		uint32_t user_cert_size_in,
-		uint32_t* user_obj_id_out);
+	void *user_cert_in,
+	uint32_t user_cert_size_in,
+	uint32_t* user_obj_id_out);
 
 /*!
  * This function can be used to register a data certificate.
@@ -336,11 +328,11 @@ uint32_t sec_hal_rt_cert_register(
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 uint32_t sec_hal_rt_data_cert_register(
-		void *user_cert_in,
-		uint32_t user_cert_size_in,
-		void *user_data_in,
-		uint32_t user_data_size_in,
-		uint32_t *user_id_ptr_out);
+	void *user_cert_in,
+	uint32_t user_cert_size_in,
+	void *user_data_in,
+	uint32_t user_data_size_in,
+	uint32_t *user_id_ptr_out);
 
 /*!
  * This function can be used to get the MAC address of the device.
@@ -357,40 +349,8 @@ uint32_t sec_hal_rt_data_cert_register(
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 uint32_t sec_hal_rt_mac_address_get(
-		uint32_t user_index_in,
-		sec_hal_mac_address_t *user_mac_addr_out);
-
-#ifdef SEC_STORAGE_DS_TEST_ENABLE
-/* TEMPORARY, for testing purposes, send SEC_SERV_SIMU_DS0/1_TEST messages to Demo (DS) */
-
-/* **************************************************************************
-** Function name      : sec_hal_rt_simu_ds_test
-** Description        : send SEC_SERV_SIMU_DS0/1_TEST messages to Demo (DS).
-** Parameters         : IN/--- DS0 or DS1 / w or wo params, zero, one
-** Return value       : uint32
-**                      ==0 operation successful
-**                      failure otherwise.
-** *************************************************************************/
-uint32_t sec_hal_rt_simu_ds_test(
-    uint32_t dsnum,
-    uint32_t param,
-    uint32_t zero,
-    uint32_t one);
-#endif
-#ifdef SEC_STORAGE_SELFTEST_ENABLE
-/* **************************************************************************
-** Function name      : sec_hal_rt_sec_storage_selftest
-** Description        : run test sequence to test Secure Storage
-** Parameters         : IN/---  rpc_func_ptr
-**                              testcase
-** Return value       : uint32
-**                      ==0 operation successful
-**                      failure otherwise.
-** *************************************************************************/
-uint32_t sec_hal_rt_sec_storage_selftest(
-    sec_hal_rt_rpc_handler rpc_func_ptr,
-    uint32_t testcase);
-#endif
+	uint32_t user_index_in,
+	sec_hal_mac_address_t *user_mac_addr_out);
 
 /*!
  * This function can be used to get the IMEI of the device.
@@ -406,7 +366,7 @@ uint32_t sec_hal_rt_sec_storage_selftest(
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 uint32_t sec_hal_rt_imei_get(
-		sec_hal_imei_t *user_imei_out);
+	sec_hal_imei_t *user_imei_out);
 
 /*!
  * This function can be used to open all SIM lock levels.
@@ -441,9 +401,9 @@ uint32_t sec_hal_rt_imei_get(
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 uint32_t sec_hal_rt_simlock_levels_open(
-		uint32_t user_levels_mask_in,
-		void* user_unlock_codes_in,
-		uint32_t* user_post_lock_level_status_out);
+	uint32_t user_levels_mask_in,
+	void* user_unlock_codes_in,
+	uint32_t* user_post_lock_level_status_out);
 
 /*!
  * This function can be used to open a SIM lock level when the user
@@ -464,34 +424,8 @@ uint32_t sec_hal_rt_simlock_levels_open(
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 uint32_t sec_hal_rt_simlock_level_open(
-		char *user_unlock_code_in,
-		uint8_t user_lock_level_in);
-
-/*!
- * This function can be used to query which SIM lock levels are open
- * and which levels are closed.
- * 
- * 
- * @pre                         sec_hal_init - function called successfully.
- * 
- * @param lock_level_status     Pointer to a variable where the SIM lock
- *                              level status is stored.
- *                              The bit 0 (least significant bit) of the SIM
- *                              lock level status shows the status of level
- *                              1, bit 1 shows the status of level 2 and so
- *                              on. If the value of bit is '1', the lock
- *                              level is closed. If value of bit is '0',
- *                              the lock level
- *                              is open. As an example, 0x00000009 means that
- *                              lock levels 1 and 4 are closed and all
- *                              the other lock levels are open.
- * 
- * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
- *                              SEC_HAL_RES_FAIL error if operation failed.
- *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
- */
-//uint32_t sec_hal_rt_simlock_level_status_get(
-//		uint32_t* user_lock_level_status_out);
+	char *user_unlock_code_in,
+	uint8_t user_lock_level_in);
 
 /*!
  * This function is used to get the size of the device authentication data.
@@ -513,9 +447,9 @@ uint32_t sec_hal_rt_simlock_level_open(
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 uint32_t sec_hal_rt_auth_data_size_get(
-		void* user_input_data_in,
-		uint32_t user_input_data_size_in,
-		uint32_t* user_auth_data_size_out);
+	void* user_input_data_in,
+	uint32_t user_input_data_size_in,
+	uint32_t* user_auth_data_size_out);
 
 /*!
  * This function can be used to request the data that is required
@@ -542,10 +476,10 @@ uint32_t sec_hal_rt_auth_data_size_get(
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 uint32_t sec_hal_rt_auth_data_get(
-		void *user_input_data_in,
-		uint32_t user_input_data_size_in,
-		void *user_auth_data_out,
-		uint32_t user_auth_data_size_in);
+	void *user_input_data_in,
+	uint32_t user_input_data_size_in,
+	void *user_auth_data_out,
+	uint32_t user_auth_data_size_in);
 
 /*!
  * This function must be used to make a periodic check of SW certificate
@@ -565,7 +499,7 @@ uint32_t sec_hal_rt_auth_data_get(
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 uint32_t sec_hal_rt_periodic_integrity_check(
-		uint32_t *user_wdt_upd_out);
+	uint32_t *user_wdt_upd_out);
 
 /*!
  * This function can be used after initialization sequence to check if
@@ -595,9 +529,9 @@ uint32_t sec_hal_rt_public_cc42_key_init(void);
  *
  * @pre                         sec_hal_init - function called successfully.
  *
- * @param request_in            TBDL
+ * @param request_in
  *
- * @param virt_allowed_out      TBDL
+ * @param virt_allowed_out
  * 
  * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
  *                              SEC_HAL_RES_FAIL error if operation failed.
@@ -613,32 +547,20 @@ uint32_t sec_hal_rt_a3sp_state_info(
  *
  * @pre                         sec_hal_init - function called successfully.
  *
- * @param phys_dst_in           TBDL
+ * @param phys_dst_in
  * 
- * @param phys_src_in           TBDL
+ * @param phys_src_in
  * 
- * @param size_in               TBDL
+ * @param size_in
  * 
  * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
  *                              SEC_HAL_RES_FAIL error if operation failed.
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
 uint32_t sec_hal_rt_memcpy(
-		void* phys_dst_in,
-		void* phys_src_in,
-		uint32_t size_in);
-
-/*!
- * This function can be used to send enable SMP message the secure
- * environment.
- *
- * @pre                         sec_hal_init - function called successfully.
- *
- * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
- *                              SEC_HAL_RES_FAIL error if operation failed.
- */
-uint32_t sec_hal_rt_multicore_enable(void);
-
+	void* phys_dst_in,
+	void* phys_src_in,
+	uint32_t size_in);
 
 /*!
  * This function can be used to send coma entry event to the secure
@@ -647,31 +569,23 @@ uint32_t sec_hal_rt_multicore_enable(void);
  *
  * @pre                         sec_hal_init - function called successfully.
  *
- * @param mode          TBDL
+ * @param mode
  *
- * @param wakeup_address          TBDL
+ * @param wakeup_address
  *
- * @param pll0 TBDL
+ * @param pll0
  *
- * @param zclk TBDL
- * 
+ * @param zclk
+ *
  * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
  *                              SEC_HAL_RES_FAIL error if operation failed.
  *                              SEC_HAL_RES_PARAM_ERROR error if faulty args.
  */
-uint32_t sec_hal_pm_coma_entry (uint32_t mode, uint32_t wakeup_address,
-                                uint32_t pll0, uint32_t zclk);
-
-/*!
- * This function can be used to send coma cpu off event to the secure
- * environment.
- *
- * @pre                         sec_hal_init - function called successfully.
- *
- * @retval uint32_t             SEC_HAL_RES_OK if success, error otherwise.
- *                              SEC_HAL_RES_FAIL error if operation failed.
- */
-uint32_t sec_hal_pm_coma_cpu_off(void);
+uint32_t sec_hal_pm_coma_entry(
+	uint32_t mode,
+	uint32_t wakeup_address,
+	uint32_t pll0,
+	uint32_t zclk);
 
 /*!
  * This function can be used to send poweroff event to the secure

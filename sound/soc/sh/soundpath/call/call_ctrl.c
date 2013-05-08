@@ -361,14 +361,14 @@ int call_playback_incomm_start(struct snd_pcm_substream *substream)
 	int                             ret = ERROR_NONE;
 
 	sndp_log_debug_func("start\n");
-
 	/* Voip data information initialize */
 	call_incomm_pcm_info_init(substream, PLAY_INCOMM_STATUS);
 
 	/* Status update */
 	g_status |= PLAY_INCOMM_STATUS;
 
-	if (g_call_incomm_cb[SNDP_PCM_OUT])
+	if (g_call_incomm_cb[SNDP_PCM_OUT] ||
+		atomic_read(&g_call_watch_stop_fw))
 		call_change_incomm_play();
 
 	sndp_log_debug_func("end\n");
@@ -389,8 +389,10 @@ void call_playback_incomm_stop(void)
 
 	/* Status update */
 	g_status &= ~PLAY_INCOMM_STATUS;
-	g_sndp_stream_route &= ~SNDP_ROUTE_PLAY_DUMMY;
-	wake_up_interruptible(&g_call_wait_out);
+	if (!atomic_read(&g_call_watch_stop_fw)) {
+		g_sndp_stream_route &= ~SNDP_ROUTE_PLAY_DUMMY;
+		wake_up_interruptible(&g_call_wait_out);
+	}
 
 	/* If cross Vocoder callback, Data information clear */
 	g_call_incomm_substream[SNDP_PCM_OUT] = NULL;
@@ -421,7 +423,8 @@ int call_record_incomm_start(struct snd_pcm_substream *substream)
 	/* Status update */
 	g_status |= REC_INCOMM_STATUS;
 
-	if (g_call_incomm_cb[SNDP_PCM_IN])
+	if (g_call_incomm_cb[SNDP_PCM_IN] ||
+		atomic_read(&g_call_watch_stop_fw))
 		call_change_incomm_rec();
 
 	sndp_log_debug_func("end\n");
@@ -442,8 +445,10 @@ void call_record_incomm_stop(void)
 
 	/* Status update */
 	g_status &= ~REC_INCOMM_STATUS;
-	g_sndp_stream_route &= ~SNDP_ROUTE_CAP_DUMMY;
-	wake_up_interruptible(&g_call_wait_in);
+	if (!atomic_read(&g_call_watch_stop_fw)) {
+		g_sndp_stream_route &= ~SNDP_ROUTE_CAP_DUMMY;
+		wake_up_interruptible(&g_call_wait_in);
+	}
 
 	/* If cross Vocoder callback, Data information clear */
 	g_call_incomm_substream[SNDP_PCM_IN] = NULL;
@@ -640,35 +645,6 @@ void call_change_dummy_play(void)
 
 	sndp_log_debug_func("end\n");
 }
-
-
-/*!
-   @brief UpLink status set function
-
-   @param[in]	UpLink flag
-   @param[out]	none
-
-   @retval	none
- */
-void call_set_play_uplink(bool flag)
-{
-	g_call_play_uplink = flag;
-}
-
-
-/*!
-   @brief UpLink status get function
-
-   @param[in]	none
-   @param[out]	none
-
-   @retval	g_call_play_uplink	UpLink flag
- */
-int call_read_play_uplink_state(void)
-{
-	return g_call_play_uplink;
-}
-
 
 /*!
    @brief create work queue
@@ -1474,12 +1450,14 @@ static void call_playback_incomm_cb(unsigned int buf_size)
 	if (g_call_incomm_cb[SNDP_PCM_OUT]) {
 		sndp_log_info("first call for vocoder\n");
 
-		g_sndp_stream_route &= ~SNDP_ROUTE_PLAY_DUMMY;
-		wake_up_interruptible(&g_call_wait_out);
-
 		g_call_incomm_pcm_info[SNDP_PCM_OUT].next_pd_side = DATA_SIDE_0;
 		g_call_incomm_pcm_info[SNDP_PCM_OUT].save_buf_size = buf_size;
 		g_call_incomm_cb[SNDP_PCM_OUT] = false;
+	}
+
+	if (g_sndp_stream_route & SNDP_ROUTE_PLAY_DUMMY) {
+		g_sndp_stream_route &= ~SNDP_ROUTE_PLAY_DUMMY;
+		wake_up_interruptible(&g_call_wait_out);
 	}
 
 	if (g_status & PLAY_INCOMM_STATUS)
@@ -1503,12 +1481,14 @@ static void call_record_incomm_cb(unsigned int buf_size)
 	if (g_call_incomm_cb[SNDP_PCM_IN]) {
 		sndp_log_info("first call for vocoder\n");
 
-		g_sndp_stream_route &= ~SNDP_ROUTE_CAP_DUMMY;
-		wake_up_interruptible(&g_call_wait_in);
-
 		g_call_incomm_pcm_info[SNDP_PCM_IN].next_pd_side = DATA_SIDE_0;
 		g_call_incomm_pcm_info[SNDP_PCM_IN].save_buf_size = buf_size;
 		g_call_incomm_cb[SNDP_PCM_IN] = false;
+	}
+
+	if (g_sndp_stream_route & SNDP_ROUTE_CAP_DUMMY) {
+		g_sndp_stream_route &= ~SNDP_ROUTE_CAP_DUMMY;
+		wake_up_interruptible(&g_call_wait_in);
 	}
 
 	if (g_status & REC_INCOMM_STATUS)
@@ -1552,6 +1532,10 @@ static void call_work_dummy_rec(struct sndp_work_info *work)
 			return;
 		}
 	}
+
+	ret = down_interruptible(&g_sndp_wait_free[SNDP_PCM_IN]);
+	if (0 != ret)
+		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
 	ret = down_interruptible(&g_sndp_wait_free[SNDP_PCM_IN]);
 	if (0 != ret)
@@ -1633,6 +1617,8 @@ static void call_work_dummy_rec(struct sndp_work_info *work)
 	/* Work queue, Queuing again */
 	if (g_call_dummy_rec)
 		sndp_workqueue_enqueue(g_call_queue_in, &g_call_work_in);
+
+	up(&g_sndp_wait_free[SNDP_PCM_IN]);
 
 	up(&g_sndp_wait_free[SNDP_PCM_IN]);
 
@@ -1968,10 +1954,12 @@ void call_change_incomm_play(void)
 {
 	sndp_log_debug_func("start\n");
 
-	g_sndp_stream_route |= SNDP_ROUTE_PLAY_DUMMY;
 	sndp_log_info("src [%d]\n", g_call_sampling_rate[SNDP_PCM_OUT]);
-	sndp_workqueue_enqueue(g_call_queue_out,
+	if (!(g_sndp_stream_route & SNDP_ROUTE_PLAY_DUMMY)) {
+		g_sndp_stream_route |= SNDP_ROUTE_PLAY_DUMMY;
+		sndp_workqueue_enqueue(g_call_queue_out,
 				&g_call_work_playback_incomm_dummy_set);
+	}
 
 	sndp_log_debug_func("end\n");
 }
@@ -1999,21 +1987,15 @@ static void call_work_playback_incomm_dummy_set(struct sndp_work_info *work)
 		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
 	/* If process had been driver closed. */
-	if (NULL == g_call_incomm_substream[SNDP_PCM_OUT]) {
-		sndp_log_info("substream is NULL\n");
-		return;
-	}
-	if (NULL == g_call_incomm_substream[SNDP_PCM_OUT]->runtime) {
-		sndp_log_info("runtime is NULL\n");
-		return;
-	}
+	if (NULL == g_call_incomm_substream[SNDP_PCM_OUT])
+		goto no_proc;
+	if (NULL == g_call_incomm_substream[SNDP_PCM_OUT]->runtime)
+		goto no_proc;
 
 	runtime = g_call_incomm_substream[SNDP_PCM_OUT]->runtime;
 
-	if (NULL == runtime->dma_area) {
-		sndp_log_info("dma_area is NULL\n");
-		return;
-	}
+	if (NULL == runtime->dma_area)
+		goto no_proc;
 
 	if (g_call_incomm_cb[SNDP_PCM_OUT])
 		buf_size = g_call_sampling_rate[SNDP_PCM_OUT] * 2 / 50;
@@ -2071,6 +2053,7 @@ static void call_work_playback_incomm_dummy_set(struct sndp_work_info *work)
 		snd_pcm_period_elapsed(g_call_incomm_substream[SNDP_PCM_OUT]);
 	}
 
+no_proc:
 	up(&g_sndp_wait_free[SNDP_PCM_OUT]);
 
 	wait_ret = wait_event_interruptible_timeout(
@@ -2100,10 +2083,12 @@ void call_change_incomm_rec(void)
 {
 	sndp_log_debug_func("start\n");
 
-	g_sndp_stream_route |= SNDP_ROUTE_CAP_DUMMY;
 	sndp_log_info("src [%d]\n", g_call_sampling_rate[SNDP_PCM_IN]);
-	sndp_workqueue_enqueue(g_call_queue_out,
-				&g_call_work_record_incomm_dummy_set);
+	if (!(g_sndp_stream_route & SNDP_ROUTE_CAP_DUMMY)) {
+		g_sndp_stream_route |= SNDP_ROUTE_CAP_DUMMY;
+		sndp_workqueue_enqueue(g_call_queue_out,
+					&g_call_work_record_incomm_dummy_set);
+	}
 
 	sndp_log_debug_func("end\n");
 }
@@ -2130,21 +2115,15 @@ static void call_work_record_incomm_dummy_set(struct sndp_work_info *work)
 		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
 	/* If process had been driver closed. */
-	if (NULL == g_call_incomm_substream[SNDP_PCM_IN]) {
-		sndp_log_info("substream is NULL\n");
-		return;
-	}
-	if (NULL == g_call_incomm_substream[SNDP_PCM_IN]->runtime) {
-		sndp_log_info("runtime is NULL\n");
-		return;
-	}
+	if (NULL == g_call_incomm_substream[SNDP_PCM_IN])
+		goto no_proc;
+	if (NULL == g_call_incomm_substream[SNDP_PCM_IN]->runtime)
+		goto no_proc;
 
 	runtime = g_call_incomm_substream[SNDP_PCM_IN]->runtime;
 
-	if (NULL == runtime->dma_area) {
-		sndp_log_info("dma_area is NULL\n");
-		return;
-	}
+	if (NULL == runtime->dma_area)
+		goto no_proc;
 
 	if (g_call_incomm_cb[SNDP_PCM_IN])
 		buf_size = g_call_sampling_rate[SNDP_PCM_IN] * 2 / 50;
@@ -2189,6 +2168,7 @@ static void call_work_record_incomm_dummy_set(struct sndp_work_info *work)
 		snd_pcm_period_elapsed(g_call_incomm_substream[SNDP_PCM_IN]);
 	}
 
+no_proc:
 	up(&g_sndp_wait_free[SNDP_PCM_IN]);
 
 	wait_ret = wait_event_interruptible_timeout(

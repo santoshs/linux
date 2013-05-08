@@ -42,12 +42,8 @@ Description :  File created
 #elif( defined(SMECO_LINUX_KERNEL) )
 
   #ifdef SMC_CONFIG_ARCH_R8A7373
-      /*#include <mach/memory-r8a7373.h>*/
+      #include <mach/memory-r8a7373.h>
       /*#include <mach/r8a7373.h>*/
-
-      /* SSG build is missing the memory header -> using hard coded values */
-      #define SDRAM_SMC_START_ADDR  0x44001000
-      #define SDRAM_SMC_END_ADDR    0x44800FFF
 
   #elif (defined ( SMC_CONFIG_ARCH_R8A73734 ) )
       /*#include <mach/memory-r8a73734.h>*/

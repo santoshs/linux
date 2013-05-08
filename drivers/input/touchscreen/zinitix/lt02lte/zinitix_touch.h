@@ -81,8 +81,8 @@ enum _zinitix_button_event {
 /*Test Mode (Monitoring Raw Data) */
 #define SEC_TSP_FACTORY_TEST	1	//for samsung
 
-#define	SEC_DND_N_COUNT		10
-#define	SEC_DND_FREQUENCY	110		//300khz
+#define	SEC_DND_N_COUNT		17
+#define	SEC_DND_FREQUENCY	79
 
 #define MAX_RAW_DATA_SZ		576	/*32x18*/
 #define MAX_TRAW_DATA_SZ	\

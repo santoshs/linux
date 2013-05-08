@@ -1,7 +1,7 @@
 /*
  * Driver for the SH-Mobile MIPI CSI-2 unit
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * Copyright (C) 2010, Guennadi Liakhovetski <g.liakhovetski@gmx.de>
@@ -31,6 +31,18 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-subdev.h>
+
+#define CSI2_POWAREA_MNG_ENABLE
+
+#ifdef CSI2_POWAREA_MNG_ENABLE
+#include <rtapi/system_pwmng.h>
+#endif
+
+#define RTAPI_CAMERA_ENABLE
+
+#ifdef RTAPI_CAMERA_ENABLE
+#include <rtapi/camera.h>
+#endif
 
 #define SH_CSI2_DEBUG		(0)
 #define SH_CSI2_ERROR_RESET	(0)
@@ -606,6 +618,17 @@ void sh_csi2_power(struct device *dev, int power_on)
 	struct soc_camera_link *icl;
 	struct sh_csi2_pdata *csi_info;
 	struct sh_csi2 *priv;
+#ifdef CSI2_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_start_notify;
+	system_pmg_param powarea_end_notify;
+	system_pmg_delete pmg_delete;
+#endif
+#ifdef RTAPI_CAMERA_ENABLE
+	void *camera_handle;
+	struct camera_prm_param camera_notify;
+	struct camera_prm_delete cam_delete;
+#endif
 	int ret;
 	if (!dev) {
 		printk(KERN_ALERT "%s :not device\n", __func__);
@@ -633,7 +656,33 @@ void sh_csi2_power(struct device *dev, int power_on)
 	}
 
 	if (csi_info->priv) {
+#ifdef RTAPI_CAMERA_ENABLE
+		camera_handle = camera_new();
+		camera_notify.handle = camera_handle;
+#endif
+#ifdef CSI2_POWAREA_MNG_ENABLE
+		system_handle = system_pwmng_new();
+#endif
 		if (power_on) {
+#ifdef RTAPI_CAMERA_ENABLE
+			printk(KERN_INFO "Start A3R power area(CSI2)\n");
+			ret = camera_start_notify(&camera_notify);
+			if (SMAP_LIB_CAMERA_OK != ret)
+				printk(KERN_ERR
+				"camera_start_notify err[%d]!\n", ret);
+#endif
+#ifdef CSI2_POWAREA_MNG_ENABLE
+			printk(KERN_INFO "Start A4LC power area(CSI2)\n");
+			/* Notifying the Beginning of Using Power Area */
+			powarea_start_notify.handle = system_handle;
+			powarea_start_notify.powerarea_name =
+				RT_PWMNG_POWERAREA_A4LC;
+			ret = system_pwmng_powerarea_start_notify(
+				&powarea_start_notify);
+			if (SMAP_LIB_PWMNG_OK != ret)
+				printk(KERN_ERR
+					"powarea_start_notify err[%d]!\n", ret);
+#endif
 			ret = clk_enable(icb_clk);
 			if (0 != ret) {
 				printk(
@@ -670,10 +719,38 @@ void sh_csi2_power(struct device *dev, int power_on)
 			clk_disable(csi_clk);
 			clk_disable(meram_clk);
 			clk_disable(icb_clk);
+#ifdef CSI2_POWAREA_MNG_ENABLE
+			printk(KERN_INFO "End A4LC power area(CSI2)\n");
+			/* Notifying the Beginning of Using Power Area */
+			powarea_end_notify.handle = system_handle;
+			powarea_end_notify.powerarea_name =
+				RT_PWMNG_POWERAREA_A4LC;
+			ret = system_pwmng_powerarea_end_notify(
+				&powarea_end_notify);
+			if (SMAP_LIB_PWMNG_OK != ret)
+				printk(KERN_ERR
+					"powarea_end_notify err[%d]!\n", ret);
+#endif
+#ifdef RTAPI_CAMERA_ENABLE
+			printk(KERN_INFO "End A3R power area(CSI2)\n");
+			ret = camera_end_notify(&camera_notify);
+			if (SMAP_LIB_CAMERA_OK != ret)
+				printk(KERN_ERR
+				"camera_end_notify err[%d]!\n", ret);
+#endif
 		}
+#ifdef RTAPI_CAMERA_ENABLE
+		cam_delete.handle = camera_handle;
+		camera_delete(&cam_delete);
+#endif
+#ifdef CSI2_POWAREA_MNG_ENABLE
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+#endif
 	}
 	clk_put(csi_clk);
 	clk_put(meram_clk);
+	clk_put(icb_clk);
 }
 
 int sh_csi2__l_reset(void *handle, int reset)

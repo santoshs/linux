@@ -21,6 +21,9 @@
 #ifndef __RTDS_MEMORY_DRV_CMA_H__
 #define __RTDS_MEMORY_DRV_CMA_H__
 
+/* The maximum number of retryed to allocate buffer. */
+#define DRM_ALLOC_COUNT		(100)
+
 enum {
 	OMX_MDL_ID = 0,
 	HDMI_MDL_ID,

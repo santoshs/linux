@@ -47,10 +47,16 @@
 #include <linux/input/mt.h>
 #endif
 
-//#include "zinitix_touch_zxt_firmware(ZI012105).h"
-#include "zinitix_touch_zxt_firmware(ZI03220B).h"
 
-#define	ZINITIX_DEBUG		1
+#ifndef _ZINITIX_ZXT_CODE_H
+#define	_ZINITIX_ZXT_CODE_H
+
+#include "zinitix_touch_zxt_firmware(ZI02220C).h"
+#include "zinitix_touch_zxt_firmware(ZI03220D).h"
+
+#endif
+
+#define	ZINITIX_DEBUG		0
 
 #ifdef CONFIG_PM_SLEEP
 //#define	ZCONFIG_PM_SLEEP	1
@@ -66,6 +72,9 @@ static int m_ts_debug_mode = ZINITIX_DEBUG;
 /* interrupt pin number*/
  #define GPIO_TOUCH_PIN_NUM	32
 
+#define TSP_TYPE_COUNT	2
+const u8 *m_pFirmware [TSP_TYPE_COUNT] = {(u8*)m_firmware_data_02,(u8*)m_firmware_data_03,};
+u8 m_FirmwareIdx = 0;
 
 #if !USE_THREADED_IRQ
 static struct workqueue_struct *zinitix_workqueue;
@@ -133,6 +142,7 @@ struct _ts_capa_info {
 	u16 total_node_num;
 	u16 hw_id;
 	u16 afe_frequency;
+	u8	i2s_checksum;
 
 };
 
@@ -321,12 +331,24 @@ u32 BUTTON_MAPPING_KEY[MAX_SUPPORTED_BUTTON_NUM] = {
 
 
 /* define i2c sub functions*/
+static inline s32 ts_retry_send(struct i2c_client *client, u8 *buf, u16 length)
+{
+	s32 ret;
+	int i;
+	for(i=0; i<3; i++) {
+		ret = i2c_master_send(client , (u8 *)buf , length);
+		if (ret >= 0)
+			return ret;
+		udelay(10);
+	}
+	return -1;
+}
 static inline s32 ts_read_data(struct i2c_client *client,
 	u16 reg, u8 *values, u16 length)
 {
 	s32 ret;
 	/* select register*/
-	ret = i2c_master_send(client , (u8 *)&reg , 2);
+	ret = ts_retry_send(client , (u8 *)&reg, 2);
 	if (ret < 0)
 		return ret;
 	/* for setup tx transaction. */
@@ -346,7 +368,8 @@ static inline s32 ts_write_data(struct i2c_client *client,
 	pkt[0] = (reg)&0xff;	//reg addr
 	pkt[1] = (reg >> 8)&0xff;
 	memcpy((u8*)&pkt[2], values, length);
-	ret = i2c_master_send(client , pkt , length+2);
+	ret = ts_retry_send(client , (u8 *)pkt, length+2);
+
 	if (ret < 0)
 		return ret;
 	udelay(DELAY_FOR_POST_TRANSCATION);
@@ -363,7 +386,7 @@ static inline s32 ts_write_reg(struct i2c_client *client, u16 reg, u16 value)
 static inline s32 ts_write_cmd(struct i2c_client *client, u16 reg)
 {
 	s32 ret;
-	ret = i2c_master_send(client , (u8 *)&reg , 2);
+	ret = ts_retry_send(client , (u8 *)&reg, 2);
 	if (ret < 0)
 		return I2C_FAIL;
 	udelay(DELAY_FOR_POST_TRANSCATION);
@@ -375,7 +398,7 @@ static inline s32 ts_read_raw_data(struct i2c_client *client,
 {
 	s32 ret;
 	/* select register */
-	ret = i2c_master_send(client , (u8 *)&reg , 2);
+	ret = ts_retry_send(client , (u8 *)&reg, 2);	
 	if (ret < 0)
 		return ret;
 	/* for setup tx transaction. */
@@ -393,7 +416,7 @@ static inline s32 ts_read_firmware_data(struct i2c_client *client,
 {
 	s32 ret;
 	/* select register*/
-	ret = i2c_master_send(client , (u8*)&addr , 2);
+	ret = ts_retry_send(client , (u8 *)&addr, 2);	
 	if (ret < 0)
 		return ret;
 	/* for setup tx transaction. */
@@ -487,7 +510,7 @@ static bool ts_get_raw_data(struct zinitix_touch_dev *touch_dev)
 	u32 sz;
 
 	if(down_trylock(&touch_dev->raw_data_lock)) {
-		zinitix_printk("fail to occupy sema\n");
+		zinitix_printk("fail to occupy sema(%d)\n", touch_dev->work_proceedure);
 		touch_dev->touch_info.status = 0;
 		return true;
 	}
@@ -510,6 +533,29 @@ static bool ts_get_raw_data(struct zinitix_touch_dev *touch_dev)
 	return true;
 }
 
+
+static bool i2c_checksum(struct zinitix_touch_dev *touch_dev, s16 *pChecksum, u16 wlength)
+{
+	s16 checksum_result;
+	s16 checksum_cur;
+	int i;
+	
+	checksum_cur = 0;
+	for(i=0; i<wlength; i++) {
+		checksum_cur += (s16)pChecksum[i];
+	}
+	if (ts_read_data(touch_dev->client,
+		ZINITIX_I2C_CHECKSUM_RESULT,
+		(u8 *)(&checksum_result), 2) < 0) {
+		printk(KERN_INFO "error read i2c checksum rsult.-\n");
+		return false;
+	}
+	if(checksum_cur != checksum_result) {
+		printk(KERN_INFO "checksum error : %d, %d\n", checksum_cur, checksum_result);
+		return false;
+	}
+	return true;
+}
 
 
 static bool ts_read_coord(struct zinitix_touch_dev *touch_dev)
@@ -542,6 +588,12 @@ static bool ts_read_coord(struct zinitix_touch_dev *touch_dev)
 	memset(&touch_dev->touch_info,
 		0x0, sizeof(struct _ts_zinitix_point_info));
 
+	if(touch_dev->cap_info.i2s_checksum)
+		if (ts_write_reg(touch_dev->client,
+			ZINITIX_I2C_CHECKSUM_WCNT, 2)) != I2C_SUCCESS)
+			return false;
+
+
 	if (ts_read_data(touch_dev->client,
 		ZINITIX_POINT_STATUS_REG,
 		(u8 *)(&touch_dev->touch_info), 4) < 0) {
@@ -551,9 +603,17 @@ static bool ts_read_coord(struct zinitix_touch_dev *touch_dev)
 	zinitix_debug_msg("status reg = 0x%x , event_flag = 0x%04x\n",
 		touch_dev->touch_info.status, touch_dev->touch_info.event_flag);
 
+	if(touch_dev->cap_info.i2s_checksum)
+		if(i2c_checksum (touch_dev, (s16 *)(&touch_dev->touch_info), 2) == false)
+			return false;
 
 	if(touch_dev->touch_info.event_flag == 0 || touch_dev->touch_info.status == 0)
 		goto continue_check_point_data;
+
+	if(touch_dev->cap_info.i2s_checksum)
+		if (ts_write_reg(touch_dev->client,
+			ZINITIX_I2C_CHECKSUM_WCNT, sizeof(struct _ts_zinitix_coord)/2)) != I2C_SUCCESS)
+			return false;
 
 	for (i = 0; i < touch_dev->cap_info.multi_fingers; i++) {
 		if (zinitix_bit_test(touch_dev->touch_info.event_flag, i)) {
@@ -565,10 +625,22 @@ static bool ts_read_coord(struct zinitix_touch_dev *touch_dev)
 				zinitix_debug_msg("error read point info\n");
 				return false;
 			}
+			if(touch_dev->cap_info.i2s_checksum)
+				if(i2c_checksum (touch_dev, (s16 *)(&touch_dev->touch_info.coord[i]), sizeof(struct _ts_zinitix_coord)/2) == false)
+					return false;
 		}
 	}
 
 #else
+	if(touch_dev->cap_info.i2s_checksum)
+		if (ts_write_reg(touch_dev->client,
+				ZINITIX_I2C_CHECKSUM_WCNT, 
+				(sizeof(struct _ts_zinitix_point_info)/2)) != I2C_SUCCESS){
+		zinitix_debug_msg("error write checksum wcnt.-\n");
+		return false;
+	}
+		
+
 	if (ts_read_data(touch_dev->client,
 		ZINITIX_POINT_STATUS_REG,
 		(u8 *)(&touch_dev->touch_info),
@@ -576,6 +648,11 @@ static bool ts_read_coord(struct zinitix_touch_dev *touch_dev)
 		zinitix_debug_msg("error read point info using i2c.-\n");
 		return false;
 	}
+
+	if(touch_dev->cap_info.i2s_checksum)
+		if(i2c_checksum (touch_dev, (s16 *)(&touch_dev->touch_info), sizeof(struct _ts_zinitix_point_info)/2) == false)
+			return false;
+	
 #endif
 
 continue_check_point_data:
@@ -583,7 +660,8 @@ continue_check_point_data:
 
 	if (touch_dev->touch_info.status == 0x0) {
 		zinitix_debug_msg("periodical esd repeated int occured\n");
-		ts_write_cmd(touch_dev->client, ZINITIX_CLEAR_INT_STATUS_CMD);
+		if(ts_write_cmd(touch_dev->client, ZINITIX_CLEAR_INT_STATUS_CMD) != I2C_SUCCESS)
+			return false;
 		udelay(DELAY_FOR_SIGNAL_DELAY);
 		return true;
 	}
@@ -591,7 +669,6 @@ continue_check_point_data:
 	// error
 	if (zinitix_bit_test(touch_dev->touch_info.status, BIT_MUST_ZERO)) {
 		zinitix_printk("must zero bit must cleared.(%04x)\n", touch_dev->touch_info.status);
-		ts_write_cmd(touch_dev->client, ZINITIX_CLEAR_INT_STATUS_CMD);
 		udelay(DELAY_FOR_SIGNAL_DELAY);
 		return false;
 	}
@@ -607,7 +684,8 @@ continue_check_point_data:
 		}
 	}
 
-	ts_write_cmd(touch_dev->client, ZINITIX_CLEAR_INT_STATUS_CMD);
+	if(ts_write_cmd(touch_dev->client, ZINITIX_CLEAR_INT_STATUS_CMD) != I2C_SUCCESS)
+		return false;
 	udelay(DELAY_FOR_SIGNAL_DELAY);
 	zinitix_debug_msg("ts_read_coord-\n");
 	return true;
@@ -881,7 +959,7 @@ static void zinitix_touch_tmr_work(struct work_struct *work)
 		goto fail_time_out_init;
 	}
 	if(down_trylock(&touch_dev->work_proceedure_lock)) {
-		zinitix_printk("fail to occupy sema\n");
+		zinitix_printk("fail to occupy sema(%d)\n", touch_dev->work_proceedure);
 		ts_esd_timer_start(ZINITIX_CHECK_ESD_TIMER, touch_dev);
 		return;
 	}
@@ -956,6 +1034,28 @@ static void ts_esd_timeout_handler(unsigned long data)
 	queue_work(zinitix_tmr_workqueue, &touch_dev->tmr_work);
 }
 
+static void ts_select_type_hw(struct zinitix_touch_dev *touch_dev) {
+	int i;
+	u16 newHWID;
+
+	for(i = 0; i< TSP_TYPE_COUNT; i++) {		
+		if(touch_dev->cap_info.is_zmt200 == 0)
+			newHWID = (u16) (m_pFirmware[i][0x6b12] | (m_pFirmware[i][0x6b13]<<8));
+		else		
+			newHWID = (u16) (m_pFirmware[i][0x57d2] | (m_pFirmware[i][0x57d3]<<8));
+		if(touch_dev->cap_info.hw_id == newHWID)
+			break;
+	}
+	
+	m_FirmwareIdx = i;
+	if(i == TSP_TYPE_COUNT)
+		m_FirmwareIdx = 0;
+
+	printk(KERN_INFO "touch tsp type = %d, %d\n", i, m_FirmwareIdx);
+
+}
+
+
 #if TOUCH_ONESHOT_UPGRADE
 static bool ts_check_need_upgrade(struct zinitix_touch_dev *touch_dev,
 	u16 curVersion, u16 curMinorVersion, u16 curRegVersion, u16 curHWID)
@@ -965,16 +1065,21 @@ static bool ts_check_need_upgrade(struct zinitix_touch_dev *touch_dev,
 	u16	newRegVersion;
 	u16	newChipCode;
 	u16	newHWID;
+	u8 *firmware_data;
+
+	ts_select_type_hw(touch_dev);
+	firmware_data = (u8*)m_pFirmware[m_FirmwareIdx];
+
 	curVersion = curVersion&0xff;
-	newVersion = (u16) (m_firmware_data[52] | (m_firmware_data[53]<<8));
+	newVersion = (u16) (firmware_data[52] | (firmware_data[53]<<8));
 	newVersion = newVersion&0xff;
-	newMinorVersion = (u16) (m_firmware_data[56] | (m_firmware_data[57]<<8));
-	newRegVersion = (u16) (m_firmware_data[60] | (m_firmware_data[61]<<8));
-	newChipCode = (u16) (m_firmware_data[64] | (m_firmware_data[65]<<8));
+	newMinorVersion = (u16) (firmware_data[56] | (firmware_data[57]<<8));
+	newRegVersion = (u16) (firmware_data[60] | (firmware_data[61]<<8));
+	newChipCode = (u16) (firmware_data[64] | (firmware_data[65]<<8));
 	if(touch_dev->cap_info.is_zmt200 == 0)
-	newHWID = (u16) (m_firmware_data[0x6b12] | (m_firmware_data[0x6b13]<<8));
+		newHWID = (u16) (firmware_data[0x6b12] | (firmware_data[0x6b13]<<8));
 	else
-		newHWID = (u16) (m_firmware_data[0x57d2] | (m_firmware_data[0x57d3]<<8));
+		newHWID = (u16) (firmware_data[0x57d2] | (firmware_data[0x57d3]<<8));
 
 #if CHECK_HWID
 	zinitix_printk("cur HW_ID = 0x%x, new HW_ID = 0x%x\n",
@@ -1402,7 +1507,7 @@ retry_init:
 		reg_data_version, touch_dev->cap_info.hw_id) == true) {
 		zinitix_printk("start upgrade firmware\n");
 
-		if(ts_upgrade_firmware(touch_dev, m_firmware_data,
+		if(ts_upgrade_firmware(touch_dev, m_pFirmware[m_FirmwareIdx],
 			touch_dev->cap_info.ic_fw_size) == false)
 			goto fail_init;
 
@@ -1508,6 +1613,21 @@ retry_init:
 		ZINITIX_TOUCH_MODE, touch_dev->touch_mode) != I2C_SUCCESS)
 		goto fail_init;
 
+	//==================================================
+	if (ts_read_data(touch_dev->client, ZINITIX_INTERNAL_FLAG_02,
+			(u8 *)&reg_val, 2) < 0)
+			goto fail_init;
+
+	touch_dev->cap_info.i2s_checksum = !(!zinitix_bit_test(reg_val, 15));
+	zinitix_printk("use i2s checksum = %d\r\n",
+			touch_dev->cap_info.i2s_checksum);			
+	
+//	if(touch_dev->cap_info.i2s_checksum)
+//		if (ts_write_reg(touch_dev->client,
+//				ZINITIX_I2C_CHECKSUM_WCNT, (sizeof(struct _ts_zinitix_point_info)/2)) != I2C_SUCCESS)
+//				goto fail_init;
+		
+
 	/* soft calibration */
 	if (ts_write_cmd(touch_dev->client,
 		ZINITIX_CALIBRATE_CMD) != I2C_SUCCESS)
@@ -1564,7 +1684,9 @@ fail_init:
 
 		zinitix_debug_msg("retry to initiallize(retry cnt = %d)\n", retry_cnt);
 #if TOUCH_FORCE_UPGRADE
-		if( ts_upgrade_firmware(touch_dev, m_firmware_data,
+		ts_select_type_hw(touch_dev);
+		
+		if(ts_upgrade_firmware(touch_dev, m_pFirmware[m_FirmwareIdx],
 			touch_dev->cap_info.ic_fw_size) == false) {
 			zinitix_printk("upgrade fail\n");
 			return false;
@@ -1660,26 +1782,22 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 #if (TOUCH_POINT_MODE == 2)
 	u8 palm = 0;
 #endif
+	u8 read_result = 1;
 
 	if(touch_dev == NULL) {
 		printk(KERN_INFO "zinitix_parsing_data : touch_dev == NULL?\n");
 		return;
 	}
 
-	if (touch_dev->use_esd_timer) {
-		ts_esd_timer_stop(touch_dev);
-		zinitix_debug_msg("esd timer stop\n");
-	}
-
 	if(down_trylock(&touch_dev->work_proceedure_lock)) {
-		zinitix_printk("fail to occupy sema\n");
+		zinitix_printk("fail to occupy sema(%d)\n", touch_dev->work_proceedure);
 		ts_write_cmd(touch_dev->client, ZINITIX_CLEAR_INT_STATUS_CMD);
 		return;
 	}
 
 	if (touch_dev->work_proceedure != TS_NO_WORK) {
 		zinitix_debug_msg("zinitix_touch_thread : \
-			[warning] other process occupied..\n");
+			[warning] other process occupied..(%d)\n", touch_dev->work_proceedure);
 		udelay(DELAY_FOR_SIGNAL_DELAY);
 		if (!gpio_get_value(touch_dev->int_gpio_num)) {
 			ts_write_cmd(touch_dev->client,
@@ -1687,13 +1805,31 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 			udelay(DELAY_FOR_SIGNAL_DELAY);
 		}
 
-		goto continue_parsing_data;
+		goto end_parsing_data;
 	}
+
+	if (touch_dev->use_esd_timer) {
+		ts_esd_timer_stop(touch_dev);
+		zinitix_debug_msg("esd timer stop\r\n");
+	}
+		
 	touch_dev->work_proceedure = TS_NORMAL_WORK;
 
-
 	if (ts_read_coord(touch_dev) == false || touch_dev->touch_info.status == 0xffff
-		|| touch_dev->touch_info.status == 0x1) {	// maybe desirable reset
+		|| touch_dev->touch_info.status == 0x1) {
+		// more retry
+		for(i=0; i< 20; i++) {	// about 10ms
+			if(!(ts_read_coord(touch_dev) == false|| touch_dev->touch_info.status == 0xffff
+			|| touch_dev->touch_info.status == 0x1))
+				break;
+		}
+
+		if(i==20)
+			read_result = 0;
+		
+	}
+		
+	if (!read_result) {
 		zinitix_debug_msg("couldn't read touch_dev coord. maybe chip is dead\n");
 		ts_power_control(touch_dev, POWER_OFF);
 		ts_power_control(touch_dev, POWER_ON_SEQUENCE);
@@ -1938,6 +2074,7 @@ continue_parsing_data:
 		}
 		touch_dev->work_proceedure = TS_NO_WORK;
 	}
+end_parsing_data:	
 	up(&touch_dev->work_proceedure_lock);
 
 }
@@ -2293,16 +2430,20 @@ static void get_fw_ver_bin(void *device_data)
 	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
 	u32 version;
 	char buff[16] = {0};
+	u8 *firmware_data;
 
 	set_default_result(info);
 
-	newVersion = (u16) (m_firmware_data[52] | (m_firmware_data[53]<<8));
-	newMinorVersion = (u16) (m_firmware_data[56] | (m_firmware_data[57]<<8));
-	newRegVersion = (u16) (m_firmware_data[60] | (m_firmware_data[61]<<8));
+	ts_select_type_hw(info);
+	firmware_data = (u8*)m_pFirmware[m_FirmwareIdx];	
+
+	newVersion = (u16) (firmware_data[52] | (firmware_data[53]<<8));
+	newMinorVersion = (u16) (firmware_data[56] | (firmware_data[57]<<8));
+	newRegVersion = (u16) (firmware_data[60] | (firmware_data[61]<<8));
 	if(info->cap_info.is_zmt200 == 0)
-	newHWID = (u16) (m_firmware_data[0x6b12] | (m_firmware_data[0x6b13]<<8));
+		newHWID = (u16) (firmware_data[0x6b12] | (firmware_data[0x6b13]<<8));
 	else
-		newHWID = (u16) (m_firmware_data[0x57d2] | (m_firmware_data[0x57d3]<<8));
+		newHWID = (u16) (firmware_data[0x57d2] | (firmware_data[0x57d3]<<8));
 
 	version = (u32)((u32)(newHWID&0xff)<<16)|((newVersion&0xf)<<12)|((newMinorVersion&0xf)<<8)|(newRegVersion&0xff);
 
@@ -2613,7 +2754,8 @@ static void get_reference(void *device_data)
 		return;
 	}
 
-	node_num = x_node*info->cap_info.x_node_num + y_node;
+//	node_num = x_node*info->cap_info.x_node_num + y_node;
+	node_num = x_node*info->cap_info.y_node_num + y_node;
 
 	val = info->dnd_data[node_num];
 	snprintf(buff, sizeof(buff), "%u", val);
@@ -2794,7 +2936,8 @@ static void fw_update(void *device_data)
 
 	switch (info->cmd_param[0]) {
 	case BUILT_IN:
-		ret = ts_upgrade_sequence((u8*)m_firmware_data);
+		ts_select_type_hw(info);		
+		ret = ts_upgrade_sequence((u8*)m_pFirmware[m_FirmwareIdx]);
 		if(ret<0) {
 			info->cmd_state = 3;
 			return;
@@ -3210,11 +3353,11 @@ static long ts_misc_fops_ioctl(struct file *filp,
 		break;
 
 	case TOUCH_IOCTL_VARIFY_UPGRADE_DATA:
-		if (copy_from_user(m_firmware_data,
+		if (copy_from_user(m_pFirmware[0],
 			argp, misc_touch_dev->cap_info.ic_fw_size))
 			return -1;
 
-		version = (u16) (m_firmware_data[52] | (m_firmware_data[53]<<8));
+		version = (u16) (m_pFirmware[0][52] | (m_pFirmware[0][53]<<8));		
 
 		printk(KERN_INFO "firmware version = %x\n", version);
 
@@ -3223,7 +3366,7 @@ static long ts_misc_fops_ioctl(struct file *filp,
 		break;
 
 	case TOUCH_IOCTL_START_UPGRADE:
-		return ts_upgrade_sequence((u8*)m_firmware_data);
+		return ts_upgrade_sequence((u8*)m_pFirmware[0]);
 
 	case TOUCH_IOCTL_GET_X_RESOLUTION:
 		ret = misc_touch_dev->cap_info.x_resolution;
@@ -3876,35 +4019,44 @@ static int zinitix_touch_remove(struct i2c_client *client)
 
 static ssize_t get_tsp_firm_version_phone(struct device *dev, struct device_attribute *attr, char *buf)
 {
+	struct zinitix_touch_dev *info = dev_get_drvdata(dev);
+
 	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
 	u32 version;
 	char buff[16] = {0};
+	u8 *firmware_data;
+
+	ts_select_type_hw(info);
+	firmware_data = (u8*)m_pFirmware[m_FirmwareIdx];	
     
-	newVersion = (u16) (m_firmware_data[52] | (m_firmware_data[53]<<8));
-	newMinorVersion = (u16) (m_firmware_data[56] | (m_firmware_data[57]<<8));
-	newRegVersion = (u16) (m_firmware_data[60] | (m_firmware_data[61]<<8));
-	if(misc_touch_dev->cap_info.is_zmt200 == 0)
-            newHWID = (u16) (m_firmware_data[0x6b12] | (m_firmware_data[0x6b13]<<8));
+	newVersion = (u16) (firmware_data[52] | (firmware_data[53]<<8));
+	newMinorVersion = (u16) (firmware_data[56] | (firmware_data[57]<<8));
+	newRegVersion = (u16) (firmware_data[60] | (firmware_data[61]<<8));
+	if(info->cap_info.is_zmt200 == 0)
+		newHWID = (u16) (firmware_data[0x6b12] | (firmware_data[0x6b13]<<8));
 	else	
-            newHWID = (u16) (m_firmware_data[0x57d2] | (m_firmware_data[0x57d3]<<8));
+		newHWID = (u16) (firmware_data[0x57d2] | (firmware_data[0x57d3]<<8));
 	
 	version = (u32)((u32)(newHWID&0xff)<<16)|((newVersion&0xf)<<12)|((newMinorVersion&0xf)<<8)|(newRegVersion&0xff);
 
 	snprintf(buff, sizeof(buff), "ZI%06X", version);
-
 	return sprintf(buf, "%s\n", buff);
+	
 }
 
 static ssize_t get_tsp_firm_version_panel(struct device *dev, struct device_attribute *attr, char *buf)
 {
+	struct zinitix_touch_dev *info = dev_get_drvdata(dev);
 	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
 	u32 version;
 	char buff[16] = {0};
 
-	newVersion = misc_touch_dev->cap_info.firmware_version;
-	newMinorVersion = misc_touch_dev->cap_info.firmware_minor_version;
-	newRegVersion = misc_touch_dev->cap_info.reg_data_version;
-	newHWID = misc_touch_dev->cap_info.hw_id;
+	set_default_result(info);
+
+	newVersion = info->cap_info.firmware_version;
+	newMinorVersion = info->cap_info.firmware_minor_version;
+	newRegVersion = info->cap_info.reg_data_version;
+	newHWID = info->cap_info.hw_id;
 	version = (u32)((u32)(newHWID&0xff)<<16)|((newVersion&0xf)<<12)|((newMinorVersion&0xf)<<8)|(newRegVersion&0xff);
 
 	snprintf(buff, sizeof(buff), "ZI%06X", version);	

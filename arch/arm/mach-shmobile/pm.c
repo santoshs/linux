@@ -26,10 +26,12 @@
 #include <linux/slab.h>
 #include <mach/system.h>
 #include <mach/pm.h>
+#include <mach/memory-r8a7373.h>
 #include <linux/wakelock.h>
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
 #include <linux/delay.h>
+#include <memlog/memlog.h>
 
 #ifndef CONFIG_PM_HAS_SECURE
 #include "pm_ram0.h"
@@ -37,6 +39,8 @@
 #include "pm_ram0_tz.h"
 #endif /*CONFIG_PM_HAS_SECURE*/
 #include "pmRegisterDef.h"
+#include <mach/sbsc.h>
+
 DEFINE_SPINLOCK(clock_lock);
 
 unsigned int *cpu0BackupArea;
@@ -63,7 +67,7 @@ int core_wait_kick(int time)
 	while (0 < wait_time--) {
 		if ((__raw_readl(FRQCRB) >> 31) == 0)
 			break;
-		shmobile_suspend_udelay(1);
+		udelay(1);
 	}
 
 	return (wait_time <= 0) ? -EBUSY : 0;
@@ -187,52 +191,8 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 
 unsigned int suspend_ZB3_backup(void)
 {
-	unsigned int pll3cr = 0;
-	unsigned int pll3cr_mul = 0;
-	unsigned int zb3_div = 0;
 	unsigned int zb3_clk = 0;
-	pll3cr = __raw_readl(PLL3CR);
-	pll3cr_mul = ((pll3cr & PLL3CR_MASK) >> 24) + 1;
-
-	zb3_div = __raw_readl(FRQCRD);
-	zb3_clk = (26 * pll3cr_mul);
-
-	switch (zb3_div & (0x1F)) {
-	case 0x00:
-	case 0x04:
-		zb3_clk /= 2;
-		break;
-	case 0x10:
-		zb3_clk /= 4;
-		break;
-	case 0x11:
-		zb3_clk /= 6;
-		break;
-	case 0x12:
-		zb3_clk /= 8;
-		break;
-	case 0x13:
-		zb3_clk /= 12;
-		break;
-	case 0x14:
-		zb3_clk /= 16;
-		break;
-	case 0x15:
-		zb3_clk /= 24;
-		break;
-	case 0x16:
-		zb3_clk /= 32;
-		break;
-	case 0x18:
-		zb3_clk /= 48;
-		break;
-	case 0x1B:
-		zb3_clk /= 96;
-		break;
-	default:
-		zb3_clk = -EINVAL;
-	}
-	zb3_clk *= 1000;
+	zb3_clk = shmobile_get_ape_req_freq();
 	return zb3_clk;
 }
 
@@ -250,6 +210,9 @@ int shmobile_init_pm(void)
 	unsigned long flags;
 	void __iomem *map = NULL;
 	unsigned long cpuidle_spinlock;
+#ifdef CONFIG_MEMLOG
+	int i;
+#endif
 	is_suspend_request = 0;
 		/* Chip revision */
 	chip_rev = shmobile_chip_rev();
@@ -298,7 +261,7 @@ int shmobile_init_pm(void)
 						ram0Cpu1RegisterArea);
 
 	/* Initialize SpinLock setting */
-	cpuidle_spinlock = 0x44000000;
+	cpuidle_spinlock = SDRAM_NON_SECURE_SPINLOCK_START_ADDR;
 
 	map = ioremap_nocache(cpuidle_spinlock,
 							0x00000400/*1k*/);
@@ -326,6 +289,25 @@ int shmobile_init_pm(void)
 	__raw_writel((unsigned long)CPUSTATUS_RUN, IOMEM(ram0Cpu0Status));
 	__raw_writel((unsigned long)CPUSTATUS_RUN, IOMEM(ram0Cpu1Status));
 
+#ifdef CONFIG_MEMLOG
+	/* Initialize memlog pm setting (ioremap 2k)*/
+	map = ioremap_nocache((unsigned long)(
+		MEMLOG_ADDRESS + CPU0_PM_START_INDEX),
+		CPU0_PM_SIZE + CPU1_PM_SIZE);
+	if (map != NULL) {
+		__raw_writel((unsigned long)map, IOMEM(ram0MemlogPmAddressVA));
+		__raw_writel((unsigned long)(
+			MEMLOG_ADDRESS + CPU0_PM_START_INDEX),
+			IOMEM(ram0MemlogPmAddressPAPhys));
+		for (i = 0 ; i <  ((CPU0_PM_SIZE + CPU1_PM_SIZE) >> 2); i++) {
+			__raw_writel((unsigned long)0x0, IOMEM(map));
+			map++;
+		}
+	} else {
+		printk(KERN_ERR "shmobile_init_pm: Failed ioremap\n");
+		return -EIO;
+	}
+#endif
 #ifdef CONFIG_PM_HAS_SECURE
 
 	/* Initialize sec_hal allocation */
@@ -345,171 +327,12 @@ int shmobile_init_pm(void)
 
 	__raw_writel((unsigned long)0x0, IOMEM(APARMBAREA)); /* 4k */
 #endif
-#ifndef CONFIG_PM_HAS_SECURE
-	/* Copy the source code internal RAM1 */
-	(void)memcpy((void *)secramArmVector,
-				(void *)&ArmVector,
-				fsArmVector);
 
-	(void)memcpy((void *)secramPM_Spin_Lock,
-		(void *)&PM_Spin_Lock,
-		fsPM_Spin_Lock);
-
-	(void)memcpy((void *)secramPM_Spin_Unlock,
-		(void *)&PM_Spin_Unlock,
-		fsPM_Spin_Unlock);
-
-	(void)memcpy((void *)secramDisableMMU,
-				(void *)&disablemmu,
-				fsDisableMMU);
-
-	(void)memcpy((void *)secramRestoreArmRegisterPA,
-				(void *)&restore_arm_register_pa,
-				fsRestoreArmRegisterPA);
-
-	(void)memcpy((void *)secramRestoreCommonRegister,
-				(void *)&restore_common_register,
-				fsRestoreCommonRegister);
-
-	(void)memcpy((void *)secramSysPowerDown,
-				(void *)&sys_powerdown,
-				fsSysPowerDown);
-
-	(void)memcpy((void *)secramSysPowerUp,
-				(void *)&sys_powerup,
-				fsSysPowerUp);
-
-	(void)memcpy((void *)secramSystemSuspendCPU0PA,
-				(void *)&systemsuspend_cpu0_pa,
-				fsSystemSuspendCPU0PA);
-
-	(void)memcpy((void *)secramCoreStandbyPA,
-				(void *)&corestandby_pa,
-				fsCoreStandbyPA);
-
-	(void)memcpy((void *)secramCoreStandbyPA2,
-				(void *)&corestandby_pa_2,
-				fsCoreStandbyPA2);
-
-	(void)memcpy((void *)secramSystemSuspendCPU1PA,
-				(void *)&systemsuspend_cpu1_pa,
-				fsSystemSuspendCPU1PA);
-
-	(void)memcpy((void *)secramcorestandby_down_status,
-				(void *)&corestandby_down_status,
-				fscorestandby_down_status);
-
-	(void)memcpy((void *)secramcorestandby_up_status,
-				(void *)&corestandby_up_status,
-				fscorestandby_up_status);
-
-	(void)memcpy((void *)secramxtal_though,
-				(void *)&xtal_though,
-				fsxtal_though);
-#if 0
-	(void)memcpy((void *)secramxtal_though_restore,
-				(void *)&xtal_though_restore,
-				fsxtal_though_restore);
-#endif
-#else /*CONFIG_PM_HAS_SECURE*/
-	/* Copy the source code internal RAM0 */
-	(void)memcpy((void *)ram0ArmVector,
-				(void *)&ArmVector,
-				fsArmVector);
-
-	(void)memcpy((void *)ram0CoreStandby,
-				(void *)&corestandby,
-				fsCoreStandby);
-
-	(void)memcpy((void *)ram0CoreStandby_2,
-				(void *)&corestandby_2,
-				fsCoreStandby_2);
-
-	(void)memcpy((void *)ram0SystemSuspend,
-				(void *)&systemsuspend,
-				fsSystemSuspend);
-
-	(void)memcpy((void *)ram0SaveArmRegister,
-				(void *)&save_arm_register,
-				fsSaveArmRegister);
-
-	(void)memcpy((void *)ram0RestoreArmRegisterPA,
-				(void *)&restore_arm_register_pa,
-				fsRestoreArmRegisterPA);
-
-	(void)memcpy((void *)ram0RestoreArmRegisterVA,
-				(void *)&restore_arm_register_va,
-				fsRestoreArmRegisterVA);
-
-	(void)memcpy((void *)ram0SaveArmCommonRegister,
-				(void *)&save_arm_common_register,
-				fsSaveArmCommonRegister);
-
-	(void)memcpy((void *)ram0RestoreArmCommonRegister,
-				(void *)&restore_arm_common_register,
-				fsRestoreArmCommonRegister);
-
-	(void)memcpy((void *)ram0PM_Spin_Lock,
-		(void *)&PM_Spin_Lock,
-		fsPM_Spin_Lock);
-
-	(void)memcpy((void *)ram0PM_Spin_Unlock,
-		(void *)&PM_Spin_Unlock,
-		fsPM_Spin_Unlock);
-
-	(void)memcpy((void *)ram0xtal_though,
-				(void *)&xtal_though,
-				fsxtal_though);
-
-	(void)memcpy((void *)ram0SysPowerDown,
-				(void *)&sys_powerdown,
-				fsSysPowerDown);
-
-	(void)memcpy((void *)ram0SysPowerUp,
-				(void *)&sys_powerup,
-				fsSysPowerUp);
-
-#endif /* CONFIG_PM_HAS_SECURE */
-
-	/* - set PLL1 stop conditon to A2SL, A3R, C4 state by CPG.PLL1STPCR */
+	/* - set PLL1 stop conditon to A2SL, A3R, A4MP, C4 state by CPG.PLL1STPCR */
 	__raw_writel(PLL1STPCR_DEFALT, PLL1STPCR);
+
+	copy_functions();
 
 	return 0;
 }
 
-static unsigned int division_ratio[16] = { 2, 3, 4, 6, 8, 12, 16, 1,\
-24, 1, 1, 48, 1, 1, 1, 1};
-
-/* PLL Circuit 0 Multiplication Ratio mask */
-#define PLL0CR_STC_MASK	0x3F000000
-
-void shmobile_suspend_udelay(unsigned int delay_time)
-{
-	unsigned int i;
-	unsigned int mul_ratio = 1;
-	unsigned int div_ratio = 1;
-	unsigned int zfc_val = 1;
-
-	if (__raw_readl(PLLECR) & CPG_PLL0ST)
-		mul_ratio = ((__raw_readl(PLL0CR) & PLL0CR_STC_MASK) \
-					>> 24) + 1;
-
-	if (__raw_readl(FRQCRB) & FRQCRB_ZSEL_BIT) {
-		zfc_val = (__raw_readl(FRQCRB) & FRQCRB_ZFC_MASK) \
-					>> 24;
-		div_ratio = division_ratio[zfc_val];
-
-		if (div_ratio == 1) {
-			printk(KERN_ALERT "Abnormal Zclk div_rate, as 1/%d. ", \
-					zfc_val);
-			printk(KERN_ALERT "Skip delay processing\n");
-			return;
-		}
-	}
-
-	/* get loop time for delay */
-	i = delay_time * (26 * mul_ratio) / 8 / div_ratio;
-
-	while (i > 0)
-		i--;
-}

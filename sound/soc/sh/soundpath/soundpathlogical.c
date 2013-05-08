@@ -55,6 +55,7 @@ static const char *const g_sndpdrv_op_modes_texts[] = {
 	"PCM"
 };
 
+#if 0
 /* for SoC */
 static const struct soc_enum g_sndpdrv_op_modes_enum
 	= SOC_ENUM_SINGLE(0,
@@ -73,6 +74,7 @@ static struct snd_kcontrol_new g_sndpdrv_controls[] = {
 	SNDPDRV_SOC_SINGLE("Capture Switch"  , 0, 0, 1, 0, sndp_soc_get_capture_mute, sndp_soc_put_capture_mute),
 	SNDPDRV_SOC_SINGLE("Earpiece Switch" , 0, 0, 1, 0, sndp_soc_get_playback_mute, sndp_soc_put_playback_mute),
 };
+#endif
 
 /* Mode change table */
 const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
@@ -236,9 +238,6 @@ static struct snd_soc_dai_ops sndp_fsi_dai_ops = {
 	.hw_params  = sndp_fsi_hw_params,
 };
 
-struct sndp_codec_info g_sndp_codec_info;
-EXPORT_SYMBOL(g_sndp_codec_info);
-
 /* pointer receive log cycle counter */
 u_int g_sndp_log_cycle_counter[SNDP_PCM_DIRECTION_MAX];
 
@@ -329,7 +328,7 @@ static inline void sndp_print_status_change(
 	const u_int uiBefore,
 	const u_int uiAfter)
 {
-	sndp_log_info("STATUS CHANGE: %s(%d) -> %s(%d)\n",
+	sndp_log_debug("STATUS CHANGE: %s(%d) -> %s(%d)\n",
 		((SNDP_STAT_NOT_CHG <= uiBefore) &&
 		 (SNDP_STAT_IN_COMM >= uiBefore)) ?
 			status_list[uiBefore].suffix : "***",
@@ -344,123 +343,6 @@ static inline void sndp_print_status_change(
 	do { } while (0)
 #endif
 
-
-/*!
-   @brief Next set device type, to identify
-
-   @param[in]	uiValue		PCM value
-   @param[out]	none
-
-   @retval	Next set devices
- */
-static u_long sndp_get_next_devices(const u_int uiValue)
-{
-	int	iRet = ERROR_NONE;
-	u_long	ulTmpNextDev = g_sndp_codec_info.dev_none;
-	u_int	uiDev;
-
-	sndp_log_debug_func("start uiValue[0x%08X]\n", uiValue);
-
-	/* OUTPUT side */
-	if (SNDP_PCM_OUT == SNDP_GET_DIRECTION_VAL(uiValue)) {
-
-		/* Get now enabled devices */
-		if (NULL != g_sndp_codec_info.get_device) {
-			iRet = g_sndp_codec_info.get_device(&ulTmpNextDev);
-			if (ERROR_NONE != iRet)
-				sndp_log_err("get_device error(code=%d)\n",
-					iRet);
-		}
-
-		/* Init to Playback side */
-		ulTmpNextDev &= ~g_sndp_codec_info.out_dev_all;
-
-		/* Check OUTPUT device */
-		uiDev = SNDP_GET_DEVICE_VAL(uiValue);
-
-		/* [OUT]Speaker */
-		if (SNDP_SPEAKER & uiDev)
-			ulTmpNextDev |= g_sndp_codec_info.dev_playback_speaker;
-
-		/* [OUT]Earpiece */
-		if (SNDP_EARPIECE & uiDev)
-			ulTmpNextDev |= g_sndp_codec_info.dev_playback_earpiece;
-
-		/* [OUT]Headphone */
-		if (SNDP_WIREDHEADPHONE & uiDev)
-			ulTmpNextDev |=
-				g_sndp_codec_info.dev_playback_headphones;
-
-		/* [OUT]Headset */
-		if (SNDP_WIREDHEADSET & uiDev)
-			ulTmpNextDev |=
-				g_sndp_codec_info.dev_playback_headphones;
-
-		/* IN_CALL mode check */
-		if (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(uiValue)) {
-
-			/* Init to Capture side */
-			ulTmpNextDev &= ~g_sndp_codec_info.in_dev_all;
-
-			/*
-			 * To identify the INPUT device,
-			 * to check the OUTPUT device.
-			 */
-			if (SNDP_WIREDHEADSET & uiDev) {
-				/*
-				 * [OUT]Including the Headset,
-				 * [IN]Headset MIC
-				 */
-				ulTmpNextDev |=
-				g_sndp_codec_info.dev_capture_headset_mic;
-			} else if (!(SNDP_BLUETOOTHSCO & uiDev)) {
-				/*
-				 * [OUT]Dosn't include the Headset, (not BT)
-				 * [IN]Built-in MIC
-				 */
-				ulTmpNextDev |=
-					g_sndp_codec_info.dev_capture_mic;
-			} else {
-				/*
-				 * [OUT]Bluetooth SCO,
-				 * [IN]Bluetooth SCO
-				 */
-				/* No process */
-			}
-		}
-	/* INPUT side */
-	} else {
-		/* Get now enabled devices */
-		if (NULL != g_sndp_codec_info.get_device) {
-			iRet = g_sndp_codec_info.get_device(&ulTmpNextDev);
-			if (ERROR_NONE != iRet)
-				sndp_log_err("get_device error(code=%d)\n",
-					     iRet);
-		}
-
-		/* Init to Capture side */
-		ulTmpNextDev &= ~g_sndp_codec_info.in_dev_all;
-
-		/* Check INPUT device */
-		uiDev = SNDP_GET_DEVICE_VAL(uiValue);
-
-		/* [IN]Built-in MIC */
-		if (SNDP_BUILTIN_MIC & uiDev)
-			ulTmpNextDev |= g_sndp_codec_info.dev_capture_mic;
-
-		/* [IN]Headset MIC */
-		if (SNDP_WIREDHEADSET & uiDev)
-			ulTmpNextDev |=
-				g_sndp_codec_info.dev_capture_headset_mic;
-	}
-
-	sndp_log_info("ulNextDev[0x%08lX]\n", ulTmpNextDev);
-	sndp_log_debug_func("end\n");
-
-	return ulTmpNextDev;
-}
-
-
 /*!
    @brief Wake lock control
 
@@ -474,7 +356,7 @@ void sndp_wake_lock(const enum sndp_wake_lock_kind kind)
 	u_long	flags;
 
 	sndp_log_debug_func("start\n");
-	sndp_log_info("kind[%d] count[%d]\n", kind, g_wake_lock_count);
+	sndp_log_debug("kind[%d] count[%d]\n", kind, g_wake_lock_count);
 
 	spin_lock_irqsave(&lock, flags);
 
@@ -511,7 +393,7 @@ void sndp_wake_lock(const enum sndp_wake_lock_kind kind)
 
 	spin_unlock_irqrestore(&lock, flags);
 
-	sndp_log_info("lock_count[%d]\n", g_wake_lock_count);
+	sndp_log_info("count[%d]\n", g_wake_lock_count);
 	sndp_log_debug_func("end\n");
 }
 
@@ -646,8 +528,6 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	sndp_work_initialize(&g_sndp_work_all_dl_mute,
 		  sndp_work_all_dl_mute);
 
-	memset(&g_sndp_codec_info, 0, sizeof(struct sndp_codec_info));
-
 	for (iCnt = 0; SNDP_PCM_DIRECTION_MAX > iCnt; iCnt++) {
 		sndp_work_initialize(&g_sndp_work_hw_free[iCnt],
 						sndp_work_hw_free);
@@ -666,33 +546,6 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	 * VCD_COMMAND_WATCH_STOP_FW registration
 	 */
 	sndp_regist_watch();
-
-	/* To save the volume value specified by the APL
-	 * (Assumption that the AudioLSI driver already started)
-	 */
-	if (NULL != g_sndp_codec_info.set_volum) {
-		iRet = g_sndp_codec_info.set_volum(
-				g_sndp_codec_info.out_dev_all,
-				g_sndp_codec_info.codec_valume);
-		if (ERROR_NONE != iRet) {
-			sndp_log_always_err("set volume[%d] error\n",
-					    g_sndp_codec_info.codec_valume);
-			goto set_volume_err;
-		}
-	}
-
-	/* To save the MIC mute value specified by the APL
-	 * (Assumption that the AudioLSI driver already started)
-	 */
-	if (NULL != g_sndp_codec_info.set_mute) {
-		iRet = g_sndp_codec_info.set_mute(
-				g_sndp_codec_info.mute_disable);
-		if (ERROR_NONE != iRet) {
-			sndp_log_always_err("set mute[%d] error\n",
-					    g_sndp_codec_info.mute_disable);
-			goto set_mute_err;
-		}
-	}
 
 	/* initialize all down link mute control flag */
 	g_dl_mute_flg = false;
@@ -720,13 +573,6 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	fsi_soc_platform->ops->pointer = sndp_fsi_pointer;
 	fsi_soc_platform->ops->hw_free = sndp_fsi_hw_free;
 	fsi_set_run_time(sndp_fsi_suspend, sndp_fsi_resume);
-
-	/* SoC control */
-	if (NULL != g_sndp_codec_info.set_soc_controls) {
-		g_sndp_codec_info.set_soc_controls(
-			g_sndpdrv_controls,
-			ARRAY_SIZE(g_sndpdrv_controls));
-	}
 
 	/* Power domain setting */
 	iRet = power_domain_devices("snd-soc-fsi",
@@ -760,20 +606,6 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		goto workque_create_err;
 	}
 
-	/* Initialize device setting for AudioLSI */
-	if (NULL != g_sndp_codec_info.set_device) {
-		iRet = g_sndp_codec_info.set_device(
-			g_sndp_codec_info.dev_none,
-			SNDP_VALUE_INIT,
-			g_sndp_codec_info.power_on);
-		sndp_log_debug("initial set_device\n");
-		if (ERROR_NONE != iRet) {
-			sndp_log_err("set device error(code=%d)\n", iRet);
-			goto set_dev_err;
-		}
-	}
-
-
 	/* Initialize bluetooth band frequency */
 	g_bluetooth_band_frequency = 8000;
 
@@ -785,14 +617,8 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	sndp_log_debug_func("end\n");
 	return ERROR_NONE;
 
-set_volume_err:
-set_mute_err:
-set_dev_err:
 ioremap_err:
 mkproc_sub_err:
-/*
-add_control_err:	TODO
-*/
 workque_create_err:
 	remove_proc_entry(SNDP_DRV_NAME, NULL);
 power_domain_err:
@@ -1012,7 +838,7 @@ static int sndp_proc_reg_dump_write(
 	return count;
 }
 
-
+#if 0
 /*!
    @brief Element information check function
 
@@ -1056,7 +882,7 @@ static int sndp_soc_get(
 {
 	return ERROR_NONE;
 }
-
+#endif
 
 /*!
    @brief PUT callback function for hooks control
@@ -1098,13 +924,11 @@ int sndp_soc_put(
 		if (new_btband) {
 			/* WIDE */
 			g_bluetooth_band_frequency = 16000;
-			sndp_log_info("bluetooth_band_frequency = WIDE(%d)\n",
-					g_bluetooth_band_frequency);
+			sndp_log_info("BT WIDE\n");
 		} else {
 			/* NARROW */
 			g_bluetooth_band_frequency = 8000;
-			sndp_log_info("bluetooth_band_frequency = NARROW(%d)\n",
-					g_bluetooth_band_frequency);
+			sndp_log_info("BT NARROW\n");
 		}
 		/* "bluetooth_band_frequency" setting removes it */
 		/* after confirmation.                           */
@@ -1114,7 +938,7 @@ int sndp_soc_put(
 	/* Show the PCM name */
 	memset(cPcm, '\0', sizeof(cPcm));
 	sndp_pcm_name_generate(uiValue, cPcm);
-	sndp_log_info("PCM: %s [0x%08X]\n", cPcm, uiValue);
+	sndp_log_info("PCM: %s\n", cPcm);
 
 	/* Gets the direction (Playback/Capture) */
 	uiDirection = SNDP_GET_DIRECTION_VAL(uiValue);
@@ -1122,26 +946,7 @@ int sndp_soc_put(
 	/* Get Old Value */
 	uiOldValue = GET_OLD_VALUE(uiDirection);
 	old_mode   = SNDP_GET_MODE_VAL(uiOldValue);
-#if 0
-	/* Uplink only/Downlink only/Both Uplink and Downlink */
-	if (SNDP_PLAYBACK_UPLINK_INCALL == uiValue) {
-		/* Uplink only */
-		call_set_play_link(true, false);
-		maxim_voice_link_mute(MUTE_ON, MUTE_OFF);
-		return ERROR_NONE;
-	} else if (SNDP_PLAYBACK_DOWNLINK_INCALL == uiValue) {
-		/* Downlink only */
-		call_set_play_link(false, true);
-		maxim_voice_link_mute(MUTE_OFF, MUTE_ON);
-		return ERROR_NONE;
-	} else {
-		/* Both Uplink and Downlink */
-		call_set_play_link(false, false);
-		maxim_voice_link_mute(MUTE_OFF, MUTE_OFF);
-		if (uiValue == uiOldValue)
-			return ERROR_NONE;
-	}
-#endif
+
 	/* Gets the mode (NORMAL/RINGTONE/INCALL/INCOMMUNICATION) */
 	uiMode = SNDP_GET_MODE_VAL(uiValue);
 
@@ -1151,8 +956,7 @@ int sndp_soc_put(
 		g_call_incomm_cb[SNDP_PCM_OUT] = true;
 		g_call_incomm_cb[SNDP_PCM_IN] = true;
 
-		/* Initialization of the firmware */
-		/* starting notice receiving flag */
+		/* Initialization of the firmware status flag */
 		atomic_set(&g_call_watch_start_fw, 0);
 	}
 	sndp_log_debug("g_sndp_start_call_wait = %d\n", g_sndp_start_call_wait);
@@ -1426,25 +1230,12 @@ int sndp_soc_get_voice_out_volume(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	int	iRet = ERROR_NONE;
 	u_int	uiVal = 0;
-
-
-	/* Get the current volume */
-	if (NULL != g_sndp_codec_info.get_volume) {
-		iRet = g_sndp_codec_info.get_volume(
-				g_sndp_codec_info.out_dev_all,
-				&uiVal);
-		if (ERROR_NONE > iRet) {
-			sndp_log_err("get volume error(code=%d)\n", iRet);
-			return iRet;
-		}
-	}
 
 	/* Return the current settings */
 	ucontrol->value.enumerated.item[0] = uiVal;
 
-	return iRet;
+	return ERROR_NONE;
 }
 
 
@@ -1461,25 +1252,11 @@ int sndp_soc_put_voice_out_volume(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	int		iRet = ERROR_NONE;
-	u_int	uiVal = ucontrol->value.enumerated.item[0];
-
-
-	/* Set the Volume value */
-	if (NULL != g_sndp_codec_info.set_volum) {
-		iRet = g_sndp_codec_info.set_volum(
-				g_sndp_codec_info.out_dev_all,
-				uiVal);
-		if (ERROR_NONE != iRet) {
-			sndp_log_err("set volume error(code=%d)\n", iRet);
-			return iRet;
-		}
-	}
-
-	return iRet;
+	return ERROR_NONE;
 }
 
 
+#if 0
 /*!
    @brief callback function for hooks control(Volume setting)
 
@@ -1509,23 +1286,7 @@ static int sndp_soc_get_capture_mute(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	int	iRet = ERROR_NONE;
-	u_int	uiVal = 0;
-
-
-	/* Get the current Mute status */
-	if (NULL != g_sndp_codec_info.get_mute) {
-		iRet = g_sndp_codec_info.get_mute(&uiVal);
-		if (ERROR_NONE != iRet) {
-			sndp_log_err("get mute error(code=%d)\n", iRet);
-			return iRet;
-		}
-	}
-
-	/* Return the current settings */
-	ucontrol->value.enumerated.item[0] = !(uiVal);
-
-	return iRet;
+	return ERROR_NONE;
 }
 
 
@@ -1542,20 +1303,9 @@ static int sndp_soc_put_capture_mute(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	int	iRet = ERROR_NONE;
-	u_int	uiVal = ucontrol->value.enumerated.item[0];
-
-	/* Set the Mute status */
-	if (NULL != g_sndp_codec_info.set_mute) {
-		iRet = g_sndp_codec_info.set_mute(uiVal);
-		if (ERROR_NONE != iRet) {
-			sndp_log_err("set mute error(code=%d)\n", iRet);
-			return iRet;
-		}
-	}
-
-	return iRet;
+	return ERROR_NONE;
 }
+#endif
 
 /*!
    @brief GET callback function for hooks control(Playback Mute setting)
@@ -1627,7 +1377,6 @@ int sndp_soc_put_playback_mute(
  */
 static int sndp_fsi_suspend(struct device *dev)
 {
-	int	iRet = ERROR_NONE;
 	u_int	iInDev = SNDP_NO_DEVICE;
 	u_int	iOutDev = SNDP_NO_DEVICE;
 
@@ -1636,11 +1385,11 @@ static int sndp_fsi_suspend(struct device *dev)
 	/* Device get from old_value */
 	if (SNDP_VALUE_INIT != GET_OLD_VALUE(SNDP_PCM_IN))
 		iInDev = SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(SNDP_PCM_IN));
+
 	if (SNDP_VALUE_INIT != GET_OLD_VALUE(SNDP_PCM_OUT))
 		iOutDev = SNDP_GET_DEVICE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT));
 
-	sndp_log_info("InDev[0x%08X] OutDev[0x%08X]\n",
-			iInDev, iOutDev);
+	sndp_log_info("InDev[0x%08X] OutDev[0x%08X]\n", iInDev, iOutDev);
 
 	/* Otherwise only IN_CALL, for processing and Other than FM playback */
 	if ((SNDP_MODE_INCALL !=
@@ -1648,22 +1397,6 @@ static int sndp_fsi_suspend(struct device *dev)
 	    ((!(SNDP_FM_RADIO_RX & iInDev)) &&
 	     (!(SNDP_FM_RADIO_RX & iOutDev)))) {
 		if (SNDP_POWER_SUSPEND != g_sndp_power_status) {
-			/*
-			 * Transition to SUSPEND,
-			 * status of Audio Lsi (Disable all devices)
-			 */
-			if (NULL != g_sndp_codec_info.set_device) {
-				iRet = g_sndp_codec_info.set_device(
-					g_sndp_codec_info.dev_none,
-					SNDP_VALUE_INIT,
-					g_sndp_codec_info.power_off);
-				sndp_log_debug("set_device all 0\n");
-				if (ERROR_NONE != iRet)
-					sndp_log_err(
-						"set device error(code=%d)\n",
-						iRet);
-			}
-
 			g_sndp_power_status = SNDP_POWER_SUSPEND;
 		}
 	}
@@ -1684,8 +1417,6 @@ static int sndp_fsi_suspend(struct device *dev)
  */
 static int sndp_fsi_resume(struct device *dev)
 {
-	int	iRet = ERROR_NONE;
-	u_long	ulSetDevice = g_sndp_codec_info.dev_none;
 	u_int	iInDev = SNDP_NO_DEVICE;
 	u_int	iOutDev = SNDP_NO_DEVICE;
 
@@ -1706,23 +1437,6 @@ static int sndp_fsi_resume(struct device *dev)
 	    ((!(SNDP_FM_RADIO_RX & iInDev)) &&
 	     (!(SNDP_FM_RADIO_RX & iOutDev)))) {
 		if (SNDP_POWER_RESUME != g_sndp_power_status) {
-			/* Transition to RESUME, status of Audio Lsi */
-			ulSetDevice =
-			sndp_get_next_devices(GET_OLD_VALUE(SNDP_PCM_OUT));
-
-			if (NULL != g_sndp_codec_info.set_device) {
-				iRet = g_sndp_codec_info.set_device(
-						g_sndp_codec_info.dev_none,
-						GET_OLD_VALUE(SNDP_PCM_OUT),
-						g_sndp_codec_info.power_on);
-				sndp_log_debug("set_device 0x%08lX\n",
-						ulSetDevice);
-				if (ERROR_NONE != iRet)
-					sndp_log_err(
-						"set device error(code=%d)\n",
-						iRet);
-			}
-
 			g_sndp_power_status = SNDP_POWER_RESUME;
 		}
 	}
@@ -1747,11 +1461,9 @@ static int sndp_fsi_startup(
 {
 	int	iRet = ERROR_NONE;
 
-
 	sndp_log_debug_func("start\n");
 
-	sndp_log_info("substream->stream = %d(%s)  old_value = 0x%08X\n",
-		substream->stream,
+	sndp_log_info("%s  old_value = 0x%08X\n",
 		(SNDP_PCM_OUT == substream->stream) ? "PLAYBACK" : "CAPTURE",
 		GET_OLD_VALUE(substream->stream));
 
@@ -1782,12 +1494,11 @@ static void sndp_fsi_shutdown(
 	struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
-
 	u_int		in_old_val = GET_OLD_VALUE(SNDP_PCM_IN);
+
 	sndp_log_debug_func("start\n");
 
-	sndp_log_info("substream->stream = %d(%s)  old_value = 0x%08X\n",
-		substream->stream,
+	sndp_log_info("%s  old_value = 0x%08X\n",
 		(SNDP_PCM_OUT == substream->stream) ? "PLAYBACK" : "CAPTURE",
 		GET_OLD_VALUE(substream->stream));
 
@@ -1854,8 +1565,7 @@ static int sndp_fsi_trigger(
 
 	runtime = substream->runtime;
 
-	sndp_log_info("stream = %d(%s)  old_value = 0x%08X  cmd = %s\n",
-		substream->stream,
+	sndp_log_info("%s val[0x%X] %s\n",
 		(SNDP_PCM_OUT == substream->stream) ? "PLAYBACK" : "CAPTURE",
 		GET_OLD_VALUE(substream->stream),
 		(SNDRV_PCM_TRIGGER_START == cmd) ?
@@ -1869,6 +1579,9 @@ static int sndp_fsi_trigger(
 
 	/* Initialize the cycle counter */
 	LOG_INIT_CYCLE_COUNT(substream->stream);
+
+	g_sndp_main[substream->stream].arg.fsi_substream = substream;
+	g_sndp_main[substream->stream].arg.fsi_dai = dai;
 
 	/* for Production Test (Loopback) */
 	if (SNDP_PT_LOOPBACK_START == g_pt_start) {
@@ -1911,11 +1624,11 @@ static int sndp_fsi_trigger(
 				/* Display the name of PCM */
 				sndp_pcm_name_generate(
 					GET_OLD_VALUE(substream->stream), cPcm);
-				sndp_log_info(
+				sndp_log_debug(
 					"#Trigger start[MM] PCM: %s [0x%08X]\n",
 					cPcm, GET_OLD_VALUE(substream->stream));
 
-				sndp_log_info("buff_size %ld  period_size %ld"
+				sndp_log_debug("buff_size %ld  period_size %ld"
 						"periods %d  frame_bits %d\n",
 						runtime->buffer_size,
 						runtime->period_size,
@@ -1944,7 +1657,7 @@ static int sndp_fsi_trigger(
 				break;
 
 			case SNDRV_PCM_TRIGGER_STOP:	/* TRIGGER_STOP */
-				sndp_log_info("#Trigger stop[MM]\n");
+				sndp_log_debug("#Trigger stop[MM]\n");
 
 				arg = &g_sndp_main[substream->stream].arg;
 				/* FSI trigger stop process */
@@ -2001,7 +1714,7 @@ pt_route_end:
 static int sndp_fsi_set_fmt(struct snd_soc_dai *dai, u_int fmt)
 {
 	sndp_log_debug_func("start\n");
-	sndp_log_info("fmt = 0x%08X\n", fmt);
+	sndp_log_debug("fmt = 0x%08X\n", fmt);
 
 	/* To store information about Hardware parameters */
 	g_sndp_fsi_format = fmt;
@@ -2025,7 +1738,7 @@ static int sndp_fsi_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
 	sndp_log_debug_func("start\n");
-	sndp_log_info("substream->stream = %d  params = %d\n",
+	sndp_log_info("hw_params dir[%d] %d\n",
 			substream->stream, params_rate(params));
 
 	/* To store information about Hardware parameters */
@@ -2115,28 +1828,38 @@ static void sndp_work_hw_free(struct sndp_work_info *work)
 
 static int sndp_fsi_hw_free(struct snd_pcm_substream *substream)
 {
-	int			ret;
+	int	ret;
+	u_int in_old_val = GET_OLD_VALUE(SNDP_PCM_IN);
 
 	sndp_log_debug_func("start\n");
 
-	g_sndp_hw_free_condition[substream->stream] = false;
-	g_sndp_work_hw_free[substream->stream].save_substream = substream;
+	if ((NULL != substream->runtime) &&
+	    (NULL != substream->runtime->dma_area)) {
+		g_sndp_hw_free_condition[substream->stream] = false;
+		g_sndp_work_hw_free[substream->stream].save_substream
+			= substream;
 
-	sndp_workqueue_enqueue(g_sndp_queue_main,
-				&g_sndp_work_hw_free[substream->stream]);
+		sndp_workqueue_enqueue(g_sndp_queue_main,
+			&g_sndp_work_hw_free[substream->stream]);
 
-	ret = wait_event_interruptible_timeout(
-		g_sndp_hw_free_wait[substream->stream],
-		g_sndp_hw_free_condition[substream->stream],
-		msecs_to_jiffies(SNDP_WAIT_MAX));
+		ret = wait_event_interruptible_timeout(
+			g_sndp_hw_free_wait[substream->stream],
+			g_sndp_hw_free_condition[substream->stream],
+			msecs_to_jiffies(SNDP_WAIT_MAX));
 
-	sndp_log_info("TRIGGER_STOP had been waiting to complete.\n");
+		sndp_log_info("complete\n");
 
-	ret = g_sndp_dai_func.fsi_hw_free(substream);
+		ret = g_sndp_dai_func.fsi_hw_free(substream);
 
+		if ((SNDP_PCM_IN == substream->stream) &&
+		    (SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(in_old_val))) {
+			SET_OLD_VALUE(SNDP_PCM_IN, SNDP_VALUE_INIT);
+			SET_SNDP_STATUS(SNDP_PCM_IN, SNDP_STAT_NORMAL);
+		}
+	}
 	sndp_log_debug_func("end\n");
 
-	return ret;
+	return ERROR_NONE;
 }
 
 /*!
@@ -2498,7 +2221,6 @@ static void sndp_incomm_trigger(
 static void sndp_work_voice_start(struct sndp_work_info *work)
 {
 	int			iRet = ERROR_NONE;
-	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
 
 	struct snd_soc_codec *codec =
 		(struct snd_soc_codec *)g_kcontrol->private_data;
@@ -2525,19 +2247,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
 		goto start_err;
-	}
-
-	/* set device  */
-	ulSetDevice = sndp_get_next_devices(work->new_value);
-	if (NULL != g_sndp_codec_info.set_device) {
-		iRet = g_sndp_codec_info.set_device(
-				ulSetDevice,
-				work->new_value,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != iRet) {
-			sndp_log_err("set device error (code=%d)\n", iRet);
-			goto start_err;
-		}
 	}
 
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
@@ -2605,20 +2314,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		goto start_err;
 	}
 
-	/* Set to ENABLE the speaker amp */
-	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(work->new_value)) {
-		if (NULL != g_sndp_codec_info.set_speaker_amp) {
-			iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_enable);
-			if (ERROR_NONE != iRet) {
-				sndp_log_err(
-					"speaker_amp ENABLE error(code=%d)\n",
-					iRet);
-				goto start_err;
-			}
-		}
-	}
-
 start_err:
 	g_sndp_start_call_wait = 1;
 	wake_up_interruptible(&g_sndp_start_call_queue);
@@ -2658,18 +2353,6 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 
 	atomic_set(&g_sndp_watch_stop_clk, 0);
 
-	/* Set to DISABLE the speaker amp */
-	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(work->old_value)) {
-		if (NULL != g_sndp_codec_info.set_speaker_amp) {
-			iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_disable);
-			if (ERROR_NONE != iRet)
-				sndp_log_err(
-					"speaker_amp DISABLE error(code=%d)\n",
-					iRet);
-		}
-	}
-
 	/* Input device OFF */
 	fsi_d2153_set_adc_power(g_kcontrol, 0);
 
@@ -2681,17 +2364,6 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 
 	/* stop CLKGEN */
 	clkgen_stop();
-
-	/* AudioLSI device all stop */
-	if (NULL != g_sndp_codec_info.set_device) {
-		iRet = g_sndp_codec_info.set_device(
-				g_sndp_codec_info.dev_none,
-				SNDP_VALUE_INIT,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("set device error (code=%d)\n",
-				     iRet);
-	}
 
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->old_value),
 			     SNDP_GET_AUDIO_DEVICE(work->old_value),
@@ -2808,18 +2480,6 @@ static int sndp_work_voice_dev_chg_audioic_to_bt(
 
 	sndp_log_debug_func("start\n");
 
-	/* Set to DISABLE the speaker amp */
-	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(old_value)) {
-		if (NULL != g_sndp_codec_info.set_speaker_amp) {
-			iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_disable);
-			if (ERROR_NONE != iRet)
-				sndp_log_err(
-					"speaker_amp DISABLE error(code=%d)\n",
-					iRet);
-		}
-	}
-
 	/* stop SCUW */
 	scuw_stop();
 
@@ -2834,17 +2494,6 @@ static int sndp_work_voice_dev_chg_audioic_to_bt(
 	common_set_pll22(old_value, STAT_OFF, g_bluetooth_band_frequency);
 	common_set_fsi2cr(SNDP_NO_DEVICE, STAT_OFF);
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
-
-	/* AudioLSI device all stop */
-	if (NULL != g_sndp_codec_info.set_device) {
-		iRet = g_sndp_codec_info.set_device(
-				g_sndp_codec_info.dev_none,
-				SNDP_VALUE_INIT,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("set device error (code=%d)\n",
-				     iRet);
-	}
 
 	/* start SCUW */
 	iRet = scuw_start(new_value, g_bluetooth_band_frequency);
@@ -2887,8 +2536,6 @@ static int sndp_work_voice_dev_chg_bt_to_audioic(
 	const u_int new_value)
 {
 	int	iRet = ERROR_NONE;
-	u_long	ulSetDevice = g_sndp_codec_info.dev_none;
-
 
 	sndp_log_debug_func("start\n");
 
@@ -2930,30 +2577,6 @@ static int sndp_work_voice_dev_chg_bt_to_audioic(
 
 	fsi_fifo_reset(SNDP_PCM_PORTA);
 
-	/* device setting */
-	ulSetDevice = sndp_get_next_devices(new_value);
-	if (NULL != g_sndp_codec_info.set_device) {
-		iRet = g_sndp_codec_info.set_device(
-				ulSetDevice,
-				new_value,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("set device error (code=%d)\n",
-				     iRet);
-	}
-
-	/* Set to ENABLE the speaker amp */
-	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(new_value)) {
-		if (NULL != g_sndp_codec_info.set_speaker_amp) {
-			iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_enable);
-			if (ERROR_NONE != iRet)
-				sndp_log_err(
-					"speaker_amp ENABLE error(code=%d)\n",
-					iRet);
-		}
-	}
-
 	sndp_log_debug_func("end\n");
 
 	return ERROR_NONE;
@@ -2974,41 +2597,8 @@ static int sndp_work_voice_dev_chg_in_audioic(
 	const u_int old_value,
 	const u_int new_value)
 {
-	int	iRet = ERROR_NONE;
-	u_long	ulSetDevice = g_sndp_codec_info.dev_none;
-
-
 	sndp_log_debug_func("start\n");
 
-	/* device change */
-	if (new_value != old_value) {
-		ulSetDevice = sndp_get_next_devices(new_value);
-		if (NULL != g_sndp_codec_info.set_device) {
-			iRet = g_sndp_codec_info.set_device(
-					ulSetDevice,
-					new_value,
-					g_sndp_codec_info.power_on);
-			if (ERROR_NONE != iRet)
-				sndp_log_err("set device error (code=%d)\n",
-					     iRet);
-		}
-	}
-
-	/* Set to ENABLE/DISABLE the speaker amp */
-	if (NULL != g_sndp_codec_info.set_speaker_amp) {
-		if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(new_value))
-			iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_enable);
-		else
-			iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_disable);
-
-		if (ERROR_NONE != iRet)
-			sndp_log_err(
-			"set_speaker_amp %s error(code=%d)\n",
-			(SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(new_value)) ?
-			"ENABLE" : "DISABLE", iRet);
-	}
 	sndp_log_debug_func("end\n");
 
 	return ERROR_NONE;
@@ -3025,38 +2615,8 @@ static int sndp_work_voice_dev_chg_in_audioic(
  */
 static void sndp_work_fm_radio_dev_chg(struct sndp_work_info *work)
 {
-	int			ret = ERROR_NONE;
-	u_long			device = g_sndp_codec_info.dev_none;
 
 	sndp_log_debug_func("start\n");
-
-	/* device change */
-	device = sndp_get_next_devices(work->new_value);
-	if (NULL != g_sndp_codec_info.set_device) {
-		ret = g_sndp_codec_info.set_device(
-				device,
-				work->new_value,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != ret)
-			sndp_log_err("set device error (code=%d)\n", ret);
-	}
-
-	if (NULL != g_sndp_codec_info.set_speaker_amp) {
-		/* Set to ENABLE/DISABLE the speaker amp */
-		if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(work->new_value))
-			ret = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_enable);
-		else
-			ret = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_disable);
-
-		if (ERROR_NONE != ret) {
-			sndp_log_err("set_speaker_amp %s error(code=%d)\n",
-			(SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(work->new_value)) ?
-							"ENABLE" : "DISABLE",
-			ret);
-		}
-	}
 
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
@@ -3163,40 +2723,13 @@ static void sndp_work_capture_stop(struct sndp_work_info *work)
  */
 static void sndp_work_play_incomm_start(struct sndp_work_info *work)
 {
-	int			ret = ERROR_NONE;
-	u_long			set_device = g_sndp_codec_info.dev_none;
-
 	sndp_log_debug_func("start\n");
 	/* Standby restraint */
 
 	/* Running Playback */
 	g_sndp_incomm_playrec_flg |= E_PLAY;
 
-	/* device change */
-	set_device = sndp_get_next_devices(work->new_value);
-	if (NULL != g_sndp_codec_info.set_device) {
-		ret = g_sndp_codec_info.set_device(
-				set_device,
-				work->new_value,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != ret)
-			sndp_log_err("set device error (code=%d)\n", ret);
-	}
-
-		sndp_work_incomm_start(work->new_value);
-
-	/* Set to ENABLE the speaker amp */
-	if (SNDP_SPEAKER & SNDP_GET_DEVICE_VAL(work->new_value)) {
-		if (NULL != g_sndp_codec_info.set_speaker_amp) {
-			ret = g_sndp_codec_info.set_speaker_amp(
-				g_sndp_codec_info.speaker_enable);
-			if (ERROR_NONE != ret) {
-				sndp_log_err(
-					"speaker_amp ENABLE error(code=%d)\n",
-					ret);
-			}
-		}
-	}
+	sndp_work_incomm_start(work->new_value);
 
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
@@ -3215,9 +2748,6 @@ static void sndp_work_play_incomm_start(struct sndp_work_info *work)
  */
 static void sndp_work_play_incomm_stop(struct sndp_work_info *work)
 {
-	int			ret = ERROR_NONE;
-	u_long			set_device = g_sndp_codec_info.dev_none;
-
 	sndp_log_debug_func("start\n");
 
 	/* Stop Playback runnning */
@@ -3229,25 +2759,6 @@ static void sndp_work_play_incomm_stop(struct sndp_work_info *work)
 	if (!g_sndp_incomm_playrec_flg) {
 		/* To register a work queue to stop processing Playback */
 		sndp_work_incomm_stop(work->old_value);
-	}
-
-	if (NULL != g_sndp_codec_info.get_device) {
-		ret = g_sndp_codec_info.get_device(&set_device);
-		if (ERROR_NONE != ret)
-			sndp_log_err("get_device error(code=%d)\n", ret);
-	}
-
-	/* Init to Playback side */
-	set_device &= ~g_sndp_codec_info.out_dev_all;
-
-	/* set Device */
-	if (NULL != g_sndp_codec_info.set_device) {
-		ret = g_sndp_codec_info.set_device(
-				set_device,
-				SNDP_VALUE_INIT,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != ret)
-			sndp_log_err("set_device error (code=%d)\n", ret);
 	}
 
 	sndp_log_debug_func("end\n");
@@ -3264,24 +2775,10 @@ static void sndp_work_play_incomm_stop(struct sndp_work_info *work)
  */
 static void sndp_work_capture_incomm_start(struct sndp_work_info *work)
 {
-	int			ret = ERROR_NONE;
-	u_long			set_device = g_sndp_codec_info.dev_none;
-
 	sndp_log_debug_func("start\n");
 
 	/* Running Capture */
 	g_sndp_incomm_playrec_flg |= E_CAP;
-
-	/* device change */
-	set_device = sndp_get_next_devices(work->new_value);
-	if (NULL != g_sndp_codec_info.set_device) {
-		ret = g_sndp_codec_info.set_device(
-				set_device,
-				work->new_value,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != ret)
-			sndp_log_err("set device error (code=%d)\n", ret);
-	}
 
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
@@ -3300,9 +2797,6 @@ static void sndp_work_capture_incomm_start(struct sndp_work_info *work)
  */
 static void sndp_work_capture_incomm_stop(struct sndp_work_info *work)
 {
-	int			ret = ERROR_NONE;
-	u_long			set_device = g_sndp_codec_info.dev_none;
-
 	sndp_log_debug_func("start\n");
 
 	/* Stop Capture running */
@@ -3311,25 +2805,6 @@ static void sndp_work_capture_incomm_stop(struct sndp_work_info *work)
 	if (!g_sndp_incomm_playrec_flg) {
 		/* To register a work queue to stop processing Playback */
 		sndp_work_incomm_stop(work->old_value);
-	}
-
-	if (NULL != g_sndp_codec_info.get_device) {
-		ret = g_sndp_codec_info.get_device(&set_device);
-		if (ERROR_NONE != ret)
-			sndp_log_err("get_device error(code=%d)\n", ret);
-	}
-
-	/* Init to Capture side */
-	set_device &= ~g_sndp_codec_info.in_dev_all;
-
-	/* set Device */
-	if (NULL != g_sndp_codec_info.set_device) {
-		ret = g_sndp_codec_info.set_device(
-				set_device,
-				SNDP_VALUE_INIT,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != ret)
-			sndp_log_err("set_device error (code=%d)\n", ret);
 	}
 
 	sndp_log_debug_func("end\n");
@@ -3804,6 +3279,7 @@ static void sndp_work_call_capture_incomm_stop(struct sndp_work_info *work)
 
 	/* Capture incommunication stop request */
 	call_record_incomm_stop();
+
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
 
@@ -3811,6 +3287,11 @@ static void sndp_work_call_capture_incomm_stop(struct sndp_work_info *work)
 }
 
 
+#if 0
+/**
+ * Not used function.
+ */
+ */
 /*!
 
    @param[in]	work	work queue structure
@@ -3847,8 +3328,12 @@ static void sndp_work_pt_playback_start(struct sndp_work_info *work)
 
 	sndp_log_debug_func("end\n");
 }
+#endif
 
-
+#if 0
+/**
+ * Not used function.
+ */
 /*!
    @brief Work queue function for Stop during a PT playback
 
@@ -3882,7 +3367,7 @@ static void sndp_work_pt_playback_stop(struct sndp_work_info *work)
 
 	sndp_log_debug_func("end\n");
 }
-
+#endif
 
 /*!
    @brief Work queue processing for all down link mute control
@@ -3968,16 +3453,14 @@ static void sndp_work_watch_stop_fw(struct sndp_work_info *work)
 	}
 
 	/* During a VoIP */
-	if (SNDP_STAT_IN_COMM == GET_SNDP_STATUS(SNDP_PCM_OUT)) {
-		g_call_incomm_cb[SNDP_PCM_OUT] = true;
+	if ((SNDP_STAT_IN_COMM == GET_SNDP_STATUS(SNDP_PCM_OUT)) ||
+		(SNDP_STAT_IN_COMM == GET_SNDP_STATUS(SNDP_PCM_IN))) {
+		/* Initialization of the firmware status flag */
+		atomic_set(&g_call_watch_stop_fw, 1);
 		/* Dummy play start (VoIP) */
 		if (!(SNDP_ROUTE_PLAY_DUMMY & g_sndp_stream_route))
 			call_change_incomm_play();
-	}
 
-	/* During a VoIP */
-	if (SNDP_STAT_IN_COMM == GET_SNDP_STATUS(SNDP_PCM_IN)) {
-		g_call_incomm_cb[SNDP_PCM_IN] = true;
 		/* Dummy record start (VoIP) */
 		if (!(SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route))
 			call_change_incomm_rec();
@@ -4082,7 +3565,7 @@ static void sndp_codec_type_cb(u_int codec_type)
 	}
 
 	if (g_sndp_extdev_callback->set_nb_wb) {
-		sndp_log_info("call extdev set_nb_wb\n");
+		sndp_log_info("extdev set_nb_wb\n");
 		ret = g_sndp_extdev_callback->set_nb_wb(codec_type);
 		if (ERROR_NONE != ret)
 			sndp_log_err("set_nb_wb error [%d]\n", ret);
@@ -4105,7 +3588,6 @@ static void sndp_codec_type_cb(u_int codec_type)
 static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 {
 	int			iRet = ERROR_NONE;
-	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
 	u_int			dev = SNDP_GET_DEVICE_VAL(work->new_value);
 
 	struct snd_soc_codec *codec =
@@ -4120,18 +3602,6 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 		sndp_log_err("ignore_suspend error(code=%d)\n", iRet);
 		goto start_err;
 	}
-
-	/* set device */
-	ulSetDevice = sndp_get_next_devices(work->new_value);
-	if (NULL != g_sndp_codec_info.set_device) {
-		iRet = g_sndp_codec_info.set_device(
-				ulSetDevice,
-				work->new_value,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("set device error (code=%d)\n", iRet);
-	}
-
 
 	/* Enable the power domain */
 	if ((E_PLAY | E_CAP) != g_sndp_playrec_flg) {
@@ -4185,20 +3655,6 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 		goto start_err;
 	}
 
-	/* Set to ENABLE the speaker amp */
-	if (g_sndp_codec_info.dev_playback_speaker & ulSetDevice) {
-		if (NULL != g_sndp_codec_info.set_speaker_amp) {
-			iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_enable);
-			if (ERROR_NONE != iRet) {
-				sndp_log_err(
-					"speaker_amp ENABLE error(code=%d)\n",
-					iRet);
-				goto start_err;
-			}
-		}
-	}
-
 start_err:
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
@@ -4218,7 +3674,6 @@ start_err:
 static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 {
 	int			iRet = ERROR_NONE;
-	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
 	u_int			dev = SNDP_GET_DEVICE_VAL(work->new_value);
 
 	struct snd_soc_codec *codec =
@@ -4226,39 +3681,6 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 	struct snd_soc_card *card = codec->card;
 
 	sndp_log_debug_func("start\n");
-
-	/* Set to DISABLE the speaker amp */
-	if (NULL != g_sndp_codec_info.get_device) {
-		iRet = g_sndp_codec_info.get_device(&ulSetDevice);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("get_device error(code=%d)\n",
-				     iRet);
-	}
-
-	if (g_sndp_codec_info.dev_playback_speaker & ulSetDevice) {
-		if (NULL != g_sndp_codec_info.set_speaker_amp) {
-			iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_disable);
-			if (ERROR_NONE != iRet)
-				sndp_log_err(
-					"speaker_amp DISABLE error(code=%d)\n",
-					iRet);
-		}
-	}
-
-	/* Init to Capture side */
-	ulSetDevice &= ~g_sndp_codec_info.in_dev_all;
-
-	/* set Device */
-	if (NULL != g_sndp_codec_info.set_device) {
-		iRet = g_sndp_codec_info.set_device(
-				ulSetDevice,
-				SNDP_VALUE_INIT,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("set_device error (code=%d)\n",
-				     iRet);
-	}
 
 	/* Disable the power domain */
 	if (!g_sndp_playrec_flg) {
@@ -4445,12 +3867,11 @@ static void sndp_path_backout(const u_int uiValue)
 static void sndp_work_start(const int direction)
 {
 	int	iRet = ERROR_NONE;
-	u_long	ulSetDevice = g_sndp_codec_info.dev_none;
 	u_int	uiValue;
 	u_int	dev;
 
 	sndp_log_debug_func("start\n");
-	sndp_log_info("direction[%d]\n", direction);
+	sndp_log_info("dir[%d]\n", direction);
 
 	uiValue = GET_OLD_VALUE(direction);
 
@@ -4461,25 +3882,7 @@ static void sndp_work_start(const int direction)
 	if (SNDP_PCM_IN == direction)
 		fsi_d2153_set_adc_power(g_kcontrol, 1);
 
-	/* set device */
-	/* (In the case of IN_CALL, the device has been set) */
-	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
-		ulSetDevice = sndp_get_next_devices(uiValue);
-		sndp_log_info("set_next_dev[%08lx]\n", ulSetDevice);
-		if (NULL != g_sndp_codec_info.set_device) {
-			iRet = g_sndp_codec_info.set_device(
-					ulSetDevice, uiValue,
-					g_sndp_codec_info.power_on);
-			if (ERROR_NONE != iRet) {
-				sndp_log_err("set device error (code=%d)\n",
-					iRet);
-				return;
-			}
-		}
-	}
-
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
-
 
 	/* PM_RUNTIME */
 	if ((E_PLAY | E_CAP) != g_sndp_playrec_flg) {
@@ -4514,11 +3917,6 @@ static void sndp_work_start(const int direction)
 			common_set_fsi2cr(dev, STAT_OFF);
 		}
 	}
-
-	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
-		sndp_extdev_set_state(SNDP_GET_MODE_VAL(uiValue),
-				     SNDP_GET_AUDIO_DEVICE(uiValue),
-				     SNDP_EXTDEV_START);
 
 	if (SNDP_PT_NOT_STARTED == g_pt_start) {
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
@@ -4560,30 +3958,12 @@ static void sndp_work_start(const int direction)
 
 	/* Set FSI hardware parameters */
 	if (NULL != g_sndp_dai_func.fsi_hw_params) {
-		sndp_log_info("fsi_dai_hw_params [params = %d]\n",
+		sndp_log_debug("hw_params [params = %d]\n",
 			params_rate(&g_sndp_main[direction].arg.fsi_params));
 		g_sndp_dai_func.fsi_hw_params(
 				g_sndp_main[direction].arg.fsi_substream,
 				&g_sndp_main[direction].arg.fsi_params,
 				g_sndp_main[direction].arg.fsi_dai);
-	}
-
-	/* Set to ENABLE the speaker amp */
-	/* (In the case of IN_CALL, the amp has been set) */
-	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
-		if ((SNDP_PCM_OUT == direction) &&
-		    (SNDP_SPEAKER & dev)) {
-			if (NULL != g_sndp_codec_info.set_speaker_amp) {
-				iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_enable);
-				if (ERROR_NONE != iRet) {
-					sndp_log_err(
-					"speaker_amp ENABLE error(code=%d)\n",
-					iRet);
-					return;
-				}
-			}
-		}
 	}
 
 	/* start CLKGEN */
@@ -4614,7 +3994,7 @@ static void sndp_work_start(const int direction)
 			sndp_log_err("fsi_trigger error(code=%d)\n", iRet);
 	}
 
-	sndp_log_debug_func("end\n");
+	sndp_log_info("end\n");
 }
 
 
@@ -4631,13 +4011,11 @@ static void sndp_work_stop(
 	struct sndp_work_info *work,
 	const int direction)
 {
-	int			iRet = ERROR_NONE;
-	u_long			ulSetDevice = g_sndp_codec_info.dev_none;
 	u_int			uiValue;
 	u_int			dev;
 
 	sndp_log_debug_func("start\n");
-	sndp_log_info("direction[%d]\n", direction);
+	sndp_log_info("dir[%d]\n", direction);
 
 	if (SNDP_PCM_IN == direction) {
 		/* Input device OFF */
@@ -4645,26 +4023,13 @@ static void sndp_work_stop(
 	}
 
 	if (SNDP_PCM_OUT == direction) {
+                /* shut down external amp prior to PMU */
+		sndp_extdev_set_state(SNDP_MODE_NORMAL,SNDP_OUT_SPEAKER,SNDP_EXTDEV_STOP );
 		/* Output device OFF */
 		fsi_d2153_set_dac_power(g_kcontrol, 0);
 	}
 	uiValue = GET_OLD_VALUE(direction);
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
-
-	/* Set to DISABLE the speaker amp */
-	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
-		if ((SNDP_PCM_OUT == direction) &&
-		    (SNDP_SPEAKER & dev)) {
-			if (NULL != g_sndp_codec_info.set_speaker_amp) {
-				iRet = g_sndp_codec_info.set_speaker_amp(
-					g_sndp_codec_info.speaker_disable);
-				if (ERROR_NONE != iRet)
-					sndp_log_err(
-					"speaker_amp DISABLE error(code=%d)\n",
-					iRet);
-			}
-		}
-	}
 
 	/* FSI Trigger stop */
 	if (NULL != g_sndp_dai_func.fsi_trigger) {
@@ -4679,35 +4044,6 @@ static void sndp_work_stop(
 		sndp_log_debug("fsi_dai_shutdown\n");
 		g_sndp_dai_func.fsi_shutdown(&(work->stop.fsi_substream),
 					     &(work->stop.fsi_dai));
-	}
-
-	if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
-		if (NULL != g_sndp_codec_info.get_device) {
-			iRet = g_sndp_codec_info.get_device(&ulSetDevice);
-			sndp_log_info("get_dev[%08lx]\n", ulSetDevice);
-			if (ERROR_NONE != iRet)
-				sndp_log_err("get_device error(codec=%d)\n",
-					     iRet);
-		}
-
-		if (SNDP_PCM_OUT == direction) {
-			/* Init to Out devices */
-			ulSetDevice &= ~g_sndp_codec_info.out_dev_all;
-		} else if (SNDP_PCM_IN == direction) {
-			/* Init to In devices */
-			ulSetDevice &= ~g_sndp_codec_info.in_dev_all;
-		}
-
-		if (NULL != g_sndp_codec_info.set_device) {
-			sndp_log_info("set_next_dev[%08lx]\n",
-				ulSetDevice);
-			iRet = g_sndp_codec_info.set_device(
-				ulSetDevice, SNDP_VALUE_INIT,
-					g_sndp_codec_info.power_on);
-			if (ERROR_NONE != iRet)
-				sndp_log_err("set_device error (code=%d)\n",
-					iRet);
-		}
 	}
 
 	/* Disable the power domain */
@@ -4746,7 +4082,7 @@ static void sndp_work_stop(
 	/* Wake Unlock or Force Unlock */
 	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);
 
-	sndp_log_debug_func("end\n");
+	sndp_log_info("end\n");
 }
 
 
@@ -4824,7 +4160,6 @@ static void sndp_after_of_work_call_capture_stop(
 	const u_int iOutValue)
 {
 	int	iRet = ERROR_NONE;
-	u_long	ulSetDevice = g_sndp_codec_info.dev_none;
 
 	sndp_log_debug_func("start\n");
 	sndp_log_info("iInValue[0x%08X] iOutValue[0x%08X]\n",
@@ -4846,21 +4181,6 @@ static void sndp_after_of_work_call_capture_stop(
 	iRet = pm_runtime_put_sync(g_sndp_power_domain);
 	if (ERROR_NONE != iRet)
 		sndp_log_info("modules power off iRet=%d\n", iRet);
-
-	/*
-	 * A process similar to sndp_work_normal_dev_chg()
-	 */
-
-	/* device change */
-	ulSetDevice = sndp_get_next_devices(iOutValue);
-	if (NULL != g_sndp_codec_info.set_device) {
-		iRet = g_sndp_codec_info.set_device(
-				ulSetDevice,
-				iOutValue,
-				g_sndp_codec_info.power_on);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("set device error (code=%d)\n", iRet);
-	}
 
 	/* Wake Force Unlock */
 	sndp_wake_lock(E_FORCE_UNLOCK);
@@ -4909,7 +4229,7 @@ static void sndp_extdev_set_state(unsigned int mode, unsigned int device, unsign
 	}
 
 	if (g_sndp_extdev_callback->set_state) {
-		sndp_log_info("call extdev set_state mode[%d] dev[%d] chg[%d]\n",
+		sndp_log_info("extdev m[%d] d[%d] c[%d]\n",
 				mode, device, dev_chg);
 		ret = g_sndp_extdev_callback->set_state(mode, device, dev_chg);
 		if (ERROR_NONE != ret)
@@ -4946,12 +4266,6 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 	else if (SNDP_EXTDEV_STOP == dev_chg)
 		g_pt_start = SNDP_PT_NOT_STARTED;
 
-	if ((!g_sndp_extdev_callback) ||
-	    (!(g_sndp_extdev_callback->set_state))) {
-		sndp_log_debug("Callback function address is NULL\n");
-		return -ENODEV;
-	}
-
 	if (SNDP_EXTDEV_START == dev_chg) {
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
 		/* CLKGEN master setting */
@@ -4964,14 +4278,8 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
 		sndp_log_info("call extdev set_state\n");
-		iRet = g_sndp_extdev_callback->set_state(
-						mode,
-						device,
-						dev_chg);
-		if (ERROR_NONE != iRet) {
-			sndp_log_err("set_state error [%d]\n", iRet);
-			return iRet;
-		}
+
+		sndp_extdev_set_state(mode, device, dev_chg);
 
 		/* start SCUW */
 		iRet = scuw_start(SNDP_PLAYBACK_EARPIECE_INCALL,
@@ -5009,12 +4317,8 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 		clkgen_stop();
 
 		sndp_log_info("call extdev set_state\n");
-		iRet = g_sndp_extdev_callback->set_state(
-						mode,
-						device,
-						dev_chg);
-		if (ERROR_NONE != iRet)
-			sndp_log_err("set_state error [%d]\n", iRet);
+
+		sndp_extdev_set_state(mode, device, dev_chg);
 
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
 		/* CLKGEN master process */

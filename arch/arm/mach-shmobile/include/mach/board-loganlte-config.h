@@ -23,6 +23,7 @@
 #include <linux/mmcoops.h>
 #include <linux/mmc/renesas_mmcif.h>
 #include <mach/setup-u2sdhi.h>
+#include <mach/setup-u2stm.h>
 
 #if defined(CONFIG_BCM4334_BT)
 #include <mach/board-bcm4334-bt.h>
@@ -359,33 +360,6 @@ static struct platform_device thermal_sensor_device = {
 };
 /* End Add for Thermal Sensor driver */
 
-static struct resource stm_res[] = {
-	[0] = {
-		.name	= "stm_ctrl",
-		.start	= 0xe6f89000,
-		.end	= 0xe6f89fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.name	= "stm_ports",
-		.start	= 0xe9000000,
-		.end	= 0xe9000fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[2] = {
-		.name	= "funnel",
-		.start	= 0xe6f8b000,
-		.end	= 0xe6f8bfff,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device stm_device = {
-	.name = "stm",
-	.num_resources	= ARRAY_SIZE(stm_res),
-	.resource	= stm_res,
-};
-
 static struct resource	tpu_resources[] = {
 	[TPU_MODULE_0] = {
 		.name	= "tpu0_map",
@@ -411,9 +385,8 @@ static struct portn_gpio_setting_info_tpu tpu0_gpio_setting_info[] = {
 		/* GPIO settings to be set at suspend state */
 		.inactive = {
 			.port_fn	= GPIO_PORT36, /*Func 0*/
-			.pull		= PORTn_CR_PULL_OFF,
-			.direction	= PORTn_CR_DIRECTION_OUTPUT,
-			.output_level	= PORTn_OUTPUT_LEVEL_LOW,
+			.pull		= PORTn_CR_PULL_DOWN,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
 		}
 	},
 };

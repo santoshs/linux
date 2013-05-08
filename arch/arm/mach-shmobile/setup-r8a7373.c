@@ -58,7 +58,6 @@
 #include <mach/memory-r8a7373.h>
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
-#if 1
 /*
  * TODO: Porting  parameter.
  *   original parameter is error by vmalloc.
@@ -76,29 +75,6 @@ static struct map_desc r8a7373_io_desc[] __initdata = {
 		.length		= SZ_2M,
 		.type		= MT_DEVICE
 	},
-#else
-	{
-		.virtual	= 0xe6000000,
-		.pfn		= __phys_to_pfn(0xe6000000),
-		.length		= SZ_256M,
-		.type		= MT_DEVICE
-	},
-	{
-		/*
-		 * Create 4 MiB of virtual address hole within a big 1:1 map
-		 * requested above, which is dedicated for the RT-CPU driver.
-		 *
-		 * According to the hardware manuals, physical 0xefc00000
-		 * space is reserved for Router and a data abort error will
-		 * be generated if access is made there.  So this partial
-		 * mapping change won't be a problem.
-		 */
-		.virtual	= 0xefc00000,
-		.pfn		= __phys_to_pfn(0xffc00000),
-		.length		= SZ_4M,
-		.type		= MT_DEVICE
-	},
-#endif
 #if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
 	{
 		.virtual	= SEC_DEBUG_INFORM_VIRT,
@@ -283,6 +259,7 @@ static struct platform_device i2c4_device = {
 };
 
 /* IIC1H */
+#ifdef CONFIG_FB_R_MOBILE_VX5B3D
 static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
@@ -321,6 +298,7 @@ static struct platform_device i2c5_device = {
 		.platform_data	= &i2c5_platform_data,
 	},
 };
+#endif
 
 /* IIC2H */
 #ifndef CONFIG_SPI_SH_MSIOF
@@ -839,10 +817,12 @@ static struct hwsem_desc r8a7373_hwsem0_descs[] = {
 	HWSEM(SMSYSC, 0x70),
 };
 
+static struct lock_class_key sem0;
 static struct hwsem_pdata r8a7373_hwsem0_platform_data = {
 	.base_id	= SMGPIO,
 	.descs		= r8a7373_hwsem0_descs,
 	.nr_descs	= ARRAY_SIZE(r8a7373_hwsem0_descs),
+	.key		= &sem0,
 };
 
 static struct resource r8a7373_hwsem0_resources[] = {
@@ -883,10 +863,12 @@ static struct hwsem_desc r8a7373_hwsem1_descs[] = {
 	HWSEM(SMGP030, 0x30), HWSEM(SMGP031, 0x30),
 };
 
+static struct lock_class_key sem1;
 static struct hwsem_pdata r8a7373_hwsem1_platform_data = {
 	.base_id	= SMGP000,
 	.descs		= r8a7373_hwsem1_descs,
 	.nr_descs	= ARRAY_SIZE(r8a7373_hwsem1_descs),
+	.key		= &sem1,
 };
 
 static struct resource r8a7373_hwsem1_resources[] = {
@@ -933,10 +915,12 @@ static struct hwsem_desc r8a7373_hwsem2_descs[] = {
 	HWSEM(SMGP130, 0x40), HWSEM(SMGP131, 0x40),
 };
 
+static struct lock_class_key sem2;
 static struct hwsem_pdata r8a7373_hwsem2_platform_data = {
 	.base_id	= SMGP100,
 	.descs		= r8a7373_hwsem2_descs,
 	.nr_descs	= ARRAY_SIZE(r8a7373_hwsem2_descs),
+	.key		= &sem2,
 };
 
 static struct resource r8a7373_hwsem2_resources[] = {
@@ -1227,7 +1211,9 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&i2c2_device, /* IIC2  */
 	&i2c3_device, /* IIC3  */
 	&i2c4_device, /* IIC0H */
+#ifdef CONFIG_FB_R_MOBILE_VX5B3D
 	&i2c5_device, /* IIC1H*/
+#endif
 #ifndef CONFIG_SPI_SH_MSIOF
 	&i2c6_device, /* IIC2H */
 #endif
@@ -1245,35 +1231,6 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&hwsem2_device,
 	&sgx_device,
 };
-#ifdef DISABLE_UNUSED_R8A7373_ES20_LATE_DEVICES_FOR_GARDA
-/* HS-- ES20 Specific late devices */
-static struct platform_device *r8a7373_late_devices_es20[] __initdata = {
-	&i2c0_device, /* IIC0  */
-	&i2c1_device, /* IIC1  */
-	&i2c2_device, /* IIC2  */
-	&i2c3_device, /* IIC3  */
-	&i2c4_device, /* IIC0H */
-	&i2c5_device, /* IIC1H*/
-#ifndef CONFIG_SPI_SH_MSIOF
-	&i2c6_device, /* IIC2H */
-#endif
-#ifndef CONFIG_PN544_NFC
-	&i2c7_device, /* IIC3H */
-#endif
-	&i2c8_device, /* IICM  */
-	&i2c0gpio_device,
-	&i2c1gpio_device,
-	&dma0_device,
-#ifdef CONFIG_SMECO
-	&smc_netdevice0,
-	&smc_netdevice1,
-#endif
-	&hwsem0_device,
-	&hwsem1_device,
-	&hwsem2_device,
-	&sgx_device,
-};
-#endif
 
 void __init r8a7373_add_standard_devices(void)
 {
@@ -1282,18 +1239,8 @@ void __init r8a7373_add_standard_devices(void)
 			ARRAY_SIZE(r8a7373_early_devices));
 
 	if (((system_rev & 0xFFFF) >> 4) >= 0x3E1) {
-#ifdef CONFIG_MACH_U2EVM
-		if (u2_get_board_rev() >= 5) {
-			platform_add_devices(r8a7373_late_devices_es20_d2153,
-				ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
-		} else {
-			platform_add_devices(r8a7373_late_devices_es20,
-				ARRAY_SIZE(r8a7373_late_devices_es20));
-		}
-#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 		platform_add_devices(r8a7373_late_devices_es20_d2153,
 			ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
-#endif
 	}
 /* ES2.0 change end */
 }
@@ -1455,48 +1402,16 @@ void d2153_mmcif_pwr_control(int onoff)
 
 void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
-
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(1);
 #endif /* CONFIG_MFD_D2153 */
-#endif
-
-#if defined(CONFIG_MACH_U2EVM)
-	if (u2_get_board_rev() >= 5) {
-#if defined(CONFIG_MFD_D2153)
-		d2153_mmcif_pwr_control(1);
-#endif /* CONFIG_MFD_D2153 */
-	} else {
-#if defined(CONFIG_PMIC_INTERFACE)
-		gpio_set_value(GPIO_PORT227, 1);
-#endif /* CONFIG_PMIC_INTERFACE */
-	}
-#endif
 }
 
 void mmcif_down_pwr(struct platform_device *pdev)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) \
-		|| defined(CONFIG_MACH_LT02LTE)
-
 #if defined(CONFIG_MFD_D2153)
 	d2153_mmcif_pwr_control(0);
 #endif /* CONFIG_MFD_D2153 */
-#endif
-
-#if defined(CONFIG_MACH_U2EVM)
-	if (u2_get_board_rev() >= 5) {
-#if defined(CONFIG_MFD_D2153)
-		d2153_mmcif_pwr_control(0);
-#endif /* CONFIG_MFD_D2153 */
-	} else {
-#if defined(CONFIG_PMIC_INTERFACE)
-		gpio_set_value(GPIO_PORT227, 0);
-#endif /* CONFIG_PMIC_INTERFACE */
-	}
-#endif
 }
 
 

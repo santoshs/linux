@@ -117,6 +117,9 @@
 #define SDHI_MIN_DMA_LEN	8
 #define SDHI_TIMEOUT		5000	/* msec */
 
+#define SD_CLK_CMD_DELAY	200
+unsigned int wakeup_from_suspend;
+
 /* sdcard1_detect_state variable used to detect the state of the SD card */
 static int sdcard1_detect_state;
 struct sdhi_register_value {
@@ -362,21 +365,31 @@ static void renesas_sdhi_set_clock(
 static void renesas_sdhi_power(struct renesas_sdhi_host *host, int power)
 {
 	struct renesas_sdhi_platdata *pdata = host->pdata;
-
+	int ret = 0;
 	switch (power) {
 	case 1:
 		if (pdata->set_pwr)
 			pdata->set_pwr(host->pdev, RENESAS_SDHI_POWER_ON);
 		if (host->dynamic_clock) {
-			pm_runtime_get_sync(&host->pdev->dev);
-			sdhi_reset(host);
+			ret = pm_runtime_get_sync(&host->pdev->dev);
+			if (0 > ret)
+				printk(KERN_ALERT "[%s]ret %d/n",__func__,ret);
+			else
+				sdhi_reset(host);
 		}
 		break;
 	default:
-		if (host->dynamic_clock)
-			pm_runtime_put_sync(&host->pdev->dev);
-		if (pdata->set_pwr)
-			pdata->set_pwr(host->pdev, RENESAS_SDHI_POWER_OFF);
+		if (host->dynamic_clock) {
+			ret = pm_runtime_put_sync(&host->pdev->dev);
+			if (0 > ret)
+				printk(KERN_ALERT "[%s]ret %d/n",__func__,ret);
+			else
+			{
+				if (pdata->set_pwr)
+					pdata->set_pwr(host->pdev,
+						 RENESAS_SDHI_POWER_OFF);
+			}
+		}
 		break;
 	}
 }
@@ -608,6 +621,8 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		container_of(work, struct renesas_sdhi_host, detect_wq.work);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 status;
+
+	flush_delayed_work_sync(&host->mmc->detect);
 
 	clk_enable(host->clk);
 
@@ -926,6 +941,8 @@ static void renesas_sdhi_setup_data(
 static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 			struct mmc_command *cmd, u16 cmddat)
 {
+	u16 val16;
+	
 	host->cmd = cmd;
 
 	cmddat |= cmd->opcode;
@@ -964,8 +981,27 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 	dev_dbg(&host->pdev->dev, "CMD %d %x %x %x %x\n",
 		cmd->opcode, cmd->arg, cmd->flags, cmd->retries, cmddat);
 
-	/* Send command */
-	sdhi_write16(host, SDHI_CMD, cmddat);
+	if(wakeup_from_suspend == 1){
+		clk_enable(host->clk);
+		/* Disable automatic control for SD clock output */
+		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
+		sdhi_write16(host, SDHI_CLK_CTRL, (val16 & ~0x200)|0x100);
+
+		 /* Delay of 200 us */
+		udelay(SD_CLK_CMD_DELAY);
+
+		/* Send command */
+		sdhi_write16(host, SDHI_CMD, cmddat);
+
+		/* enable card clock */
+		sdhi_write16(host, SDHI_CLK_CTRL, val16);
+		wakeup_from_suspend = 0;
+		clk_disable(host->clk);
+	}
+	else{
+		/* Send command */
+		sdhi_write16(host, SDHI_CMD, cmddat);
+	}
 }
 
 static void renesas_sdhi_request(struct mmc_host *mmc, struct mmc_request *mrq)
@@ -1342,6 +1378,11 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		host->dynamic_clock = 0;
 	}
 
+	if(host->connect == 1)
+		wakeup_from_suspend = 1;
+	else
+		wakeup_from_suspend = 0;
+
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		/* updating the SD card presence*/
 		sdcard1_detect_state = host->connect;
@@ -1428,7 +1469,7 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	int i, irq;
-
+	int ret = 0;
 	mmc_remove_host(host->mmc);
 
 	cancel_delayed_work_sync(&host->detect_wq);
@@ -1450,7 +1491,9 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 	if (!host->dynamic_clock) {
 		clk_disable(host->clk);
-		pm_runtime_put_sync(&pdev->dev);
+	ret = pm_runtime_put_sync(&pdev->dev);
+	if (0 > ret)
+		return -1;
 	}
 
 	mmc_free_host(host->mmc);
@@ -1480,7 +1523,9 @@ int renesas_sdhi_suspend(struct device *dev)
 		clk_disable(host->clk);
 		
 	}
-	pm_runtime_put_sync(dev);
+	ret = pm_runtime_put_sync(dev);
+	if (0 > ret)
+		return -1;
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		if (host->pdata != NULL)
 			gpio_set_portncr_value(host->pdata->port_cnt,
@@ -1500,6 +1545,8 @@ int renesas_sdhi_resume(struct device *dev)
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 val;
 	u32 ret = 0;
+
+	wakeup_from_suspend = 1;
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		if (host->pdata != NULL)

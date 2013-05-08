@@ -1503,9 +1503,10 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 				goto found_ok_skb;
 			if (tcp_hdr(skb)->fin)
 				goto found_fin_ok;
-			WARN(!(flags & MSG_PEEK),
+			if (WARN(!(flags & MSG_PEEK),
 			     "recvmsg bug 2: copied %X seq %X rcvnxt %X fl %X\n",
-			     *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt, flags);
+			     *seq, TCP_SKB_CB(skb)->seq, tp->rcv_nxt, flags))
+				goto selfdestruct;
 		}
 
 		/* Well, if we have backlog, try to process it now yet. */

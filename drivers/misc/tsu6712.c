@@ -413,11 +413,11 @@ static void tsu6712_usb_cdp_cb(bool attached)
 
 	switch (set_cable_status) {
 	case CABLE_TYPE_USB:
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
+		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB);
 		break;
 
 	case CABLE_TYPE_NONE:
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
 		break;
 	default:
 		break;
@@ -438,7 +438,7 @@ static void tsu6712_dock_cb(int attached)
 static void tsu6712_ovp_cb(bool attached)
 {
 	pr_info("%s:%s\n",__func__,(attached?"TRUE":"FALSE"));
-	spa_event_handler(SPA_EVT_OVP, (int)attached);
+	spa_event_handler(SPA_EVT_OVP, (void *)attached);
 }
 
 /* UUS - usb uart switch start */
@@ -465,13 +465,13 @@ static void tsu6712_usb_cb(bool attached)
 
 	switch (set_cable_status) {
 	case CABLE_TYPE_USB:
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
+		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB);
 		send_usb_insert_event(1);
 		pr_info("%s USB attached\n",__func__);
 		break;
 
 	case CABLE_TYPE_NONE:
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
 		send_usb_insert_event(0);
 		pr_info("%s USB removed\n",__func__);
 		break;
@@ -489,11 +489,11 @@ static void tsu6712_charger_cb(bool attached)
 
 	switch (set_cable_status) {
 	case CABLE_TYPE_AC:
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
+		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB_DCP);
 		pr_info("%s TA attached\n",__func__);
 		break;
 	case CABLE_TYPE_NONE:
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
 		pr_info("%s TA removed\n",__func__);
 		break;
 	default:
@@ -564,6 +564,7 @@ static struct tsu6712_platform_data tsu6712_pdata = {
 };
 #endif
 
+#if 0
 static void DisableTSU6712Interrupts(void)
 {
 	struct i2c_client *client = local_usbsw->client;
@@ -593,6 +594,7 @@ static void EnableTSU6712Interrupts(void)
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 }
+#endif
 
 void TSU6712_CheckAndHookAudioDock(int value, int type)
 {
@@ -744,6 +746,7 @@ struct device_attribute *attr,
 	return count;
 }
 
+#if 0
 static ssize_t tsu6712_show_usb_state(struct device *dev,
 struct device_attribute *attr,
 	char *buf)
@@ -802,6 +805,7 @@ struct device_attribute *attr,
 
 	return count;
 }
+#endif
 
 #ifdef USE_USB_UART_SWITCH
 static ssize_t tsu6712_show_UUS_state(struct device *dev,
@@ -895,14 +899,14 @@ ssize_t ld_set_switch_buf(struct device *dev,
 		return MUSB_IC_UART_EMPTY_CRLF;
 	}
 
-	if (at_isi_switch_buf) {
+//	if (at_isi_switch_buf) {
 		if (strstr(at_isi_switch_buf, "\r\n"))
 			printk("###WIPRO### r n\n");
 		else if (strstr(at_isi_switch_buf, "\t\n"))
 			printk("###WIPRO### t n\n");
 		else if (strstr(at_isi_switch_buf, "\n"))
 			printk("###WIPRO### n\n");
-	}
+//	}
 
 	ptr = strstr(atbuf, at_isi_switch_buf);
 	ptr2 = strstr(atmodechanbuf, at_isi_switch_buf);
@@ -1492,7 +1496,7 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	int ret;
 	pr_info("%s\n", __func__);
 
-#if CONFIG_BOARD_VERSION_LOGANLTE //// mUSB_temp_20130308
+#if defined(CONFIG_BOARD_VERSION_LOGANLTE) //// mUSB_temp_20130308
 	tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
 
 	ctrl = value & (~0x1);
@@ -1562,7 +1566,9 @@ static void tsu6712_vbus_func(struct work_struct *work)
 {
 	struct tsu6712_usbsw *usbsw = container_of(work, struct tsu6712_usbsw, vbus_work.work);
 	struct tsu6712_platform_data *pdata = usbsw->pdata;
+#if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
 	struct i2c_client *client = usbsw->client;
+#endif
 
 	pr_info("%s\n", __func__);
 
@@ -1640,7 +1646,7 @@ static void tsu6712_detect_func(struct work_struct *work)
 	if(!key_detect)
 		tsu6712_detect_dev(usbsw, dev, adc);
 
-#if CONFIG_BOARD_VERSION_GARDA// mUSB_temp_20130308
+#if defined(CONFIG_BOARD_VERSION_GARDA)// mUSB_temp_20130308
 	/* Check OVP */
 	if(intr & 0xFF)
 	{
@@ -1811,7 +1817,7 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 
 	usb_kobj = kobject_create_and_add(USB_FS, kernel_kobj);
 	if (!usb_kobj)
-		return;
+		return -1;
 	ret = sysfs_create_group(usb_kobj, &tsu6712_group);
 	if (ret){
 		kobject_put(usb_kobj);

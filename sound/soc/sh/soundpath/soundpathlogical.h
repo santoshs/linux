@@ -81,6 +81,7 @@ static int sndp_proc_reg_dump_write(
 	unsigned long count,
 	void *data);
 
+#if 0
 /* SOC INFO */
 static int sndp_soc_info(
 	struct snd_kcontrol *kcontrol,
@@ -89,6 +90,7 @@ static int sndp_soc_info(
 static int sndp_soc_get(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
+
 /* SOC functions */
 static int sndp_soc_capture_volume(
 	struct snd_kcontrol *kcontrol,
@@ -99,6 +101,7 @@ static int sndp_soc_get_capture_mute(
 static int sndp_soc_put_capture_mute(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol);
+#endif
 
 /* FSI control functions */
 static int sndp_fsi_startup(
@@ -147,8 +150,10 @@ static void sndp_fm_trigger(
 	struct snd_soc_dai *dai,
 	u_int value);
 
+#if 0
 /* Next set device type, to identify */
 static u_long sndp_get_next_devices(const u_int uiValue);
+#endif
 
 /* Work queue processing for call start */
 static void sndp_work_voice_start(struct sndp_work_info *work);

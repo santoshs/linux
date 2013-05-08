@@ -88,6 +88,9 @@ MODULE_PARM_DESC(sep_fatal, \
 	"Flag which indicates that fatal error has occured");
 
 
+/* Store the RKEK return value */
+static int sep_rkek_return_value;
+
 /* platform device object */
 static struct platform_device sep_device;
 
@@ -784,18 +787,18 @@ static int sep_resume(struct device *dev)
 		sep_power_down_counter = count;
 		/* RKEK Implementation*/
 		#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
-#if 0 //XXX tp2
 		sec_hal_error = sec_hal_pm_public_cc42_key_init();
 		if (sec_hal_error) {
 			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
 			"sec_hal_pm_public_cc42_key_init failed with "\
 				"error 0x%x\n", sec_hal_error);
+			sep_rkek_return_value = sec_hal_error;
 		} else {
 			CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
 			"sec_hal_pm_public_cc42_key_init succeeded\n");
 		}
 		#endif
-#endif //XXX tp2
+
 	}
 
 end_function:
@@ -1328,18 +1331,17 @@ void Chip_HwInit(void)
 
 	/* RKEK Implementation*/
 	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
-#if 0 //XXX tp2
 	sec_hal_error = sec_hal_pm_public_cc42_key_init();
 	if (sec_hal_error) {
 		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
 		"sec_hal_pm_public_cc42_key_init failed with "\
 			"error 0x%x\n", sec_hal_error);
+		sep_rkek_return_value = sec_hal_error;
 	} else {
 		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
 		"sec_hal_pm_public_cc42_key_init succeeded\n");
 	}
 	#endif
-#endif //XXX tp2
 }
 
 
@@ -1376,6 +1378,20 @@ static long sep_ioctl(
 		Chip_HwInit();
 		break ;
 
+	case SEP_CHECK_RKEK_VALUE:
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:"\
+					"SEP_CHECK_RKEK_VALUE\n");
+		if (copy_to_user((void __user *)arg, \
+			(void *)&sep_rkek_return_value, sizeof(int))) {
+			error = -EFAULT;
+			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: Failed "\
+			"to copy RKEK return value to user space\n", error);
+		} else {
+			CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+			"Successfully copied RKEK value to user space\n");
+		}
+		break ;
+
 	default:
 		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: ** NO COMMAND **\n");
 		error = -ENOTTY;
@@ -1401,6 +1417,7 @@ static void sep_init_context(void)
 	sep_context.out_num_pages = 0;
 	sep_context.in_map_array = 0;
 	sep_context.out_map_array = 0;
+	sep_rkek_return_value = 0;
 
 	/* init transaction mutex */
 	mutex_init(&sep_context.transaction_mutex);

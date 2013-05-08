@@ -16,8 +16,10 @@
 
 #include "base.h"
 
-#ifdef CONFIG_HOTPLUG_CPU_MGR & CONFIG_ARCH_R8A7373
+#ifdef CONFIG_HOTPLUG_CPU_MGR 
+#ifdef CONFIG_ARCH_R8A7373
 #include <mach/pm.h>
+#endif
 #endif /*CONFIG_HOTPLUG_CPU_MGR & CONFIG_ARCH_R8A7373*/
 
 struct bus_type cpu_subsys = {

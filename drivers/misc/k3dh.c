@@ -1066,8 +1066,8 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
         		g_k3dh->orientation[ii] = platform_data->orientation[ii];
         	}
 		g_k3dh->orientation[0] = 0;
-		g_k3dh->orientation[1] = 1;
-		g_k3dh->orientation[3] = -1;
+		g_k3dh->orientation[1] = -1;
+		g_k3dh->orientation[3] = 1;
 		g_k3dh->orientation[4] = 0;
 	}
 #endif

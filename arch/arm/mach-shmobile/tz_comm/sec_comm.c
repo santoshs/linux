@@ -39,6 +39,7 @@ split so only certain functions allowed for direct call)
 //#define PLAT_PHYS_OFFSET UL(CONFIG_PAGE_OFFSET)
 
 
+uint32_t  sec_service_integrity_check(void);
 #if 0
 /*no need for rpc here*/
 static uint32_t sec_comm_rpc_handler(uint32_t id, sec_msg_t * out_msg, sec_msg_t * in_msg);

@@ -609,7 +609,7 @@ uint32_t sec_hal_dbg_reg_set(
 		LOCAL_WMB();
 
 		/* call dispatcher */
-		ssa_disp_st = LOCAL_DISP(SEC_SERV_DEBUG_CONTROL_DATA_SET,
+		ssa_disp_st = raw_pub2sec_dispatcher(SEC_SERV_DEBUG_CONTROL_DATA_SET,
 			LOCAL_DEFAULT_DISP_FLAGS,
 			LOCAL_DEFAULT_DISP_SPARE_PARAM,
 			SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),

@@ -117,4 +117,8 @@ extern void vcd_spuv_dump_fw_static_buffer_memory(void);
 extern void vcd_spuv_dump_spuv_crashlog(void);
 extern void vcd_spuv_dump_diamond_memory(void);
 
+extern void vcd_spuv_calc_trigger_start(void);
+extern void vcd_spuv_calc_trigger_stop(void);
+extern void vcd_spuv_trigger_count_log(unsigned int type);
+
 #endif /* __VCD_SPUV_H__ */

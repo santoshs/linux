@@ -22,10 +22,19 @@
 
 #define RT_DISPLAY_LONGPACKETMEMSIZE	(65535)
 
-#define RT_DISPLAY_LONGPACKETSIZE		(1996)
+#define RT_DISPLAY_LONGPACKETSIZE	(1996)
 
 #define RT_DISPLAY_SCRNDATAINFO_SIZE	(16)
-#define RT_DISPLAY_LCD1_OFFSET			(4)
+#define RT_DISPLAY_LCD1_OFFSET		(4)
+
+#define RT_DISPLAY_WAIT_TIMEOUT		(40000)
+
+#define	DISPLAY_DOWN_TIMEOUT(sem)					 \
+{									 \
+if (0 != down_timeout(sem, msecs_to_jiffies(RT_DISPLAY_WAIT_TIMEOUT))) \
+		panic("[%s][%d] : down_timeout TIMEOUT Error!\n",	 \
+		__func__, __LINE__);					 \
+}
 
 typedef struct {
 	void *handle;

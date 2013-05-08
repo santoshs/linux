@@ -32,11 +32,11 @@
  * Register Map
  */
 
-#define MOTGCTRL	012A
+#define MOTGCTRL	0x012A
 
 
 
-/**Bits Default value 
+/**Bits Default value
 *********************/
 #define	PINTM	0x100
 #define	RSME	0x4000
@@ -49,13 +49,18 @@
 #define	LPCTRL	0x0100
 
 
-#define	PHYFUNCTR	0x0104
+#define	OTG_PHYFUNCTR	0x0104
+extern void smb328a_otg_enable_disable(int onoff, int cable);
+
+#ifdef CONFIG_USB_OTG
+int set_otg_mode(int is_host);
+#endif
 
 static inline u16 otg_read_reg(struct otg_transceiver *otg, u32 reg)
 {
 	return ioread16(otg->io_priv + reg);
 }
-static inline int otg_write_reg(struct otg_transceiver *otg, u32 val, u32 reg) 
+static inline int otg_write_reg(struct otg_transceiver *otg, u32 val, u32 reg)
 {
 	 iowrite16(val, otg->io_priv + reg);
 	 return 0;
@@ -78,10 +83,10 @@ static inline void otg_modify_reg(struct otg_transceiver *otg, u16 clr_mask, u16
 
 
 #define USB_PHYREAD	0X011E /*H'E689 011E*/
-#define USB_SPADDR	0X0138 /*H'E689 0138*/
-#define USB_SPWDAT	0X013A /*H'E689 013A*/
-#define USB_SPCTRL	0X013C /*H'E689 013C*/
-#define USB_SPRDAT	0X013E /*H'E689 013E*/
+#define USB_TUSB_SPADDR	0X0138 /*H'E689 0138*/
+#define USB_TUSB_SPWDAT	0X013A /*H'E689 013A*/
+#define USB_TUSB_SPCTRL	0X013C /*H'E689 013C*/
+#define USB_TUSB_SPRDAT	0X013E /*H'E689 013E*/
 #define USB_PHYRD	0x0001
 
 static inline u16 tusb1211_phy_read(struct otg_transceiver *otg, u32 reg)
@@ -108,9 +113,9 @@ static inline u16 tusb1211_phy_read(struct otg_transceiver *otg, u32 reg)
 #define TUSB_CS	GPIO_PORT130
 #define nTUSB_RST	GPIO_PORT131
 
-#define PHYOTGCTR	0x010A
+#define USBHS_PHYOTGCTR	0x010A
 
-#define USEVBUS		0x8000 	
+#define USEVBUS		0x8000
 #define DVBUSEX 	0x4000
 #define DRVVBUS 	0x2000
 #define CHRGVBUS 	0x1000
@@ -156,7 +161,7 @@ static inline u16 tusb1211_phy_read(struct otg_transceiver *otg, u32 reg)
 #define VBUS_VLD	0xC000
 
 
-#define PHYFUNCTR	0x0104
+#define OTG_PHYFUNCTR	0x0104
 #define PRESET 0x2000
 
 #define TUSB1211_ID_POLL_TIME 500
@@ -169,6 +174,7 @@ struct tusb1211 {
 	spinlock_t	lock;
 #ifdef CONFIG_HAVE_CLK
 	struct clk *clk;
+	struct clk *iclk;
 #endif
 	struct otg_transceiver	otg;
 	unsigned			init:1;
@@ -185,12 +191,13 @@ struct tusb1211 {
 	unsigned power:1;
 	unsigned vbus_enable:1;
 	int vbus_irq;
+	int id_irq;
 };
 
 /* Register definitions */
 #define SYSCFG		0x00
 #define BWAIT		0x02
-#define SYSSTS		0x04
+#define TUSB_SYSSTS		0x04
 #define SYSSTS0		0x04
 #define SYSSTS1		0x06
 #define DVSTCTR		0x08
@@ -398,6 +405,7 @@ struct tusb1211 {
 
 /* Interrupt Enable Register 1 */
 #define	OVRCRE		0x8000	/* b15: Over-current interrupt */
+#define VBCOMP      0x8000  /* b15: Over-current interrupt */
 #define	VBCOMPE		0x8000	/* b15: Vbus compare interrupt */
 #define	BCHGE		0x4000	/* b14: USB us chenge interrupt */
 #define	DTCHE		0x1000	/* b12: Detach sense interrupt */
@@ -588,7 +596,7 @@ struct tusb1211 {
 #define	TB_DATA_PLS	(10)
 
 /* VBUS CHARGE Timers */
-#define TB_CHARGE_VBUS	(30) 
+#define TB_CHARGE_VBUS	(30)
 
 /* VBUS DISCHARGE Timers */
 #define TB_DISCHARGE_VBUS	(60)

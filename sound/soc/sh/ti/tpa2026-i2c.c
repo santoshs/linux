@@ -31,7 +31,6 @@ static struct proc_dir_entry *g_tpa2026_i2c_parent;
 unsigned int g_tpa2026_i2c_log_level;
 unsigned int g_tpa2026_i2c_amp_state;
 
-
 /**
  * @brief	i2c write function.
  *
@@ -112,6 +111,7 @@ static void tpa2026_i2c_amp_on(void)
 		usleep_range(1000, 1000);
 		/* speaker and SWS enable. NGF desable */
 		tpa2026_i2c_write_device(0x01, 0xC2);
+#if 0
 		/* tpa2026 default */
 		tpa2026_i2c_write_device(0x02, 0x05);
 		tpa2026_i2c_write_device(0x03, 0x0B);
@@ -121,6 +121,7 @@ static void tpa2026_i2c_amp_on(void)
 		tpa2026_i2c_write_device(0x07, 0xC2);
 		/* speaker, SWS and NGF enable. */
 		tpa2026_i2c_write_device(0x01, 0xC3);
+#endif
 		/* delay 5ms */
 		usleep_range(5000, 5000);
 	}
@@ -144,13 +145,12 @@ static void tpa2026_i2c_amp_shutdown(void)
 {
 	tpa2026_i2c_pr_func_start();
 
-	if (TPA2026_I2C_ENABLE == g_tpa2026_i2c_amp_state)
+	if (TPA2026_I2C_ENABLE == g_tpa2026_i2c_amp_state) {
 		/* shutdown */
 		tpa2026_i2c_write_device(0x01, 0x22);
-		/* delay 20ms */
-		msleep(20);
 		/* sdz H -> L */
 		gpio_set_value(g_tpa2026_i2c_data->pdata->gpio_shdn, 0);
+	}
 
 	/* status update */
 	g_tpa2026_i2c_amp_state = TPA2026_I2C_DISABLE;
@@ -231,19 +231,15 @@ static int tpa2026_i2c_set_state
 
 	tpa2026_i2c_pr_func_start("mode[%d] device[%d] ch_dev[%d].\n",
 						mode, device, ch_dev);
-
-	if (SNDP_MODE_INCALL == mode) {
-		if (device & SNDP_OUT_SPEAKER)
-			tpa2026_i2c_amp_on();
+	if (device & SNDP_OUT_SPEAKER) {
+		if (ch_dev == SNDP_EXTDEV_STOP)
+			tpa2026_i2c_amp_shutdown();
 		else
-			tpa2026_i2c_amp_shutdown();
-	} else if (!(device & SNDP_OUT_SPEAKER)) {
-			tpa2026_i2c_amp_shutdown();
+			tpa2026_i2c_amp_on();
 	} else {
-		if (ch_dev == SNDP_EXTDEV_START)
-			tpa2026_i2c_amp_on();
-		else
-			tpa2026_i2c_amp_shutdown();
+#if 0 // 20130425 there is no sound after voice search. 
+		tpa2026_i2c_amp_shutdown();
+#endif
 	}
 
 	tpa2026_i2c_pr_func_end("rc[%d].\n", rc);

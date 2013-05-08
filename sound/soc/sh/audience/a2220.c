@@ -29,8 +29,7 @@
 #include <linux/kthread.h>
 #include <linux/atomic.h>
 
-#define A2220_EOS2_FIRMWARE	(1)
-#include "a2220_firmware.h"
+#include "a2220_b17832.h"
 #include <linux/firmware.h>
 #ifdef __A2220_ORGINAL__
 #include <mach/msm_xo.h>
@@ -2736,34 +2735,12 @@ static bool a2220_earpiece_incall_check
 
 static int __init a2220_init(void)
 {
-#if defined(CONFIG_MACH_GARDALTE)
-	unsigned int board_rev = 0;
-
-	/* get board rev */
-	board_rev = u2_get_board_rev();
-	if (board_rev > 1)
-		return -ENODEV;
-#endif
-#if defined(CONFIG_MACH_LOGANLTE)
-	return -ENODEV;
-#endif
 	g_a2220_log_level = A2220_LOG_ERR;
 	return i2c_add_driver(&a2220_driver);
 }
 
 static void __exit a2220_exit(void)
 {
-#if defined(CONFIG_MACH_GARDALTE)
-	unsigned int board_rev = 0;
-
-	/* get board rev */
-	board_rev = u2_get_board_rev();
-	if (board_rev > 1)
-		return;
-#endif
-#if defined(CONFIG_MACH_LOGANLTE)
-	return;
-#endif
 	i2c_del_driver(&a2220_driver);
 }
 

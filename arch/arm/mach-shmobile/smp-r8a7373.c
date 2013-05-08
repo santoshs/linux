@@ -130,6 +130,7 @@ void __cpuinit r8a7373_secondary_init(unsigned int cpu)
 
 int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 {
+	unsigned long status;
 	cpu = cpu_logical_map(cpu);
 
 	/* enable cache coherency */
@@ -140,8 +141,7 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 		wake_lock(&smp_idle_wakelock);
 	}
 
-	unsigned long status =
-		((__raw_readl(IOMEM(CPG_SCPUSTR)) >> (4 * cpu)) & 3);
+	status = ((__raw_readl(IOMEM(CPG_SCPUSTR)) >> (4 * cpu)) & 3);
 
 	if (status == 3)
 		__raw_writel(1 << cpu, IOMEM(WUPCR)); /* wake up */
@@ -149,7 +149,7 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 		printk(KERN_NOTICE "CPU%d is SRESETed\n", cpu);
 		__raw_writel(1 << cpu, IOMEM(SRESCR)); /* reset */
 	} else {
-		printk(KERN_NOTICE "CPU%d has illegal status %08x\n",\
+		printk(KERN_NOTICE "CPU%d has illegal status %08lx\n",\
 				cpu, status);
 		__raw_writel(1 << cpu, IOMEM(WUPCR)); /* wake up */
 		__raw_writel(1 << cpu, IOMEM(SRESCR)); /* reset */

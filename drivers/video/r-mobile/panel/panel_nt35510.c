@@ -36,16 +36,14 @@
 
 #include <mach/memory-r8a7373.h>
 
-#include "panel_nt35510.h"
+#include "panel_common.h"
 
 /* #define NT35510_DRAW_BLACK_KERNEL */
 
 #define NT35510_POWAREA_MNG_ENABLE
 /* #define NT35510_GED_ORG */
 
-#ifdef CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE
-#define NT35510_ENABLE_VIDEO_MODE
-#endif /* CONFIG_FB_R_MOBILE_NT35510_VIDEO_MODE */
+/* #define NT35510_ENABLE_VIDEO_MODE */
 
 #ifdef NT35510_POWAREA_MNG_ENABLE
 #include <rtapi/system_pwmng.h>
@@ -65,34 +63,34 @@
 #define R_MOBILE_M_PANEL_SIZE_HEIGHT	86
 
 /* pixclock = 1000000 / DCF */
-#define R_MOBILE_M_PANEL_PIXCLOCK	 25641
+#define R_MOBILE_M_PANEL_PIXCLOCK	 23199
 
 /* timing */
 #define R_MOBILE_M_PANEL_LEFT_MARGIN	 24
-#define R_MOBILE_M_PANEL_RIGHT_MARGIN	 304
+#define R_MOBILE_M_PANEL_RIGHT_MARGIN	 376
 #define R_MOBILE_M_PANEL_HSYNC_LEN	 8
 #define R_MOBILE_M_PANEL_UPPER_MARGIN	 4
 #define R_MOBILE_M_PANEL_LOWER_MARGIN	 4
 #define R_MOBILE_M_PANEL_VSYNC_LEN	 1
-#define R_MOBILE_M_PANEL_H_TOTAL	 808
+#define R_MOBILE_M_PANEL_H_TOTAL	 888
 #define R_MOBILE_M_PANEL_V_TOTAL	 809
 
 #define LCD_DSITCKCR		0x00000007
-#define LCD_DSI0PCKCR		0x00000017
-#define LCD_DSI0PHYCR		0x2A80000B
-#define LCD_SYSCONF		0x00000F03
-#define LCD_TIMSET0		0x4C2C3332
-#define LCD_TIMSET1		0x00070132
+#define LCD_DSI0PCKCR		0x00000025
+#define LCD_DSI0PHYCR		0x2A800014
+#define LCD_SYSCONF		0x00000703
+#define LCD_TIMSET0		0x4C2C4332
+#define LCD_TIMSET1		0x00080132
 #define LCD_DSICTRL		0x00000001
 #define LCD_VMCTR1		0x0001003E
-#define LCD_VMCTR2		0x00020710
+#define LCD_VMCTR2		0x00000710
 #define LCD_VMLEN1		0x05A00000
 #define LCD_VMLEN2		0x00360000
 #define LCD_VMLEN3		0x00000000
 #define LCD_VMLEN4		0x00000000
-#define LCD_DTCTR		0x00000007
-#define LCD_MLDHCNR		0x003C0066
-#define LCD_MLDHSYNR		0x00010062
+#define LCD_DTCTR		0x00000006
+#define LCD_MLDHCNR		0x003C006F
+#define LCD_MLDHSYNR		0x0001006B
 #define LCD_MLDHAJR		0x00000000
 #define LCD_MLDVLNR		0x03200329
 #define LCD_MLDVSYNR		0x00010325
@@ -135,6 +133,7 @@
 #define POWER_IS_ON(pwr)	((pwr) <= FB_BLANK_NORMAL)
 static int nt35510_panel_suspend(void);
 static int nt35510_panel_resume(void);
+static void mipi_display_reset(void);
 
 static struct fb_panel_info r_mobile_info = {
 	.pixel_width	= R_MOBILE_M_PANEL_PIXEL_WIDTH,
@@ -247,7 +246,7 @@ static unsigned char setvgh[] = { 0xB3,
 		0x05, 0x05, 0x05 };
 
 static unsigned char bt4ctr[] = { 0xB9,
-		0x24, 0x24, 0x24 };
+		0x25, 0x25, 0x25 };
 
 static unsigned char vghctr[] = { 0xBF, 0x01 };
 
@@ -257,7 +256,7 @@ static unsigned char setvglreg[] = { 0xB5,
 static unsigned char bt5ctr[] = { 0xBA,
 		0x24, 0x24, 0x24 };
 
-/* static unsigned char btenctr[] = { 0xC2, 0x01 }; */
+static unsigned char btenctr[] = { 0xC2, 0x01 };
 
 static unsigned char setvgp[] = { 0xBC,
 		0x00, 0xA3, 0x00 };
@@ -276,9 +275,9 @@ static unsigned char dopctr[] = { 0xB1,
 static unsigned char invctr[] = { 0x36, 0x02 };
 #else
 static unsigned char dopctr[] = { 0xB1,
-		0x1C, 0x06 };
+		0x4C, 0x04 };
 
-static unsigned char invctr[] = { 0x36, 0x00 };
+static unsigned char invctr[] = { 0x36, 0x02 };
 #endif
 
 static unsigned char sdhdtctr[] = { 0xB6, 0x0A };
@@ -302,69 +301,71 @@ static unsigned char dpfrctr3[] = { 0xBF,
 
 static unsigned char teon[] = { 0x35, 0x00 };
 
+static unsigned char colmod[] = { 0x3A, 0x77 };
+
 static unsigned char dptmctr12[] = { 0xCC,
 		0x03, 0x00, 0x00 };
 
 /* Gamma Setting Sequence */
 /* gamma R+ setting */
 static unsigned char gmprctr1[] = { 0xD1,
-		0x00, 0x01, 0x00, 0x43, 0x00, 0x6B, 0x00, 0x87,
-		0x00, 0xA3, 0x00, 0xCE, 0x00, 0xF1, 0x01, 0x27,
-		0x01, 0x53, 0x01, 0x98, 0x01, 0xCE, 0x02, 0x22,
-		0x02, 0x83, 0x02, 0x78, 0x02, 0x9E, 0x02, 0xDD,
-		0x03, 0x00, 0x03, 0x2E, 0x03, 0x54, 0x03, 0x7F,
-		0x03, 0x95, 0x03, 0xB3, 0x03, 0xC2, 0x03, 0xE1,
-		0x03, 0xF1, 0x03, 0xFE };
+		0x00, 0x01, 0x00, 0x43, 0x00, 0x5B, 0x00, 0x73,
+		0x00, 0x8D, 0x00, 0xB7, 0x00, 0xD9, 0x01, 0x11,
+		0x01, 0x3F, 0x01, 0x84, 0x01, 0xBA, 0x02, 0x0C,
+		0x02, 0x6E, 0x02, 0x64, 0x02, 0x8A, 0x02, 0xC7,
+		0x02, 0xEA, 0x03, 0x1A, 0x03, 0x40, 0x03, 0x6B,
+		0x03, 0x81, 0x03, 0xA1, 0x03, 0xB0, 0x03, 0xD0,
+		0x03, 0xE0, 0x03, 0xFE };
 
 /* gamma G+ setting */
 static unsigned char gmprctr2[] = { 0xD2,
-		0x00, 0x01, 0x00, 0x43, 0x00, 0x6B, 0x00, 0x87,
-		0x00, 0xA3, 0x00, 0xCE, 0x00, 0xF1, 0x01, 0x27,
-		0x01, 0x53, 0x01, 0x98, 0x01, 0xCE, 0x02, 0x22,
-		0x02, 0x83, 0x02, 0x78, 0x02, 0x9E, 0x02, 0xDD,
-		0x03, 0x00, 0x03, 0x2E, 0x03, 0x54, 0x03, 0x7F,
-		0x03, 0x95, 0x03, 0xB3, 0x03, 0xC2, 0x03, 0xE1,
-		0x03, 0xF1, 0x03, 0xFE };
+		0x00, 0x01, 0x00, 0x43, 0x00, 0x5B, 0x00, 0x73,
+		0x00, 0x8D, 0x00, 0xB7, 0x00, 0xD9, 0x01, 0x11,
+		0x01, 0x3F, 0x01, 0x84, 0x01, 0xBA, 0x02, 0x0C,
+		0x02, 0x6E, 0x02, 0x64, 0x02, 0x8A, 0x02, 0xC7,
+		0x02, 0xEA, 0x03, 0x1A, 0x03, 0x40, 0x03, 0x6B,
+		0x03, 0x81, 0x03, 0xA1, 0x03, 0xB0, 0x03, 0xD0,
+		0x03, 0xE0, 0x03, 0xFE };
 
 /* gamma B+ setting */
 static unsigned char gmprctr3[] = { 0xD3,
-		0x00, 0x01, 0x00, 0x43, 0x00, 0x6B, 0x00, 0x87,
-		0x00, 0xA3, 0x00, 0xCE, 0x00, 0xF1, 0x01, 0x27,
-		0x01, 0x53, 0x01, 0x98, 0x01, 0xCE, 0x02, 0x22,
-		0x02, 0x83, 0x02, 0x78, 0x02, 0x9E, 0x02, 0xDD,
-		0x03, 0x00, 0x03, 0x2E, 0x03, 0x54, 0x03, 0x7F,
-		0x03, 0x95, 0x03, 0xB3, 0x03, 0xC2, 0x03, 0xE1,
-		0x03, 0xF1, 0x03, 0xFE };
+		0x00, 0x01, 0x00, 0x43, 0x00, 0x5B, 0x00, 0x73,
+		0x00, 0x8D, 0x00, 0xB7, 0x00, 0xD9, 0x01, 0x11,
+		0x01, 0x3F, 0x01, 0x84, 0x01, 0xBA, 0x02, 0x0C,
+		0x02, 0x6E, 0x02, 0x64, 0x02, 0x8A, 0x02, 0xC7,
+		0x02, 0xEA, 0x03, 0x1A, 0x03, 0x40, 0x03, 0x6B,
+		0x03, 0x81, 0x03, 0xA1, 0x03, 0xB0, 0x03, 0xD0,
+		0x03, 0xE0, 0x03, 0xFE };
 
 /* gamma R- setting */
 static unsigned char gmprctr4[] = { 0xD4,
-		0x00, 0x01, 0x00, 0x43, 0x00, 0x6B, 0x00, 0x87,
-		0x00, 0xA3, 0x00, 0xCE, 0x00, 0xF1, 0x01, 0x27,
-		0x01, 0x53, 0x01, 0x98, 0x01, 0xCE, 0x02, 0x22,
-		0x02, 0x43, 0x02, 0x50, 0x02, 0x9E, 0x02, 0xDD,
-		0x03, 0x00, 0x03, 0x2E, 0x03, 0x54, 0x03, 0x7F,
-		0x03, 0x95, 0x03, 0xB3, 0x03, 0xC2, 0x03, 0xE1,
-		0x03, 0xF1, 0x03, 0xFE };
+		0x00, 0x01, 0x00, 0x43, 0x00, 0x5B, 0x00, 0x73,
+		0x00, 0x8D, 0x00, 0xB7, 0x00, 0xD9, 0x01, 0x11,
+		0x01, 0x3F, 0x01, 0x84, 0x01, 0xBA, 0x02, 0x0C,
+		0x02, 0x2E, 0x02, 0x3C, 0x02, 0x8A, 0x02, 0xC7,
+		0x02, 0xEA, 0x03, 0x1A, 0x03, 0x40, 0x03, 0x6B,
+		0x03, 0x81, 0x03, 0xA1, 0x03, 0xB0, 0x03, 0xD0,
+		0x03, 0xE0, 0x03, 0xFE };
 
 /* gamma G- setting */
 static unsigned char gmpgctr1[] = { 0xD5,
-		0x00, 0x01, 0x00, 0x43, 0x00, 0x6B, 0x00, 0x87,
-		0x00, 0xA3, 0x00, 0xCE, 0x00, 0xF1, 0x01, 0x27,
-		0x01, 0x53, 0x01, 0x98, 0x01, 0xCE, 0x02, 0x22,
-		0x02, 0x43, 0x02, 0x50, 0x02, 0x9E, 0x02, 0xDD,
-		0x03, 0x00, 0x03, 0x2E, 0x03, 0x54, 0x03, 0x7F,
-		0x03, 0x95, 0x03, 0xB3, 0x03, 0xC2, 0x03, 0xE1,
-		0x03, 0xF1, 0x03, 0xFE };
+		0x00, 0x01, 0x00, 0x43, 0x00, 0x5B, 0x00, 0x73,
+		0x00, 0x8D, 0x00, 0xB7, 0x00, 0xD9, 0x01, 0x11,
+		0x01, 0x3F, 0x01, 0x84, 0x01, 0xBA, 0x02, 0x0C,
+		0x02, 0x2E, 0x02, 0x3C, 0x02, 0x8A, 0x02, 0xC7,
+		0x02, 0xEA, 0x03, 0x1A, 0x03, 0x40, 0x03, 0x6B,
+		0x03, 0x81, 0x03, 0xA1, 0x03, 0xB0, 0x03, 0xD0,
+		0x03, 0xE0, 0x03, 0xFE };
 
 /* gamma B- setting */
 static unsigned char gmpgctr2[] = { 0xD6,
-		0x00, 0x01, 0x00, 0x43, 0x00, 0x6B, 0x00, 0x87,
-		0x00, 0xA3, 0x00, 0xCE, 0x00, 0xF1, 0x01, 0x27,
-		0x01, 0x53, 0x01, 0x98, 0x01, 0xCE, 0x02, 0x22,
-		0x02, 0x43, 0x02, 0x50, 0x02, 0x9E, 0x02, 0xDD,
-		0x03, 0x00, 0x03, 0x2E, 0x03, 0x54, 0x03, 0x7F,
-		0x03, 0x95, 0x03, 0xB3, 0x03, 0xC2, 0x03, 0xE1,
-		0x03, 0xF1, 0x03, 0xFE };
+		0x00, 0x01, 0x00, 0x43, 0x00, 0x5B, 0x00, 0x73,
+		0x00, 0x8D, 0x00, 0xB7, 0x00, 0xD9, 0x01, 0x11,
+		0x01, 0x3F, 0x01, 0x84, 0x01, 0xBA, 0x02, 0x0C,
+		0x02, 0x2E, 0x02, 0x3C, 0x02, 0x8A, 0x02, 0xC7,
+		0x02, 0xEA, 0x03, 0x1A, 0x03, 0x40, 0x03, 0x6B,
+		0x03, 0x81, 0x03, 0xA1, 0x03, 0xB0, 0x03, 0xD0,
+		0x03, 0xE0, 0x03, 0xFE };
 
 /* Sleep Out */
 static unsigned char slpout[] = { 0x11 };
@@ -387,7 +388,7 @@ static unsigned char raset[] = { 0x2B,
 		0x00, 0x00, 0x03, 0x1F };
 
 /* Normal Display Mode On */
-static unsigned char noron[] = { 0x13 };
+/*static unsigned char noron[] = { 0x13 };*/
 
 static unsigned char dpfrctr1_40hz[] = { 0xBD,
 		0x02, 0x45, 0x07, 0x32, 0x00 };
@@ -410,7 +411,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  vghctr,    sizeof(vghctr)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvglreg, sizeof(setvglreg)},
 	{ MIPI_DSI_DCS_LONG_WRITE,  bt5ctr,    sizeof(bt5ctr)   },
-/*	{ MIPI_DSI_DCS_LONG_WRITE,  btenctr,   sizeof(btenctr)  }, */
+	{ MIPI_DSI_DCS_LONG_WRITE,  btenctr,   sizeof(btenctr)  },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvgp,    sizeof(setvgp)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvgn,    sizeof(setvgn)   },
 
@@ -436,8 +437,8 @@ static const struct specific_cmdset initialize_cmdset[] = {
 #ifndef NT35510_ENABLE_VIDEO_MODE
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, teon, sizeof(teon)    },
 #endif
-
-	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },
+	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, colmod, sizeof(colmod)	},
+/*	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },*/
 	{ MIPI_DSI_DCS_LONG_WRITE,  caset,  sizeof(caset) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) },
 	{ MIPI_DSI_DCS_LONG_WRITE, slpout,    sizeof(slpout)   },
@@ -468,6 +469,8 @@ static const struct specific_cmdset demise_cmdset[] = {
 	{ MIPI_DSI_END,             NULL,      0                }
 };
 
+
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 static struct specific_cmdset mauc0_cmd[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr0,  sizeof(maucctr0) },
 	{ MIPI_DSI_END,             NULL,      0                }
@@ -477,6 +480,7 @@ static struct specific_cmdset mauc1_cmd[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr1,  sizeof(maucctr1) },
 	{ MIPI_DSI_END,             NULL,      0                }
 };
+#endif
 
 static int is_dsi_read_enabled;
 
@@ -503,16 +507,16 @@ struct lcd_info {
 static struct lcd_info lcd_info_data;
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-struct delayed_work esd_check_work;
-struct mutex recovery_mutex;
+#define DURATION_TIME 3000 /* 3000ms */
+#define ESD_CHECK_DISABLE 0
+#define ESD_CHECK_ENABLE 1
 
-#define DURATION_TIME (HZ*2) /* 2000ms */
-#define EXIT_POWER_CHECK 0
-#define PROCESS_POWER_CHECK 1
+static struct delayed_work esd_check_work;
+static struct mutex esd_check_mutex;
+static int esd_check_flag;
+static int esd_check_now;
 
-static int g_exit_check_pm;
-
-#endif
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 static int lcdfreq_lock_free(struct device *dev)
 {
@@ -553,34 +557,94 @@ out:
 }
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-int g_recovery_now;
-
 static int nt35510_panel_simple_reset(void)
 {
 	void *screen_handle;
+	screen_disp_stop_lcd disp_stop_lcd;
+	screen_disp_start_lcd start_lcd;
 	screen_disp_draw disp_draw;
 	screen_disp_delete disp_delete;
 	int ret;
 
+#ifdef NT35510_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_end_notify;
+	system_pmg_param powarea_start_notify;
+	system_pmg_delete pmg_delete;
+
+	system_handle = system_pwmng_new();
+#endif
+
 	printk(KERN_DEBUG "%s\n", __func__);
 
-	g_recovery_now = 1;
+	is_dsi_read_enabled = 0;
+	screen_handle =  screen_display_new();
 
-	ret = nt35510_panel_suspend();
-	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "nt35510_panel_suspend err!\n");
+	/* Start suspend sequence */
+	/* GPIO control */
+	gpio_direction_output(reset_gpio, 0);
+	msleep(20);
+	gpio_direction_output(reset_gpio, 1);
+	regulator_disable(power_ldo_3v);
+	regulator_disable(power_ldo_1v8);
+	msleep(25);
+	gpio_direction_output(reset_gpio, 0);
+
+	disp_stop_lcd.handle		= screen_handle;
+	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_stop_lcd(&disp_stop_lcd);
+	if (ret != SMAP_LIB_DISPLAY_OK)
+		printk(KERN_ALERT "display_stop_lcd err!\n");
+	/* End suspend sequence */
+
+#ifdef NT35510_POWAREA_MNG_ENABLE
+	/* Notifying the Beginning of Using Power Area */
+	printk(KERN_INFO "End A4LC power area\n");
+	powarea_end_notify.handle		= system_handle;
+	powarea_end_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_end_notify(&powarea_end_notify);
+	if (ret != SMAP_LIB_PWMNG_OK) {
+		printk(KERN_ALERT "system_pwmng_powerarea_end_notify err!\n");
 		goto out;
 	}
 
 	msleep(20);
 
-	ret = nt35510_panel_resume();
+	/* Notifying the Beginning of Using Power Area */
+	printk(KERN_INFO "Start A4LC power area\n");
+	powarea_start_notify.handle		= system_handle;
+	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
+	if (ret != SMAP_LIB_PWMNG_OK) {
+		printk(KERN_ALERT "system_pwmng_powerarea_start_notify err!\n");
+		goto out;
+	}
+#endif /* NT35510_POWAREA_MNG_ENABLE */
+
+	msleep(20);
+
+	/* Start resume sequence */
+	/* LCD panel reset */
+	mipi_display_reset();
+
+	/* Start a display to LCD */
+	start_lcd.handle	= screen_handle;
+	start_lcd.output_mode	= RT_DISPLAY_LCD1;
+	ret = screen_display_start_lcd(&start_lcd);
 	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "nt35510_panel_suspend err!\n");
+		printk(KERN_ALERT "disp_start_lcd err!\n");
 		goto out;
 	}
 
-	screen_handle =  screen_display_new();
+	/* Transmit DSI command peculiar to a panel */
+	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
+	if (ret != 0) {
+		printk(KERN_ALERT "panel_specific_cmdset err!\n");
+		goto out;
+	}
+	/* End resume sequence */
+
+	is_dsi_read_enabled = 1;
 
 	disp_draw.handle = screen_handle;
 	disp_draw.output_mode = RT_DISPLAY_LCD1;
@@ -597,16 +661,21 @@ static int nt35510_panel_simple_reset(void)
 	disp_draw.buffer_offset = 0;
 	disp_draw.rotate = RT_DISPLAY_ROTATE_270;
 	ret = screen_display_draw(&disp_draw);
-	if (ret != SMAP_LIB_DISPLAY_OK)
+	if (ret != SMAP_LIB_DISPLAY_OK) {
 		r_mobile_fb_err_msg(ret, "screen_display_draw err!");
-
-	disp_delete.handle = screen_handle;
-	screen_display_delete(&disp_delete);
+		goto out;
+	}
 
 	printk(KERN_ALERT "nt35510_panel simple initialized\n");
 
 out:
-	g_recovery_now = 0;
+	disp_delete.handle = screen_handle;
+	screen_display_delete(&disp_delete);
+
+#ifdef NT35510_POWAREA_MNG_ENABLE
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif /* NT35510_POWAREA_MNG_ENABLE */
 
 	return ret;
 }
@@ -625,7 +694,7 @@ static int nt35510_panel_check(void)
 	screen_handle =  screen_display_new();
 
 	/*Read Number of Errors on DSI*/
-	ret = nt35510_dsi_read(MIPI_DSI_DCS_READ, 0x05, 1, &rdnumed);
+	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x05, 1, &rdnumed);
 	printk(KERN_DEBUG "read_data(0x05) = %02X : ret(%d)\n", rdnumed, ret);
 	if (rdnumed != 0x00)
 		ret = -1;
@@ -636,7 +705,7 @@ static int nt35510_panel_check(void)
 	ret = panel_specific_cmdset(screen_handle, mauc1_cmd);
 	if (ret != 0)
 		goto out;
-	ret = nt35510_dsi_read(MIPI_DSI_DCS_READ, 0xC5, 1, rdidic);
+	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0xC5, 1, rdidic);
 	printk(KERN_DEBUG "read_data(0xC5) = %02X : ret(%d) page 1\n",
 							rdidic[0], ret);
 	if (exp_rdidic[0] != rdidic[0])
@@ -648,7 +717,7 @@ static int nt35510_panel_check(void)
 	ret = panel_specific_cmdset(screen_handle, mauc0_cmd);
 	if (ret != 0)
 		goto out;
-	ret = nt35510_dsi_read(MIPI_DSI_DCS_READ, 0xC5, 1, wonder);
+	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0xC5, 1, wonder);
 	printk(KERN_DEBUG "read_data(0xC5) = %02X : ret(%d) page 0\n",
 							wonder[0], ret);
 	if (wonder[0] == rdidic[0])
@@ -668,17 +737,18 @@ static void nt35510_panel_esd_check_work(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 
 	/* For the disable entering suspend */
-	mutex_lock(&recovery_mutex);
+	esd_check_now = 1;
 
-	while (nt35510_panel_check())
-		while (nt35510_panel_simple_reset())
-			;
+	while ((esd_check_flag == ESD_CHECK_ENABLE) && (nt35510_panel_check()))
+		while ((esd_check_flag == ESD_CHECK_ENABLE) &&
+						(nt35510_panel_simple_reset()))
+			msleep(20);
 
-	if (g_exit_check_pm == PROCESS_POWER_CHECK)
-		schedule_delayed_work(dwork, DURATION_TIME);
+	if (esd_check_flag == ESD_CHECK_ENABLE)
+		schedule_delayed_work(dwork, msecs_to_jiffies(DURATION_TIME));
 
 	/* Enable suspend */
-	mutex_unlock(&recovery_mutex);
+	esd_check_now = 0;
 }
 #endif
 
@@ -893,7 +963,7 @@ static struct lcd_ops nt35510_lcd_ops = {
 #endif /* NT35510_GED_ORG */
 
 
-int nt35510_dsi_read(int id, int reg, int len, char *buf)
+int panel_dsi_read(int id, int reg, int len, char *buf)
 {
 	void *screen_handle;
 	screen_disp_write_dsi_short write_dsi_s;
@@ -901,7 +971,7 @@ int nt35510_dsi_read(int id, int reg, int len, char *buf)
 	screen_disp_delete disp_delete;
 	int ret = 0;
 
-	printk(KERN_INFO "%s\n", __func__);
+	printk(KERN_DEBUG "%s\n", __func__);
 
 	if (!is_dsi_read_enabled) {
 		printk(KERN_ALERT "sequence error!!\n");
@@ -954,10 +1024,10 @@ static int nt35510_panel_draw_black(void *screen_handle)
 	screen_disp_draw disp_draw;
 	int ret;
 
-	printk(KERN_INFO "%s\n", __func__);
+	printk(KERN_DEBUG "%s\n", __func__);
 
 #ifdef NT35510_DRAW_BLACK_KERNEL
-	printk(KERN_ALERT
+	printk(KERN_DEBUG
 		"num_registered_fb = %d\n", num_registered_fb);
 
 	if (!num_registered_fb) {
@@ -971,7 +1041,7 @@ static int nt35510_panel_draw_black(void *screen_handle)
 			" is NULL err!\n");
 		return -1;
 	}
-	printk(KERN_INFO
+	printk(KERN_DEBUG
 	       "registerd_fb[0]-> fix.smem_start: %08x\n"
 	       "screen_base :%08x\n"
 	       "fix.smem_len :%08x\n",
@@ -1019,13 +1089,13 @@ static int panel_specific_cmdset(void *lcd_handle,
 	screen_disp_write_dsi_short write_dsi_s;
 	screen_disp_write_dsi_long  write_dsi_l;
 
-	printk(KERN_INFO "%s\n", __func__);
+	printk(KERN_DEBUG "%s\n", __func__);
 
 	while (0 <= loop) {
 		switch (cmdset[loop].cmd) {
 		case MIPI_DSI_DCS_LONG_WRITE:
 		case MIPI_DSI_GEN_LONG_WRITE:
-			printk(KERN_INFO "panel_cmdset LONG Write\n");
+			printk(KERN_DEBUG "panel_cmdset LONG Write\n");
 			write_dsi_l.handle         = lcd_handle;
 			write_dsi_l.output_mode    = RT_DISPLAY_LCD1;
 			write_dsi_l.data_id        = cmdset[loop].cmd;
@@ -1043,7 +1113,7 @@ static int panel_specific_cmdset(void *lcd_handle,
 			break;
 		case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
 		case MIPI_DSI_GEN_SHORT_WRITE_PARAM:
-			printk(KERN_INFO
+			printk(KERN_DEBUG
 			       "panel_cmdset SHORT Write with param\n");
 			write_dsi_s.handle         = lcd_handle;
 			write_dsi_s.output_mode    = RT_DISPLAY_LCD1;
@@ -1061,7 +1131,7 @@ static int panel_specific_cmdset(void *lcd_handle,
 			break;
 		case MIPI_DSI_DCS_SHORT_WRITE:
 		case MIPI_DSI_GEN_SHORT_WRITE:
-			printk(KERN_INFO "panel_cmdset SHORT Write\n");
+			printk(KERN_DEBUG "panel_cmdset SHORT Write\n");
 			write_dsi_s.handle         = lcd_handle;
 			write_dsi_s.output_mode    = RT_DISPLAY_LCD1;
 			write_dsi_s.data_id        = cmdset[loop].cmd;
@@ -1130,7 +1200,6 @@ static int nt35510_panel_init(unsigned int mem_size)
 	screen_disp_set_lcd_if_param set_lcd_if_param;
 	screen_disp_set_address set_address;
 	screen_disp_delete disp_delete;
-	unsigned char read_data[60];
 	int ret = 0;
 	int retry_count = NT35510_INIT_RETRY_COUNT;
 
@@ -1195,15 +1264,6 @@ retry:
 	}
 	is_dsi_read_enabled = 1;
 
-#if 0
-	/* Read display identification information */
-	ret = nt35510_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
-	if (ret == 0) {
-		printk(KERN_DEBUG "read_data(RDID1) = %02X\n", read_data[1]);
-		printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
-		printk(KERN_DEBUG "read_data(RDID3) = %02X\n", read_data[3]);
-	}
-#endif
 
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
@@ -1223,8 +1283,10 @@ retry:
 			disp_stop_lcd.handle		= screen_handle;
 			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
 			ret = screen_display_stop_lcd(&disp_stop_lcd);
-			if (ret != SMAP_LIB_DISPLAY_OK)
+			if (ret != SMAP_LIB_DISPLAY_OK) {
 				printk(KERN_ALERT "display_stop_lcd err!\n");
+				goto out;
+			}
 
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
@@ -1271,8 +1333,10 @@ retry:
 			disp_stop_lcd.handle		= screen_handle;
 			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
 			ret = screen_display_stop_lcd(&disp_stop_lcd);
-			if (ret != SMAP_LIB_DISPLAY_OK)
+			if (ret != SMAP_LIB_DISPLAY_OK) {
 				printk(KERN_ALERT "display_stop_lcd err!\n");
+				goto out;
+			}
 
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
@@ -1285,9 +1349,9 @@ retry:
 #endif /* NT35510_ENABLE_VIDEO_MODE */
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-	g_exit_check_pm = PROCESS_POWER_CHECK;
-	schedule_delayed_work(&esd_check_work, DURATION_TIME);
-#endif
+	esd_check_flag = ESD_CHECK_ENABLE;
+	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(DURATION_TIME));
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 out:
 	disp_delete.handle = screen_handle;
@@ -1311,25 +1375,18 @@ static int nt35510_panel_suspend(void)
 #endif
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-	/* Wait for end of check to power mode state without recovery */
-	if (g_recovery_now == 0) {
-		g_exit_check_pm = EXIT_POWER_CHECK;
-		mutex_lock(&recovery_mutex);
-		/* Cancel scheduled work queue for check to power mode state. */
-		cancel_delayed_work_sync(&esd_check_work);
-	}
-#endif /*  NT35510_ESD_RECOVERY_ENABLE */
+	esd_check_flag = ESD_CHECK_DISABLE;
+	while (esd_check_now)
+		msleep(20);
+	/* Cancel scheduled work queue for check ESD. */
+	cancel_delayed_work_sync(&esd_check_work);
+#endif /*  CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 	printk(KERN_INFO "%s\n", __func__);
 
 	screen_handle =  screen_display_new();
 
 	is_dsi_read_enabled = 0;
-
-#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-	/* skip demise cmdset when recovery  */
-	if (g_recovery_now == 0) {
-#endif /* NT35510_ESD_RECOVERY_ENABLE */
 
 	/* Stop a display to LCD */
 	disp_stop_lcd.handle		= screen_handle;
@@ -1350,10 +1407,6 @@ static int nt35510_panel_suspend(void)
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		/* continue */
 	}
-
-#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-	}
-#endif /* NT35510_ESD_RECOVERY_ENABLE */
 
 	/* Stop a display to LCD */
 	disp_stop_lcd.handle		= screen_handle;
@@ -1392,9 +1445,8 @@ static int nt35510_panel_suspend(void)
 #endif
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-	if (g_recovery_now == 0)
-		mutex_unlock(&recovery_mutex);
-#endif
+	mutex_unlock(&esd_check_mutex);
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 
 	return 0;
@@ -1417,10 +1469,9 @@ static int nt35510_panel_resume(void)
 #endif
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-	/* Wait for end of check to power mode state without recovery */
-	if (g_recovery_now == 0)
-		mutex_lock(&recovery_mutex);
-#endif
+	/* Wait for end of check ESD */
+	mutex_lock(&esd_check_mutex);
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 	printk(KERN_INFO "%s\n", __func__);
 
@@ -1455,7 +1506,7 @@ retry:
 	is_dsi_read_enabled = 1;
 
 	/* Read display identification information */
-	ret = nt35510_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
+	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
 	if (ret == 0) {
 		printk(KERN_DEBUG "read_data(RDID1) = %02X\n", read_data[1]);
 		printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
@@ -1537,14 +1588,10 @@ retry:
 #endif /* NT35510_ENABLE_VIDEO_MODE */
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-	if (g_recovery_now == 0) {
-		/* Schedule check to power mode state */
-		g_exit_check_pm = PROCESS_POWER_CHECK;
-
-		mutex_unlock(&recovery_mutex);
-		schedule_delayed_work(&esd_check_work, DURATION_TIME);
-	}
-#endif
+	/* Schedule check ESD */
+	esd_check_flag = ESD_CHECK_ENABLE;
+	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(DURATION_TIME));
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 out:
 	disp_delete.handle = screen_handle;
@@ -1609,10 +1656,8 @@ static int nt35510_panel_probe(struct fb_info *info,
 	lcd_info_data.power = FB_BLANK_UNBLANK;
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-	g_exit_check_pm = EXIT_POWER_CHECK;
-	mutex_init(&recovery_mutex);
-	INIT_DELAYED_WORK(&esd_check_work,
-		nt35510_panel_esd_check_work);
+	esd_check_flag = ESD_CHECK_DISABLE;
+	INIT_DELAYED_WORK(&esd_check_work, nt35510_panel_esd_check_work);
 #endif
 
 	return 0;
@@ -1629,13 +1674,8 @@ static int nt35510_panel_remove(struct fb_info *info)
 	printk(KERN_INFO "%s\n", __func__);
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-	/* Wait for end of check to power mode state */
-	mutex_lock(&recovery_mutex);
-
-	/* Cancel  scheduled work queue for check to power mode state. */
+	/* Cancel scheduled work queue for check esd. */
 	cancel_delayed_work_sync(&esd_check_work);
-
-	mutex_unlock(&recovery_mutex);
 #endif
 
 	/* unregister sysfs for LCD frequency control */
@@ -1654,7 +1694,6 @@ static struct fb_panel_info nt35510_panel_info(void)
 	return r_mobile_info;
 }
 
-#ifndef CONFIG_FB_R_MOBILE_PANEL_SWITCH
 struct fb_panel_func r_mobile_panel_func(int panel)
 {
 
@@ -1677,22 +1716,3 @@ struct fb_panel_func r_mobile_panel_func(int panel)
 
 	return panel_func;
 }
-#else
-struct fb_panel_func nt35510_func_list()
-{
-	struct fb_panel_func panel_func;
-
-	printk(KERN_INFO "%s\n", __func__);
-
-	memset(&panel_func, 0, sizeof(struct fb_panel_func));
-
-	panel_func.panel_init    = nt35510_panel_init;
-	panel_func.panel_suspend = nt35510_panel_suspend;
-	panel_func.panel_resume  = nt35510_panel_resume;
-	panel_func.panel_probe   = nt35510_panel_probe;
-	panel_func.panel_remove  = nt35510_panel_remove;
-	panel_func.panel_info    = nt35510_panel_info;
-
-	return panel_func;
-}
-#endif

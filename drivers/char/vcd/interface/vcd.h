@@ -28,19 +28,33 @@
 #define VCD_POLL_READ_OK		1
 #define VCD_POLL_READ_NG		0
 
-#define VCD_IF_GET_MSG_BUFFER_LOG	"[VCD <- AMHAL] : GET_MSG_BUFFER\n"
-#define VCD_IF_SET_BINARY_BUF_LOG	"[VCD <- AMHAL] : SET_BINARY(BUF)\n"
-#define VCD_IF_SET_BINARY_PRE_LOG	"[VCD <- AMHAL] : SET_BINARY(PRE)\n"
-#define VCD_IF_SET_BINARY_MAIN_LOG	"[VCD <- AMHAL] : SET_BINARY(MAIN)\n"
-#define VCD_IF_SET_BINARY_POST_LOG	"[VCD <- AMHAL] : SET_BINARY(POST)\n"
-#define VCD_IF_START_VCD_LOG		"[VCD <- AMHAL] : START_VCD\n"
-#define VCD_IF_STOP_VCD_LOG		"[VCD <- AMHAL] : STOP_VCD\n"
-#define VCD_IF_SET_HW_PARAM_LOG		"[VCD <- AMHAL] : SET_HW_PARAM\n"
-#define VCD_IF_START_CALL_LOG		"[VCD <- AMHAL] : START_CALL\n"
-#define VCD_IF_STOP_CALL_LOG		"[VCD <- AMHAL] : STOP_CALL\n"
-#define VCD_IF_SET_UDATA_LOG		"[VCD <- AMHAL] : SET_UDATA\n"
-#define VCD_IF_GET_STATUS_LOG		"[VCD <- AMHAL] : GET_STATUS\n"
-
+#define VCD_IF_GET_MSG_BUFFER_LOG	"[ <- AMHAL] GET_MSG_BUFFER\n"
+#define VCD_IF_SET_BINARY_BUF_LOG	"[ <- AMHAL] SET_BINARY(BUF)\n"
+#define VCD_IF_SET_BINARY_PRE_LOG	"[ <- AMHAL] SET_BINARY(PRE)\n"
+#define VCD_IF_SET_BINARY_MAIN_LOG	"[ <- AMHAL] SET_BINARY(MAIN)\n"
+#define VCD_IF_SET_BINARY_POST_LOG	"[ <- AMHAL] SET_BINARY(POST)\n"
+#define VCD_IF_START_VCD_LOG		"[ <- AMHAL] START_VCD\n"
+#define VCD_IF_STOP_VCD_LOG		"[ <- AMHAL] STOP_VCD\n"
+#define VCD_IF_SET_HW_PARAM_LOG		"[ <- AMHAL] SET_HW_PARAM\n"
+#define VCD_IF_START_CALL_LOG		"[ <- AMHAL] START_CALL\n"
+#define VCD_IF_STOP_CALL_LOG		"[ <- AMHAL] STOP_CALL\n"
+#define VCD_IF_SET_UDATA_LOG		"[ <- AMHAL] SET_UDATA\n"
+#define VCD_IF_GET_STATUS_LOG		"[ <- AMHAL] GET_STATUS\n"
+#define VCD_IF_SET_CALL_MODE_LOG	"[ <-  PT  ] SET_CALL_MODE\n"
+#define VCD_IF_START_RECORD_LOG		"[ <- SOUND] START_RECORD\n"
+#define VCD_IF_STOP_RECORD_LOG		"[ <- SOUND] STOP_RECORD\n"
+#define VCD_IF_START_PLAYBACK_LOG	"[ <- SOUND] START_PLAYBACK\n"
+#define VCD_IF_STOP_PLAYBACK_LOG	"[ <- SOUND] STOP_PLAYBACK\n"
+#define VCD_IF_GET_RECORD_BUFFER_LOG	"[ <- SOUND] GET_RECORD_BUFFER\n"
+#define VCD_IF_GET_PLAYBACK_BUFFER_LOG	"[ <- SOUND] GET_PLAYBACK_BUFFER\n"
+#define VCD_IF_GET_VOIP_UL_BUFFER_LOG	"[ <- SOUND] GET_VOIP_UL_BUFFER\n"
+#define VCD_IF_GET_VOIP_DL_BUFFER_LOG	"[ <- SOUND] GET_VOIP_DL_BUFFER\n"
+#define VCD_IF_WATCH_FW_LOG		"[ <- SOUND] WATCH_FW\n"
+#define VCD_IF_WATCH_FW_PT_LOG		"[ <-  PT  ] WATCH_FW_PT\n"
+#define VCD_IF_WATCH_CLKGEN_LOG		"[ <- SOUND] WATCH_CLKGEN\n"
+#define VCD_IF_WATCH_CLKGEN_PT_LOG	"[ <-  PT  ] WATCH_CLKGEN\n"
+#define VCD_IF_WATCH_CODEC_TYPE_LOG	"[ <- SOUND] WATCH_CODEC_TYPE\n"
+#define VCD_IF_WAIT_PATH_LOG		"[ <- SOUND] WAIT_PATH\n"
 
 /*
  * define macro declaration
@@ -92,6 +106,8 @@ enum VCD_DEBUG_COMMAND {
 	VCD_DEBUG_SET_MODE_1,
 	VCD_DEBUG_SET_MODE_2,
 	VCD_DEBUG_SET_MODE_3,
+	VCD_DEBUG_CALC_TRIGGER_START,
+	VCD_DEBUG_CALC_TRIGGER_STOP,
 };
 
 
@@ -158,6 +174,7 @@ static int vcd_stop_playback(void *arg);
 static int vcd_get_record_buffer(void *arg);
 static int vcd_get_playback_buffer(void *arg);
 static int vcd_watch_fw(void *arg);
+static int vcd_watch_fw_pt(void *arg);
 static int vcd_watch_clkgen(void *arg);
 static int vcd_watch_clkgen_pt(void *arg);
 static int vcd_watch_codec_type(void *arg);

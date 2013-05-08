@@ -6,24 +6,14 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
-#ifdef CONFIG_MACH_U2EVM
-#include <mach/board-u2evm.h>
-#elif CONFIG_MACH_GARDALTE
-#include <mach/board-gardalte.h>
-#endif
 #include <mach/r8a7373.h>
 #include <asm/io.h>
 
 /* Following should come from proper include file from drivers/sec_hal/exports/sec_hal_cmn.h */
 extern uint32_t sec_hal_dbg_reg_set(uint32_t *dbgreg1, uint32_t *dbgreg2, uint32_t *dbgreg3);
 
-#define DBGREG1			0xE6100020
 #define DBGREG3			0xE6100028
-#define DBGREG9			0xE6100040
 #define DBGREG11		0xE6100048
-#define SWUCR			0xE6180014
-#define PSTR			0xE6180080
-#define MSEL3CR		        0xE6058020
 
 #define DBGREG9_AID 		0xA5
 #define DBGREG9_AID_SHIFT	8
@@ -31,16 +21,12 @@ extern uint32_t sec_hal_dbg_reg_set(uint32_t *dbgreg1, uint32_t *dbgreg2, uint32
 #define DBGREG9_KEY_SHIFT	0x0
 #define DBGREG9_KEY_MASK	0x1
 
-#define SYS_TRACE_FUNNEL_STM_BASE  0xE6F8B000
-#define SYS_TPIU_STM_BASE	   0xE6F8A000
 #define SYS_TPIU_BASE              0xE6F83000
 #define CPU_TPIU_BASE              0xE6FA3000
-#define SYS_TPIU_STM_BASE          0xE6F8A000
 #define CPU_ETR_BASE               0xE6FA5000
 #define CPU_ETF_BASE               0xE6FA1000
 #define CPU_TRACE_FUNNEL_BASE      0xE6FA4000
 #define SYS_TRACE_FUNNEL_BASE      0xE6F84000
-#define SYS_TRACE_FUNNEL_STM_BASE  0xE6F8B000
 
 static int stm_select=-1;
 
@@ -75,22 +61,22 @@ static void conf_stm_etr_to_sdram(void)
     7) System  CoreSight / SYS-TPIU-STM      @ 0xE6F 8A 000 - set to 32-bit mode to avoid unnecessary stall
     8) HostCPU CoreSight / CPU-TPIU          @ 0xE6F A3 000 - set to 32-bit mode to avoid unnecessary stall
     9) System  CoreSight / SYS-TPIU          @ 0xE6F 83 000 - set to 32-bit mode to avoid unnecessary stall
-    
+
     DETAILED CONFIGURATION REGISTER WRITES:
     ---------------------------------------
   */
-  
+
   /* <<<<<< - 9 - System CoreSight  / SYS-TPIU     to 32-bit mode >>>>>> */
-  
+
   wait_for_coresight_access_lock(SYS_TPIU_BASE);
 #if 1
   __raw_writel((1<<(16-1)), SYS_TPIU_BASE + 0x004);               /* Current Port Size 4-bits wide to avoid stall */
 #else
   __raw_writel((1<<(32-1)), SYS_TPIU_BASE + 0x004);               /* Current Port Size 32-bits wide to avoid stall */
 #endif
-  
+
   /* <<<<<< - 8 - HostCPU CoreSight / CPU-TPIU     to 32-bit mode >>>>>> */
-  
+
   wait_for_coresight_access_lock(CPU_TPIU_BASE);
 #if 1
   __raw_writel((1<<(16-1)), CPU_TPIU_BASE + 0x004);               /* Current Port Size 16-bits wide to avoid stall */
@@ -98,24 +84,24 @@ static void conf_stm_etr_to_sdram(void)
   __raw_writel((1<<(32-1)), CPU_TPIU_BASE + 0x004);               /* Current Port Size 32-bits wide to avoid stall */
 #endif
   /* <<<<<< - 7 - System CoreSight  / SYS-TPIU-STM to 32-bit mode >>>>>> */
-  
+
   wait_for_coresight_access_lock(SYS_TPIU_STM_BASE);
 #if 1
   __raw_writel((1<<(4-1)), SYS_TPIU_STM_BASE + 0x004);    /* Current Port Size 16-bits wide to avoid stall */
 #else
   __raw_writel((1<<(32-1)), SYS_TPIU_STM_BASE + 0x004);   /* Current Port Size 32-bits wide to avoid stall */
 #endif
-  
+
   /* <<<<<< - 6 - HostCPU CoreSight / ETR configuration >>>>>>
      For ARM Specification of this HW block, see CoreSight Trace Memory Controller Technical Reference Manual
      SW Registers of ETR are same as ETF in different HW configuration
   */
-  
+
   wait_for_coresight_access_lock(CPU_ETR_BASE);
   __raw_writel(0, CPU_ETR_BASE + 0x020);                  /* CTL Control: 0 */
   __raw_writel(0, CPU_ETR_BASE + 0x028);                  /* MODE: Circular buffer */
   __raw_writel(3, CPU_ETR_BASE + 0x304);                  /* FFCR: Formatting enabled */
-  
+
   __raw_writel(
 	       (       (3 << 8) |              /*    WrBurstLen, 0 = 1, 1 = 2, ..., 15 = 16     */
 		       (0 << 7) |              /*    0 = Single buffer, 1 = ScatterGather       */
@@ -128,7 +114,7 @@ static void conf_stm_etr_to_sdram(void)
 		       (1 << 0)                /*    ProtCtrlBit0  Normal / Privileged          */
 		       ),
 	       CPU_ETR_BASE + 0x110); /* AXICTL: Set as commented above */
-  
+
   __raw_writel(0, CPU_ETR_BASE + 0x034);                  /* BUFWM Buffer Level Water Mark: 0 */
   __raw_writel(0, CPU_ETR_BASE + 0x018);                  /* RWP RAM Writer Pointer: 0 */
   __raw_writel(0, CPU_ETR_BASE + 0x03C);                  /* RWP RAM Writer Pointer High: 0 */
@@ -136,33 +122,33 @@ static void conf_stm_etr_to_sdram(void)
   __raw_writel(0, CPU_ETR_BASE + 0x11C);                  /* DBAHI Data Buffer Address High: 0 */
   __raw_writel(((39*1024*1024  + 764*1024)/ 4), CPU_ETR_BASE + 0x004); /* RSZ RAM Size Register: 39MB + 764 kB */
   __raw_writel(1, CPU_ETR_BASE + 0x020);                  /* CTL Control: 1 */
-  
+
   /* <<<<<< - 5 - HostCPU CoreSight / ETF - configuration to FIFO mode >>>>>>
      For ARM Specification of this HW block, see CoreSight Trace Memory Controller Technical Reference Manual
   */
-  
+
   wait_for_coresight_access_lock(CPU_ETF_BASE);
   __raw_writel(0, CPU_ETF_BASE + 0x020);                  /* CTL Control: TraceCaptEn OFF ==> Disabled */
   __raw_writel(2, CPU_ETF_BASE + 0x028);                  /* MODE: FIFO */
   __raw_writel(3, CPU_ETF_BASE + 0x304);                  /* FFCR Formatter and Flush Control Register: Formatting enabled */
   __raw_writel(0, CPU_ETF_BASE + 0x034);                  /* BUFWM Buffer Level Water Mark: 0 */
   __raw_writel(1, CPU_ETF_BASE + 0x020);                  /* CTL Control: TraceCaptEn ON ==> Running */
-  
+
   /* <<<<<< - 4 - HostCPU CoreSight / CPU Trace Funnel - Enable Port #3 "From Sys-Trace-Funnel" >>>>>> */
-  
+
   wait_for_coresight_access_lock(CPU_TRACE_FUNNEL_BASE);
   __raw_writel((0x300 | (1<<4)), CPU_TRACE_FUNNEL_BASE + 0x000);  /* Enable only Slave port 4, i.e. From Sys-Trace-Funnel */
-  
+
   /* <<<<<< - 3 - System CoreSight / SYS Trace Funnel - Enable Port #2 "From Sys-Funnel-STM" >>>>>> */
-  
+
   wait_for_coresight_access_lock(SYS_TRACE_FUNNEL_BASE);
   __raw_writel((0x300 | (1<<2)), SYS_TRACE_FUNNEL_BASE + 0x000);  // Enable only Slave port 2, i.e. From Sys-Funnel-STM
-    
+
   /* <<<<<< - 2 - System CoreSight / SYS Funnel STM - Enable Port #1 "From STM-ATB Modem" >>>>>> */
-    
+
   wait_for_coresight_access_lock(SYS_TRACE_FUNNEL_STM_BASE);
   __raw_writel((0x300 | (1<<1)), SYS_TRACE_FUNNEL_STM_BASE + 0x000);      /* Enable only Slave port 1, i.e. Modem top-level funnel for STM */
-    
+
   /* <<<<<< - 1 - Modem CoreSight / WGEM STM - Enable traces >>>>>>
      This happens inside WGEM L2 TCM vector boot code
   */
@@ -213,12 +199,14 @@ int u2evm_init_stm_select(void)
 #ifdef CONFIG_ARM_TZ
   // Try to set debug mode according to boot argument, if secure side allows for it.
   val = __raw_readl(DBGREG1);
+  g_dbgreg1 = (g_dbgreg1 & 0xFFFF0000) | (val & 0x0000FFFF); /* Keep TRC[2:0] and MDA[7:0] but check-modify MD... and STMSEL[:] */
   if ((stm_boot_arg >= 0) && (val != g_dbgreg1)) {
     ret = sec_hal_dbg_reg_set(&g_dbgreg1, &g_dbgreg2, &g_dbgreg3);
     printk(KERN_ALERT "TZ: ret=%x,g_dbgreg1/2/3=0x%08x, 0x%08x, 0x%08x\n", ret, g_dbgreg1, g_dbgreg2, g_dbgreg3);
   }
 #else
   val = __raw_readl(DBGREG1);
+  g_dbgreg1 = (g_dbgreg1 & 0xFFFF0000) | (val & 0x0000FFFF); /* Keep TRC[2:0] and MDA[7:0] but check-modify MD... and STMSEL[:] */
   if (stm_boot_arg >= 0) {
       if (val == (g_dbgreg1^(1<<20))) {
 	// Try to mux stm output mode according to boot argument
@@ -234,7 +222,7 @@ int u2evm_init_stm_select(void)
 	__raw_writel((DBGREG9_AID_MASK & (DBGREG9_AID << DBGREG9_AID_SHIFT)), DBGREG9);
 	val = __raw_readl(DBGREG9);
 	__raw_writel((val | (DBGREG9_AID_MASK & (DBGREG9_AID << DBGREG9_AID_SHIFT)) | DBGREG9_KEY_MASK), DBGREG9);
-	
+
 	__raw_writel(0x000780ff, DBGREG3);
         __raw_writel(g_dbgreg1, DBGREG1);
 	__raw_writel(0x00000002, SWUCR);
@@ -250,7 +238,7 @@ int u2evm_init_stm_select(void)
 #endif
 
 /* For case that TZ:Secure ISSW or Non-TZ:R-Loader has selected debug mode already! */
-    
+
   val = __raw_readl(DBGREG1);
   if ((val & (1 << 29)) == 0) {
     sec_stm_select = -1;
@@ -261,9 +249,9 @@ int u2evm_init_stm_select(void)
       sec_stm_select = 1;
     }
   }
-  
+
   printk(KERN_ALERT "sec_stm_select=%d\n", sec_stm_select);
-  
+
   if (sec_stm_select >= 0) { /* Only if Secure side allows debugging */
     stm_select = stm_boot_arg;
   } else {
@@ -290,7 +278,7 @@ int u2evm_init_stm_select(void)
   }
 
   /* SECOND, ENABLE TERMINAL POWER FOR STM CLK AND DATA PINS */
-  if (stm_select >= 0) {	
+  if (stm_select >= 0) {
     __raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
   }
 
@@ -313,13 +301,14 @@ int u2evm_init_stm_select(void)
     /* Configure SYS-(Trace) Funnel-STM @ 0xE6F8B000 */
     __raw_writel(0xc5acce55, SYS_TRACE_FUNNEL_STM_BASE + 0xFB0); // Lock Access
     for(i=0; i<0xF0; i++);
-    __raw_writel(     0x302, SYS_TRACE_FUNNEL_STM_BASE + 0x000); // Enable only Slave port 1, i.e. Modem top-level funnel for STM, 0x303 for APE also
+    val = __raw_readl(SYS_TRACE_FUNNEL_STM_BASE + 0x000);
+    val = 0x302 | (val & 0x0FF); // Open Modem port. Keep other ports open if previously opened.
     for(i=0; i<0xF0; i++);
-    __raw_writel(0xc5acce55, SYS_TRACE_FUNNEL_STM_BASE + 0xFB0); // Lock Access
+    __raw_writel(0xc5acce55, SYS_TRACE_FUNNEL_STM_BASE + 0xFB0);
     for(i=0; i<0x10; i++);
-    __raw_writel(     0x302, SYS_TRACE_FUNNEL_STM_BASE + 0x000); // Enable only Slave port 1, i.e. Modem top-level funnel for STM, 0x303 for APE also
+    __raw_writel(       val, SYS_TRACE_FUNNEL_STM_BASE + 0x000);
     for(i=0; i<0xF0; i++);
-        
+
     /* Configure SYS-TPIU-STM @ 0xE6F8A000 */
     __raw_writel(0xc5acce55, SYS_TPIU_STM_BASE + 0xFB0); // Lock Access
     __raw_writel(       0x8, SYS_TPIU_STM_BASE + 0x004); // 0x8 means Current Port Size 4-bits wide (TRACEDATA0-3 all set)

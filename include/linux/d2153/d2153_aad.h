@@ -22,7 +22,7 @@
 /* PMIC related includes */
 #include <linux/d2153/core.h>
 
-//#define D2153_JACK_DETECT
+#define D2153_JACK_DETECT
 
 /*
  * D2153 AAD register space
@@ -145,7 +145,10 @@ struct d2153_aad_priv {
 	struct delayed_work	jack_monitor_work;
 	struct delayed_work	button_monitor_work;
 	unsigned int first_check_done;
-	int chip_rev;
+	unsigned int g_det_irq;
+	bool l_det_status;
+	u8 chip_rev;
+
 };
 
 /* HACK to deal with issue of ADC 1/8 bit reads for button detect */

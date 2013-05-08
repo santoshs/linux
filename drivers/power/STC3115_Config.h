@@ -25,9 +25,9 @@
 /********************************************************************/ 
 //Function declaration
 /********************************************************************/ 
-	void ReadRAM();
+	void ReadRAM(void);
 	void PreWriteNVN(unsigned char ErasedSector);
-	void ExitTest();
+	void ExitTest(void);
 	void ReadSector( char SectorNum, unsigned char *SectorData);
 	void WriteSector(char SectorNum, unsigned char *SectorData);
 

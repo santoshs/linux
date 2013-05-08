@@ -60,13 +60,13 @@ void unused_gpio_port_init(int gpio)
 	int ret = 0;
 	ret = gpio_request(gpio, NULL);
 	if (ret < 0)
-		printk(KERN_ERR, "%s: request failed %d\n", __func__, gpio);
+		printk(KERN_ERR "%s: request failed %d\n", __func__, gpio);
 	ret = gpio_direction_input(gpio);
 	if (ret < 0)
-		printk(KERN_ERR, "%s: dir input failed %d\n", __func__, gpio);
+		printk(KERN_ERR "%s: dir input failed %d\n", __func__, gpio);
 	gpio_pull_down_port(gpio);
 	if (ret < 0)
-		printk(KERN_ERR, "%s: pull down failed %d\n", __func__, gpio);
+		printk(KERN_ERR "%s: pull down failed %d\n", __func__, gpio);
 }
 EXPORT_SYMBOL_GPL(unused_gpio_port_init);
 

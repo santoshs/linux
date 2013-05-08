@@ -15,12 +15,14 @@
 /* Touch Panel auto detection */
 static struct i2c_client *tsp_detector_i2c_client;
 
+#if defined CONFIG_TOUCHSCREEN_MELFAS 
 static struct i2c_board_info i2c4_devices_melfas[] = {
 	{
 		I2C_BOARD_INFO("sec_touch", 0x48),
 		.irq = irqpin2irq(32),
 	},
 };
+#endif
 
 static struct i2c_board_info i2c4_devices_imagis[] = {
 	{

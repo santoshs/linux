@@ -53,6 +53,9 @@
 #define D2153_PLAYBACK_STREAM_NAME	"Playback"
 #define D2153_CAPTURE_STREAM_NAME	"Capture"
 
+struct snd_soc_dapm_widget *playback_widget;
+struct snd_soc_dapm_widget *capture_widget;
+
 struct clk *vclk4_clk;
 struct clk *main_clk;
 static int g_boot_flag;
@@ -81,18 +84,16 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 {
 	struct snd_soc_dapm_widget *w;
 
-	list_for_each_entry(w, &codec->card->widgets, list) {
-		if (!w->sname)
-			continue;
-		if (strstr(w->sname, stream)) {
-			w->active = active;
-			dapm_mark_dirty(w, "fsi_d2153_set_active");
-			sndp_log_info("w->name[%s] w->active[%d]\n",
-				w->name, w->active);
-			snd_soc_dapm_sync(&codec->dapm);
-			continue;
-		}
-	}
+	if (strstr(stream, D2153_PLAYBACK_STREAM_NAME))
+		w = playback_widget;
+	else
+		w = capture_widget;
+	dapm_mark_dirty(w, "fsi_d2153_set_active");
+	w->active = active;
+	printk(KERN_INFO "w->name[%s] w->active[%d]\n",
+		w->name, w->active);
+	snd_soc_dapm_sync(&codec->dapm);
+
 }
 
 void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
@@ -253,42 +254,35 @@ int fsi_d2153_set_sampling_rate(struct snd_pcm_hw_params *params)
 }
 EXPORT_SYMBOL(fsi_d2153_set_sampling_rate);
 
+#define exchange_callback(from, to)	\
+do {					\
+	if ((to) == NULL) {		\
+		(to) = (from);		\
+		(from) = NULL;		\
+	}				\
+} while (0)
+
 int fsi_d2153_loopback_notify(int status)
 {
 	int ret = 0;
+	struct snd_soc_dai_ops *cpu_dai_ops
+		= fsi_d2153_rtd->cpu_dai->driver->ops;
+	struct snd_soc_dai_ops *codec_dai_ops
+		= fsi_d2153_rtd->codec_dai->driver->ops;
+	struct snd_soc_dai_ops *save = &fsi_d2153_ops_save;
 
 	if (FSI_D2153_LOOPBACK_START == status) {
-		fsi_d2153_ops_save.startup =
-			fsi_d2153_rtd->cpu_dai->driver->ops->startup;
-		fsi_d2153_rtd->cpu_dai->driver->ops->startup = NULL;
-
-		fsi_d2153_ops_save.shutdown =
-			fsi_d2153_rtd->cpu_dai->driver->ops->shutdown;
-		fsi_d2153_rtd->cpu_dai->driver->ops->shutdown = NULL;
-
-		fsi_d2153_ops_save.hw_params =
-			fsi_d2153_rtd->codec_dai->driver->ops->hw_params;
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_params = NULL;
-
-		fsi_d2153_ops_save.hw_free =
-			fsi_d2153_rtd->codec_dai->driver->ops->hw_free;
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_free = NULL;
+		sndp_log_info("FSI_D2153_LOOPBACK_START\n");
+		exchange_callback(cpu_dai_ops->startup, save->startup);
+		exchange_callback(cpu_dai_ops->shutdown, save->shutdown);
+		exchange_callback(codec_dai_ops->hw_params, save->hw_params);
+		exchange_callback(codec_dai_ops->hw_free, save->hw_free);
 	} else if (FSI_D2153_LOOPBACK_STOP == status) {
-		fsi_d2153_rtd->cpu_dai->driver->ops->startup =
-					fsi_d2153_ops_save.startup;
-		fsi_d2153_ops_save.startup = NULL;
-
-		fsi_d2153_rtd->cpu_dai->driver->ops->shutdown =
-					fsi_d2153_ops_save.shutdown;
-		fsi_d2153_ops_save.shutdown = NULL;
-
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_params =
-					fsi_d2153_ops_save.hw_params;
-		fsi_d2153_ops_save.hw_params = NULL;
-
-		fsi_d2153_rtd->codec_dai->driver->ops->hw_free =
-					fsi_d2153_ops_save.hw_free;
-		fsi_d2153_ops_save.hw_free = NULL;
+		sndp_log_info("FSI_D2153_LOOPBACK_STOP\n");
+		exchange_callback(save->startup, cpu_dai_ops->startup);
+		exchange_callback(save->shutdown, cpu_dai_ops->shutdown);
+		exchange_callback(save->hw_params, codec_dai_ops->hw_params);
+		exchange_callback(save->hw_free, codec_dai_ops->hw_free);
 	} else
 		ret = -EINVAL;
 
@@ -398,6 +392,32 @@ int fsi_d2153_snd_soc_get_dac(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+int fsi_d2153_snd_soc_get_sr(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+int fsi_d2153_snd_soc_put_sr(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	unsigned int val;
+	struct snd_pcm_hw_params params;
+	int retVal = 0;
+
+	val = ucontrol->value.integer.value[0];
+	params.intervals[SNDRV_PCM_HW_PARAM_RATE
+		- SNDRV_PCM_HW_PARAM_FIRST_INTERVAL].min = val;
+
+	retVal = fsi_d2153_set_sampling_rate(&params);
+	if(retVal != 0){
+		sndp_log_err("Invalid Sampling Rate\n");
+	} else {
+		sndp_log_info("[Sampling Rate]:%d\n", val);
+	}
+	return retVal;
+}
+
 int fsi_d2153_snd_soc_put_adc(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -449,6 +469,71 @@ static int fsi_d2153_sndp_soc_put_playback_mute(
 	return sndp_soc_put_playback_mute(kcontrol, ucontrol);
 }
 
+static int fsi_d2153_sndp_spk_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	if (event & SND_SOC_DAPM_POST_PMU) {
+		snd_soc_update_bits(codec, D2153_SP_CTRL,
+			D2153_SP_AMP_MUTE_EN, 0);
+		sndp_log_info("spk unmute\n");
+	} else if (event & SND_SOC_DAPM_PRE_PMD) {
+		snd_soc_update_bits(codec, D2153_SP_CTRL,
+			D2153_SP_AMP_MUTE_EN, D2153_SP_AMP_MUTE_EN);
+		msleep(50);
+		sndp_log_info("spk mute\n");
+	} else {
+		/* Nothing to do.*/
+	}
+	return 0;
+}
+
+static int fsi_d2153_sndp_hp_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	if (event & SND_SOC_DAPM_POST_PMU) {
+		snd_soc_update_bits(codec, D2153_HP_L_CTRL,
+			D2153_HP_AMP_MUTE_EN, 0);
+		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
+			D2153_HP_AMP_MUTE_EN, 0);
+		sndp_log_info("hp unmute\n");
+	} else if (event & SND_SOC_DAPM_PRE_PMD) {
+		snd_soc_update_bits(codec, D2153_HP_L_CTRL,
+			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
+		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
+			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
+		if (snd_soc_dapm_get_pin_status(&codec->dapm,
+			"Headphone Enable"))
+			msleep(25);
+		sndp_log_info("hp mute\n");
+	} else {
+		/* Nothing to do.*/
+	}
+	return 0;
+}
+
+static int fsi_d2153_sndp_ep_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	if (event & SND_SOC_DAPM_POST_PMU) {
+		snd_soc_update_bits(codec, D2153_EP_CTRL,
+			D2153_EP_AMP_MUTE_EN, 0);
+		sndp_log_info("ep unmute\n");
+	} else if (event & SND_SOC_DAPM_PRE_PMD) {
+		snd_soc_update_bits(codec, D2153_EP_CTRL,
+			D2153_EP_AMP_MUTE_EN, D2153_EP_AMP_MUTE_EN);
+		msleep(50);
+		sndp_log_info("ep mute\n");
+	} else {
+		/* Nothing to do.*/
+	}
+	return 0;
+}
 
 static struct snd_kcontrol_new fsi_d2153_controls[] = {
 	SOC_SINGLE_BOOL_EXT("ADC Activate", 0,
@@ -463,6 +548,8 @@ static struct snd_kcontrol_new fsi_d2153_controls[] = {
 		fsi_d2153_sndp_soc_put_playback_mute),
 	SOC_SINGLE_BOOL_EXT("DAC Activate", 0,
 		fsi_d2153_snd_soc_get_dac, fsi_d2153_snd_soc_put_dac),
+	FSI_SOC_SINGLE("Sampling Rate", 0, 0, 96000, 0,
+		fsi_d2153_snd_soc_get_sr, fsi_d2153_snd_soc_put_sr),
 #if 1 /*** Analog audio dock support ***/
 	SOC_SINGLE_BOOL_EXT("Dock Switch" , 0,
 		fsi_d2153_get_playback_gpio, fsi_d2153_put_playback_gpio),
@@ -475,7 +562,11 @@ static const struct snd_soc_dapm_widget fsi_d2153_dapm_widgets[] = {
 	SND_SOC_DAPM_POST("Post Playback", post_playback_event),
 	SND_SOC_DAPM_SUPPLY("VCLK4", SND_SOC_NOPM, 0, 0, vclk4_supply_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-
+	SND_SOC_DAPM_SPK("Speaker", fsi_d2153_sndp_spk_event),
+	SND_SOC_DAPM_HP("Headphone Jack Left", fsi_d2153_sndp_hp_event),
+	SND_SOC_DAPM_HP("Headphone Jack Right", fsi_d2153_sndp_hp_event),
+	SND_SOC_DAPM_LINE("Earpiece", fsi_d2153_sndp_ep_event),
+	SND_SOC_DAPM_SWITCH("Headphone Enable", SND_SOC_NOPM, 0, 0, NULL),
 };
 
 static const struct snd_soc_dapm_route fsi_d2153_audio_map[] = {
@@ -485,6 +576,10 @@ static const struct snd_soc_dapm_route fsi_d2153_audio_map[] = {
 	{"AIFINR", NULL, "VCLK4"},
 	{"AIFOUTL", NULL, "VCLK4"},
 	{"AIFOUTR", NULL, "VCLK4"},
+	{"Headphone Jack Left", NULL, "HPL"},
+	{"Headphone Jack Right", NULL, "HPR"},
+	{"Speaker", NULL, "SP"},
+	{"Earpiece", NULL, "EP"},
 };
 
 static int vclk4_supply_event(struct snd_soc_dapm_widget *w,
@@ -649,6 +744,9 @@ static int fsi_hifi_d2153_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_disable_pin(dapm, "RECCHL");
 	snd_soc_dapm_disable_pin(dapm, "RECCHR");
+
+	playback_widget = rtd->codec_dai->playback_widget;
+	capture_widget = rtd->codec_dai->capture_widget;
 
 	return 0;
 }

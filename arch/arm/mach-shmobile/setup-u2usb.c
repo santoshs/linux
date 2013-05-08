@@ -19,20 +19,24 @@
 #include <mach/setup-u2usb.h>
 #include <linux/mfd/tps80031.h>
 #include <linux/dma-mapping.h>
-#if defined(CONFIG_SAMSUNG_MHL)
-#include <linux/sii8332_platform.h>
-#endif
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
-#endif
-#ifdef CONFIG_PMIC_INTERFACE
-#include <linux/pmic/pmic.h>
-#include <linux/pmic/pmic-tps80032.h>
 #endif
 #include <mach/r8a7373.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
+
+#define U2_USB_BASE_REG                            0xE6890000 
+#define TUSB_VENDOR_SPECIFIC1                           0x80
+#define USB_SPWDAT                                      ((volatile ushort *)(U2_USB_BASE_REG + 0x013A)) /*H'E689 013A*/
+#define USB_SPCTRL                                      ((volatile ushort *)(U2_USB_BASE_REG + 0x013C)) /*H'E689 013C*/
+#define USB_SPRDAT                                      ((volatile ushort *)(U2_USB_BASE_REG + 0x013E)) /*H'E689 013E*/
+#define USB_SPEXADDR                            ((volatile ushort *)(U2_USB_BASE_REG + 0x0140)) /*H'E689 0140*/
+#define USB_SPWR                                        0x0001
+#define USB_SPRD                                        0x0002
+#define USB_SPADDR                       ((volatile ushort *)(U2_USB_BASE_REG + 0x0138)) /*H'E689 0138*/
+
 static int is_vbus_powered(void)
 {
 	int val = 0;
@@ -114,6 +118,13 @@ static void usbhs_module_reset(void)
 		(1 << 8), PHYOTGCTR); /* IDPULLUP */
 	msleep(50);
 #endif
+//Eye Diagram		
+		__raw_writew(0x0000, USB_SPADDR);       /* set HSUSB.SPADDR*/
+                __raw_writew(0x0020, USB_SPEXADDR);     /* set HSUSB.SPEXADDR*/
+                __raw_writew(0x004F, USB_SPWDAT);       /* set HSUSB.SPWDAT*/
+                __raw_writew(USB_SPWR, USB_SPCTRL);     /* set HSUSB.SPCTRL*/
+		mdelay(1);
+//Eye Diagram
 }
 
 static void usb_sw_reset(void)
@@ -363,7 +374,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 		},
 		.inactive = {
 			.port_fn        = GPIO_PORT130,
-			.pull           = PORTn_CR_PULL_DOWN,
+			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_OUTPUT,
 			.output_level   = PORTn_OUTPUT_LEVEL_LOW,
 		}
@@ -379,7 +390,7 @@ static struct portn_gpio_setting_info r8a66597_gpio_setting_info[] = {
 		},
 		.inactive = {
 			.port_fn        = GPIO_PORT131,
-			.pull           = PORTn_CR_PULL_DOWN,
+			.pull           = PORTn_CR_PULL_OFF,
 			.direction      = PORTn_CR_DIRECTION_OUTPUT,
 			.output_level   = PORTn_OUTPUT_LEVEL_LOW,
 		}
@@ -470,6 +481,7 @@ static void usb_host_port_power(int port, int power)
 	else
 		pmic_set_vbus(0);
 #endif
+	return;
 }
 static struct r8a66597_platdata usb_host_data = {
 	.module_start	= usbhs_module_reset,
@@ -583,23 +595,6 @@ void __init USBGpio_init(void)
 	ret = gpio_request(GPIO_FN_ULPI_NXT, NULL);
 	if (ret < 0)
 		error_log("ERROR : ULPI_NXT failed ! USB may not function\n");
-
-	/* TUSB1211 */
-#if defined(CONFIG_MACH_U2EVM)
-	if (u2_get_board_rev() < 4) {
-				ret = gpio_request(GPIO_PORT131, NULL);
-		if (ret < 0)
-			error_log("PORT131 failed!USB may not function\n");
-
-		ret = gpio_direction_output(GPIO_PORT131, 0);
-		if (ret < 0)
-			error_log("PORT131 direction output(0) failed!\n");
-		udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
-		ret = gpio_direction_output(GPIO_PORT131, 1);
-		if (ret < 0)
-			error_log("PORT131 direction output(1) failed!\n");
-		}
-#endif
 
 #if defined(CONFIG_MACH_GARDALTE)
 	if (u2_get_board_rev() >= 2 && u2_get_board_rev() != 6) {

@@ -39,6 +39,7 @@ enum call_status {
 
 CALL_CTRL_NO_EXTERN enum call_status g_status;
 CALL_CTRL_NO_EXTERN atomic_t g_call_watch_start_fw;
+CALL_CTRL_NO_EXTERN atomic_t g_call_watch_stop_fw;
 
 typedef void (*callback_func)(void);
 typedef void (*callback_func_arg1)(u_int);
@@ -95,10 +96,6 @@ CALL_CTRL_NO_EXTERN int call_regist_watch(struct call_vcd_callback *func);
 /* Record dummy change function */
 CALL_CTRL_NO_EXTERN void call_change_dummy_rec(void);
 CALL_CTRL_NO_EXTERN void call_change_dummy_play(void);
-/* Speech UpLink status set function */
-CALL_CTRL_NO_EXTERN void call_set_play_uplink(bool flag);
-/* Speech UpLink status get function */
-CALL_CTRL_NO_EXTERN int call_read_play_uplink_state(void);
 /* Create work queue function */
 CALL_CTRL_NO_EXTERN int call_create_workque(void);
 /* Destroy work queue function */

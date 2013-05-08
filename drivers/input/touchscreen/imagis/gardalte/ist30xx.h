@@ -31,7 +31,7 @@
 
 #define IST30XX_USE_ZVALUE      (1)
 
-#define IST30XX_DEV_NAME        "sec_touch"
+#define IST30XX_DEV_NAME        "IST30XX"
 #define IST30XX_CHIP_ID         (0x30003000)
 #define IST30XXA_CHIP_ID        (0x300a300a)
 

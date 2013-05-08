@@ -295,7 +295,7 @@ static struct common_reg_table scuw_reg_tbl_loopbackBA[] = {
 	{ SCUW_MVPDR_MIX0,	0x00000000,	0, 0 },
 	{ SCUW_MDBER_MIX0,	0x00000000,	0, 0 },
 	/* 182:0.0038681205 times */
-	{ SCUW_MDBAR_MIX0,	0x00000000,	0, 0 },
+	{ SCUW_MDBAR_MIX0,	0x00000182,	0, 0 },
 	/* Mute */
 	{ SCUW_MDBBR_MIX0,	0x000003FF,	0, 0 },
 	/* Mute */

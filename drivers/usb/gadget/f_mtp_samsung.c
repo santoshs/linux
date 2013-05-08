@@ -179,8 +179,7 @@ struct usb_interface_descriptor mtpg_interface_desc = {
 	.bNumEndpoints          = 3,
 	.bInterfaceClass        = USB_CLASS_VENDOR_SPEC,
 	.bInterfaceSubClass     = USB_SUBCLASS_VENDOR_SPEC,
-	.bInterfaceProtocol 	= 1,	/* To support Deviceprotocol in IAD \
-										as per USB2.0 */
+	.bInterfaceProtocol 	= 0,
 };
 
 static struct usb_interface_descriptor ptp_interface_desc = {
@@ -352,6 +351,7 @@ struct {
 	},
 };
 
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 /* Function  : Change config for multi configuration
  * Parameter : int conf_num (config number)
  *             0 - use mtp only without Samsung USB Driver
@@ -385,6 +385,7 @@ static int mtp_set_config_desc(int conf_num)
 	}
 	return 1;
 }
+#endif
 
 /* -------------------------------------------------------------------------
  *	Main Functionalities Start!
@@ -741,10 +742,15 @@ static ssize_t mtpg_write(struct file *fp, const char __user *buf,
 	return r;
 }
 
+#if 0
+/**
+ * Not used function.
+ */
 static void interrupt_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	printk(KERN_DEBUG "Finished Writing Interrupt Data\n");
 }
+#endif
 
 static ssize_t interrupt_write(struct file *fd,
 			const char __user *buf, size_t count)
@@ -792,7 +798,6 @@ static void read_send_work(struct work_struct *work)
 {
 	struct mtpg_dev	*dev = container_of(work, struct mtpg_dev,
 							read_send_work);
-	struct usb_composite_dev *cdev = dev->cdev;
 	struct usb_request *req = 0;
 	struct usb_container_header *hdr;
 	struct file *file;
@@ -1672,7 +1677,7 @@ static int mtp_bind_config(struct usb_configuration *c, bool ptp_config)
 	mtpg->function.unbind = mtpg_function_unbind;
 	mtpg->function.set_alt = mtpg_function_set_alt;
 	mtpg->function.disable = mtpg_function_disable;
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+#ifdef CONFIG_USB_G_ANDROID_SAMSUNG_COMPOSITE
 	mtpg->function.set_config_desc = mtp_set_config_desc;
 #endif
 

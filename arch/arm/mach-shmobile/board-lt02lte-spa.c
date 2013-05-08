@@ -49,11 +49,6 @@ struct platform_device smb358_charger =  {
 extern int rt9532_get_charger_online(void);
 #endif
 
-static int null_fn(void)
-{
-        return 0;                // for discharging status
-}
-
 static int Temperature_fn(void)
 {
 	return (25);
@@ -164,12 +159,12 @@ struct spa_power_data spa_power_pdata = {
 	.eoc_current = 200,
 	.recharge_voltage = 4180,
 	.charging_cur_usb = 500,
-	.charging_cur_wall = 2000,
+	.charging_cur_wall = 1800,
 	.suspend_temp_hot = 600,
 	.recovery_temp_hot = 400,
 	.suspend_temp_cold = -50,
 	.recovery_temp_cold = 0,
-	.charge_timer_limit = CHARGE_TIMER_6HOUR,
+	.charge_timer_limit = CHARGE_TIMER_10HOUR,
 	.regulated_vol = 4200,
 	.batt_temp_tb = &batt_temp_tb[0],
 	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb),

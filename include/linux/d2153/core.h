@@ -19,6 +19,7 @@
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/rtc.h>
 #include <linux/d2153/hwmon.h>
+#include <linux/d2153/audio.h>
 #include <linux/power_supply.h>
 #include <linux/d2153/d2153_battery.h>
 
@@ -186,6 +187,8 @@ struct d2153_platform_data {
 	
 	//unsigned char regl_mapping[LEOPARD_IOCTL_REGL_MAPPING_NUM];	/* Regulator mapping for IOCTL */
 	struct d2153_regl_map regl_map[D2153_NUMBER_OF_REGULATORS];
+
+	struct d2153_audio audio;
 };
 
 struct d2153 {
@@ -217,6 +220,9 @@ struct d2153 {
 
 	struct d2153_platform_data *pdata;
 	struct mutex d2153_io_mutex;
+
+	struct delayed_work     vdd_fault_work;
+	struct mutex d2153_audio_ldo_mutex;
 };
 
 /*
@@ -245,6 +251,9 @@ int 	d2153_mask_irq(struct d2153 *d2153, int irq);
 int 	d2153_unmask_irq(struct d2153 *d2153, int irq);
 int 	d2153_irq_init(struct d2153 *d2153, int irq, struct d2153_platform_data *pdata);
 int 	d2153_irq_exit(struct d2153 *d2153);
+
+void	d2153_set_irq_disable(void);
+void	d2153_set_irq_enable(void);
 
 #if defined(CONFIG_MACH_RHEA_SS_IVORY) || defined(CONFIG_MACH_RHEA_SS_NEVIS)
 /* DLG IOCTL interface */

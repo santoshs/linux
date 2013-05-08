@@ -225,14 +225,14 @@ int lightsensor_get_adc(struct gp2a_data *data)
 			}
 		} else {
 			if (100 * D1_raw_data <= 40 * D0_raw_data) {
-				light_alpha = 754;
+				light_alpha = 978;
 				light_beta = 0;
 			} else if (100 * D1_raw_data <= 62 * D0_raw_data) {
-				light_alpha = 1772;
-				light_beta = 2546;
+				light_alpha = 2533;
+				light_beta = 3885;
 			} else if (100 * D1_raw_data <= d0_boundary * D0_raw_data) {
-				light_alpha = 608;
-				light_beta = 668;
+				light_alpha = 388;
+				light_beta = 427;
 			} else {
 				light_alpha = 0;
 				light_beta = 0;
@@ -1279,8 +1279,8 @@ static int light_input_init(struct gp2a_data *data)
 		goto done;
 	}
 
-	input_set_capability(dev, EV_ABS, ABS_MISC);
-       input_set_abs_params(dev, ABS_MISC, 0, 1, 0, 0);
+	input_set_capability(dev, EV_REL, REL_MISC);
+       //input_set_abs_params(dev, ABS_MISC, 0, 1, 0, 0);
 
 	dev->name = "light_sensor";
 	input_set_drvdata(dev, data);
@@ -1305,11 +1305,11 @@ static void gp2a_work_func_light(struct work_struct *work)
 
 	adc = lightsensor_get_adc(data);
 
-	input_report_abs(data->light_input_dev, ABS_MISC, adc);
+	input_report_rel(data->light_input_dev, REL_MISC, adc + 1);
 	input_sync(data->light_input_dev);
 
 	if (lightval_logcount++ > 250) {
-		printk(KERN_INFO "[GP2A] light value = %d \n", adc);
+		printk(KERN_INFO "[GP2A] light value = %d \n", adc + 1);
 		lightval_logcount = 0;
 	}
    

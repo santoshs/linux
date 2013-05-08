@@ -33,8 +33,14 @@
 #include <asm/mach/time.h>
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
-#include <mach/board-gardalte.h>
+
+#ifdef CONFIG_ARCH_R8A7373
+#include <mach/setup-u2stm.h>
+#endif
+
+#include <mach/board.h>
 #include <mach/board-gardalte-config.h>
+
 #include <mach/poweroff.h>
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
@@ -70,6 +76,9 @@
 #include <mach/sec_debug.h>
 #include <mach/sec_debug_inform.h>
 #endif
+#if defined(CONFIG_SND_SOC_SH4_FSI)
+#include <mach/setup-u2audio.h>
+#endif /* CONFIG_SND_SOC_SH4_FSI */
 #include <sound/a2220.h>
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
@@ -98,10 +107,6 @@
 
 #include <mach/dev-touchpanel.h>
 
-#ifdef CONFIG_ARCH_R8A7373
-#include <mach/setup-u2stm.h>
-#endif
-
 #if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
 #include <linux/platform_data/rtmusc.h>
 #endif
@@ -118,6 +123,63 @@
 #define CPG_PLLECR_PLL3ST  (0x00000800)
 
 #include <mach/sbsc.h>
+
+static int unused_gpios_garda_rev1[] = {
+                GPIO_PORT0, GPIO_PORT4, GPIO_PORT5, GPIO_PORT8,
+                GPIO_PORT9, GPIO_PORT10, GPIO_PORT14, GPIO_PORT15,
+                GPIO_PORT17, GPIO_PORT22, GPIO_PORT23, GPIO_PORT24,
+                GPIO_PORT25, GPIO_PORT30, GPIO_PORT34, GPIO_PORT35,
+                GPIO_PORT39, GPIO_PORT40, GPIO_PORT41, GPIO_PORT42,
+                GPIO_PORT43, GPIO_PORT46, GPIO_PORT64, GPIO_PORT65,
+                GPIO_PORT66, GPIO_PORT70, GPIO_PORT71, GPIO_PORT80,
+                GPIO_PORT81, GPIO_PORT82, GPIO_PORT83, GPIO_PORT86,
+                GPIO_PORT87, GPIO_PORT88, GPIO_PORT89, GPIO_PORT90,
+                GPIO_PORT96, GPIO_PORT102, GPIO_PORT103, GPIO_PORT104,
+                GPIO_PORT105, GPIO_PORT107, GPIO_PORT109, GPIO_PORT131,
+                GPIO_PORT140, GPIO_PORT141, GPIO_PORT142, GPIO_PORT198,
+                GPIO_PORT199, GPIO_PORT200, GPIO_PORT201, GPIO_PORT202,
+                GPIO_PORT219, GPIO_PORT224, GPIO_PORT225, GPIO_PORT227,
+                GPIO_PORT228, GPIO_PORT229, GPIO_PORT230, GPIO_PORT231,
+                GPIO_PORT232, GPIO_PORT233, GPIO_PORT234, GPIO_PORT235,
+                GPIO_PORT236, GPIO_PORT237, GPIO_PORT238, GPIO_PORT239,
+                GPIO_PORT240, GPIO_PORT241, GPIO_PORT242, GPIO_PORT243,
+                GPIO_PORT244, GPIO_PORT245, GPIO_PORT246, GPIO_PORT247,
+                GPIO_PORT248, GPIO_PORT249, GPIO_PORT250, GPIO_PORT251,
+                GPIO_PORT252, GPIO_PORT253, GPIO_PORT254, GPIO_PORT255,
+                GPIO_PORT256, GPIO_PORT257, GPIO_PORT258, GPIO_PORT259,
+                GPIO_PORT271, GPIO_PORT275, GPIO_PORT276, GPIO_PORT277,
+                GPIO_PORT294, GPIO_PORT295, GPIO_PORT296, GPIO_PORT297,
+                GPIO_PORT298, GPIO_PORT299, GPIO_PORT311, GPIO_PORT312,
+                GPIO_PORT325,
+};
+static int unused_gpios_garda_rev2[] = {
+                GPIO_PORT0, GPIO_PORT4, GPIO_PORT5, GPIO_PORT8,
+                GPIO_PORT9, GPIO_PORT10, GPIO_PORT14, GPIO_PORT15,
+                GPIO_PORT17, GPIO_PORT22, GPIO_PORT23, GPIO_PORT24,
+                GPIO_PORT25, GPIO_PORT29, GPIO_PORT30, GPIO_PORT34,
+                GPIO_PORT35, GPIO_PORT39, GPIO_PORT40, GPIO_PORT41,
+                GPIO_PORT42, GPIO_PORT43, GPIO_PORT64, GPIO_PORT65,
+                GPIO_PORT66, GPIO_PORT70, GPIO_PORT71, GPIO_PORT80,
+                GPIO_PORT81, GPIO_PORT82, GPIO_PORT83, GPIO_PORT86,
+                GPIO_PORT87, GPIO_PORT88, GPIO_PORT89, GPIO_PORT90,
+                GPIO_PORT96, GPIO_PORT102, GPIO_PORT103, GPIO_PORT104,
+                GPIO_PORT105, GPIO_PORT107, GPIO_PORT109, GPIO_PORT140,
+                GPIO_PORT141, GPIO_PORT142, GPIO_PORT198, GPIO_PORT199,
+                GPIO_PORT200, GPIO_PORT201, GPIO_PORT202, GPIO_PORT219,
+                GPIO_PORT224, GPIO_PORT225, GPIO_PORT227, GPIO_PORT228,
+                GPIO_PORT229, GPIO_PORT230, GPIO_PORT231, GPIO_PORT232,
+                GPIO_PORT233, GPIO_PORT234, GPIO_PORT235, GPIO_PORT236,
+                GPIO_PORT237, GPIO_PORT238, GPIO_PORT239, GPIO_PORT240,
+                GPIO_PORT241, GPIO_PORT242, GPIO_PORT243, GPIO_PORT244,
+                GPIO_PORT245, GPIO_PORT246, GPIO_PORT247, GPIO_PORT248,
+                GPIO_PORT249, GPIO_PORT250, GPIO_PORT251, GPIO_PORT252,
+                GPIO_PORT253, GPIO_PORT254, GPIO_PORT255, GPIO_PORT256,
+                GPIO_PORT257, GPIO_PORT258, GPIO_PORT259, GPIO_PORT271,
+                GPIO_PORT275, GPIO_PORT276, GPIO_PORT277, GPIO_PORT294,
+                GPIO_PORT295, GPIO_PORT296, GPIO_PORT297, GPIO_PORT298,
+                GPIO_PORT299, GPIO_PORT311, GPIO_PORT312, GPIO_PORT325,
+};
+
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
@@ -151,9 +213,9 @@ static struct bcmbt_rfkill_platform_data board_bcmbt_rfkill_cfg = {
 	.vreg_gpio    = BCMBT_VREG_GPIO,
 	.n_reset_gpio = BCMBT_N_RESET_GPIO,
 	/* CLK32 */
-	.aux0_gpio    = BCMBT_AUX0_GPIO,  
+	.aux0_gpio    = BCMBT_AUX0_GPIO,
 	/* UARTB_SEL, probably not required */
-	.aux1_gpio    = BCMBT_AUX1_GPIO,  
+	.aux1_gpio    = BCMBT_AUX1_GPIO,
 };
 
 static struct platform_device board_bcmbt_rfkill_device = {
@@ -300,23 +362,6 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
 
-#ifdef CONFIG_U2_STM_ETR_TO_SDRAM
-static int wait_for_coresight_access_lock(u32 base)
-{
-	int i = 0x00;
-	int retval = -1;
-	int timeout = 512;
-	/* Lock Access */
-	__raw_writel(0xc5acce55, base + 0xFB0); 
-	for (i = 0; i < timeout && retval; i++) {
-		if ((__raw_readl(base + 0xFB4) & 2) == 0)
-			retval = 0;
-	}
-	printk("wait_for_coresight_access_lock %d\n", retval);
-	return retval;
-}
-#endif
-
 void board_restart(char mode, const char *cmd)
 {
 	printk(KERN_INFO "%s\n", __func__);
@@ -340,7 +385,7 @@ static void __init board_init(void)
 				__func__, __raw_readl(PLL3CR));
 		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
 		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x438200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
 			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);
@@ -540,16 +585,9 @@ static void __init board_init(void)
 
 	USBGpio_init();
 
-	/* enable sound */
-	gpio_request(GPIO_FN_FSIAISLD, "sound");
-	gpio_request(GPIO_FN_FSIAOBT, "sound");
-	gpio_request(GPIO_FN_FSIAOLR, "sound");
-	gpio_request(GPIO_FN_FSIAOSLD, "sound");
-
-	gpio_request(GPIO_FN_FSIBISLD, "sound");
-	gpio_request(GPIO_FN_FSIBOBT, "sound");
-	gpio_request(GPIO_FN_FSIBOLR, "sound");
-	gpio_request(GPIO_FN_FSIBOSLD, "sound");
+#if defined(CONFIG_SND_SOC_SH4_FSI)
+	u2audio_init(u2_board_rev);
+#endif /* CONFIG_SND_SOC_SH4_FSI */
 
 	gpio_request(GPIO_PORT24, NULL);
 	gpio_direction_input(GPIO_PORT24);
@@ -568,8 +606,7 @@ static void __init board_init(void)
 #endif
 
 	camera_init(u2_board_rev);
-
-	gpio_key_init(stm_select, u2_board_rev, u2_board_rev,
+	gpio_key_init(stm_select, u2_board_rev,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
 			devices_stm_sdhi1,
@@ -604,10 +641,15 @@ static void __init board_init(void)
 //	platform_device_register(&key_backlight_device);
 #endif
 
-	i2c_register_board_info(8, i2cm_devices_d2153,
-					ARRAY_SIZE(i2cm_devices_d2153));
+	if (u2_board_rev > 1) {
+		/* fm34 */
+		i2c_register_board_info(8, &i2cm_devices_d2153[1], 1);
+	} else {
+		/* audience */
+		i2c_register_board_info(8, &i2cm_devices_d2153[0], 1);
+	}
 
-#if defined(CONFIG_GPS_BCM4752)
+#if defined(CONFIG_GPS_BCM4752) || defined(CONFIG_RENESAS_GPS)
 	/* GPS Init */
 	gps_gpio_init();
 #endif

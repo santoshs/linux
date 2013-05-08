@@ -284,8 +284,24 @@ static int SR030PC50_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 static int SR030PC50_g_chip_ident(struct v4l2_subdev *sd,
 		    struct v4l2_dbg_chip_ident *id)
 {
-	id->ident	= V4L2_IDENT_SR030PC50;
-	id->revision	= 0;
+	/* check i2c device */
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	unsigned char rcv_buf[1];
+	int ret = 0;
+
+	sr030pc50_write(client, 0x0300); /* Page 0 */
+	ret = sr030pc50_read(client, 0x04, rcv_buf);
+	/* device id = P0(0x00) address 0x04 = 0xB8 */
+
+	if (0 > ret) {
+		dev_err(&client->dev, "%s :Read Error(%d)\n", __func__, ret);
+		id->ident = V4L2_IDENT_NONE;
+	} else {
+		dev_dbg(&client->dev, "%s :SR030PC50OKOK(%02x)\n", __func__,
+			rcv_buf[0]);
+		id->ident = V4L2_IDENT_SR030PC50;
+	}
+	id->revision = 0;
 
 	return 0;
 }
@@ -299,6 +315,7 @@ static int SR030PC50_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 #else
 		ctrl->value = 0;
 #endif
+		/* no break */
 	default:
 		return 0;
 	}
@@ -403,26 +420,8 @@ static int SR030PC50_probe(struct i2c_client *client,
 	if (0 > ret) {
 		dev_err(&client->dev,
 			"SR030PC50: v4l2_ctrl_handler_setup Error(%d)\n", ret);
+		kfree(priv);
 		return ret;
-	}
-	ret = 0;
-
-	{
-		/* check i2c device */
-		unsigned char rcv_buf[1];
-
-		sr030pc50_write(client, 0x0300); /* Page 0 */
-		ret = sr030pc50_read(client, 0x04, rcv_buf);
-			/* device id = P0(0x00) address 0x04 = 0xB8 */
-
-		if (0 > ret) {
-			printk(KERN_ALERT "%s :Read Error(%d)\n",
-					__func__, ret);
-		} else {
-			printk(KERN_ALERT "%s :SR030PC50OK(%02x)\n",
-					__func__, rcv_buf[0]);
-			ret = 0;
-		}
 	}
 
 	if (cam_class_init == false) {

@@ -136,6 +136,24 @@ config MACH_U2USB
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
 
+config U2_CURRENTTIMER
+	bool "U2 current timer setup implementation "
+	default n
+	help
+	 selects the current timer setup implementation for u2 chipsets.
+
+config U2_SDHI
+	bool "U2 sdhi setup implementation "
+	default n
+	help
+	 selects the sdhi setup implementation for u2 chipsets.
+
+config U2_GPIOKEY
+	bool "U2 gpio key setup implementation "
+	default n
+	help
+	 selects the gpio setup implemtation for u2 chipsets.
+
 config U2_STM_ETR_TO_SDRAM
 	bool "U2 STM ETR to SDRAM"
 	depends on ARCH_R8A7373
@@ -156,7 +174,7 @@ config MEMORY_START
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL || MACH_BONITO
 	default "0x41000000" if MACH_KOTA2
-	default "0x4C000000" if MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE
+	default "0x4A000000" if MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -341,10 +359,6 @@ config PM_BOOT_SYSFS
 
 source "drivers/sh/Kconfig"
 
-config MACH_U2EVM_SR_REV031
-	bool "New borad version V0.3.1"
-	default n
-
 config RENESAS
 	bool "Renesas reference implementations"
 	default n
@@ -375,7 +389,7 @@ config BOARD_VERSION_V050
 	#default y
 	bool "board_revision"
 	help
-	  Board revision 
+	  Board revision
 comment "Debugging Feature"
 
 config BOARD_VERSION_GARDA
@@ -444,26 +458,11 @@ config SAMSUNG_SENSOR
 	---help---
 	  support Samsung Sensor Driver
 
-config FLASH_AAT1274
-	bool "Enable AAT1274 driver"
-	default n
-	---help---
-	  support AAT1274 LED Flash driver.
-	  The AAT1274 a high-efficiency, 1.5A high-current
-	  boost converter for LED photo flash applications.
-	  AAT1274 can be controlled throuth the single wire serial interface
-	  and/or external control pins.
-
 config FLASH_MIC2871
 	bool "Enable MIC2871 driver"
 	default n
 	---help---
-	  support MIC2871 LED Flash driver.
-	  The MIC2871 is a high current, efficiency Flash LED driver.
-	  MIC2871 can be controlled throuth the single wire serial interface
-	  and/or external control pins.
-
-source arch/arm/mach-shmobile/Kconfig.sec
+ 	    Adds MIC2871 LED Flash driver
 
 source "arch/arm/mach-shmobile/ramdefrag/Kconfig"
 

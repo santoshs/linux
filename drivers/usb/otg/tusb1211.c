@@ -35,9 +35,10 @@
 #include <linux/usb/ulpi.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
-#ifdef CONFIG_USB_OTG_INTERFACE
-#include <linux/pmic/pmic.h> 
-#endif 
+#include <linux/sh_clk.h>
+#include <linux/pm_runtime.h>
+#include <linux/usb/otg.h>
+#include <mach/common.h>
 #include <asm/irq.h>
 #include <asm/mach-types.h>
 #include <linux/usb/hcd.h>
@@ -67,50 +68,77 @@ static struct otg_io_access_ops tusb1211_otg_io_ops = {
 	.write = tusb1211_io_write,
 };
 
+static struct class *tusb_class;
+static struct tusb1211 *xceiver;
+
 /************************************************************************/
-#define SRCR2		IO_ADDRESS(0xe61580b0)
-#define SRCR3		IO_ADDRESS(0xe61580b8)
 
-static irqreturn_t tusb_id_irq(int irq, void *_tusb1211)
+#ifdef CONFIG_USB_OTG
+static void set_otg_vbus(int enable)
 {
-
-	struct tusb1211 *tusb = (struct tusb1211 *)_tusb1211;
-	u16 id;
-	unsigned long flags;
-
-	printk("%s()\n", __func__);
-	spin_lock_irqsave(&tusb->lock, flags);
-
-	id = otg_read_reg(&tusb->otg, SYSSTS0) & IDMON;
-	if (0 == id) {
-		if (tusb->vbus_enable == 0) {
-			tusb->otg.state = OTG_STATE_A_IDLE;
-			tusb->otg.default_a = 1;
-			printk("%s\n", otg_state_string(tusb->otg.state));
-			otg_write_reg(&tusb->otg, 0x00, INTSTS0);
-			otg_write_reg(&tusb->otg, 0x00, INTSTS1);
-			tusb->vbus_enable = 1;
-			schedule_delayed_work(&tusb->vbus_work, 0);
-		}
-	} else {
-		if (tusb->vbus_enable == 1) {
-			otg_write_reg(&tusb->otg, 0x00, INTSTS0);
-			otg_write_reg(&tusb->otg, 0x00, INTSTS1);
-			tusb->otg.default_a = 0;
-			tusb->vbus_enable = 0;
-			schedule_delayed_work(&tusb->vbus_work, 0);
-		}
+	if (!!enable) {/*Enable VBUS*/
+#if defined(CONFIG_CHARGER_SMB328A)
+		smb328a_otg_enable_disable(1, 0);
+#endif
+	} else { /*Disable VBUS*/
+#if defined(CONFIG_CHARGER_SMB328A)
+		smb328a_otg_enable_disable(0, 0);
+#endif
 	}
-
-	spin_unlock_irqrestore(&tusb->lock, flags);
-	return IRQ_HANDLED;
 }
+#endif /* CONFIG_USB_OTG */
 
 static struct class *tusb_class;
 static struct tusb1211 *xceiver;
 
+#ifdef CONFIG_USB_OTG
+int set_otg_mode(int is_host)
+{
+	struct tusb1211 *tusb = xceiver;
+	int ret = 0;
+	if (NULL == tusb)
+		return -EFAULT;
+	if (is_host) {
+		if (tusb->vbus_enable == 0) {
+			printk(KERN_INFO"%s: >>>>>>>>>>>> SET HOST MODE "\
+							"<<<<<<<<<<<<<<", __func__);
+			tusb->otg.state = OTG_STATE_A_IDLE;
+			tusb->otg.default_a = 1;
+			printk(KERN_INFO "%s\n",
+							otg_state_string(tusb->otg.state));
+			otg_write_reg(&tusb->otg, 0x00, INTSTS0);
+			otg_write_reg(&tusb->otg, 0x00, INTSTS1);
+			tusb->vbus_enable = 1;
+			ret = schedule_delayed_work(&tusb->vbus_work, 0);
+			if (ret < 0)
+				printk(KERN_WARNING"Error in scheduling wq\n");
+		}
+	} else {
+		if (tusb->vbus_enable == 1) {
+			printk(KERN_INFO"%s: >>>> SET DEVICE(FUNCTION) MODE "\
+							"<<<<<<", __func__);
+			otg_write_reg(&tusb->otg, 0x00, INTSTS0);
+			otg_write_reg(&tusb->otg, 0x00, INTSTS1);
+			tusb->otg.default_a = 0;
+			tusb->vbus_enable = 0;
+			ret = schedule_delayed_work(&tusb->vbus_work, 0);
+			if (ret < 0)
+				printk(KERN_WARNING"Error in scheduling wq\n");
+		}
+	}
+	return 0;
+}
+EXPORT_SYMBOL(set_otg_mode);
+#endif /* CONFIG_USB_OTG*/
+
+
 static void usb_host_port_power(struct tusb1211 *tusb)
 {
+	char clk_name[16];
+	struct clk *clk_dmac;
+#ifdef CONFIG_USB_OTG
+	int ret = 0;
+#endif
 #ifdef CONFIG_REGULATOR_TPS80031
 	struct regulator *r8a66597_hcd_regulator = regulator_get(NULL, "vbus");
 	if (!r8a66597_hcd_regulator) {
@@ -121,9 +149,43 @@ static void usb_host_port_power(struct tusb1211 *tusb)
 #ifdef CONFIG_MFD_TPS80031
 		disable_irq_nosync(602);
 #endif
-#ifdef CONFIG_PMIC_INTERFACE 
+#if defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_USB_OTG)
 		disable_irq_nosync(595);
 #endif
+		ret = pm_runtime_get_sync(tusb->otg.dev);
+		if (ret < 0)
+			printk(KERN_ERR"Error in pm runtime syncing.\n");
+
+		ret = clk_enable(tusb->clk);
+		if (ret < 0)
+			printk(KERN_ERR"Error in enabling clock.\n");
+
+		ret = gpio_direction_output(TUSB_CS, 1);
+		if (ret < 0)
+			printk(KERN_ERR"Error setting GPIO output.\n");
+
+		snprintf(clk_name, sizeof(clk_name), "usb%d_dmac", 0);
+		/*
+		 * We don't have any device resource defined
+		 * for USBHS-DMAC
+		 */
+		clk_dmac = clk_get(NULL, clk_name);
+		if (IS_ERR(clk_dmac)) {
+			printk(KERN_INFO"cannot get clock \"%s\"\n",\
+					clk_name);
+			return;
+		}
+
+		ret = clk_enable(clk_dmac);
+		if (ret < 0)
+			printk(KERN_ERR"Error in enabling DMA clock.\n");
+
+		ret = clk_enable(tusb->iclk);
+		if (ret < 0) {
+			printk(KERN_ERR"Error in enabling interface clock.\n");
+			return;
+		}
+
 		tusb->pdata->module_start();
 		otg_io_set_bits(&tusb->otg, USBE, SYSCFG);
 
@@ -149,8 +211,8 @@ static void usb_host_port_power(struct tusb1211 *tusb)
 			regulator_enable(r8a66597_hcd_regulator);
 		}
 #endif
-#ifdef CONFIG_USB_OTG_INTERFACE
-		pmic_set_vbus(1);
+#ifdef CONFIG_USB_OTG
+		set_otg_vbus(1);
 #endif
 		} else {
 #ifdef CONFIG_REGULATOR_TPS80031
@@ -158,14 +220,14 @@ static void usb_host_port_power(struct tusb1211 *tusb)
 			regulator_disable(r8a66597_hcd_regulator);
 		}
 #endif
-#ifdef CONFIG_USB_OTG_INTERFACE
-		pmic_set_vbus(0);
+#ifdef CONFIG_USB_OTG
+		set_otg_vbus(0);
 #endif
 		tusb->pdata->module_start();
 #ifdef CONFIG_MFD_TPS80031
 		enable_irq(602);
 #endif
-#ifdef CONFIG_PMIC_INTERFACE 
+#if defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_USB_OTG)
 		enable_irq(595);
 #endif
 		otg_write_reg(&tusb->otg, 0x05, BWAIT);
@@ -178,6 +240,17 @@ static void usb_host_port_power(struct tusb1211 *tusb)
 
 		otg_io_clear_bits(&tusb->otg, DRPD, SYSCFG);
 		otg_io_set_bits(&tusb->otg, DPRPU, SYSCFG);
+		if (tusb->iclk->usecount)
+			clk_disable(tusb->iclk);
+		ret = gpio_direction_output(TUSB_CS, 0);
+		if (ret < 0)
+			printk(KERN_ERR"Error in setting GPIO output.\n");
+		if (tusb->clk->usecount)
+			clk_disable(tusb->clk);
+		ret = pm_runtime_put_sync(tusb->otg.dev);
+		if (ret < 0)
+			printk(KERN_ERR"Error in syncing pm_runtime_put.\n");
+
 		tusb->otg.state = OTG_STATE_B_IDLE;
 		printk("%s\n", otg_state_string(tusb->otg.state));
 		}
@@ -196,13 +269,13 @@ static void tusb_vbus_off_work(struct work_struct *work)
 	struct regulator *r8a66597_hcd_regulator = regulator_get(NULL, "vbus");
 	if (!r8a66597_hcd_regulator) {
 		return;
-	} 
+	}
 	if (regulator_is_enabled(r8a66597_hcd_regulator)) {
 		regulator_disable(r8a66597_hcd_regulator);
 	}
 #endif
-#ifdef CONFIG_USB_OTG_INTERFACE
-	pmic_set_vbus(0);
+#ifdef CONFIG_USB_OTG
+	set_otg_vbus(0);
 #endif
 }
 
@@ -249,7 +322,7 @@ static ssize_t hnp_store(struct class *class, struct class_attribute *attr,
 								const char *buf, size_t count)
 {
 	otg_io_clear_bits(&xceiver->otg, UACT, DVSTCTR);
-	if (xceiver->otg.state == OTG_STATE_A_HOST) 
+	if (xceiver->otg.state == OTG_STATE_A_HOST)
 		xceiver->otg.state = OTG_STATE_A_SUSPEND;
 	if (xceiver->otg.state == OTG_STATE_B_HOST)
 		xceiver->otg.state = OTG_STATE_B_PERIPHERAL;
@@ -263,11 +336,11 @@ static void tusb1211_chrg_vbus(struct tusb1211 *tusb, int on)
 {
 	if (on) {
 		/* stop discharging, start charging */
-		otg_io_clear_bits(&tusb->otg, DISCHRGVBUS, PHYOTGCTR);
-		otg_io_set_bits(&tusb->otg,CHRGVBUS, PHYOTGCTR);
+		otg_io_clear_bits(&tusb->otg, DISCHRGVBUS, USBHS_PHYOTGCTR);
+		otg_io_set_bits(&tusb->otg, CHRGVBUS, USBHS_PHYOTGCTR);
 	} else {
 		/* stop charging */
-		otg_io_clear_bits(&tusb->otg, CHRGVBUS, PHYOTGCTR);
+		otg_io_clear_bits(&tusb->otg, CHRGVBUS, USBHS_PHYOTGCTR);
 	}
 }
 
@@ -276,11 +349,11 @@ static void tusb1211_dischrg_vbus(struct tusb1211 *tusb, int on)
 {
 	if (on) {
 		/* stop charging, start discharging */
-		otg_io_clear_bits(&tusb->otg, CHRGVBUS, PHYOTGCTR);
-		otg_io_set_bits(&tusb->otg, DISCHRGVBUS, PHYOTGCTR);
+		otg_io_clear_bits(&tusb->otg, CHRGVBUS, USBHS_PHYOTGCTR);
+		otg_io_set_bits(&tusb->otg, DISCHRGVBUS, USBHS_PHYOTGCTR);
 	} else {
 		/* stop discharging */
-		otg_io_clear_bits(&tusb->otg, DISCHRGVBUS, PHYOTGCTR);
+		otg_io_clear_bits(&tusb->otg, DISCHRGVBUS, USBHS_PHYOTGCTR);
 	}
 }
 static void discharge_vbus_timer(unsigned long data)
@@ -325,7 +398,7 @@ static void check_se0_timer(unsigned long data)
 
 	/*Check the data line status*/
 	spin_lock(&tusb->lock);
-	syssts = otg_read_reg(&tusb->otg, SYSSTS);
+	syssts = otg_read_reg(&tusb->otg, TUSB_SYSSTS);
 	spin_unlock(&tusb->lock);
 	line_sts = syssts & LNST;
 
@@ -341,47 +414,44 @@ static void check_se0_timer(unsigned long data)
 
 /************************************************************************/
 
-/* 
+/*
  * tusb1211_reset(): Reset the TUSB1211.
  * Argument: None
  * return: None
  */
-static void tusb1211_reset(void) 
+static void tusb1211_reset(void)
 {
 	gpio_direction_output(nTUSB_RST, 0);
 	udelay(100);
 	gpio_direction_output(nTUSB_RST, 1);
 }
 
-/* 
+/*
  * tusb1211_enable_interrupt(): Enable the TUSB1211 interrupt.
  * @otg: otg transceiver data structure.
  * return: None
  */
-static void tusb1211_enable_interrupt(struct otg_transceiver *otg) 
+static void tusb1211_enable_interrupt(struct otg_transceiver *otg)
 {
 	struct tusb1211 *tusb = container_of(otg, struct tusb1211, otg);
 	spin_lock(&tusb->lock);
 	otg_io_set_bits(otg, PHYINTR, PHYINTENRISE);
 	otg_io_set_bits(otg, PHYINTF, PHYINTENFALL);
-	otg_io_set_bits(otg, IDPUUP, PHYOTGCTR);
+	otg_io_set_bits(otg, IDPUUP, USBHS_PHYOTGCTR);
 	spin_unlock(&tusb->lock);
 }
 
-/* 
+/*
  * tusb1211_init(): initialize the TUSB1211.
  * @otg: otg transceiver data structure.
- * return: 
+ * return:
  *		0: normal termination.
  */
-static int tusb1211_init(struct otg_transceiver *otg) 
+static int tusb1211_init(struct otg_transceiver *otg)
 {
-#ifdef CONFIG_HAVE_CLK
-	char clk_name[8];
-	int ret;
-#endif
 	struct tusb1211 *tusb = container_of(otg, struct tusb1211, otg);
 
+	int ret = 0;
 	/*Check the initialization status*/
 	if (1 == tusb->init) {
 #ifdef CONFIG_PRINT_DEBUG
@@ -391,23 +461,25 @@ static int tusb1211_init(struct otg_transceiver *otg)
 	}
 	/*Enable vck3_clk clock*/
 #ifdef CONFIG_HAVE_CLK
-		strcpy(clk_name, "vck3_clk");
-		tusb->clk = clk_get(NULL, clk_name);
-		ret = IS_ERR(tusb->clk);
-		if (0 > ret) {
-			dev_err(otg->dev, "cannot get clock \"%s\"\n", clk_name);
-			return 0;
-		}
-		clk_enable(tusb->clk);
+	if (!tusb->clk->usecount) {
+		ret = clk_enable(tusb->clk);
+		if (ret < 0)
+			printk(KERN_ERR"Error in enabling TUSB interface clock.\n");
+	}
+	if (!tusb->iclk->usecount) {
+		ret = clk_enable(tusb->iclk);
+		if (ret < 0)
+			printk(KERN_ERR"Error in enabling TUSB interface clock.\n");
+	}
 #endif
 
 	/*Request gpio function*/
 	/*TUSB_CS Function 0 PORT 130"*/
-	gpio_request(TUSB_CS, NULL); 
+	gpio_request(TUSB_CS, NULL);
 	/*nTUSB_RST Function 0 PORT 131"*/
-	gpio_request(nTUSB_RST, NULL); 
+	gpio_request(nTUSB_RST, NULL);
 	/*Set TUSB_CS pin output = 1*/
-	gpio_direction_output(TUSB_CS, 1); 
+	gpio_direction_output(TUSB_CS, 1);
 
 	tusb1211_reset();
 
@@ -421,15 +493,15 @@ static int tusb1211_init(struct otg_transceiver *otg)
 	return 0;
 }
 
-/* 
+/*
  * tusb1211_start_hnp(): Start the HNP.
  * @otg: otg transceiver data structure
- * return: 
+ * return:
  *		0: normal termination
  */
-static int tusb1211_start_hnp(struct otg_transceiver *otg) 
+static int tusb1211_start_hnp(struct otg_transceiver *otg)
 {
-	if ((otg->state == OTG_STATE_A_PERIPHERAL || otg->state == OTG_STATE_B_PERIPHERAL) 
+	if ((otg->state == OTG_STATE_A_PERIPHERAL || otg->state == OTG_STATE_B_PERIPHERAL)
 		&& (otg->flags == 0) ) {
 			otg->flags |= HOST_REQ_FLG;
 			msleep(2000);
@@ -439,16 +511,16 @@ static int tusb1211_start_hnp(struct otg_transceiver *otg)
 	return 0;
 }
 
-/* 
- * tusb1211_start_srp(): Start the SRP. 
+/*
+ * tusb1211_start_srp(): Start the SRP.
  * @otg: otg transceiver data structure
- * return: 
+ * return:
  *		0: normal termination
  *		-EAGAIN: The otg transceiver state is not valid.
  *		-EPROTO: The condition of the protocol is not suitable.
  *		-ENOTCONN: The session is not valid.
  */
-static int tusb1211_start_srp(struct otg_transceiver *otg) 
+static int tusb1211_start_srp(struct otg_transceiver *otg)
 {
 	struct tusb1211 *tusb = container_of(otg, struct tusb1211, otg);
 	u16 syssts;
@@ -470,10 +542,10 @@ static int tusb1211_start_srp(struct otg_transceiver *otg)
 		return -EPROTO;
 	}
 	/* Discharge Vbus */
-	otg_io_set_bits(&tusb->otg, DISCHRGVBUS, PHYOTGCTR);
+	otg_io_set_bits(&tusb->otg, DISCHRGVBUS, USBHS_PHYOTGCTR);
 	/* Check data line status */
 	spin_lock(&tusb->lock);
-	syssts = otg_read_reg(otg, SYSSTS);
+	syssts = otg_read_reg(otg, TUSB_SYSSTS);
 	spin_unlock(&tusb->lock);
 	line_sts = syssts & LNST;
 	if(SE0 != line_sts) {
@@ -488,8 +560,8 @@ static int tusb1211_start_srp(struct otg_transceiver *otg)
 	return 0;
 }
 
-/* 
- * tusb1211_set_suspend(): suspends or resumes the TUSB1211 OTG transceiver. 
+/*
+ * tusb1211_set_suspend(): suspends or resumes the TUSB1211 OTG transceiver.
  * @otg: otg transceiver data structure.
  * @suspend: Indicate to suspend or resume the TUSB1211 OTG  transceiver.
  * 		@suspend = 1 : Suspend the TUSB1211 OTG transceiver.
@@ -499,7 +571,7 @@ static int tusb1211_start_srp(struct otg_transceiver *otg)
  *		-ENODEV: TUSB1211 OTG transceiver has not been initialized yet.
  *		-EINVAL: Value of suspend argument is invalid.
   *		-EBUSY: Writing Function Control register isn't available.
- *		-ETIMEDOUT: Writing Function Control register cannot complete before timeout (10us). 
+ *		-ETIMEDOUT: Writing Function Control register cannot complete before timeout (10us).
  */
 static int tusb1211_set_suspend(struct otg_transceiver *otg, int suspend)
 {
@@ -529,9 +601,9 @@ static int tusb1211_set_suspend(struct otg_transceiver *otg, int suspend)
 	}
 
 	/* Check the validity of suspend argument*/
-	if (1 == suspend) { 
+	if (1 == suspend) {
 
-		/* LOG output for suspending normal termination case: 
+		/* LOG output for suspending normal termination case:
 			PHY is put into Low Power Mode
 			TUSB1211 OTG transceiver suspends successfully
 			0
@@ -555,14 +627,14 @@ static int tusb1211_set_suspend(struct otg_transceiver *otg, int suspend)
 		}
 	} else if (0 == suspend) {
 
-		/* LOG output for resuming normal termination case: 
+		/* LOG output for resuming normal termination case:
 			Low Power Mode of PHY is exited
 			TUSB1211 OTG transceiver resumes successfully
 			0
 		*/
 
 		/* Take information about the state of the SuspendM signal to present PHY*/
-		susmonbit = otg_read_reg(otg,PHYFUNCTR);
+		susmonbit = otg_read_reg(otg, OTG_PHYFUNCTR);
 		susmonbit = (susmonbit & SUSMON);
 
 		/* If TUSB1211 OTG transceiver was suspended, after that resuming it*/
@@ -586,11 +658,11 @@ static int tusb1211_set_suspend(struct otg_transceiver *otg, int suspend)
 	return 0;
 }
 
-/* 
- * tusb1211_set_peripheral(): bind/unbind function controller 
+/*
+ * tusb1211_set_peripheral(): bind/unbind function controller
  * @otg: otg transceiver data structure
  * @periph: function controller is transferred by User
- * return: 
+ * return:
  *		0: normal termination
  *		-ENODEV: The OTG transceiver is not initialized.
  */
@@ -608,12 +680,12 @@ static int tusb1211_set_peripheral(struct otg_transceiver *otg,
 		return -ENODEV;
 	}
 
-	id = otg_read_reg(otg,SYSSTS);
+	id = otg_read_reg(otg, TUSB_SYSSTS);
 
 	if (periph) {
 		/* set gadget information to OTG data structure */
 		otg->gadget = periph;
-		
+
 		/* Hold spin lock */
 		spin_lock_irq(&tusb->lock);
 
@@ -633,7 +705,7 @@ static int tusb1211_set_peripheral(struct otg_transceiver *otg,
 		} else {
 			otg->state = OTG_STATE_B_PERIPHERAL;
 		}
-	} else { 
+	} else {
 		/* Unbind function controller */
 		otg->gadget = NULL;
 		if (0 == (id&IDMON)){
@@ -646,10 +718,10 @@ static int tusb1211_set_peripheral(struct otg_transceiver *otg,
 	return 0;
 }
 
-/* 
+/*
  * tusb1211_shutdown(): shut down otg transceiver
  * @otg: otg transceiver data structure
- * return: 
+ * return:
  *		0: normal termination
  *		-ENODEV: The OTG transceiver is not initialized.
  */
@@ -671,9 +743,13 @@ static void tusb1211_shutdown(struct otg_transceiver *otg)
 	/* Disable all interrupts */
 	otg_io_clear_bits(otg,PHYINTENRISE,PHYINTR);
 	otg_io_clear_bits(otg,PHYINTENFALL,PHYINTF);
-
+#ifdef CONFIG_HAVE_CLK
 	/* Disable extal2 external clock */
-	clk_disable(tusb->clk);
+	if (tusb->clk->usecount)
+		clk_disable(tusb->clk);
+	if (tusb->iclk->usecount)
+		clk_disable(tusb->iclk);
+#endif
 
 	/* Clear status of OTG transceiver */
 	otg->state = OTG_STATE_UNDEFINED;
@@ -682,18 +758,18 @@ static void tusb1211_shutdown(struct otg_transceiver *otg)
 	tusb->init = 0;
 
 	/* Reset TUSB1211 external IP */
-	otg_io_set_bits(otg,PRESET,PHYFUNCTR);
+	otg_io_set_bits(otg, PRESET, OTG_PHYFUNCTR);
 
 	/* Release spin lock */
 	spin_unlock_irq(&tusb->lock);
 
 }
 
-/* 
- * tusb1211_set_host(): bind/unbind host controller 
+/*
+ * tusb1211_set_host(): bind/unbind host controller
  * @otg: otg transceiver data structure
  * @host: host controller is transferred by User
- * return: 
+ * return:
  *		0: normal termination
  *		-ENODEV: The OTG transceiver is not initialized.
  */
@@ -751,24 +827,24 @@ static int tusb1211_set_host(struct otg_transceiver *otg, struct usb_bus *host)
 }
 
 
-/* 
+/*
  * tusb1211_set_vbus(): enable/disable vbus supply
  * @otg: otg transceiver data structure
  * @enabled:
  *		true: enable vbus
  *		false: disable vbus
- * return: 
+ * return:
  *		0: normal termination
- *		-ENODEV: Not register device.This error occurs when 
+ *		-ENODEV: Not register device.This error occurs when
  *				no PMIC device is registered to PMIC Interface.
- *				PMIC device has to be registered to PMIC Interface 
+ *				PMIC device has to be registered to PMIC Interface
  *				before calling this API.
- *		Others: I2C fault error codes. These errors occur 
+ *		Others: I2C fault error codes. These errors occur
  *				when I2C transfer data doesn't finish normally.
  */
 static int tusb1211_set_vbus(struct otg_transceiver *otg, bool enabled)
 {
-	int ret;
+	int ret = 0;
 	struct tusb1211	*tusb = container_of(otg, struct tusb1211, otg);
 	if (0 == tusb->otg.default_a) {
 #ifdef CONFIG_PRINT_DEBUG
@@ -778,13 +854,17 @@ static int tusb1211_set_vbus(struct otg_transceiver *otg, bool enabled)
 	}
 	if (true == enabled) {
 		/* change to boost mode */
-		ret = pmic_set_vbus(1);
+#ifdef CONFIG_USB_OTG
+		set_otg_vbus(1);
+#endif
 	} else {
 		/* change to charger mode */
-		ret = pmic_set_vbus(0);
+#ifdef CONFIG_USB_OTG
+		set_otg_vbus(0);
+#endif
 	}
 	if ( ret != 0 ) {
-		dev_err(otg->dev, "otg_set_vbus: Error occurs when calling pmic_set_vbus \n");
+		dev_err(otg->dev, "otg_set_vbus: Error occurs when calling set_otg_vbus\n");
 	}
 	return ret;
 }
@@ -798,7 +878,7 @@ static int tusb1211_set_vbus(struct otg_transceiver *otg, bool enabled)
  *     -ENODEV: TUSB1211 OTG transceiver has not been initialized yet.
  *     -EINVAL: register address is invalid.
  *     -EBUSY: reading register isn't available.
- *     -ETIMEDOUT: reading register cannot complete before timeout (10us). 
+ *     -ETIMEDOUT: reading register cannot complete before timeout (10us).
  */
 static int  tusb1211_io_read(struct otg_transceiver *otg, u32 reg)
 {
@@ -815,7 +895,7 @@ static int  tusb1211_io_read(struct otg_transceiver *otg, u32 reg)
 	if (0 == tusb->init) {
 		return -ENODEV;
 	}
-	
+
 	/*Check whether value of register is valid or not*/
 	if ((reg > TUSB1211_MAX_ADDR) || (reg == USB_ULPI_EXTENDED)){
 		printk(KERN_ERR "tusb1211_io_read: Invalid register address\n");
@@ -823,7 +903,7 @@ static int  tusb1211_io_read(struct otg_transceiver *otg, u32 reg)
 	}
 
 	/*Check the condition of reading*/
-	spctrl = otg_read_reg(otg, USB_SPCTRL);
+	spctrl = otg_read_reg(otg, USB_TUSB_SPCTRL);
 	if ((spctrl & ULPI_READ) || (spctrl & ULPI_WRITE)) {
 		printk(KERN_ERR "tusb1211_io_read: Not available\n");
 		return -EBUSY;
@@ -833,8 +913,8 @@ static int  tusb1211_io_read(struct otg_transceiver *otg, u32 reg)
 	spin_lock_irqsave(&tusb->lock, flags);
 
 	/*Initiate read operation*/
-	otg_write_reg(otg, reg, USB_SPADDR); /*Set address of register needs to be read*/
-	otg_io_set_bits(otg, ULPI_READ, USB_SPCTRL); /*Enable reading operation*/
+	otg_write_reg(otg, reg, USB_TUSB_SPADDR); /*Set address of register needs to be read*/
+	otg_io_set_bits(otg, ULPI_READ, USB_TUSB_SPCTRL); /*Enable reading operation*/
 	otg_write_reg(otg, USB_START_READ, USB_PHYREAD);/*Start reading*/
 
 	/* Release spin lock */
@@ -842,7 +922,7 @@ static int  tusb1211_io_read(struct otg_transceiver *otg, u32 reg)
 
 	/* wait at most 10us for completion of reading*/
 	while (cnt < ULPI_IO_TIMEOUT_USEC) {
-		spctrl = otg_read_reg(otg, USB_SPCTRL);
+		spctrl = otg_read_reg(otg, USB_TUSB_SPCTRL);
 		if (!(spctrl & ULPI_READ))
 			break;
 		udelay(1);
@@ -856,7 +936,7 @@ static int  tusb1211_io_read(struct otg_transceiver *otg, u32 reg)
 	}
 
 	/*Return the value of register*/
-	return ULPI_DATA(otg_read_reg(otg, USB_SPRDAT));
+	return ULPI_DATA(otg_read_reg(otg, USB_TUSB_SPRDAT));
 }
 
 /*
@@ -869,7 +949,7 @@ static int  tusb1211_io_read(struct otg_transceiver *otg, u32 reg)
  *     -ENODEV: TUSB1211 OTG transceiver has not been initialized yet.
  *     -EINVAL: register address or written value is invalid.
  *     -EBUSY: writing register isn't available.
- *     -ETIMEDOUT: writting register cannot complete before timeout (10us). 
+ *     -ETIMEDOUT: writting register cannot complete before timeout (10us).
  */
 static int tusb1211_io_write(struct otg_transceiver *otg, u32 val, u32 reg)
 {
@@ -894,7 +974,7 @@ static int tusb1211_io_write(struct otg_transceiver *otg, u32 val, u32 reg)
 	}
 
 	/*Check the condition of writting*/
-	spctrl = otg_read_reg(otg, USB_SPCTRL);
+	spctrl = otg_read_reg(otg, USB_TUSB_SPCTRL);
 	if ((spctrl & ULPI_READ) || (spctrl & ULPI_WRITE)) {
 		printk("tusb1211_io_write: Not available\n");
 		return -EBUSY;
@@ -904,16 +984,16 @@ static int tusb1211_io_write(struct otg_transceiver *otg, u32 val, u32 reg)
 	spin_lock_irqsave(&tusb->lock, flags);
 
 	/*Initiate write operation*/
-	otg_write_reg(otg, reg, USB_SPADDR); /*Set address of register needs to be written*/
-	otg_write_reg(otg, ULPI_DATA(val),USB_SPWDAT); /*Set written value*/
-	otg_io_set_bits(otg, ULPI_WRITE, USB_SPCTRL); /*Enable writting operation*/
+	otg_write_reg(otg, reg, USB_TUSB_SPADDR); /*Set address of register needs to be written*/
+	otg_write_reg(otg, ULPI_DATA(val), USB_TUSB_SPWDAT); /*Set written value*/
+	otg_io_set_bits(otg, ULPI_WRITE, USB_TUSB_SPCTRL); /*Enable writting operation*/
 
 	/* Release spin lock */
 	spin_unlock_irqrestore(&tusb->lock, flags);
 
 	/* wait at most 10us for completion of writting*/
 	while (cnt < ULPI_IO_TIMEOUT_USEC) {
-		spctrl = otg_read_reg(otg, USB_SPCTRL);
+		spctrl = otg_read_reg(otg, USB_TUSB_SPCTRL);
 		if (!(spctrl & ULPI_WRITE))
 			break;
 		udelay(1);
@@ -930,47 +1010,71 @@ static int tusb1211_io_write(struct otg_transceiver *otg, u32 val, u32 reg)
 	return 0;
 }
 
-/* 
+/*
  * tusb1211_usb_remove(): remove OTG transceiver from platform
  * @pdev: platform which remove OTG transceiver
- * return: 
- *		0: normal termination 
+ * return:
+ *		0: normal termination
  */
 static int __exit tusb1211_remove(struct platform_device *pdev)
 {
+	int ret = 0;
 #ifdef CONFIG_PRINT_DEBUG
 	printk("tusb1211_remove()\n");
 #endif
 	struct tusb1211		*tusb = dev_get_drvdata(&pdev->dev);
 
-	/* unmap register */
-	iounmap(tusb->otg.io_priv);
+	del_timer(&tusb->b_srp_fail_timer);
+	del_timer(&tusb->b_dischrg_vbus_timer);
+	del_timer(&tusb->b_chrg_vbus_timer);
+	del_timer(&tusb->b_data_pls_timer);
+	del_timer(&tusb->se0_srp_timer);
 
+	ret = cancel_delayed_work_sync(&tusb->vbus_work);
+	if (ret < 0)
+		printk(KERN_ERR"Error in cancelling delayed work queue.\n");
+	ret = cancel_delayed_work_sync(&tusb->vbus_off_work);
+	if (ret < 0)
+		printk(KERN_ERR"Error in cancelling delayed work queue.\n");
+
+	ret = pm_runtime_put(&pdev->dev);
+	if (ret < 0)
+		printk(KERN_ERR"Error in syncing pm runtime call.\n");
+	pm_runtime_disable(&pdev->dev);
 	/* Clear data information of otg transceiver */
 	otg_set_transceiver(NULL);
+	xceiver = NULL;
 
 	platform_set_drvdata(pdev, NULL);
 	/* free memory for structure tusb*/
 	kfree(tusb);
 
+	/* unmap register */
+	iounmap(tusb->otg.io_priv);
+#ifdef CONFIG_HAVE_CLK
+	clk_put(tusb->iclk);
+	clk_put(tusb->clk);
+#endif
 	return 0;
 }
 
 /*
  * tusb1211_probe: initialize USB OTG
 * @pdev: USB OTG Controller being probed
- * return: 
+ * return:
  *     0: successful
  *     -ENOMEM: insufficient memory.
  *     -ENODEV: can not get resource (memory)
  */
 static int __devinit tusb1211_probe(struct platform_device *pdev)
 {
-	struct resource *res, *ires; 
+	struct resource *res, *ires;
 	void __iomem *reg = NULL;
 	struct tusb1211 *tusb;
-	int irq;
-	int ret;
+	int ret = 0;
+#ifdef CONFIG_HAVE_CLK
+	char clk_name[15];
+#endif
 #ifdef CONFIG_PRINT_DEBUG
 	printk("tusb1211_probe()\n");
 #endif
@@ -990,15 +1094,9 @@ static int __devinit tusb1211_probe(struct platform_device *pdev)
 	}
 
 	ires = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	irq = ires->start;
-
-	if (irq < 0) {
-		dev_err(&pdev->dev, "platform_get_irq error.\n");
-		return -ENODEV;
-	}
 
 	/* Allocate internal structure that keeps the information of transceiver */
-	tusb = kzalloc(sizeof *tusb, GFP_KERNEL); 
+	tusb = kzalloc(sizeof *tusb, GFP_KERNEL);
 	if (tusb == NULL) {
 		printk("Can't allocate the tusb1211");
 		return -ENOMEM;
@@ -1006,13 +1104,35 @@ static int __devinit tusb1211_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, tusb);
 
+	/* Enable pm runtime */
+	pm_runtime_enable(&pdev->dev);
+#ifdef CONFIG_HAVE_CLK
+	/* Lookup USB-PHY clock */
+	strcpy(clk_name, "vclk3_clk");
+	tusb->clk = clk_get(NULL, clk_name);
+	ret = IS_ERR(tusb->clk);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "cannot get clock \"%s\"\n", clk_name);
+		goto err0;
+	}
+	/* USBHS interface clock */
+	tusb->iclk = clk_get(&pdev->dev, NULL);
+	ret = IS_ERR(tusb->iclk);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "cannot get clock\n");
+		clk_put(tusb->clk);
+		goto err0;
+	}
+#endif
+
 	/* Init the spinlock */
 	spin_lock_init(&tusb->lock);
 
 	/* Initialize USB OTG structure */
+	tusb->otg.label = "tusb1211";
 	tusb->otg.io_priv = reg;
 	tusb->otg.io_ops = &tusb1211_otg_io_ops;
-	
+
 	tusb->otg.init = tusb1211_init;
 	tusb->otg.shutdown = tusb1211_shutdown;
 	tusb->otg.start_hnp = tusb1211_start_hnp;
@@ -1029,15 +1149,6 @@ static int __devinit tusb1211_probe(struct platform_device *pdev)
 	tusb->vbus_enable = 0;
 	INIT_DELAYED_WORK(&tusb->vbus_work, tusb_vbus_work);
 	INIT_DELAYED_WORK(&tusb->vbus_off_work, tusb_vbus_off_work);
-
-	ret = request_threaded_irq(irq,
-					   NULL, tusb_id_irq,
-					   IRQF_ONESHOT, "id_detect", tusb);
-
-	if (ret < 0) {
-		printk("request_irq error (%d, %d)\n",irq, ret);
-		return -EINVAL;
-	}
 
 	/* Timer for SRP */
 	init_timer(&tusb->se0_srp_timer);
@@ -1065,8 +1176,10 @@ static int __devinit tusb1211_probe(struct platform_device *pdev)
 	tusb->b_srp_fail_timer.data = (unsigned long)tusb;
 
 	tusb_class = class_create(THIS_MODULE, "tusb");
-	if (IS_ERR(tusb_class))
-		return PTR_ERR(tusb_class);
+	if (IS_ERR(tusb_class)) {
+		ret = PTR_ERR(tusb_class);
+		goto err5;
+	}
 	ret = class_create_file(tusb_class, &class_attr_tusb_srp);
 	if (ret < 0) {
 		printk("Can't create tusb class\n");
@@ -1083,6 +1196,25 @@ static int __devinit tusb1211_probe(struct platform_device *pdev)
 	xceiver = tusb;
 	printk("%s\n", __func__);
 	return 0;
+
+err5:
+	del_timer(&tusb->b_srp_fail_timer);
+	del_timer(&tusb->b_dischrg_vbus_timer);
+	del_timer(&tusb->b_chrg_vbus_timer);
+	del_timer(&tusb->b_data_pls_timer);
+	del_timer(&tusb->se0_srp_timer);
+#ifdef CONFIG_HAVE_CLK
+	clk_put(tusb->iclk);
+	clk_put(tusb->clk);
+err0:
+#endif
+	ret = pm_runtime_put(&pdev->dev);
+	if (ret < 0)
+		printk(KERN_ERR"Error in giving up pm runtime call.\n");
+	pm_runtime_disable(&pdev->dev);
+	kfree(tusb);
+	iounmap(reg);
+	return ret;
 }
 static struct platform_driver tusb1211_driver = {
 	.probe = tusb1211_probe,

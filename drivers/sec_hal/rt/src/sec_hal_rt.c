@@ -1332,7 +1332,7 @@ uint32_t sec_hal_rt_periodic_integrity_check(uint32_t *sec_exp_time)
 		LOCAL_WMB();
 
 		/* call dispatcher */
-		disp_st = LOCAL_DISP(SEC_SERV_INTEGRITY_CHECK,
+		disp_st = raw_pub2sec_dispatcher(SEC_SERV_INTEGRITY_CHECK,
 			LOCAL_DEFAULT_DISP_FLAGS,
 			LOCAL_DEFAULT_DISP_SPARE_PARAM,
 			SEC_HAL_MEM_VIR2PHY_FUNC(out_msg),

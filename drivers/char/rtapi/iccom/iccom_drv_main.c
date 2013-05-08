@@ -2,7 +2,7 @@
  * iccom_drv_main.c
  *     Inter Core Communication driver function file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -27,6 +27,7 @@
 #include <linux/ioctl.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/jiffies.h>
 #include "log_kernel.h"
 #include "iccom_hw.h"
 #include "iccom_drv.h"
@@ -108,7 +109,7 @@ int iccom_close(
 		iccom_fp_list	*fp_list_next;
 		unsigned int	ng_cancel_cnt = 0;
 
-		down(&g_iccom_sem_fp_list);
+		ICCOM_DOWN_TIMEOUT(&g_iccom_sem_fp_list);
 		list_for_each_entry_safe(fp_list, fp_list_next, &g_iccom_list_fp, list) {
 			if (fp == fp_list->fp) {
 				list_del(&fp_list->list);
@@ -396,7 +397,7 @@ long iccom_ioctl(
 					ret = SMAP_MEMORY;
 				} else {
 					fp_list->fp = fp;
-					down(&g_iccom_sem_fp_list);
+					ICCOM_DOWN_TIMEOUT(&g_iccom_sem_fp_list);
 					list_add_tail(&fp_list->list, &g_iccom_list_fp);
 					up(&g_iccom_sem_fp_list);
 
@@ -412,7 +413,7 @@ long iccom_ioctl(
 				iccom_fp_list	*fp_list_next;
 				unsigned int	ng_cancel_cnt = 0;
 
-				down(&g_iccom_sem_fp_list);
+				ICCOM_DOWN_TIMEOUT(&g_iccom_sem_fp_list);
 				list_for_each_entry_safe(fp_list, fp_list_next, &g_iccom_list_fp, list) {
 					if (fp == fp_list->fp) {
 						list_del(&fp_list->list);

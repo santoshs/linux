@@ -196,14 +196,12 @@ ssize_t ld_set_switch_buf(struct device *dev,
 		return MUSB_IC_UART_EMPTY_CRLF;
 	}
 
-	if (at_isi_switch_buf) {
-		if (strstr(at_isi_switch_buf, "\r\n"))
-			printk(KERN_DEBUG"###TEST0### r n\n");
-		else if (strstr(at_isi_switch_buf, "\t\n"))
-			printk(KERN_DEBUG"###TEST1### t n\n");
-		else if (strstr(at_isi_switch_buf, "\n"))
-			printk(KERN_DEBUG"###TEST2### n\n");
-	}
+	if (strstr(at_isi_switch_buf, "\r\n"))
+		printk(KERN_DEBUG"###TEST0### r n\n");
+	else if (strstr(at_isi_switch_buf, "\t\n"))
+		printk(KERN_DEBUG"###TEST1### t n\n");
+	else if (strstr(at_isi_switch_buf, "\n"))
+		printk(KERN_DEBUG"###TEST2### n\n");
 
 	ptr = strstr(atbuf, at_isi_switch_buf);
 	ptr2 = strstr(atmodechanbuf, at_isi_switch_buf);
@@ -312,8 +310,8 @@ static DEVICE_ATTR(uart_wakelock, S_IRUGO | S_IWUSR,
 static struct attribute *tsu6712_attributes[] = {
   //        &dev_attr_switch.attr,
         &dev_attr_at_isi_switch.attr,   /* AT-ISI Separation */
-        &dev_attr_at_isi_mode,          /* AT-ISI Separation */
-        &dev_attr_at_isi_switch_buf,    /* AT-ISI Separation */
+        &dev_attr_at_isi_mode.attr,          /* AT-ISI Separation */
+        &dev_attr_at_isi_switch_buf.attr,    /* AT-ISI Separation */
         &dev_attr_UUS_state.attr,
         /* JIRA ID 1362/1396
         uart-wakelock release */
@@ -332,7 +330,7 @@ static int usb_sysfs_init(void)
 	int ret;
 	usb_kobj = kobject_create_and_add(USB_FS, kernel_kobj);
 	if (!usb_kobj)
-		return;
+		return 0;
 	ret = sysfs_create_group(usb_kobj, &tsu6712_group);
 	if (ret)
 		kobject_put(usb_kobj);
@@ -409,13 +407,13 @@ static void usb_attach(uint8_t attached)
 	if ( attached ) {
 		usb_uart_switch_state = 100;
 		send_usb_insert_event(1);
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
+		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB);
 		switch_set_state(&switch_usb_uart,100);
 	}
 	else {
 		usb_uart_switch_state = 101;
 		send_usb_insert_event(0);
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
 		switch_set_state(&switch_usb_uart,101);
     }
 }
@@ -439,10 +437,10 @@ static void charger_attach(uint8_t attached)
 	set_cable_status = attached ? CABLE_TYPE_AC : CABLE_TYPE_NONE;
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 	if (attached) {
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
+		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB_DCP);
 	}
 	else {
-		spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
+		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
 	}
 #endif
 
@@ -955,31 +953,18 @@ static void rt8973musc_work(struct work_struct *work)
         regDev1 = I2CRByte(RT8973_REG_DEVICE_1);
         regDev2 = I2CRByte(RT8973_REG_DEVICE_2);
 	if (unlikely(regIntFlag&RT8973_INT_DETACH_MASK)) {
-            INFO("There is un-handled event!!\n");
-            if (regDev1==0 && regDev2==0) {
-		do_detach_work(regIntFlag);
-		pDrvData->attach_status = 0;
-		}
-	    else {
-		if (pDrvData->attach_status == 0) {
-			/* do attach only if not attached */
+		INFO("There is un-handled event!!\n");
+		if (regDev1 == 0 && regDev2 == 0)
+			do_detach_work(regIntFlag);
+		else
 			do_attach_work(regIntFlag, regDev1, regDev2);
-			pDrvData->attach_status = 1;
-		}
-	    }
-	}
-		else {
-			if(pDrvData->attach_status == 0) {
-			/* do attach only if not attached */
-			do_attach_work(regIntFlag, regDev1, regDev2);
-			pDrvData->attach_status = 1;
-		}
-	}
+	 }
+	else
+		do_attach_work(regIntFlag, regDev1, regDev2);
 	}
 	else if (regIntFlag&RT8973_INT_DETACH_MASK) {
- 		do_detach_work(regIntFlag);
-		pDrvData->attach_status = 0;
-    	}
+		do_detach_work(regIntFlag);
+	}
     else {
         if (regIntFlag&0x80) // OTP
         {
@@ -1126,7 +1111,6 @@ static int rt8973musc_probe(struct i2c_client *client,
     rtmus_work_queue = create_workqueue("rt8973mus_wq");
     INIT_WORK(&drv_data->work, rt8973musc_work);
     INIT_DELAYED_WORK(&drv_data->delayed_work, rt8973_init_func);
-    pDrvData->attach_status = 0;
 
 	uart_connecting = 0;
     if(platform_data.ex_init)

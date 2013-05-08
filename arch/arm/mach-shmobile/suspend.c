@@ -934,7 +934,7 @@ static int shmobile_suspend(void)
 	/* check cpu#1 power down */
 	if (core_shutdown_status(1) != 3) {
 		not_core_shutdown = 1;
-		shmobile_suspend_udelay(1000);  /*udelay(1000);*/
+		udelay(1000);
 		barrier();
 		if (core_shutdown_status(1) != 3)
 			return -EBUSY;
@@ -1215,7 +1215,7 @@ int is_systemsuspend_enable(void)
 EXPORT_SYMBOL(is_systemsuspend_enable);
 #endif /* CONFIG_PM_DEBUG */
 
-const struct platform_suspend_ops shmobile_suspend_ops = {
+struct platform_suspend_ops shmobile_suspend_ops = {
 	.begin			= shmobile_suspend_begin,
 	.end			= shmobile_suspend_end,
 	.enter			= shmobile_suspend_enter,

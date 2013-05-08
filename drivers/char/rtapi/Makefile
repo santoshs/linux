@@ -30,6 +30,7 @@ rtapi-objs	+= ./system/system_memory.o
 rtapi-objs	+= ./system/system_standby.o
 rtapi-objs	+= ./system/system_pwmng.o
 rtapi-objs	+= ./system/system_rtload.o
+rtapi-objs	+= ./camera/camera.o
 
 obj-y		+= rtapi.o
 

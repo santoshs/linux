@@ -2795,10 +2795,6 @@ static bool ParseDetailedTiming(struct mhl_tx *mhl, u8 DetailedTimingOffset, u8 
   if(Block == EDID_BLOCK_0){
     memcpy(edidBlockData, mhl->edid_block0, EDID_BLOCK_SIZE);
   }
-  else if(Block == EDID_BLOCK_0){
-    memcpy(edidBlockData, mhl->edid_block1, EDID_BLOCK_SIZE);
-  }
-
 	TmpWord = edidBlockData[DetailedTimingOffset + PIX_CLK_OFFSET] +
 		256 * edidBlockData[DetailedTimingOffset + PIX_CLK_OFFSET + 1];
 

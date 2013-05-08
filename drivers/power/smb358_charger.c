@@ -60,6 +60,9 @@ enum {
 	CHG_MODE_USB
 };
 
+#define TA_CHG_CURRENT	FAST_CHG_1800mA
+#define MAX_INPUT_CURRENT	LIMIT_1800mA
+
 struct i2c_client * global_client;
 
 static struct sec_charger_info *smb_charger = NULL;
@@ -117,19 +120,6 @@ static int smb358_read_reg(struct i2c_client *client, u8 reg, u8 *data)
        return 0;
 }
 
-static void smb358_test_read(struct i2c_client *client)
-{
-	u8 data = 0,reg;
-
-	pr_info("%s\n",__func__);
-	for (reg = 0; reg <= 0x0E; reg++) {
-		smb358_read_reg(client, reg, &data);
-	}
-
-	for (reg = 0x30; reg <= 0x3F; reg++) {
-		smb358_read_reg(client, reg, &data);
-	}
-}
 void smb358_stop_chg(void)
 {
 	struct i2c_client * client;
@@ -144,6 +134,21 @@ void smb358_stop_chg(void)
 	data &= ~CHG_ENABLE;
 	
 	smb358_write_reg(client,SMB358_COMMAND_A,data);
+
+	
+	smb358_read_reg(client,SMB358_INPUT_CURRENTLIMIT,&data);
+
+	data &= ~(0xf0);
+
+	data |= LIMIT_500mA;
+
+	smb358_write_reg(client, SMB358_INPUT_CURRENTLIMIT, data);
+
+	smb358_read_reg(client,SMB358_CHARGE_CURRENT,&data);
+	
+	data &= FAST_CHG_MASK;
+	data |= FAST_CHG_450mA;
+	smb358_write_reg(client,SMB358_CHARGE_CURRENT,data);
 
 }
 
@@ -179,11 +184,11 @@ void smb358_start_chg(void)
 
 int smb358_set_chg_current(int chg_current)
 {
+	u8 ret = -1;
 	struct i2c_client * client;
 	u8 data=0,set_current=0;
-	client = global_client;
-	u8 ret = -1;
 	int cable_type = get_cable_type();
+	client = global_client;
 
 	if( !client) return ret;
 
@@ -206,6 +211,17 @@ int smb358_set_chg_current(int chg_current)
 
 	smb358_write_reg(client,SMB358_COMMAND_B,data);
 
+	smb358_read_reg(client,SMB358_INPUT_CURRENTLIMIT,&data);
+
+	data &= ~(0xf0);
+
+	if(cable_type == CABLE_TYPE_AC)
+		data |= MAX_INPUT_CURRENT;
+	else
+		data |= LIMIT_500mA;
+
+	smb358_write_reg(client, SMB358_INPUT_CURRENTLIMIT, data);
+
 	smb358_read_reg(client,SMB358_CHARGE_CURRENT,&data);
 
 	switch( chg_current)
@@ -224,16 +240,17 @@ int smb358_set_chg_current(int chg_current)
 	data &= FAST_CHG_MASK;
 	data |= set_current;
 	smb358_write_reg(client,SMB358_CHARGE_CURRENT,data);
+	return 0;
 
 }
 //EXPORT_SYMBOL(smb358_set_chg_current);
 
 int smb358_set_eoc(int eoc_value)
 {
+	u8 ret = -1;
 	struct i2c_client * client;
 	u8 data=0,set_eoc=0;
 	client = global_client;
-	u8 ret = -1;
 
 	if( !client) return ret;
 
@@ -266,10 +283,12 @@ EXPORT_SYMBOL(smb358_set_eoc);
 
 bool smb358_chg_init(struct i2c_client *client)
 {
-	pr_info("%s\n",__func__);
 	u8 data;
+	pr_info("%s\n",__func__);
 
-	data = ALLOW_VOLATILE_WRITE|FAST_CHARGE;
+	/* command A is setted @ bootload */
+	smb358_read_reg(client,SMB358_COMMAND_A,&data);
+	data |= ALLOW_VOLATILE_WRITE|FAST_CHARGE;
 	smb358_write_reg(client, SMB358_COMMAND_A, data);
 
 	/* Command B : USB1 mode, USB mode */
@@ -277,10 +296,10 @@ bool smb358_chg_init(struct i2c_client *client)
 	smb358_write_reg(client, SMB358_COMMAND_B, data);
 
 	/* Allow volatile writes to CONFIG registers */
-	data = FAST_CHG_2000mA|PRE_CHG_450mA|EOC_200mA;
+	data = TA_CHG_CURRENT|PRE_CHG_450mA|EOC_200mA;
 	smb358_write_reg(client, SMB358_CHARGE_CURRENT, data); //0
 
-	data = LIMIT_2000mA|CHG_INHIBIT_THR_100mV;
+	data = MAX_INPUT_CURRENT|CHG_INHIBIT_THR_100mV;
 	smb358_write_reg(client, SMB358_INPUT_CURRENTLIMIT, data); // 1
 
 	data = 0xD7;
@@ -337,7 +356,7 @@ static int smb358_get_voltage (unsigned char opt)
 #ifdef CONFIG_STC3115_FUELGAUGE
 	read_voltage(&volt);
 #elif CONFIG_BATTERY_D2153
-	volt = d2153_battery_read_status(D2153_BATTERY_CUR_VOLTAGE);
+	volt = d2153_battery_read_status(D2153_BATTERY_AVG_VOLTAGE);
 #else
 	volt = 4000;
 #endif

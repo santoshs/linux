@@ -93,59 +93,6 @@ static int old_pdc_enable = 1;
 static int power_areas_status;
 #endif
 
-static struct drv_pd_mapping_table tbl1[] = {
-	/* MFIS		 */	{ "mfis.0",			ID_C4	},
-	/* SGX544MP1 */	{ "pvrsrvkm",			ID_A3SG },
-	/* SY-DMA0	*/	{ "sh-dma-engine.0",	ID_A3SP },
-	/* CC4.2 0	*/	{ "sep_sec_driver.0",	ID_A3SP },
-	/* MMCIF.0	*/	{ "renesas_mmcif.0",		ID_A3SP },
-	/* MSIOF0	*/	{ "spi_sh_msiof.0",	ID_A3SP },
-	/* MSIOF1	*/	{ "spi_sh_msiof.1",	ID_A3SP },
-	/* MSIOF2	*/	{ "spi_sh_msiof.2",	ID_A3SP },
-	/* MSIOF3	*/	{ "spi_sh_msiof.3",	ID_A3SP },
-	/* USB		*/	{ "r8a66597_hcd.0",	ID_A3SP },
-	/* USB		*/	{ "r8a66597_udc.0",	ID_A3SP },
-	/* USB		*/	{ "usb_mass_storage",	ID_A3SP },
-	/* USB		*/	{ "android_usb",		ID_A3SP },
-	/* USB_OTG	*/	{ "tusb1211_driver.0",	ID_A3SP },
-	/* SCIFA0	*/	{ "sh-sci.0",			ID_C4 },
-	/* SCIFA1	*/	{ "sh-sci.1",			ID_A3SP },
-	/* SCIFA2	*/	{ "sh-sci.2",			ID_A3SP },
-	/* SCIFA3	*/	{ "sh-sci.3",			ID_A3SP },
-	/* SCIFB0	*/	{ "sh-sci.4",			ID_A3SP },
-	/* SCIFB1	*/	{ "sh-sci.5",			ID_A3SP },
-	/* SCIFB2	*/	{ "sh-sci.6",			ID_A3SP },
-	/* SCIFB3	*/	{ "sh-sci.7",			ID_C4	},
-	/* I2C0		*/	{ "i2c-sh_mobile.0",	ID_A3SP },
-	/* I2C1		*/	{ "i2c-sh_mobile.1",	ID_A3SP },
-	/* I2C2		*/	{ "i2c-sh_mobile.2",	ID_A3SP },
-	/* I2C3		*/	{ "i2c-sh_mobile.3",	ID_A3SP },
-	/* I2C0H	*/	{ "i2c-sh_mobile.4",	ID_A3SP },
-	/* I2C1H	*/	{ "i2c-sh_mobile.5",	ID_A3SP },
-	/* I2CM		*/	{ "i2c-sh7730.8",		ID_A3SP },
-	/* I2C2H	*/	{ "i2c-sh_mobile.6",	ID_A3SP },
-	/* I2C3H	*/	{ "i2c-sh_mobile.7",	ID_A3SP },
-	/* SDHI0	*/	{ "renesas_sdhi.0",	ID_A3SP },
-	/* SDHI1	*/	{ "renesas_sdhi.1",	ID_A3SP },
-	/* SDHI2	*/	{ "renesas_sdhi.2",	ID_A3SP },
-	/* TPU		*/	{ "tpu-renesas-sh_mobile.0",	ID_A3SP },
-	/* HSI		*/	{ "sh_hsi.0",			ID_A3SP },
-	/* MFI		*/	{ "av-domain",		ID_A3R	},
-	/* FSI2/ALSA */	{ "snd-soc-fsi",		ID_A4MP },
-	/* SHX(rtapi) */{ "meram-domain",	ID_A4RM },
-	/* AudioPT	*/	{ "snd-soc-audio-test",	ID_A4MP },
-
-#if 0
-	/* The following device is used for test purpose only */
-	/*	C4 dummy device	*/	  {"dummy_test_c4.0", ID_C4},
-	/*	A3SG dummy device	*/{"dummy_test_a3sg.0", ID_A3SG},
-	/*	A3SP dummy device	*/{"dummy_test_a3sp.0", ID_A3SP},
-	/*	A3R dummy device	*/{"dummy_test_a3r.0",  ID_A3R},
-	/*	A4RM dummy device	*/{"dummy_test_a4rm.0", ID_A4RM},
-	/*	A4MP dummy device	*/{"dummy_test_a4mp.0", ID_A4MP},
-#endif
-
-};
 
 static struct drv_pd_mapping_table tbl2[] = {
 	/* MFIS		 */	{ "mfis.0",			ID_C4	},

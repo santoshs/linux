@@ -58,3 +58,4 @@ obj-$(CONFIG_REGULATOR_WM8994) += wm8994-regulator.o
 
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG
+subdir-ccflags-y += -Werror

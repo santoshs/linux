@@ -27,6 +27,7 @@
 #include <linux/page-flags.h>
 #include <linux/export.h>
 #include <linux/module.h>
+#include <mach/memory-r8a7373.h>
 
 #include "ram_defrag_internal.h"
 
@@ -38,32 +39,46 @@
 	#define DEFRAG_PRINTK(fmt, arg...)
 #endif
 
-#define SDRAM_START			0x40000000
-#define SDRAM_END			0x7FFFFFFF
+#define SDRAM_START_ADDR		0x40000000
+#define SDRAM_END_ADDR			0x7FFFFFFF
 #define BANK_SIZE			0x04000000
 
-#define INUSED_RANGE		(CONFIG_MEMORY_START - SDRAM_START)
-#define USED_BANKS	(((INUSED_RANGE % BANK_SIZE) != 0) \
-					? ((INUSED_RANGE / BANK_SIZE) + 1) \
-					: (INUSED_RANGE / BANK_SIZE))
+#define INUSED_RANGE	(SDRAM_KERNEL_START_ADDR - SDRAM_START_ADDR)
 
-#define UNUSED_BANKS_START	(SDRAM_START + (USED_BANKS * BANK_SIZE))
-#define SKIPPED_RANGE	(UNUSED_BANKS_START - CONFIG_MEMORY_START)
-#define NUMBER_PAGES_SKIP	(((INUSED_RANGE % BANK_SIZE) != 0) \
-							? (SKIPPED_RANGE) : 0)
+#define USED_BANKS_ABOVE	(((INUSED_RANGE % BANK_SIZE) != 0) \
+				? ((INUSED_RANGE / BANK_SIZE) + 1) \
+				: (INUSED_RANGE / BANK_SIZE))
 
-#define SDRAM_SIZE			((SDRAM_END - SDRAM_START) + 1)
+#define UNUSED_BANKS_START	(SDRAM_START_ADDR + \
+				(USED_BANKS_ABOVE * BANK_SIZE))
+
+#define RANGE_SKIP		(((INUSED_RANGE % BANK_SIZE) != 0) \
+		? (UNUSED_BANKS_START - SDRAM_KERNEL_START_ADDR) : 0)
+
+#define USED_RANGE_BELOW	\
+				(SDRAM_END_ADDR - SDRAM_KERNEL_END_ADDR)
+
+#define USED_BANKS_BELOW		(((USED_RANGE_BELOW % BANK_SIZE) != 0) \
+				? ((USED_RANGE_BELOW / BANK_SIZE) + 1) : \
+					(USED_RANGE_BELOW / BANK_SIZE))
+
+#define SDRAM_SIZE		((SDRAM_END_ADDR - SDRAM_START_ADDR) + 1)
+
 #define MAX_BANKS			(SDRAM_SIZE / BANK_SIZE)
-#define MAX_UNUSED_BANKS	(MAX_BANKS - USED_BANKS)
+#define UNUSED_BANK_IN_KERNEL	(MAX_BANKS - \
+			USED_BANKS_ABOVE - USED_BANKS_BELOW)
+
 #define MAX_PAGES_IN_BANK	(BANK_SIZE / PAGE_SIZE)
 
-#define USED_BANKS_MASK(nr) (~(0xFFFF0000 | (0xFFFF << (nr))))
+#define USED_BANKS_MASK(nr_above, nr_below)	\
+		(~(0xFFFF0000 | ((0xFFFF << (nr_above)) \
+				& (0xFFFF >> (nr_below)))))
 
-const unsigned int max_unused_banks = MAX_UNUSED_BANKS;
+const unsigned int max_unused_banks = UNUSED_BANK_IN_KERNEL;
 const unsigned int max_pages_in_bank = MAX_PAGES_IN_BANK;
-const unsigned int number_pages_skip = NUMBER_PAGES_SKIP;
-const unsigned int used_banks = USED_BANKS;
-
+const unsigned int range_skip = RANGE_SKIP;
+const unsigned int used_banks_above = USED_BANKS_ABOVE;
+const unsigned int used_banks_below = USED_BANKS_BELOW;
 
 /*
  * get_ram_banks_status: Get status of RAM banks
@@ -92,7 +107,7 @@ unsigned int get_ram_banks_status(void)
 	status = 0xFFFFFFFF;
 	DEFRAG_PRINTK("%s\n", __func__);
 	/* start checking */
-	start_page_check = mem_map + number_pages_skip/PAGE_SIZE;
+	start_page_check = mem_map + range_skip/PAGE_SIZE;
 	for (i = 0; i < max_unused_banks; i++) {
 		begin = i * max_pages_in_bank;
 		end = ((i + 1) * max_pages_in_bank) - 1;
@@ -104,7 +119,8 @@ unsigned int get_ram_banks_status(void)
 			status &= ~(1 << i);
 	}
 
-	status = (status << used_banks) | USED_BANKS_MASK(used_banks);
+	status = (status << used_banks_above) | \
+		USED_BANKS_MASK(used_banks_above, used_banks_below);
 	return status;
 }
 EXPORT_SYMBOL_GPL(get_ram_banks_status);

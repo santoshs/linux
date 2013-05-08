@@ -2,7 +2,7 @@
  * drivers/char/rtapi/include/screen_graphics.h
  *     This file is screen graphics function.
  *
- * Copyright (C) 2011-2012 Renesas Electronics Corporation
+ * Copyright (C) 2011-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -120,6 +120,14 @@ typedef struct {
 		);
 } screen_grap_new;
 
+/* screen_graphics_set_blend_size API parameter */
+typedef struct {
+	void					*handle;		/* graphics interface handle */
+	unsigned short			lcd_width;		/* lcd width */
+	unsigned short			lcd_height;		/* lcd height */
+	unsigned short			hdmi_width;		/* hdmi width */
+	unsigned short			hdmi_height;	/* hdmi height */
+} screen_grap_set_blend_size;
 
 /* screen_graphics_initialize API parameter */
 typedef struct {
@@ -169,6 +177,7 @@ typedef struct {
 	void						*alpha_plane_apmem_handle;	/* alpha plane app-shared memory handle */
 } screen_grap_layer;
 
+/* screen_graphics_image_blend API parameter */
 typedef struct {
 	void					*handle;			/* graphics interface handle */
 	screen_grap_layer		*input_layer[4];	/* input image information */
@@ -222,6 +231,11 @@ extern void *screen_graphics_new
 	screen_grap_new	*grap_new
 );
 
+extern int screen_graphics_set_blend_size
+(
+	screen_grap_set_blend_size	*grap_set_blend_size
+);
+
 extern int screen_graphics_initialize
 (
 	screen_grap_initialize	*grap_initialize
@@ -241,6 +255,7 @@ extern int screen_graphics_image_output
 (
 	screen_grap_image_output	*grap_output
 );
+
 extern int screen_graphics_quit
 (
 	screen_grap_quit	*grap_quit

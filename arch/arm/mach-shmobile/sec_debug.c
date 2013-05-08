@@ -288,9 +288,45 @@ static struct sched_log sec_debug_log __cacheline_aligned;
 static struct sched_log sec_debug_log[NR_CPUS][SCHED_LOG_MAX]
 	__cacheline_aligned;
 */
-static atomic_t task_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
-static atomic_t irq_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
-static atomic_t work_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
+static atomic_t task_log_idx[NR_CPUS] = {
+	ATOMIC_INIT(-1),
+#if 2 <= CONFIG_NR_CPUS
+	ATOMIC_INIT(-1),
+#if 3 <= CONFIG_NR_CPUS
+	ATOMIC_INIT(-1),
+#if 4 <= CONFIG_NR_CPUS
+	ATOMIC_INIT(-1)
+#endif
+#endif
+#endif
+};
+
+static atomic_t irq_log_idx[NR_CPUS] = {
+	ATOMIC_INIT(-1),
+#if 2 <= CONFIG_NR_CPUS
+	ATOMIC_INIT(-1),
+#if 3 <= CONFIG_NR_CPUS
+	ATOMIC_INIT(-1),
+#if 4 <= CONFIG_NR_CPUS
+	ATOMIC_INIT(-1)
+#endif
+#endif
+#endif
+};
+
+static atomic_t work_log_idx[NR_CPUS] = {
+	ATOMIC_INIT(-1),
+#if 2 <= CONFIG_NR_CPUS
+	ATOMIC_INIT(-1),
+#if 3 <= CONFIG_NR_CPUS
+	ATOMIC_INIT(-1),
+#if 4 <= CONFIG_NR_CPUS
+	ATOMIC_INIT(-1)
+#endif
+#endif
+#endif
+};
+
 static struct sched_log (*psec_debug_log) = (&sec_debug_log);
 /*
 static struct sched_log (*psec_debug_log)[NR_CPUS][SCHED_LOG_MAX]
@@ -840,6 +876,7 @@ static void sec_kmsg_dump(struct kmsg_dumper *dumper,
 	int total_lines = 50;
 	/* no of chars which fits in total_chars *and* in total_lines */
 	int last_chars;
+	int flush = 0;
 
 	for (last_chars = 0;
 	     l2 && l2 > last_chars && total_lines > 0
@@ -863,6 +900,34 @@ static void sec_kmsg_dump(struct kmsg_dumper *dumper,
 		*ptr++ = *s1++;
 	while (l2-- > 0)
 		*ptr++ = *s2++;
+
+	switch (reason) {
+	case KMSG_DUMP_HALT:
+	case KMSG_DUMP_RESTART:
+	case KMSG_DUMP_POWEROFF:
+		/* No action on ordinary shutdown */
+		flush = 0;
+		break;
+	case KMSG_DUMP_EMERG:
+	case KMSG_DUMP_PANIC:
+	case KMSG_DUMP_OOPS:
+	default: /* And anything else we don't recognise */
+		flush = 1;
+		break;
+	}
+
+	if(flush){
+		/*
+		* Flush now to try to ensure we at least see logs in a raw
+		* RAM dump, in case we don't get any further - this covers
+		* inspection of either our limited copy, or the original
+		* log from a complete RAM dump, and also any other
+		* relevant data.
+		* (We only need a clean, not a flush no API for that).
+		*/
+		flush_cache_all();
+		outer_flush_all();
+	}
 }
 
 static struct kmsg_dumper sec_dumper = {
@@ -1204,7 +1269,7 @@ static int __init sec_debug_user_fault_init(void)
 {
 	struct proc_dir_entry *entry;
 
-	entry = proc_create("user_fault", S_IWUSR | S_IWGRP, NULL,
+	entry = proc_create("user_fault", S_IWUSR | S_IWGRP | S_IWOTH, NULL,
 			    &sec_user_fault_proc_fops);
 	if (!entry)
 		return -ENOMEM;

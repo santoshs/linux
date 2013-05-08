@@ -75,6 +75,18 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 	}
 
 	switch (command) {
+	case VCD_CTRL_FUNC_SET_BINARY_SPUV:
+		if (VCD_CTRL_FUNC_FEATURE_SET_BINARY_SPUV & feature)
+			ret = VCD_ERR_ALREADY_EXECUTION;
+		break;
+	case VCD_CTRL_FUNC_SET_BINARY_PCM:
+		if (VCD_CTRL_FUNC_FEATURE_SET_BINARY_PCM & feature)
+			ret = VCD_ERR_ALREADY_EXECUTION;
+		break;
+	case VCD_CTRL_FUNC_SET_BINARY_DIAMOND:
+		if (VCD_CTRL_FUNC_FEATURE_SET_BINARY_DIAMOND & feature)
+			ret = VCD_ERR_ALREADY_EXECUTION;
+		break;
 	case VCD_CTRL_FUNC_GET_MSG_BUFFER:
 		break;
 	case VCD_CTRL_FUNC_START_VCD:

@@ -28,7 +28,9 @@
 #define BT_REG_GPIO GPIO_PORT268
 #define BT_WAKE_GPIO GPIO_PORT262
 #define BT_HOST_WAKE_GPIO GPIO_PORT272
+#if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 #define BT_RESET_GPIO GPIO_PORT15
+#endif
 
 #define BT_LPM_ENABLE
 
@@ -62,7 +64,9 @@ static int bcm4334_bt_rfkill_set_power(void *data, bool blocked)
 	printk("%s: %s\n", __func__, (blocked ? "off" : "on" ));
 	
 	if (!blocked) {
+#if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 		gpio_set_value(BT_RESET_GPIO, 1);
+#endif
 		gpio_set_value(BT_REG_GPIO, 1);
 		if (rfkill_pwr_init) {
                        msleep(50);
@@ -73,7 +77,9 @@ static int bcm4334_bt_rfkill_set_power(void *data, bool blocked)
 		}
 	} else {
 		gpio_set_value(BT_REG_GPIO, 0);
+#if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 		gpio_set_value(BT_RESET_GPIO, 0);
+#endif
 	}
 
 	bt_enabled = !blocked;
@@ -106,7 +112,7 @@ static enum hrtimer_restart enter_lpm(struct hrtimer *timer) {
 
 #ifdef BT_LPM_ENABLE
 void bcm_bt_lpm_exit_lpm_locked(struct uart_port *uport) {
-	printk("Yang bcm_bt_lpm_exit_lpm_locked uport : %d\n", uport);
+	printk("Yang bcm_bt_lpm_exit_lpm_locked uport : 0x%p\n", uport);
 	bt_lpm.uport = uport;
 
 	hrtimer_try_to_cancel(&bt_lpm.enter_lpm_timer);
@@ -148,7 +154,7 @@ static irqreturn_t host_wake_isr(int irq, void *dev)
 	host_wake = gpio_get_value(BT_HOST_WAKE_GPIO);
 	irq_set_irq_type(irq, host_wake ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH);
 
-  printk("Yang host_wake_isr bt_lpm.uport : %d\n", bt_lpm.uport);
+  printk("Yang host_wake_isr bt_lpm.uport : 0x%p\n", bt_lpm.uport);
   
 	if (!bt_lpm.uport) {
 		bt_lpm.host_wake = host_wake;
@@ -223,27 +229,31 @@ static int bcm_bt_lpm_init(struct platform_device *pdev)
 static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	int rc = -EINVAL;
 
 	printk("%s: Enter\n", __func__);
 
-	int rc = gpio_request(BT_REG_GPIO, "bcm4334_nshutdown_gpio");
+	rc = gpio_request(BT_REG_GPIO, "bcm4334_nshutdown_gpio");
 	if (unlikely(rc))
 		return rc;
-
+#if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 	rc = gpio_request(BT_RESET_GPIO, "bcm4330_reset_gpio");
 	if (unlikely(rc))
 		return rc;
-
+#endif
 	gpio_direction_output(BT_REG_GPIO, 1);
+#if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 	gpio_direction_output(BT_RESET_GPIO, 0);
-
+#endif
 	bt_rfkill = rfkill_alloc("bcm4334 Bluetooth", &pdev->dev,
 				RFKILL_TYPE_BLUETOOTH, &bcm4334_bt_rfkill_ops,
 				NULL);
 
 	if (unlikely(!bt_rfkill)) {
 		gpio_free(BT_REG_GPIO);
+#if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 		gpio_free(BT_RESET_GPIO);
+#endif
 		return -ENOMEM;
 	}
 
@@ -255,7 +265,9 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 	if (unlikely(rc)) {
 		rfkill_destroy(bt_rfkill);
 		gpio_free(BT_REG_GPIO);
+#if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 		gpio_free(BT_RESET_GPIO);
+#endif
 		return -1;
 	}
 
@@ -271,7 +283,9 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 		rfkill_destroy(bt_rfkill);
 
 		gpio_free(BT_REG_GPIO);
+#if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 		gpio_free(BT_RESET_GPIO);
+#endif
 		printk("%s: bcm_lpm_init Failed ! err = %d\n", __func__, ret);
 	}
 #endif
@@ -290,8 +304,9 @@ static int bcm4334_bluetooth_remove(struct platform_device *pdev)
 	gpio_free(BT_REG_GPIO);
 	gpio_free(BT_WAKE_GPIO);
 	gpio_free(BT_HOST_WAKE_GPIO);
+#if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 	gpio_free(BT_RESET_GPIO);
-
+#endif
 	wake_lock_destroy(&bt_lpm.wake_lock);
 	return 0;
 }

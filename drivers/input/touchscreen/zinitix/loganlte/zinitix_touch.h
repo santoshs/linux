@@ -18,7 +18,7 @@
 #ifndef ZINITIX_HEADER
 #define ZINITIX_HEADER
 
-#define TS_DRVIER_VERSION	"1.0.20"
+#define TS_DRVIER_VERSION	"1.0.22"
 
 #define	MULTI_PROTOCOL_TYPE_B	1
 
@@ -43,8 +43,8 @@ name = "zinitix_isp" , addr 0x50*/
 /* resolution offset */
 #define ABS_PT_OFFSET			(-1)
 
-#define TOUCH_FORCE_UPGRADE		0
-#define USE_CHECKSUM			0
+#define TOUCH_FORCE_UPGRADE		1
+#define USE_CHECKSUM			1
 #define CHECK_HWID				1
 
 
@@ -81,8 +81,8 @@ enum _zinitix_button_event {
 /*Test Mode (Monitoring Raw Data) */
 #define SEC_TSP_FACTORY_TEST	1	//for samsung
 
-#define	SEC_DND_N_COUNT		10
-#define	SEC_DND_FREQUENCY	110		//300khz
+#define	SEC_DND_N_COUNT		16
+#define	SEC_DND_FREQUENCY	98		//300khz
 
 #define MAX_FW_PATH 255
 #define TSP_FW_FILENAME "zinitix_fw.bin"
@@ -136,6 +136,9 @@ struct _reg_ioctl{
 
 #define ZINITIX_SENSITIVITY	0x0020
 
+#define	ZINITIX_I2C_CHECKSUM_WCNT	0x016a
+#define	ZINITIX_I2C_CHECKSUM_RESULT	0x016c
+
 
 #define ZINITIX_DEBUG_REG		0x0115	//0~7
 
@@ -185,6 +188,8 @@ struct _reg_ioctl{
 #define ZINITIX_INIT_FLASH		0x01d0
 #define ZINITIX_WRITE_FLASH		0x01d1
 #define ZINITIX_READ_FLASH		0x01d2
+
+#define	ZINITIX_INTERNAL_FLAG_02 0x011e
 
 
 /* Interrupt & status register flag bit

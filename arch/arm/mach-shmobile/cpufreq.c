@@ -75,7 +75,7 @@ enum clock_state {
 /* For change sampling rate & down factor dynamically */
 #define SAMPLING_RATE_DEF FREQ_TRANSITION_LATENCY
 #define SAMPLING_RATE_LOW 500000
-#define SAMPLING_DOWN_FACTOR_DEF 20
+#define SAMPLING_DOWN_FACTOR_DEF 2
 #define SAMPLING_DOWN_FACTOR_LOW 1
 
 #define INIT_STATE	1
@@ -716,6 +716,27 @@ static inline int __set_all_clocks(unsigned int z_freq)
 
 	return ret;
 }
+
+/*
+ * is_cpufreq_clk_state_earlysuspend:
+ * get check clk_state value MODE_EARLY_SUSPEND
+ *
+ * Argument:
+ *		None
+ *
+ * Return:
+ *		1 : MODE_EARLY_SUSPEND
+ *		0 : not MODE_EARLY_SUSPEND
+ */
+int is_cpufreq_clk_state_earlysuspend(void)
+{
+	if (MODE_EARLY_SUSPEND == the_cpuinfo.clk_state)
+		return 1;
+
+	return 0;
+}
+EXPORT_SYMBOL(is_cpufreq_clk_state_earlysuspend);
+
 /*
  * start_cpufreq: start dynamic frequency scaling, the SYS-CPU frequency
  * is changed automatically based on the system load.
@@ -1009,10 +1030,6 @@ done:
 #endif /* DYNAMIC_HOTPLUG_CPU && !HOTPLUG_IN_ACTIVE */
 
 	spin_unlock(&the_cpuinfo.lock);
-
-#if defined(DYNAMIC_HOTPLUG_CPU) && !defined(HOTPLUG_IN_ACTIVE)
-	schedule_hlg_work(0);
-#endif /* DYNAMIC_HOTPLUG_CPU && !HOTPLUG_IN_ACTIVE */
 
 	return ret;
 }
@@ -1487,10 +1504,14 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 
 	ret = __set_all_clocks(freq);
 
+/* block due to many log */
+#if 0
 	/* the_cpuinfo.freq == freq when frequency changed */
 	if (the_cpuinfo.freq == freq)
 		pr_info("[%07uKHz->%07uKHz]%s\n", old_freq, freq,
 			(old_freq < freq) ? "^" : "v");
+#endif				
+				
 done:
 #ifdef DYNAMIC_HOTPLUG_CPU
 	hlg_config.freq_his_flg = 1;

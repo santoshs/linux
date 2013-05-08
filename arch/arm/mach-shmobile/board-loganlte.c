@@ -33,9 +33,10 @@
 #include <asm/mach/time.h>
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
-#include <mach/board-loganlte.h>
+#include <mach/board.h>
 #include <mach/board-loganlte-config.h>
 #include <mach/poweroff.h>
+#include <mach/sbsc.h>
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
@@ -70,6 +71,9 @@
 #include <mach/sec_debug.h>
 #include <mach/sec_debug_inform.h>
 #endif
+#if defined(CONFIG_SND_SOC_SH4_FSI)
+#include <mach/setup-u2audio.h>
+#endif /* CONFIG_SND_SOC_SH4_FSI */
 #include <sound/a2220.h>
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
@@ -113,11 +117,50 @@
 #define STBCHRB3  0xE6180043
 #define PHYFUNCTR IO_ADDRESS(0xe6890104) /* 16-bit */
 
+
 /* SBSC register address */
 #define CPG_PLL3CR_1040MHZ (0x27000000)
 #define CPG_PLLECR_PLL3ST  (0x00000800)
 
 #include <mach/sbsc.h>
+
+static int unused_gpios_logan_rev1[] = {
+				GPIO_PORT4, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
+				GPIO_PORT140, GPIO_PORT141, GPIO_PORT142, GPIO_PORT198,
+				GPIO_PORT200, GPIO_PORT201, GPIO_PORT219, GPIO_PORT224,
+				GPIO_PORT225, GPIO_PORT226, GPIO_PORT227, GPIO_PORT228,
+				GPIO_PORT229, GPIO_PORT230, GPIO_PORT231, GPIO_PORT232,
+				GPIO_PORT233, GPIO_PORT234, GPIO_PORT235, GPIO_PORT236,
+				GPIO_PORT237, GPIO_PORT238, GPIO_PORT239, GPIO_PORT240,
+				GPIO_PORT241, GPIO_PORT242, GPIO_PORT243, GPIO_PORT244,
+				GPIO_PORT245, GPIO_PORT246, GPIO_PORT247, GPIO_PORT248,
+				GPIO_PORT249, GPIO_PORT250, GPIO_PORT251, GPIO_PORT252,
+				GPIO_PORT253, GPIO_PORT254, GPIO_PORT255, GPIO_PORT256,
+				GPIO_PORT257, GPIO_PORT258, GPIO_PORT259, GPIO_PORT271,
+				GPIO_PORT275, GPIO_PORT276, GPIO_PORT277, GPIO_PORT294,
+				GPIO_PORT295, GPIO_PORT296, GPIO_PORT297, GPIO_PORT298,
+				GPIO_PORT299, GPIO_PORT311, GPIO_PORT312, GPIO_PORT325
+};
+
+static int unused_gpios_logan_rev2[] = {
+				GPIO_PORT4, GPIO_PORT21, GPIO_PORT26, GPIO_PORT36,
+				GPIO_PORT44, GPIO_PORT46, GPIO_PORT86, GPIO_PORT87,
+				GPIO_PORT104, GPIO_PORT140, GPIO_PORT141, GPIO_PORT142,
+				GPIO_PORT198, GPIO_PORT199, GPIO_PORT200, GPIO_PORT201,
+				GPIO_PORT202, GPIO_PORT219, GPIO_PORT224, GPIO_PORT225,
+				GPIO_PORT226, GPIO_PORT227, GPIO_PORT228, GPIO_PORT229,
+				GPIO_PORT230, GPIO_PORT231, GPIO_PORT232, GPIO_PORT233,
+				GPIO_PORT234, GPIO_PORT235, GPIO_PORT236, GPIO_PORT237,
+				GPIO_PORT238, GPIO_PORT239, GPIO_PORT240, GPIO_PORT241,
+				GPIO_PORT242, GPIO_PORT243, GPIO_PORT244, GPIO_PORT245,
+				GPIO_PORT246, GPIO_PORT247, GPIO_PORT248, GPIO_PORT249,
+				GPIO_PORT250, GPIO_PORT251, GPIO_PORT252, GPIO_PORT253,
+				GPIO_PORT254, GPIO_PORT255, GPIO_PORT256, GPIO_PORT257,
+				GPIO_PORT258, GPIO_PORT259, GPIO_PORT271, GPIO_PORT275,
+				GPIO_PORT276, GPIO_PORT277, GPIO_PORT294, GPIO_PORT295,
+				GPIO_PORT296, GPIO_PORT297, GPIO_PORT298, GPIO_PORT299,
+				GPIO_PORT311, GPIO_PORT312, GPIO_PORT325,
+};
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
@@ -293,23 +336,6 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
 
-#ifdef CONFIG_U2_STM_ETR_TO_SDRAM
-static int wait_for_coresight_access_lock(u32 base)
-{
-	int i = 0x00;
-	int retval = -1;
-	int timeout = 512;
-	/* Lock Access */
-	__raw_writel(0xc5acce55, base + 0xFB0); 
-	for (i = 0; i < timeout && retval; i++) {
-		if ((__raw_readl(base + 0xFB4) & 2) == 0)
-			retval = 0;
-	}
-	printk("wait_for_coresight_access_lock %d\n", retval);
-	return retval;
-}
-#endif
-
 void board_restart(char mode, const char *cmd)
 {
 	printk(KERN_INFO "%s\n", __func__);
@@ -320,6 +346,7 @@ static void __init board_init(void)
 	int stm_select = -1;    // Shall tell how to route STM traces. See setup-u2stm.c for details.
 	void __iomem *sbsc_sdmra_28200 = 0;
 	void __iomem *sbsc_sdmra_38200 = 0;
+	int inx = 0;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 
@@ -328,10 +355,10 @@ static void __init board_init(void)
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(PLL3CR));
+				__func__, __raw_readl(CPG_PLL3CR));
 		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
 		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x438200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
 			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);
@@ -374,6 +401,15 @@ static void __init board_init(void)
 	shmobile_arch_reset = board_restart;
 
 	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
+
+	/* Init unused GPIOs */
+	if (u2_get_board_rev() <= 1) {
+		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
+			unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
+	} else {
+		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev2); inx++)
+			unused_gpio_port_init(unused_gpios_logan_rev2[inx]);
+	}
 
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
@@ -490,11 +526,6 @@ static void __init board_init(void)
 		/* add the SDIO device */
 	}
 
-	/* touch key Interupt */
-	gpio_request(GPIO_PORT104, NULL);
-	gpio_direction_input(GPIO_PORT104);
-
-	gpio_pull_up_port(GPIO_PORT104);
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
@@ -516,16 +547,9 @@ static void __init board_init(void)
 
 	USBGpio_init();
 
-	/* enable sound */
-	gpio_request(GPIO_FN_FSIAISLD, "sound");
-	gpio_request(GPIO_FN_FSIAOBT, "sound");
-	gpio_request(GPIO_FN_FSIAOLR, "sound");
-	gpio_request(GPIO_FN_FSIAOSLD, "sound");
-
-	gpio_request(GPIO_FN_FSIBISLD, "sound");
-	gpio_request(GPIO_FN_FSIBOBT, "sound");
-	gpio_request(GPIO_FN_FSIBOLR, "sound");
-	gpio_request(GPIO_FN_FSIBOSLD, "sound");
+#if defined(CONFIG_SND_SOC_SH4_FSI)
+	u2audio_init(u2_board_rev);
+#endif /* CONFIG_SND_SOC_SH4_FSI */
 
 	gpio_request(GPIO_PORT24, NULL);
 	gpio_direction_input(GPIO_PORT24);
@@ -545,7 +569,7 @@ static void __init board_init(void)
 
 	camera_init(u2_board_rev);
 
-	gpio_key_init(stm_select, u2_board_rev, u2_board_rev,
+	gpio_key_init(stm_select, u2_board_rev,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
 			devices_stm_sdhi1,
@@ -562,33 +586,34 @@ static void __init board_init(void)
 
 	i2c_register_board_info(0, i2c0_devices_d2153,
 					ARRAY_SIZE(i2c0_devices_d2153));
+/* GPS Init */
+#if defined(CONFIG_RENESAS_GPS)
+	gps_gpio_init();
+#endif
 
 #if defined(CONFIG_SAMSUNG_SENSOR)
 	board_sensor_init();
 #endif
 
 #if defined(CONFIG_CHARGER_SMB328A)
-    /* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-    if (u2_board_rev == 0) {
-        int i;
-        for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
-            if (strcmp(i2c3_devices[i].type, "smb328a")==0) {
-                i2c3_devices[i].addr = SMB328A_ADDRESS;
-            }
-        }
-    }
+	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
+	if (u2_board_rev == 0) {
+		int i;
+		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
+			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {
+				i2c3_devices[i].addr = SMB328A_ADDRESS;
+			}
+		}
+	}
 #endif
+
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
-#if 0 //defined(CONFIG_TOUCHSCREEN_BT432)
-	i2c_register_board_info(4, i2c4_devices_zinitix,ARRAY_SIZE(i2c4_devices_zinitix));
-#else
+
 	/* Touch Panel auto detection */
 	i2c_add_driver(&tsp_detector_driver);
 	i2c_register_board_info(4, i2c4_devices_tsp_detector,
 					ARRAY_SIZE(i2c4_devices_tsp_detector));
-//	platform_device_register(&key_backlight_device);
-#endif
 
 	i2c_register_board_info(8, i2cm_devices_d2153,
 					ARRAY_SIZE(i2cm_devices_d2153));

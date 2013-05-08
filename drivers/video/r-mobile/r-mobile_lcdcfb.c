@@ -1132,6 +1132,7 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 static int sh_mobile_lcdc_resume(struct device *dev)
 {
 	unsigned int lcd_num;
+	int ret = 0;
 
 	down(&sh_mobile_sem_hdmi);
 
@@ -1144,7 +1145,7 @@ static int sh_mobile_lcdc_resume(struct device *dev)
 #endif
 				lcd_ext_param[lcd_num].panel_func.panel_resume();
 #if defined(CONFIG_FB_LCD_ESD)
-				request_irq(lcd_esd, lcd_esd_irq_handler, IRQF_ONESHOT, dev_name(dev), priv ); /*ME.*/
+				ret = request_irq(lcd_esd, lcd_esd_irq_handler, IRQF_ONESHOT, dev_name(dev), priv ); /*ME.*/
 #endif
 			}
 
@@ -1160,7 +1161,7 @@ static int sh_mobile_lcdc_resume(struct device *dev)
 
 	up(&sh_mobile_sem_hdmi);
 
-	return 0;
+	return ret;
 }
 
 
@@ -1244,13 +1245,16 @@ static irqreturn_t lcd_esd_irq_handler(int irq, void *dev_id)
 
 static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 {
-	struct fb_info *info;
+	struct fb_info *info = NULL;
 	struct sh_mobile_lcdc_priv *priv;
 	struct sh_mobile_lcdc_info *pdata;
 	struct sh_mobile_lcdc_chan_cfg *cfg;
 	struct resource *res;
 	int error = 0;
-	int i, j, ret;
+	int i, j;
+#if defined(CONFIG_FB_LCD_ESD)
+	int ret;
+#endif
 	void *temp = NULL;
 	struct fb_panel_info panel_info;
 

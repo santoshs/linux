@@ -359,33 +359,6 @@ static struct platform_device thermal_sensor_device = {
 };
 /* End Add for Thermal Sensor driver */
 
-static struct resource stm_res[] = {
-	[0] = {
-		.name	= "stm_ctrl",
-		.start	= 0xe6f89000,
-		.end	= 0xe6f89fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.name	= "stm_ports",
-		.start	= 0xe9000000,
-		.end	= 0xe9000fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[2] = {
-		.name	= "funnel",
-		.start	= 0xe6f8b000,
-		.end	= 0xe6f8bfff,
-		.flags	= IORESOURCE_MEM,
-	},
-};
-
-static struct platform_device stm_device = {
-	.name = "stm",
-	.num_resources	= ARRAY_SIZE(stm_res),
-	.resource	= stm_res,
-};
-
 static struct resource	tpu_resources[] = {
 	[TPU_MODULE_0] = {
 		.name	= "tpu0_map",

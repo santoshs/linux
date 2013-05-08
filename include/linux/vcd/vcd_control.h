@@ -109,4 +109,7 @@ extern void vcd_ctrl_dump_fw_static_buffer_memory(void);
 extern void vcd_ctrl_dump_spuv_crashlog(void);
 extern void vcd_ctrl_dump_diamond_memory(void);
 
+extern void vcd_ctrl_calc_trigger_start(void);
+extern void vcd_ctrl_calc_trigger_stop(void);
+
 #endif /* __VCD_CONTROL_H__ */

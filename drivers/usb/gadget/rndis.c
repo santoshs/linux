@@ -1096,7 +1096,7 @@ NextFrame:
 		cpu_to_le32(REMOTE_NDIS_PACKET_MSG)
 		== get_unaligned_le32(tmp++)) {
 		skb_queue_tail(list, newskb);
-		skb->data = (unsigned char *)(((u8 *)tmp)-4);
+		skb->data = (unsigned char *)(((u8 *)tmp) - 4);
 		goto NextFrame;
 	}
 
