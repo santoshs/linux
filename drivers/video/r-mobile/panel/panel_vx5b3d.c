@@ -33,8 +33,10 @@
 #include <linux/lcd.h>
 #include <mach/r8a7373.h>
 #include <mach/memory-r8a7373.h>
+#include <mach/common.h>
 #include <linux/module.h>
 #include <linux/i2c.h>
+#include <linux/clk.h>
 
 #include "panel_common.h"
 
@@ -52,6 +54,8 @@
 
 #define VX5B3D_USE_I2C
 
+#define VX5B3D_SUPPORT_REV0_0
+
 /* framebuffer address and size */
 #define R_MOBILE_M_BUFF_ADDR		SDRAM_FRAME_BUFFER_START_ADDR
 #define R_MOBILE_M_BUFF_SIZE		(SDRAM_FRAME_BUFFER_END_ADDR - \
@@ -66,24 +70,24 @@
 #define R_MOBILE_M_PANEL_PIXEL_HEIGHT	 600
 
 /* pixclock = 1000000 / DCF */
-#define R_MOBILE_M_PANEL_PIXCLOCK	 19536
+#define R_MOBILE_M_PANEL_PIXCLOCK	 13209
 
 /* timing */
-#define R_MOBILE_M_PANEL_LEFT_MARGIN	 150
-#define R_MOBILE_M_PANEL_RIGHT_MARGIN	 150
-#define R_MOBILE_M_PANEL_HSYNC_LEN	 20
+#define R_MOBILE_M_PANEL_LEFT_MARGIN	 225
+#define R_MOBILE_M_PANEL_RIGHT_MARGIN	 737
+#define R_MOBILE_M_PANEL_HSYNC_LEN	 30
 #define R_MOBILE_M_PANEL_UPPER_MARGIN	 16
 #define R_MOBILE_M_PANEL_LOWER_MARGIN	 16
 #define R_MOBILE_M_PANEL_VSYNC_LEN	 3
-#define R_MOBILE_M_PANEL_H_TOTAL	 1344
+#define R_MOBILE_M_PANEL_H_TOTAL	 2016
 #define R_MOBILE_M_PANEL_V_TOTAL	 635
 
 #define LCD_DSITCKCR		0x00000007
-#define LCD_DSI0PCKCR		0x0000001F
-#define LCD_DSI0PHYCR		0x2A800014
-#define LCD_SYSCONF		0x0000070F
-#define LCD_TIMSET0		0x4C2C4342
-#define LCD_TIMSET1		0x000900A2
+#define LCD_DSI0PCKCR		0x00000021
+#define LCD_DSI0PHYCR		0x2A800020
+#define LCD_SYSCONF		0x00000703
+#define LCD_TIMSET0		0x4C2C6453
+#define LCD_TIMSET1		0x000D00C2
 #define LCD_DSICTRL		0x00000001
 #define LCD_VMCTR1		0x0001003E
 #define LCD_VMCTR2		0x00020700
@@ -92,9 +96,9 @@
 #define LCD_VMLEN3		0x00000000
 #define LCD_VMLEN4		0x00000000
 #define LCD_DTCTR		0x00000007
-#define LCD_MLDHCNR		0x008000A8
-#define LCD_MLDHSYNR		0x00020092
-#define LCD_MLDHAJR		0x00000406
+#define LCD_MLDHCNR		0x008000FC
+#define LCD_MLDHSYNR		0x000300DC
+#define LCD_MLDHAJR		0x00000601
 #define LCD_MLDVLNR		0x0258027B
 #define LCD_MLDVSYNR		0x00030269
 #define LCD_MLDMT1R		0x0400000B
@@ -219,6 +223,7 @@ static unsigned int irq_portno;
 static struct regulator *power_ldo_3v;
 static struct regulator *power_ldo_1v8;
 static struct regulator *power_ldo_1v2;
+static struct clk *lvdsclk;
 
 struct specific_cmdset {
 	unsigned char cmd;
@@ -379,7 +384,7 @@ static unsigned char snd_data_204[] = { 0x05, 0x01, 0x40, 0x5C, 0x01,
 static unsigned char snd_data_001[] = { 0x05, 0x01, 0x40, 0x00, 0x07,
 		0x40, 0x00, 0x90, 0x6C };
 static unsigned char snd_data_002[] = { 0x05, 0x01, 0x40, 0x04, 0x07,
-		0xDB, 0x02, 0x03, 0x00 };
+		0xD0, 0x02, 0x03, 0x00 };
 static unsigned char snd_data_003[] = { 0x05, 0x01, 0x40, 0x0C, 0x07,
 		0x04, 0x46, 0x00, 0x00 };
 #ifdef VX5B3D_VEE_ENABLE
@@ -435,9 +440,9 @@ static unsigned char snd_data_025[] = { 0x05, 0x01, 0x40, 0x74, 0x01,
 #endif /* VX5B3D_VEE_ENABLE */
 
 static unsigned char snd_data_026[] = { 0x05, 0x01, 0x40, 0x0C, 0x02,
-		0x34, 0x01, 0x00, 0x00 };
+		0x32, 0x01, 0x00, 0x00 };
 static unsigned char snd_data_027[] = { 0x05, 0x01, 0x40, 0x1C, 0x02,
-		0x80, 0x07, 0x00, 0x00 };
+		0x9E, 0x07, 0x00, 0x00 };
 static unsigned char snd_data_028[] = { 0x05, 0x01, 0x40, 0x24, 0x02,
 		0x00, 0x00, 0x00, 0x00 };
 static unsigned char snd_data_029[] = { 0x05, 0x01, 0x40, 0x28, 0x02,
@@ -493,6 +498,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_008, sizeof(snd_data_008) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_009, sizeof(snd_data_009) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_010, sizeof(snd_data_010) },
+	{ MIPI_DSI_DELAY,          NULL,         1                    },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_011, sizeof(snd_data_011) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_012, sizeof(snd_data_012) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_013, sizeof(snd_data_013) },
@@ -523,6 +529,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_036, sizeof(snd_data_036) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_037, sizeof(snd_data_037) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_038, sizeof(snd_data_038) },
+	{ MIPI_DSI_DELAY,          NULL,         1                    },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_039, sizeof(snd_data_039) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_040, sizeof(snd_data_040) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_041, sizeof(snd_data_041) },
@@ -534,6 +541,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_047, sizeof(snd_data_047) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_048, sizeof(snd_data_048) },
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_049, sizeof(snd_data_049) },
+	{ MIPI_DSI_DELAY,          NULL,         1                    },
 
 	/* don't remove this. Need to restart the host after the init....... */
 	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_100, sizeof(snd_data_100) },
@@ -618,6 +626,8 @@ static int is_dsi_read_enabled;
 static struct backlight_device *registed_bd;
 static int is_panel_initialized;
 static int is_backlight_called;
+
+struct specific_cmdset const *init_cmdset = initialize_cmdset;
 
 static struct fb_info *common_fb_info;
 static int panel_specific_cmdset(void *lcd_handle,
@@ -1443,6 +1453,8 @@ static int panel_specific_cmdset(void *lcd_handle,
 
 static void mipi_display_reset(void)
 {
+	int ret;
+
 	printk(KERN_INFO "%s\n", __func__);
 
 	/* GPIO control */
@@ -1451,6 +1463,34 @@ static void mipi_display_reset(void)
 	/* LCD_BLIC_ON GPIO control */
 	gpio_request(GPIO_PORT47, NULL);
 	gpio_direction_output(GPIO_PORT47, 1);
+
+	/* LVDS clock */
+	ret = gpio_request(GPIO_FN_VIO_CKO5, NULL);
+	if (ret == -EBUSY) {
+		gpio_free(GPIO_FN_VIO_CKO5);
+		ret = gpio_request(GPIO_FN_VIO_CKO5, NULL);
+	}
+	if (ret) {
+		printk(KERN_ALERT "Request CKO5 fail(%d)\n", ret);
+		return;
+	}
+	if (lvdsclk)
+		clk_put(lvdsclk);
+	lvdsclk = clk_get(NULL, "vclk5_clk");
+	if (IS_ERR(lvdsclk)) {
+		printk(KERN_ALERT "cannot get vclk5(%ld)\n", PTR_ERR(lvdsclk));
+		return;
+	}
+	ret = clk_set_rate(lvdsclk, 19500000);
+	if (ret) {
+		printk(KERN_ALERT "vclk5 set rate fail(%d)\n", ret);
+		return;
+	}
+	ret = clk_enable(lvdsclk);
+	if (ret) {
+		printk(KERN_ALERT "vclk5 fail to enable(%d)\n", ret);
+		return;
+	}
 
 	regulator_enable(power_ldo_1v8);
 	regulator_enable(power_ldo_3v);
@@ -1462,6 +1502,113 @@ static void mipi_display_reset(void)
 	msleep(100);
 }
 
+#ifdef VX5B3D_SUPPORT_REV0_0
+
+/* HW revision */
+#define PANEL_LT02_HWREV_0_0       0
+#define PANEL_LT02_HWREV_0_0_PATCH 1
+#define PANEL_LT02_HWREV_0_1       2
+
+/* replace cmd for rev0.0 */
+static unsigned char snd_data_502[] = { 0x05, 0x01, 0x40, 0x04, 0x07,
+		0xD8, 0x02, 0x03, 0x00 };
+static unsigned char snd_data_519[] = { 0x05, 0x01, 0x40, 0x2C, 0x01,
+		0x8E, 0x00, 0x00, 0x00 };
+static unsigned char snd_data_527[] = { 0x05, 0x01, 0x40, 0x1C, 0x02,
+		0x80, 0x07, 0x00, 0x00 };
+
+static const struct specific_cmdset initialize_rev0_0_cmdset[] = {
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_001, sizeof(snd_data_001) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_502, sizeof(snd_data_502) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_003, sizeof(snd_data_003) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_004, sizeof(snd_data_004) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_005, sizeof(snd_data_005) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_006, sizeof(snd_data_006) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_007, sizeof(snd_data_007) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_008, sizeof(snd_data_008) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_009, sizeof(snd_data_009) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_010, sizeof(snd_data_010) },
+	{ MIPI_DSI_DELAY,          NULL,         1                    },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_011, sizeof(snd_data_011) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_012, sizeof(snd_data_012) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_013, sizeof(snd_data_013) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_014, sizeof(snd_data_014) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_015, sizeof(snd_data_015) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_016, sizeof(snd_data_016) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_017, sizeof(snd_data_017) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_018, sizeof(snd_data_018) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_519, sizeof(snd_data_519) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_020, sizeof(snd_data_020) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_021, sizeof(snd_data_021) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_022, sizeof(snd_data_022) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_023, sizeof(snd_data_023) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_024, sizeof(snd_data_024) },
+#ifdef VX5B3D_VEE_ENABLE
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_025, sizeof(snd_data_025) },
+#endif /* VX5B3D_VEE_ENABLE */
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_026, sizeof(snd_data_026) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_527, sizeof(snd_data_527) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_028, sizeof(snd_data_028) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_029, sizeof(snd_data_029) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_030, sizeof(snd_data_030) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_031, sizeof(snd_data_031) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_032, sizeof(snd_data_032) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_033, sizeof(snd_data_033) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_034, sizeof(snd_data_034) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_035, sizeof(snd_data_035) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_036, sizeof(snd_data_036) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_037, sizeof(snd_data_037) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_038, sizeof(snd_data_038) },
+	{ MIPI_DSI_DELAY,          NULL,         1                    },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_039, sizeof(snd_data_039) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_040, sizeof(snd_data_040) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_041, sizeof(snd_data_041) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_042, sizeof(snd_data_042) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_043, sizeof(snd_data_043) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_044, sizeof(snd_data_044) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_045, sizeof(snd_data_045) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_046, sizeof(snd_data_046) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_047, sizeof(snd_data_047) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_048, sizeof(snd_data_048) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_049, sizeof(snd_data_049) },
+	{ MIPI_DSI_DELAY,          NULL,         1                    },
+
+	/* don't remove this. Need to restart the host after the init....... */
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_100, sizeof(snd_data_100) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_101, sizeof(snd_data_101) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_102, sizeof(snd_data_102) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_103, sizeof(snd_data_103) },
+	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_104, sizeof(snd_data_104) },
+
+	{ MIPI_DSI_DELAY,           NULL,          10                   },
+	{ MIPI_DSI_BLACK,           NULL,          0                    },
+
+	/* for backlight */
+	{ MIPI_DSI_DELAY,           NULL,          10                   },
+	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_200,  sizeof(snd_data_200) },
+	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_201,  sizeof(snd_data_201) },
+	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_202,  sizeof(snd_data_202) },
+	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_203,  sizeof(snd_data_203) },
+	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_204,  sizeof(snd_data_204) },
+
+	{ MIPI_DSI_END,             NULL,          0                    }
+};
+
+static void set_config_by_revision(void)
+{
+	unsigned int hw_id;
+
+	hw_id = u2_get_board_rev();
+
+	printk(KERN_INFO "%s\n", __func__);
+	printk(KERN_DEBUG "hwid = %d\n", hw_id);
+
+	if (hw_id >= PANEL_LT02_HWREV_0_1)
+		return;
+
+	init_cmdset = initialize_rev0_0_cmdset;
+}
+#endif /* VX5B3D_SUPPORT_REV0_0 */
 
 static int vx5b3d_panel_init(unsigned int mem_size)
 {
@@ -1483,6 +1630,10 @@ static int vx5b3d_panel_init(unsigned int mem_size)
 #endif
 
 	printk(KERN_INFO "%s\n", __func__);
+
+#ifdef VX5B3D_SUPPORT_REV0_0
+	set_config_by_revision();
+#endif /* VX5B3D_SUPPORT_REV0_0 */
 
 #ifdef VX5B3D_POWAREA_MNG_ENABLE
 	printk(KERN_INFO "Start A4LC power area\n");
@@ -1539,7 +1690,7 @@ retry:
 	is_dsi_read_enabled = 1;
 
 	/* Transmit DSI command peculiar to a panel */
-	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
+	ret = panel_specific_cmdset(screen_handle, init_cmdset);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
@@ -1634,6 +1785,14 @@ static int vx5b3d_panel_suspend(void)
 	/* LCD_BLIC_ON GPIO control */
 	gpio_direction_output(GPIO_PORT47, 0);
 
+	/* Release VIO_CKO5 */
+	if (lvdsclk) {
+		clk_disable(lvdsclk);
+		clk_put(lvdsclk);
+		lvdsclk = NULL;
+		gpio_free(GPIO_FN_VIO_CKO5);
+	}
+
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
 
@@ -1709,7 +1868,7 @@ retry:
 	mipi_display_reset();
 
 	/* Transmit DSI command peculiar to a panel */
-	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
+	ret = panel_specific_cmdset(screen_handle, init_cmdset);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		is_dsi_read_enabled = 0;
