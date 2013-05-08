@@ -100,6 +100,7 @@ static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
 	.bus_data_delay	= MIN_SDA_DELAY ,
+	.clks_per_count = 2,
 };
 
 static struct resource i2c0_resources[] = {
@@ -131,6 +132,7 @@ static struct i2c_sh_mobile_platform_data i2c1_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
 	.bus_data_delay	= MIN_SDA_DELAY,
+	.clks_per_count = 2,
 };
 
 static struct resource i2c1_resources[] = {
@@ -162,6 +164,7 @@ static struct i2c_sh_mobile_platform_data i2c2_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
 	.bus_data_delay	= MIN_SDA_DELAY,
+	.clks_per_count = 2,
 };
 
 static struct resource i2c2_resources[] = {
@@ -193,6 +196,7 @@ static struct i2c_sh_mobile_platform_data i2c3_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
 	.bus_data_delay	= MIN_SDA_DELAY,
+	.clks_per_count = 2,
 };
 
 static struct resource i2c3_resources[] = {
@@ -232,6 +236,7 @@ static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
 		.port_num	= GPIO_PORT85,
 		.port_func	= GPIO_FN_I2C_SDA0H,
 	},
+	.clks_per_count = 2,
 };
 
 static struct resource i2c4_resources[] = {
@@ -272,6 +277,7 @@ static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 		.port_num	= GPIO_PORT87,
 		.port_func	= GPIO_FN_I2C_SDA1H,
 	},
+	.clks_per_count = 2,
 };
 
 static struct resource i2c5_resources[] = {
@@ -314,6 +320,7 @@ static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
 		.port_num	= GPIO_PORT83,
 		.port_func	= GPIO_FN_I2C_SDA2H,
 	},
+	.clks_per_count = 2,
 };
 static struct resource i2c6_resources[] = {
 	[0] = {
@@ -353,6 +360,7 @@ static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
 		.port_num	= GPIO_PORT274,
 		.port_func	= GPIO_FN_I2C_SDA3H,
 	},
+	.clks_per_count = 2,
 };
 
 static struct resource i2c7_resources[] = {

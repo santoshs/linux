@@ -590,6 +590,7 @@ static int ths_suspend(struct device *dev)
 	cancel_work_sync(&ths->tj2_work);
 	cancel_work_sync(&ths->tj1_work);
 	cancel_work_sync(&ths->tj0_work);
+	cancel_delayed_work_sync(&ths->work);
 
 	if (ioread32(MMSTPCR5) & THS_CLK_SUPPLY_BIT) {
 		/* Update the last mode only if Modem CPG clk is OFF */
@@ -675,8 +676,9 @@ static int ths_resume(struct device *dev)
 						TJ02INT_MSK | TJ03INT_MSK);
 	}
 
-	THS_DEBUG_MSG("%s : Thermal sensors resumed.\n", __func__);
+	schedule_delayed_work(&ths->work, msecs_to_jiffies(1000));
 
+	THS_DEBUG_MSG("%s : Thermal sensors resumed.\n", __func__);
 	return 0;
 }
 
@@ -824,7 +826,6 @@ static void ths_stop_cpu(int cpu_id)
 static irqreturn_t ths_isr(int irq, void *dev_id)
 {
 	int intr_status = -1;
-
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 	disable_irq_nosync(irq);
 
@@ -839,24 +840,28 @@ static irqreturn_t ths_isr(int irq, void *dev_id)
 		(TJ13ST == (intr_status & TJ13ST))) {
 		/* INTDT3 interrupt occurs */
 		/* Un-mask INTDT0 interrupt to output to INTC(THS0) */
+		printk(KERN_INFO"%s: THS IRQ called: [Tj2 -> Tj3]\n", __func__);
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK |
 						TJ01INT_MSK, TJ00INT_MSK);
 		queue_work(ths->queue, &ths->tj3_work);
 	} else if (TJ02ST == (intr_status & TJ02ST)) {
 		/* INTDT2 interrupt occurs */
 		/* Un-mask INTDT0/3 interrupt to output to INTC(THS0) */
+		printk(KERN_INFO"%s: THS IRQ called: [Tj1 -> Tj2]\n", __func__);
 		modify_register_32(INT_MASK_RW_32B, TJ02INT_MSK | TJ01INT_MSK,
 					TJ00INT_MSK | TJ03INT_MSK);
 		queue_work(ths->queue, &ths->tj2_work);
 	} else if (TJ01ST == (intr_status & TJ01ST)) {
 		/* INTDT1 interrupt occurs */
 		/* Un-mask INTDT0/2 interrupts to output to INTC (THS0) */
+		printk(KERN_INFO"%s: THS IRQ called: [Tj0 -> Tj1]\n", __func__);
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ01INT_MSK,
 						TJ00INT_MSK | TJ02INT_MSK);
 		queue_work(ths->queue, &ths->tj1_work);
 	} else if (TJ00ST == (intr_status & TJ00ST)) {
 		/* INTDT0 interrupt occurs */
 		/* Un-mask INTDT1 interrupt to output to INTC (THS0) */
+		printk(KERN_INFO"%s: THS IRQ called: [Tj0]\n", __func__);
 		modify_register_32(INT_MASK_RW_32B, TJ03INT_MSK | TJ02INT_MSK |
 						TJ00INT_MSK, TJ01INT_MSK);
 		queue_work(ths->queue, &ths->tj0_work);
@@ -871,6 +876,18 @@ static irqreturn_t ths_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void ths_work_queue(struct work_struct *dwork)
+{
+	int temp1 = 0, temp2 = 0;
+
+	__ths_get_cur_temp(0, &temp1);
+	printk(KERN_INFO"Current THS0 Temp:%d degrees Celsius\n", temp1);
+
+	__ths_get_cur_temp(1, &temp2);
+	printk(KERN_INFO"Current THS1 Temp:%d degrees Celsius\n", temp2);
+
+	schedule_delayed_work(&ths->work, msecs_to_jiffies(30000));
+}
 
 /*
  * ths_work_tj0:
@@ -996,8 +1013,8 @@ static void ths_work_tj3(struct work_struct *work)
 		ths_stop_cpu(1); /* Control CPU1 */
 		hotplug_ctrl = E_HOTPLUG;
 	} else {
-		THS_DEBUG_MSG("CPU1 was already stopped in tj2_work!\n",
-		__func__);
+		THS_DEBUG_MSG("%s CPU1 was already stopped in tj2_work!\n",
+						__func__);
 	}
 #endif /* CONFIG_THS_CPU_HOTPLUG */
 
@@ -1109,6 +1126,8 @@ static int __devinit ths_probe(struct platform_device *pdev)
 		goto error_3;
 	}
 
+	INIT_DELAYED_WORK(&ths->work, ths_work_queue);
+
 	/* Register callback function for a work to processing
 		when Tj > Tj2/Tj1 or Tj < Tj0 */
 	INIT_WORK(&ths->tj0_work, ths_work_tj0);
@@ -1141,6 +1160,8 @@ static int __devinit ths_probe(struct platform_device *pdev)
 	ths_wait_wq = alloc_ordered_workqueue("ths_wait_wq", 0);
 	INIT_DELAYED_WORK(&ths_work, ths_early_suspend_wq);
 #endif
+
+	schedule_delayed_work(&ths->work, msecs_to_jiffies(500));
 
 	THS_DEBUG_MSG("%s end (Normal case) <<<\n", __func__);
 	return 0;
