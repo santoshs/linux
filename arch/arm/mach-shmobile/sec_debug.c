@@ -877,6 +877,7 @@ static void sec_kmsg_dump(struct kmsg_dumper *dumper,
 	int total_chars = SZ_4K - SZ_1K;
 	int total_lines = 50;
 	int last_chars; /* no of chars which fits in total_chars *and* in total_lines */
+	int flush = 0;
 
 	for (last_chars = 0;
 	     l2 && l2 > last_chars && total_lines > 0
@@ -900,6 +901,34 @@ static void sec_kmsg_dump(struct kmsg_dumper *dumper,
 		*ptr++ = *s1++;
 	while (l2-- > 0)
 		*ptr++ = *s2++;
+
+	switch (reason) {
+            case KMSG_DUMP_HALT:
+            case KMSG_DUMP_RESTART:
+            case KMSG_DUMP_POWEROFF:
+                /* No action on ordinary shutdown */
+                flush = 0;
+                break;
+            case KMSG_DUMP_EMERG:
+            case KMSG_DUMP_PANIC:
+            case KMSG_DUMP_OOPS:
+            // case KMSG_DUMP_KEXEC: // only in 3.0.31
+            default: /* And anything else we don't recognise */
+                flush = 1;
+        }
+        if (flush) {
+            /*
+             *    * Flush now to try to ensure we at least see logs in a raw
+             *    * RAM dump, in case we don't get any further - this covers
+             *    * inspection of either our limited copy, or the original
+             *    * log from a complete RAM dump, and also any other
+             *    * relevant data.
+             *    * (We only need a clean, not a flush, but no API for that).
+             *    */
+            flush_cache_all();
+            outer_flush_all();
+         }   
+	
 }
 
 static struct kmsg_dumper sec_dumper = {
