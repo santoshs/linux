@@ -329,12 +329,10 @@ static inline void sndp_print_status_change(
 	const u_int uiAfter)
 {
 	sndp_log_debug("STATUS CHANGE: %s(%d) -> %s(%d)\n",
-		((SNDP_STAT_NOT_CHG <= uiBefore) &&
-		 (SNDP_STAT_IN_COMM >= uiBefore)) ?
+		(SNDP_STAT_IN_COMM >= uiBefore) ?
 			status_list[uiBefore].suffix : "***",
 		uiBefore,
-		((SNDP_STAT_NOT_CHG <= uiAfter) &&
-		 (SNDP_STAT_IN_COMM >= uiAfter)) ?
+		(SNDP_STAT_IN_COMM >= uiAfter) ?
 			status_list[uiAfter].suffix : "***",
 		uiAfter);
 }
@@ -717,7 +715,7 @@ static int sndp_proc_write(
 
 	memset(proc_buf, 0, sizeof(proc_buf));
 	/* copy, from user */
-	if (copy_from_user(proc_buf, (void __user *)buffer, count)) {
+	if (copy_from_user((void *)proc_buf, (void __user *)buffer, count)) {
 		sndp_log_err("copy_from_user failed.\n");
 		return -EFAULT;
 	}
@@ -786,7 +784,7 @@ static int sndp_proc_reg_dump_write(
 
 	memset(proc_buf, 0, sizeof(proc_buf));
 	/* copy, from user */
-	if (copy_from_user(proc_buf, (void __user *)buffer, count)) {
+	if (copy_from_user((void *)proc_buf, (void __user *)buffer, count)) {
 		iRet = -EFAULT;
 		sndp_log_err("copy_from_user failed.\n");
 		return iRet;
