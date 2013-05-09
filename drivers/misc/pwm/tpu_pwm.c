@@ -604,15 +604,18 @@ static void comp_tpu_enable(struct work_struct *work)
 	if (!tpu_suspend_state) { /* not in suspend state */
 		/* get parameter which is passed to workqueue */
 		work_arg = container_of(work, struct tpu_work_arg, work);
-		ret = handle_tpu_enable(work_arg->data);
+		if (work_arg != NULL)
+			ret = handle_tpu_enable(work_arg->data);
+
 	} else { /* in suspend state */
 		ret = -EBUSY;
 	}
 
-	work_arg->respond->result = ret;
-
-	/* complete processing of Workqueue */
-	up(&work_arg->respond->respond_comp);
+	if (work_arg != NULL) {
+		work_arg->respond->result = ret;
+		/* complete processing of Workqueue */
+		up(&work_arg->respond->respond_comp);
+	}
 }
 
 /*

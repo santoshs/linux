@@ -212,7 +212,7 @@ static void  smc_receive_data_callback_channel_control(void*   data,
                     SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_control: Push L2MUX header 0x%08X into the SKB 0x%08X",
                             userdata->userdata1, (uint32_t)skb->data);
 
-                    *(uint32_t*)(skb->data) = userdata->userdata1;
+                    *(uint32_t*)(uint32_t)(skb->data) = (uint32_t)userdata->userdata1;
 
                     SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_control: Deliver SKB to upper layer RX ...");
                     SMC_TRACE_PRINTF_DEBUG_DATA( skb->len , skb->data );
