@@ -58,6 +58,7 @@ struct rt8973_data
     int32_t chip_id;
     int32_t accessory_id;
     struct work_struct work;
+    struct delayed_work delayed_work;
     int32_t irq;
     uint8_t prev_int_flag;
     struct wake_lock muic_wake_lock;
