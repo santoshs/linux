@@ -72,9 +72,12 @@ struct smb328a_chip {
     struct work_struct      work;
 	struct smb328a_platform_data	*pdata;
 	int chg_mode;
+	int charger_status;
 };
 
 static struct smb328a_chip *smb_charger = NULL;
+static int smb328a_disable_charging(struct i2c_client *client);
+static int smb328a_enable_charging(struct i2c_client *client);
 
 static enum power_supply_property smb328a_battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
@@ -332,6 +335,50 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 		}
 	}
 }
+
+
+static ssize_t smb_charger_status_show(struct device *dev,
+				struct device_attribute
+				*devattr, char *buf)
+{
+	return sprintf(buf, "%d\n", smb_charger->charger_status);
+}
+
+static ssize_t smb_charger_status_store(struct device *dev,
+			struct device_attribute *devattr,
+			const char *buf, size_t count)
+{
+	int charger_enable = 0;
+	sscanf(buf, "%d", &charger_enable);
+	printk(KERN_INFO "%s: charger_status = %d\n", __func__,
+					smb_charger->charger_status);
+	if (smb_charger && smb_charger->client) {
+		switch (charger_enable) {
+
+		case 0:
+			smb328a_disable_charging(smb_charger->client);
+			break;
+		case 1:
+			smb328a_enable_charging(smb_charger->client);
+			break;
+		default:
+			break;
+		}
+	}
+	return count;
+}
+
+static DEVICE_ATTR(charging_status, S_IRUSR | S_IWUSR, smb_charger_status_show,
+			smb_charger_status_store);
+
+static struct attribute *charger_attributes[] = {
+	&dev_attr_charging_status.attr,
+	NULL
+};
+
+static const struct attribute_group charger_group = {
+	.attrs = charger_attributes,
+};
 
 static int smb328a_check_charging_status(struct i2c_client *client)
 {
@@ -735,6 +782,7 @@ static int smb328a_enable_charging(struct i2c_client *client)
 		printk(KERN_INFO "%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_COMMAND, data);
 	}
 	d2153_battery_set_status(D2153_STATUS_CHARGING, 1);
+	chip->charger_status = 1;
 	return 0;
 }
 
@@ -756,6 +804,7 @@ static int smb328a_disable_charging(struct i2c_client *client)
 		printk(KERN_INFO "%s : => reg (0x%x) = 0x%x\n", __func__, SMB328A_COMMAND, data);
 	}
 	d2153_battery_set_status(D2153_STATUS_CHARGING, 0);
+	smb_charger->charger_status = 0;
 	return 0;
 }
 
@@ -859,7 +908,7 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct smb328a_chip *chip;
-	int ret;
+	int ret = 0, err = 0;
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE))
 		return -EIO;
@@ -874,6 +923,8 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 
 	chip->client = client;
 
+	chip->charger_status = 0;
+
 	i2c_set_clientdata(client, chip);
 
 	chip->psy_bat.name = "smb328a-charger",
@@ -886,6 +937,9 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 		pr_err("Failed to register power supply psy_bat\n");
 		goto err_kfree;
 	}
+	err = sysfs_create_group(&client->dev.kobj, &charger_group);
+	if (err)
+		printk(KERN_INFO "could not allocate sysfs entry\n");
 
     INIT_WORK(&(chip->work), smb328a_work_func);
 
@@ -904,7 +958,7 @@ err_kfree:
 static int __devexit smb328a_remove(struct i2c_client *client)
 {
 	struct smb328a_chip *chip = i2c_get_clientdata(client);
-
+	sysfs_remove_group(&client->dev.kobj, &charger_group);
 	power_supply_unregister(&chip->psy_bat);
 	kfree(chip);
 	return 0;
