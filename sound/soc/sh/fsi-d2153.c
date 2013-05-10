@@ -797,7 +797,7 @@ static __devinit int fsi_d2153_driver_probe(struct platform_device *pdev)
 		sndp_log_err("Failed to create workqueue\n");
 		goto err_create_singlethread_workqueue;
 	}
-	sndp_work_initialize(&priv->sync_work, fsi_d2153_sync_work_func);
+	sndp_work_initialize(&priv->sync_work, fsi_d2153_sync_work_func, NULL);
 
 	vclk4_clk = clk_get(NULL, "vclk4_clk");
 	if (IS_ERR(vclk4_clk)) {

@@ -470,67 +470,93 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 
 	/* Initializing work queue processing */
 	sndp_work_initialize(&g_sndp_work_voice_start,
-		  sndp_work_voice_start);
+				sndp_work_voice_start,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_voice_stop,
-		  sndp_work_voice_stop);
+				sndp_work_voice_stop,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_voice_dev_chg,
-		  sndp_work_voice_dev_chg);
+				sndp_work_voice_dev_chg,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_fm_radio_dev_chg,
-		  sndp_work_fm_radio_dev_chg);
-	sndp_work_initialize(&g_sndp_work_fm_radio_dev_chg,
-		  sndp_work_fm_radio_dev_chg);
+				sndp_work_fm_radio_dev_chg,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_play_start,
-		  sndp_work_play_start);
+				sndp_work_play_start,
+				&g_sndp_work_play_stop);
 	sndp_work_initialize(&g_sndp_work_capture_start,
-		  sndp_work_capture_start);
+				sndp_work_capture_start,
+				&g_sndp_work_capture_stop);
 	sndp_work_initialize(&g_sndp_work_play_stop,
-		  sndp_work_play_stop);
+				sndp_work_play_stop,
+				&g_sndp_work_play_start);
 	sndp_work_initialize(&g_sndp_work_capture_stop,
-		  sndp_work_capture_stop);
+				sndp_work_capture_stop,
+				&g_sndp_work_capture_start);
 	sndp_work_initialize(&g_sndp_work_call_playback_start,
-		  sndp_work_call_playback_start);
+				sndp_work_call_playback_start,
+				&g_sndp_work_call_playback_stop);
 	sndp_work_initialize(&g_sndp_work_call_capture_start,
-		  sndp_work_call_capture_start);
+				sndp_work_call_capture_start,
+				&g_sndp_work_call_capture_stop);
 	sndp_work_initialize(&g_sndp_work_call_playback_stop,
-		  sndp_work_call_playback_stop);
+				sndp_work_call_playback_stop,
+				&g_sndp_work_call_playback_start);
 	sndp_work_initialize(&g_sndp_work_call_capture_stop,
-		  sndp_work_call_capture_stop);
+				sndp_work_call_capture_stop,
+				&g_sndp_work_call_capture_start);
 	sndp_work_initialize(&g_sndp_work_fm_playback_start,
-		  sndp_work_fm_playback_start);
+				sndp_work_fm_playback_start,
+				&g_sndp_work_fm_playback_stop);
 	sndp_work_initialize(&g_sndp_work_fm_capture_start,
-		  sndp_work_fm_capture_start);
+				sndp_work_fm_capture_start,
+				&g_sndp_work_fm_capture_stop);
 	sndp_work_initialize(&g_sndp_work_fm_playback_stop,
-		  sndp_work_fm_playback_stop);
+				sndp_work_fm_playback_stop,
+				&g_sndp_work_fm_playback_start);
 	sndp_work_initialize(&g_sndp_work_fm_capture_stop,
-		  sndp_work_fm_capture_stop);
+				sndp_work_fm_capture_stop,
+				&g_sndp_work_fm_capture_start);
 	sndp_work_initialize(&g_sndp_work_watch_stop_fw,
-		  sndp_work_watch_stop_fw);
+				sndp_work_watch_stop_fw,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_fm_radio_start,
-		  sndp_work_fm_radio_start);
+				sndp_work_fm_radio_start,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_fm_radio_stop,
-		  sndp_work_fm_radio_stop);
+				sndp_work_fm_radio_stop,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_play_incomm_start,
-		  sndp_work_play_incomm_start);
+				sndp_work_play_incomm_start,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_play_incomm_stop,
-		  sndp_work_play_incomm_stop);
+				sndp_work_play_incomm_stop,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_capture_incomm_start,
-		  sndp_work_capture_incomm_start);
+				sndp_work_capture_incomm_start,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_capture_incomm_stop,
-		  sndp_work_capture_incomm_stop);
+				sndp_work_capture_incomm_stop,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_call_playback_incomm_start,
-		  sndp_work_call_playback_incomm_start);
+				sndp_work_call_playback_incomm_start,
+				&g_sndp_work_call_playback_incomm_stop);
 	sndp_work_initialize(&g_sndp_work_call_capture_incomm_start,
-		  sndp_work_call_capture_incomm_start);
+				sndp_work_call_capture_incomm_start,
+				&g_sndp_work_call_capture_incomm_stop);
 	sndp_work_initialize(&g_sndp_work_call_playback_incomm_stop,
-		  sndp_work_call_playback_incomm_stop);
+				sndp_work_call_playback_incomm_stop,
+				&g_sndp_work_call_playback_incomm_start);
 	sndp_work_initialize(&g_sndp_work_call_capture_incomm_stop,
-		  sndp_work_call_capture_incomm_stop);
+				sndp_work_call_capture_incomm_stop,
+				&g_sndp_work_call_capture_incomm_start);
 	sndp_work_initialize(&g_sndp_work_all_dl_mute,
-		  sndp_work_all_dl_mute);
+				sndp_work_all_dl_mute,
+				NULL);
 
 	for (iCnt = 0; SNDP_PCM_DIRECTION_MAX > iCnt; iCnt++) {
 		sndp_work_initialize(&g_sndp_work_hw_free[iCnt],
-						sndp_work_hw_free);
+						sndp_work_hw_free, NULL);
 		init_waitqueue_head(&g_sndp_hw_free_wait[iCnt]);
 		g_sndp_hw_free_condition[iCnt] = false;
 
@@ -1836,6 +1862,7 @@ static int sndp_fsi_hw_free(struct snd_pcm_substream *substream)
 
 		sndp_workqueue_enqueue(g_sndp_queue_main,
 			&g_sndp_work_hw_free[substream->stream]);
+		sndp_log_info("enqueue\n");
 
 		ret = wait_event_timeout(
 			g_sndp_hw_free_wait[substream->stream],
@@ -4418,13 +4445,16 @@ static void sndp_fsi_interrupt(void)
  * @retval	none.
  */
 void sndp_work_initialize(
-	struct sndp_work_info *work, void (*func)(struct sndp_work_info *))
+			struct sndp_work_info *work,
+			void (*func)(struct sndp_work_info *),
+			struct sndp_work_info *del_work)
 {
 	sndp_log_debug_func("work[%p]func[%p]\n", work, func);
 
 	INIT_LIST_HEAD(&work->link);
 	work->func = func;
 	work->status = 0;
+	work->del_work = del_work;
 
 	sndp_log_debug_func("end\n");
 	return;
@@ -4590,6 +4620,10 @@ void sndp_workqueue_enqueue(
 		if (!test_and_set_bit(
 			WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
 			list_add_tail(&work->link, &wq->top);
+		} else if (NULL != work->del_work) {
+			work_clear_pending(work->del_work);
+			list_del_init(&work->del_work->link);
+			sndp_log_err("Cancel work.\n");
 		} else {
 			sndp_log_err("Already pending work.\n");
 		}
