@@ -57,7 +57,7 @@
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 
 /* #define UDC_LOG */
-
+#define RECOVER_RESUME
 #ifdef  UDC_LOG
 #define udc_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 #else
@@ -66,8 +66,8 @@
 
 #define VBUS_HANDLE_IRQ_BASED
 
-int gIsConnected;
-
+static volatile int gIsConnected;
+static int reset_resume_ctr;
 static const char udc_name[] = "r8a66597_udc";
 static const char usbhs_dma_name[] = "USBHS-DMA1";
 static const char *r8a66597_ep_name[] = {
@@ -399,7 +399,7 @@ static int usb_core_clk_ctrl(struct r8a66597 *r8a66597, bool clk_enable)
 			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
 			r8a66597_clk_enable(r8a66597);
 			udc_log("%s, After clock enable - USB usage count:%d\n",
-			__func__, r8a66597_to_dev(r8a66597)->power.usage_count);
+			__func__, atomic_read(&r8a66597_to_dev(r8a66597)->power.usage_count));
 			usb_clk_status = 1;
 		   }
 		else
@@ -409,7 +409,7 @@ static int usb_core_clk_ctrl(struct r8a66597 *r8a66597, bool clk_enable)
 		   	r8a66597_clk_disable(r8a66597);
 			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
 			udc_log("%s, After clock disable - USB usage count:%d\n",
-			__func__, r8a66597_to_dev(r8a66597)->power.usage_count);
+			__func__, atomic_read(&r8a66597_to_dev(r8a66597)->power.usage_count));
 			usb_clk_status = 0;
 		   }
 		else
@@ -418,7 +418,6 @@ static int usb_core_clk_ctrl(struct r8a66597 *r8a66597, bool clk_enable)
 	return 0;
 }
 
-int gIsConnected = 0;
 static void r8a66597_vbus_work2(struct work_struct *work)
 {
 	struct r8a66597 *r8a66597 =
@@ -1954,7 +1953,7 @@ static void r8a66597_update_usb_speed(struct r8a66597 *r8a66597)
 		break;
 	default:
 		r8a66597->gadget.speed = USB_SPEED_UNKNOWN;
-		dev_err(r8a66597_to_dev(r8a66597), "USB speed unknown\n");
+		udc_log("%s:%s",__func__, "USB speed unknown\n");
 	}
 }
 
@@ -1976,17 +1975,40 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 		spin_lock(&r8a66597->lock);
 		r8a66597_update_usb_speed(r8a66597);
 		r8a66597_inform_vbus_power(r8a66597, 100);
+#ifdef RECOVER_RESUME
+		if (++reset_resume_ctr > 270){ /*More then 1 sec*/
+			printk(KERN_INFO "%s: usb state stuck in DS_DFLT\nGoing to perform phyreset\n",__func__);
+			r8a66597->is_active=0;
+			r8a66597->vbus_active=0;
+			if (!wake_lock_active(&r8a66597->wake_lock))
+				wake_lock(&r8a66597->wake_lock);
+			schedule_delayed_work(&r8a66597->vbus_work, 0);
+			reset_resume_ctr = 0;
+			return;
+		}
+#endif
 #ifdef CONFIG_USB_OTG
 	if (otg->state == OTG_STATE_A_SUSPEND)
 		otg->state = OTG_STATE_A_PERIPHERAL;
 	udc_log("%s\n", otg_state_string(otg->state));
 #endif
 	}
-	if (r8a66597->old_dvsq == DS_CNFG && dvsq != DS_CNFG)
+	if (r8a66597->old_dvsq == DS_CNFG && dvsq != DS_CNFG){
 		r8a66597_update_usb_speed(r8a66597);
+		reset_resume_ctr = 0;
+		}
 	if ((dvsq == DS_CNFG || dvsq == DS_ADDS)
 			&& r8a66597->gadget.speed == USB_SPEED_UNKNOWN)
-		r8a66597_update_usb_speed(r8a66597);
+		{
+			r8a66597_update_usb_speed(r8a66597);
+			reset_resume_ctr = 0;
+		}
+
+	if (dvsq & DS_SUSP){
+		reset_resume_ctr=0;
+		printk(KERN_INFO "%s:usb state suspended\n",__func__);
+	}
+	
 #ifdef CONFIG_USB_OTG
 	if ((r8a66597->old_dvsq == DS_CNFG) && (dvsq & DS_SPD_CNFG)
 							&& r8a66597->gadget.b_hnp_enable
@@ -2692,10 +2714,9 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		if (r8a66597->pdata->module_start)
 			r8a66597->pdata->module_start();
 	}
-
+#ifdef CONFIG_USB_OTG
 	udc_log("\n>>> HSUSB:UDC: %s(%d): INTSTS0:=%#x, Role:= %d<<<<<<\n",\
 					__func__, __LINE__, r8a66597_read(r8a66597, INTSTS0), r8a66597->role);
-#ifdef CONFIG_USB_OTG
 	syscfg = r8a66597_read(r8a66597, SYSCFG0);
 	r8a66597->role = syscfg & DCFM;
 	if (r8a66597->role) { /*If the controller is in Host mode, return without
@@ -2761,7 +2782,7 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		spin_lock_irqsave(&r8a66597->lock, flags);
 		r8a66597_usb_disconnect(r8a66597);
 		spin_unlock_irqrestore(&r8a66597->lock, flags);
-
+		reset_resume_ctr = 0;
 		/* stop clock */
 		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
 		r8a66597_bclr(r8a66597, SCKE, SYSCFG0);

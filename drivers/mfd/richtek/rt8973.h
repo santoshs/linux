@@ -14,6 +14,7 @@
 #include "rt_comm_defs.h"
 
 #define RT8973_WAIT_DELAY   1
+#define RT8973_10M_DELAY 10
 
 #define RT8973_REG_CHIP_ID         0x01
 #define RT8973_REG_CONTROL_1       0x02
