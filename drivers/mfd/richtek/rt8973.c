@@ -1283,6 +1283,7 @@ static bool init_reg_setting(void)
 {
     struct i2c_client* pClient = pDrvData->client;
     int32_t regCtrl1;
+    int count = 0;
     INFO("Initialize register setting!!\n");
     pDrvData->chip_id = I2CRByte(RT8973_REG_CHIP_ID);
     if  (pDrvData->chip_id<0)
@@ -1297,20 +1298,39 @@ static bool init_reg_setting(void)
     }
     pDrvData->operating_mode = OPERATING_MODE;
     I2CWByte(RT8973_REG_RESET,0x01);
-    msleep(RT8973_WAIT_DELAY);
+    msleep(RT8973_10M_DELAY);
     regCtrl1 = I2CRByte(RT8973_REG_CONTROL_1);
     INFO("reg_ctrl1 = 0x%x\n",regCtrl1);
+
+    while(1)
+    {
+	if((regCtrl1!=0xe5 && regCtrl1!=0xc5) && (++count < 10))
+	{
+	I2CWByte(RT8973_REG_RESET,0x01);
+	msleep(RT8973_10M_DELAY);
+	regCtrl1 = I2CRByte(RT8973_REG_CONTROL_1);
+	INFO("reg_ctrl1 = 0x%x, count = %d\n",regCtrl1,count);
+	continue;
+	}
+	else
+	{
+	INFO("loop broken\n");
+	count = 0;
+	break;
+	}
+    }
+
     if (regCtrl1!=0xe5 && regCtrl1!=0xc5)
     {
-        ERR("Reg Ctrl 1 != 0xE5 or 0xC5\n");
-        return false;
+	ERR("Reg Ctrl 1 != 0xE5 or 0xC5\n");
+	return false;
     }
     if (pDrvData->operating_mode!=0)
     {
         regCtrl1 &= (~0x04);
         I2CWByte(RT8973_REG_CONTROL_1,regCtrl1);
     }
-    pDrvData->prev_int_flag = I2CRByte(RT8973_REG_INT_FLAG);
+    pDrvData->prev_int_flag = 0;
 
     if (((pDrvData->chip_id & 0xf8)>>3)==0)
 	{
@@ -1449,6 +1469,7 @@ request_irq_fail:
 init_fail:
     wake_lock_destroy(&(drv_data->muic_wake_lock));
     wake_lock_destroy(&(pDrvData->uart_wakelock));
+    cancel_delayed_work(&drv_data->delayed_work);
 #ifdef CONFIG_RTMUSC_INT_CONFIG
     gpio_free(CONFIG_RTMUSC_INT_GPIO_NUMBER);
     destroy_workqueue(rtmus_work_queue);
