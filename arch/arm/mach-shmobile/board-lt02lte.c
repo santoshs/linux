@@ -91,7 +91,7 @@
 #endif
 #ifdef CONFIG_NFC_PN547
 #include <linux/nfc/pn547.h>
-#endif 
+#endif
 #if defined(CONFIG_SAMSUNG_SENSOR)
 #include <mach/dev-sensor.h>
 #endif
@@ -297,19 +297,6 @@ static struct i2c_board_info i2c_quickvx_board_info[] __initdata = {
 	},
 };
 
-#if 0
-static struct led_regulator_platform_data key_backlight_data = {
-	.name   = "button-backlight",
-};
-
-static struct platform_device key_backlight_device = {
-	.name = "leds-regulator",
-	.id   = 0,
-	.dev  = {
-		.platform_data = &key_backlight_data,
-	},
-};
-#endif
 static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
 		I2C_BOARD_INFO(TPA2026_I2C_DRIVER_NAME, 0x58),
@@ -320,50 +307,19 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
-#if 0
-static struct map_desc lt02lte_io_desc[] __initdata = {
-	{
-		.virtual	= 0xe6000000,
-		.pfn		= __phys_to_pfn(0xe6000000),
-		.length		= SZ_256M,
-		.type		= MT_DEVICE
-	},
-	{
-		/*
-		 * Create 4 MiB of virtual address hole within a big 1:1 map
-		 * requested above, which is dedicated for the RT-CPU driver.
-		 *
-		 * According to the hardware manuals, physical 0xefc00000
-		 * space is reserved for Router and a data abort error will
-		 * be generated if access is made there.  So this partial
-		 * mapping change won't be a problem.
-		 */
-		.virtual        = 0xefc00000,
-		.pfn            = __phys_to_pfn(0xffc00000),
-		.length         = SZ_4M,
-		.type           = MT_DEVICE
-	},
-};
-static void __init lt02lte_map_io(void)
-{
-	iotable_init(lt02lte_io_desc, ARRAY_SIZE(lt02lte_io_desc));
 
-	r8a7373_init_early();
-	shmobile_setup_console();
-}
-#endif
-void __init lt02lte_init_irq(void)
+void __init board_init_irq(void)
 {
 	r8a7373_init_irq();
 }
 
-void lt02lte_restart(char mode, const char *cmd)
+void board_restart(char mode, const char *cmd)
 {
 	printk(KERN_INFO "%s\n", __func__);
 	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
 
-static void __init lt02lte_init(void)
+static void __init board_init(void)
 {
 
 	int stm_select = -1;
@@ -421,7 +377,7 @@ static void __init lt02lte_init(void)
 		*GPIO_DRVCR_SIM1 = 0x0022;
 		*GPIO_DRVCR_SIM2 = 0x0022;
 	}
-	shmobile_arch_reset = lt02lte_restart;
+	shmobile_arch_reset = board_restart;
 
 	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 
@@ -667,7 +623,7 @@ struct sys_timer lt02lte_timer = {
 	.init	= lt02lte_timer_init,
 };
 
-static void __init lt02lte_reserve(void)
+static void __init board_reserve(void)
 {
 	u2evm_ion_adjust();
 
@@ -677,13 +633,13 @@ static void __init lt02lte_reserve(void)
 }
 
 MACHINE_START(U2EVM, "u2evm")
-	.map_io			= r8a7373_map_io,/*lt02lte_map_io,*/
-	.init_irq		= r8a7373_init_irq,/*lt02lte_init_irq,*/
-	.init_early             = r8a7373_init_early,
-	.nr_irqs                = NR_IRQS_LEGACY,
+	.map_io			= r8a7373_map_io,
+	.init_irq		= r8a7373_init_irq,
+	.init_early		= r8a7373_init_early,
+	.nr_irqs		= NR_IRQS_LEGACY,
 	.handle_irq		= gic_handle_irq,
-	.init_machine		= lt02lte_init,
-	.timer			= &shmobile_timer,/*&lt02lte_timer,*/
-	.restart		= lt02lte_restart,
-	.reserve		= lt02lte_reserve,
+	.init_machine	= board_init,
+	.timer			= &shmobile_timer,
+	.restart		= board_restart,
+	.reserve		= board_reserve,
 MACHINE_END
