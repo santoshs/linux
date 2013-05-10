@@ -533,6 +533,11 @@ extern void pmdbg_mon(int cpum, unsigned int max_load,
 		unsigned int load0, unsigned int load1,
 		unsigned int cur, unsigned int req);
 extern char pmdbg_get_enable_cpu_profile(void);
+
+/* Common functions of the PM debug */
+extern void pmdbg_dump_suspend(void);
+extern void pmdbg_pmic_dump_suspend(void *pmic_data);
+extern char pmdbg_get_enable_dump_suspend(void);
 #endif /* CONFIG_ARCH_R8A7373 */
 
 #endif /* __ASM_ARCH_PM_H */
