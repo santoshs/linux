@@ -1198,7 +1198,6 @@ static int audio_test_playback_setup(void)
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
 
-	(void)fsi_d2153_loopback_notify(FSI_D2153_LOOPBACK_STOP);
 error:
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;

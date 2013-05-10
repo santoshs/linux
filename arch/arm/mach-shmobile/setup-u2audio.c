@@ -24,34 +24,29 @@
 #include <linux/d2153/core.h>
 #include <linux/d2153/d2153_codec.h>
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
-#include <mach/board-gardalte.h>
-#endif
-#if defined(CONFIG_MACH_LOGANLTE)
-#include <mach/board-loganlte.h>
-#endif
+#include <mach/board.h>
 
 /* Proc root entries */
 struct proc_dir_entry *root_audio;
 struct proc_dir_entry *root_device;
-struct proc_dir_entry *root_input;
 
 /* Proc sub entries */
 /* device entries */
-struct proc_dir_entry *a2220_entry;
+#if defined(CONFIG_MACH_LOGANLTE)
 struct proc_dir_entry *fm34_entry;
+#elif defined(CONFIG_MACH_LT02LTE)
 struct proc_dir_entry *tpa2026_entry;
-
-/* Input/Output entries */
-struct proc_dir_entry *sub_mic_entry;
+#endif
 
 /* Proc read handler */
+#if defined(CONFIG_MACH_LOGANLTE)
 static int proc_read_u2audio_device_none(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
 	count = snprintf(page, count, "%d", 0);
 	return count;
 }
+#endif
 static int proc_read_u2audio_device_exist(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
@@ -88,66 +83,26 @@ void u2audio_codec_micbias_level_init(void)
 
 void u2audio_init(unsigned int u2_board_rev)
 {
-	u8 a2220_device;
+#if defined(CONFIG_MACH_LOGANLTE)
 	u8 fm34_device;
-	u8 tpa2026_device;
-	u8 sub_mic;
+#endif /* CONFIG_MACH_LOGANLTE */
 
 	u2audio_gpio_init();
 
-#if defined(CONFIG_MACH_GARDALTE)
-	if (u2_board_rev < RLTE_BOARD_REV_0_2) {
-		a2220_device = DEVICE_EXIST;
-		fm34_device = DEVICE_NONE;
-	} else {
-		a2220_device = DEVICE_NONE;
+#if defined(CONFIG_MACH_LOGANLTE)
+	if (u2_board_rev < RLTE_BOARD_REV_0_1)
 		fm34_device = DEVICE_EXIST;
-	}
-	tpa2026_device = DEVICE_NONE;
-	sub_mic = DEVICE_EXIST;
-#elif defined(CONFIG_MACH_LOGANLTE)
-	if (u2_board_rev < RLTE_BOARD_REV_0_1) {
-		fm34_device = DEVICE_EXIST;
-		sub_mic = DEVICE_EXIST;
-	} else {
+	else
 		fm34_device = DEVICE_NONE;
-		sub_mic = DEVICE_NONE;
-	}
-	a2220_device = DEVICE_NONE;
-	tpa2026_device = DEVICE_NONE;
-#elif defined(CONFIG_MACH_LT02LTE)
-	a2220_device = DEVICE_NONE;
-	fm34_device = DEVICE_NONE;
-	tpa2026_device = DEVICE_EXIST;
-	sub_mic = DEVICE_EXIST;
-#else
-	a2220_device = DEVICE_NONE;
-	fm34_device = DEVICE_NONE;
-	tpa2026_device = DEVICE_NONE;
-	sub_mic = DEVICE_NONE;
-#endif
+
+#endif /* CONFIG_MACH_LOGANLTE */
 
 	root_audio = proc_mkdir("audio", NULL);
 	if (NULL != root_audio) {
 		/* Create device entries */
 		root_device = proc_mkdir("device", root_audio);
 		if (NULL != root_device) {
-#if defined(CONFIG_MACH_GARDALTE)
-			a2220_entry = create_proc_entry("a2220",
-				S_IRUGO, root_device);
-			if (NULL != a2220_entry) {
-				if (!a2220_device)
-					a2220_entry->read_proc =
-						proc_read_u2audio_device_none;
-				else
-					a2220_entry->read_proc =
-						proc_read_u2audio_device_exist;
-			} else {
-				printk(KERN_ERR "%s Failed create_proc_entry a2220\n",
-					__func__);
-			}
-#endif /* CONFIG_MACH_GARDALTE */
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_LOGANLTE)
 			fm34_entry = create_proc_entry("fm34",
 				S_IRUGO, root_device);
 			if (NULL != fm34_entry) {
@@ -161,39 +116,16 @@ void u2audio_init(unsigned int u2_board_rev)
 				printk(KERN_ERR "%s Failed create_proc_entry fm34\n",
 					__func__);
 			}
-#endif /* CONFIG_MACH_GARDALTE || CONFIG_MACH_LOGANLTE*/
-#if defined(CONFIG_MACH_LT02LTE)
+#elif defined(CONFIG_MACH_LT02LTE)
 			tpa2026_entry = create_proc_entry("tpa2026",
 				S_IRUGO, root_device);
-			if (NULL != tpa2026_entry) {
-				if (!tpa2026_device)
-					tpa2026_entry->read_proc =
-						proc_read_u2audio_device_none;
-				else
-					tpa2026_entry->read_proc =
-						proc_read_u2audio_device_exist;
-			} else {
+			if (NULL != tpa2026_entry)
+				tpa2026_entry->read_proc =
+					proc_read_u2audio_device_exist;
+			else
 				printk(KERN_ERR "%s Failed create_proc_entry tpa2026\n",
 					__func__);
-			}
-#endif /* CONFIG_MACH_LT02LTE */
-		}
-		/* Create input/output entries */
-		root_input = proc_mkdir("input", root_audio);
-		if (NULL != root_input) {
-			sub_mic_entry = create_proc_entry("sub_mic",
-				S_IRUGO, root_input);
-			if (NULL != sub_mic_entry) {
-				if (!sub_mic)
-					sub_mic_entry->read_proc =
-						proc_read_u2audio_device_none;
-				else
-					sub_mic_entry->read_proc =
-						proc_read_u2audio_device_exist;
-			} else {
-				printk(KERN_ERR "%s Failed create_proc_entry sub_mic\n",
-					__func__);
-			}
+#endif
 		}
 	} else {
 		printk(KERN_ERR "%s Failed proc_mkdir\n", __func__);

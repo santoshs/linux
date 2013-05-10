@@ -754,9 +754,8 @@ static void __init loganlte_init(void)
 	i2c_register_board_info(4, i2c4_devices_tsp_detector,
 				ARRAY_SIZE(i2c4_devices_tsp_detector));
 	platform_device_register(&key_backlight_device);
-	if (u2_board_rev < RLTE_BOARD_REV_0_1)
-		i2c_register_board_info(8, i2cm_devices_d2153,
-					ARRAY_SIZE(i2cm_devices_d2153));
+	i2c_register_board_info(8, i2cm_devices_d2153,
+				ARRAY_SIZE(i2cm_devices_d2153));
 
 #if defined(CONFIG_GPS_CSR_GSD5T)
 	/* GPS Init */
