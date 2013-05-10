@@ -1815,8 +1815,7 @@ static void sndp_work_hw_free(struct sndp_work_info *work)
 		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
 	g_sndp_hw_free_condition[direction] = true;
-	wake_up_interruptible(
-		&g_sndp_hw_free_wait[direction]);
+	wake_up(&g_sndp_hw_free_wait[direction]);
 
 	up(&g_sndp_wait_free[direction]);
 
@@ -1838,12 +1837,12 @@ static int sndp_fsi_hw_free(struct snd_pcm_substream *substream)
 		sndp_workqueue_enqueue(g_sndp_queue_main,
 			&g_sndp_work_hw_free[substream->stream]);
 
-		ret = wait_event_interruptible_timeout(
+		ret = wait_event_timeout(
 			g_sndp_hw_free_wait[substream->stream],
 			g_sndp_hw_free_condition[substream->stream],
 			msecs_to_jiffies(SNDP_WAIT_MAX));
 
-		sndp_log_info("complete\n");
+		sndp_log_info("complete ret[%d]\n", ret);
 
 		ret = g_sndp_dai_func.fsi_hw_free(substream);
 	}
