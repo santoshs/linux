@@ -22,7 +22,7 @@
 /* PMIC related includes */
 #include <linux/d2153/core.h>
 
-#define D2153_JACK_DETECT
+//#define D2153_JACK_DETECT
 
 /*
  * D2153 AAD register space
