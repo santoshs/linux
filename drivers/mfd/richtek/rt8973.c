@@ -109,7 +109,7 @@ static int32_t DCDT_retry = 0;
 #define I2C_RW_RETRY_MAX 2
 #define I2C_RW_RETRY_DELAY 20
 
-#if 0
+#if 1
 #define I2CRByte(x) i2c_smbus_read_byte_data(pClient,x)
 #define I2CWByte(x,y) i2c_smbus_write_byte_data(pClient,x,y)
 #else
@@ -1318,20 +1318,38 @@ static bool init_reg_setting(void)
     }
     pDrvData->prev_int_flag = I2CRByte(RT8973_REG_INT_FLAG);
 
-	if (((pDrvData->chip_id & 0xf8)>>3)==0)
+    if (((pDrvData->chip_id & 0xf8)>>3)==0)
 	{
+		INFO("init_reg_setting I2C reset entered\n");
 		regCtrl1 |= (0x08);
 		I2CWByte(RT8973_REG_CONTROL_1,regCtrl1);
 	}
     INFO("prev_int_flag = 0x%x\n",
          pDrvData->prev_int_flag);
+    /*
     enable_interrupt(1);
     msleep(RT8973_WAIT_DELAY);
+    */
     INFO("Set initial value OK\n");
     /*
     INFO("GPIO %d Value = %d\n",CONFIG_RTMUSC_INT_GPIO_NUMBER,
          gpio_get_value(CONFIG_RTMUSC_INT_GPIO_NUMBER));*/
     return true;
+}
+
+static void rt8973_init_func(struct work_struct *work)
+{
+    int err;
+    INFO("rt8973_init_func request IRQ OK...\n");
+    err = enable_irq_wake(pDrvData->irq);
+    if (err < 0)
+    {
+        WARNING("enable_irq_wake(%d) failed for (%d)\n",pDrvData->irq, err);
+    }
+    enable_interrupt(1);
+    msleep(RT8973_WAIT_DELAY);
+    INFO("Set initial value OK\n");
+
 }
 
 static int rt8973musc_probe(struct i2c_client *client,
@@ -1360,10 +1378,13 @@ static int rt8973musc_probe(struct i2c_client *client,
     i2c_set_clientdata(client,drv_data);
     rtmus_work_queue = create_workqueue("rt8973mus_wq");
     INIT_WORK(&drv_data->work, rt8973musc_work);
+    INIT_DELAYED_WORK(&drv_data->delayed_work, rt8973_init_func);
 
 	uart_connecting = 0;
     if(platform_data.ex_init)
 		platform_data.ex_init();
+
+    schedule_delayed_work(&drv_data->delayed_work, msecs_to_jiffies(2700));
 
 #if CONFIG_RTMUSC_IRQ_NUMBER<0
     client->irq = gpio_to_irq(CONFIG_RTMUSC_INT_GPIO_NUMBER);
@@ -1416,11 +1437,11 @@ static int rt8973musc_probe(struct i2c_client *client,
         goto request_irq_fail;
     }
     INFO("request IRQ OK...\n");
-    err = enable_irq_wake(client->irq);
+    /*err = enable_irq_wake(client->irq);
     if (err < 0)
     {
         WARNING("enable_irq_wake(%d) failed for (%d)\n",client->irq, err);
-    }
+    }*/
     if (!init_reg_setting())
     {
         disable_irq(client->irq);

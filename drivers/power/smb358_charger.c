@@ -128,11 +128,11 @@ void smb358_stop_chg(void)
 	client = global_client;
 	if( !client) return;
 
-	smb358_read_reg(client,SMB358_COMMAND_A,&data);	
+	smb358_read_reg(client,SMB358_COMMAND_A,&data);
 
-	
+
 	data &= ~CHG_ENABLE;
-	
+
 	smb358_write_reg(client,SMB358_COMMAND_A,data);
 
 	
@@ -161,14 +161,14 @@ void smb358_start_chg(void)
 	client = global_client;
 	if( !client) return;
 
-	smb358_read_reg(client,SMB358_COMMAND_A,&data);	
-	
+	smb358_read_reg(client,SMB358_COMMAND_A,&data);
+
 	//data |= ALLOW_VOLATILE_WRITE | CHG_ENABLE;
 	data |= CHG_ENABLE;
 
 	smb358_write_reg(client,SMB358_COMMAND_A,data);
 
-	smb358_read_reg(client,SMB358_COMMAND_B,&data);	
+	smb358_read_reg(client,SMB358_COMMAND_B,&data);
 
 	if (smb_charger->chg_mode == CHG_MODE_USB)
 		data &= ~(0x01<<0);
@@ -239,8 +239,8 @@ int smb358_set_chg_current(int chg_current)
 
 	data &= FAST_CHG_MASK;
 	data |= set_current;
-	smb358_write_reg(client,SMB358_CHARGE_CURRENT,data);
-	return 0;
+	ret = smb358_write_reg(client,SMB358_CHARGE_CURRENT,data);
+	return ret;
 
 }
 //EXPORT_SYMBOL(smb358_set_chg_current);

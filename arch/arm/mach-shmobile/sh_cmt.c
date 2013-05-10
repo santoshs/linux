@@ -39,7 +39,7 @@ struct sh_cmt_priv {
 	unsigned long overflow_bit;
 	unsigned long clear_bits;
 	struct irqaction irqaction;
-	unsigned int irq;
+	int irq;
 	struct platform_device *pdev;
 
 	unsigned long rate;

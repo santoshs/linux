@@ -2108,6 +2108,9 @@ static int fsi_remove(struct platform_device *pdev)
 
 	master = dev_get_drvdata(&pdev->dev);
 
+	clk_put(master->clks.fsi);
+	clk_put(master->clks.clkgen);
+
 	snd_soc_unregister_dais(&pdev->dev, 1);
 	snd_soc_unregister_platform(&pdev->dev);
 
@@ -2122,10 +2125,6 @@ static int fsi_remove(struct platform_device *pdev)
 
 	iounmap(master->base);
 	kfree(master);
-
-	clk_put(master->clks.fsi);
-	/* clk_put(master->clks.shdmac); */
-	/* clk_put(master->clks.clkgen); */
 
 	return 0;
 }

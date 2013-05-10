@@ -285,7 +285,7 @@ struct zinitix_touch_dev {
 	u16 icon_event_reg;
 	u16 event_type;
 	u32 int_gpio_num;
-	u32 irq;
+	int irq;
 	u32 gpio_ldo_en_num;
 	u8 button[MAX_SUPPORTED_BUTTON_NUM];
 	u8 work_proceedure;
@@ -3625,7 +3625,7 @@ fail_hw_cal:
 		}
 
 		if (copy_from_user(&raw_ioctl,
-			argp, sizeof(raw_ioctl))) {
+			(struct _raw_ioctl *)argp, sizeof(raw_ioctl))) {
 			up(&misc_touch_dev->raw_data_lock);
 			printk(KERN_INFO "[zinitix_touch] error : copy_from_user\r\n");
 			return -1;
@@ -3635,8 +3635,8 @@ fail_hw_cal:
 
 		u8Data = (u8 *)&misc_touch_dev->cur_data[0];
 
-		if (copy_to_user(raw_ioctl.buf, (u8 *)u8Data,
-			(unsigned long)raw_ioctl.sz)) {
+		if (copy_to_user((u8 *)raw_ioctl.buf, (u8 *)u8Data,
+			  raw_ioctl.sz)) {
 			up(&misc_touch_dev->raw_data_lock);
 			return -1;
 		}

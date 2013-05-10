@@ -189,9 +189,7 @@ SOUNDPATH_NO_EXTERN void sndp_workqueue_enqueue(
 #define DEBUG
 #endif
 
-#define DEBUG_FUNC
 #define __PRN_SNDP__
-#define __PRN_ADD_TIME__
 /* #define __SNDP_ROUTE_DEBUG__ */
 
 /* end : define for debug */
@@ -208,7 +206,7 @@ SOUNDPATH_NO_EXTERN void sndp_workqueue_enqueue(
 #define LOG_FUNC_PRINT		(0x04)
 
 #define LOG_BIT_REG_DUMP	(0x10)
-#define LOG_BIT_TIME_ADD	(0x20)
+#define LOG_BIT_TIME_DEL	(0x20)
 #define LOG_BIT_DMESG		(0x80)
 
 #define LOG_LEVEL_MAX		(0xffffffff)
@@ -234,120 +232,32 @@ SOUNDPATHLOGICAL_NO_EXTERN	void sndp_path_test_sndp_init(void);
 
 #define sndp_log_reg_dump(fmt, ...)					\
 do {									\
-	if (g_sndp_log_level & LOG_BIT_REG_DUMP) {			\
+	if (g_sndp_log_level & LOG_BIT_REG_DUMP)			\
 		(g_sndp_log_level & LOG_BIT_DMESG) ?			\
-		pr_err(fmt, ##__VA_ARGS__) : pr_alert(fmt, ##__VA_ARGS__);\
-	}								\
+			pr_err(fmt, ##__VA_ARGS__) :			\
+			pr_alert(fmt, ##__VA_ARGS__);			\
 } while (0)
-
-#ifdef __PRN_ADD_TIME__
 
 #define sndp_log_ver(fmt, ...)						\
 do {									\
-	struct timeval tv;						\
 	if (LOG_ERR_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {		\
-		GET_PROCESS_TIME(tv);					\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err("[%5ld.%06ld] " SNDP_DRV_NAME " : Version "\
-				fmt, tv.tv_sec, tv.tv_usec, ##__VA_ARGS__);\
+		if (g_sndp_log_level & LOG_BIT_TIME_DEL) {		\
+			(g_sndp_log_level & LOG_BIT_DMESG) ?		\
+				pr_err(SNDP_DRV_NAME " : Ver " fmt,	\
+					##__VA_ARGS__) :		\
+				pr_alert(SNDP_DRV_NAME " : Ver " fmt,	\
+					##__VA_ARGS__);			\
 		} else {						\
-			pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME " : Version "\
-				fmt, tv.tv_sec, tv.tv_usec, ##__VA_ARGS__);\
-		}							\
-	}								\
-} while (0)
-
-#define sndp_log_err(fmt, ...)						\
-do {									\
-	struct timeval tv;						\
-	if (LOG_ERR_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {		\
-		GET_PROCESS_TIME(tv);					\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err("[%5ld.%06ld] " SNDP_DRV_NAME " : %s():" \
-			fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
-		} else {						\
-			pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): "\
-			fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
-		}							\
-	}								\
-} while (0)
-
-#define sndp_log_info(fmt, ...)						\
-do {									\
-	struct timeval tv;						\
-	if (LOG_PROC_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {		\
-		if (g_sndp_log_level & LOG_BIT_TIME_ADD) {		\
+			struct timeval tv;				\
 			GET_PROCESS_TIME(tv);				\
-			if (g_sndp_log_level & LOG_BIT_DMESG) {		\
-				pr_err("[%5ld.%06ld] " SNDP_DRV_NAME	\
-					" : %s(): " fmt, tv.tv_sec,	\
-					tv.tv_usec, __func__, ##__VA_ARGS__);\
-			} else {					\
-				pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME	\
-					" : %s(): " fmt, tv.tv_sec,	\
-					tv.tv_usec, __func__, ##__VA_ARGS__);\
-			}						\
-		} else {						\
-			if (g_sndp_log_level & LOG_BIT_DMESG) {		\
-				pr_err(SNDP_DRV_NAME " : %s(): "	\
-				fmt, __func__, ##__VA_ARGS__);		\
-			} else {					\
-				pr_alert(SNDP_DRV_NAME " : %s(): "	\
-				fmt, __func__, ##__VA_ARGS__);		\
-			}						\
-		}							\
-	}								\
-} while (0)
-
-#define sndp_log_debug(fmt, ...)					\
-do {									\
-	struct timeval tv;						\
-	if (LOG_DEBUG_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {	\
-		GET_PROCESS_TIME(tv);					\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): "\
-			fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
-		} else {						\
-			pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): "\
-			fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
-		}							\
-	}								\
-} while (0)
-
-#ifdef DEBUG_FUNC
-
-#define sndp_log_debug_func(fmt, ...)					\
-do {									\
-	struct timeval tv;						\
-	if (LOG_FUNC_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {		\
-		GET_PROCESS_TIME(tv);					\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): "\
-			fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
-		} else {						\
-			pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): "   \
-			fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
-		}							\
-	}								\
-} while (0)
-
-#else	/* != DEBUG_FUNC */
-
-#define sndp_log_debug_func(fmt, ...)		do { } while (0)
-
-#endif	/* DEBUG_FUNC */
-
-#else	/* != __PRN_ADD_TIME__ */
-
-#define sndp_log_ver(fmt, ...)						\
-do {									\
-	if (LOG_ERR_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {		\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err(SNDP_DRV_NAME " : Version " fmt,		\
-							##__VA_ARGS__);	\
-		} else {						\
-			pr_alert(SNDP_DRV_NAME " : Version " fmt,	\
-							##__VA_ARGS__);	\
+			tv.tv_usec /= USEC_PER_MSEC;			\
+			(g_sndp_log_level & LOG_BIT_DMESG) ?		\
+				pr_err("[%5ld.%03ld] " SNDP_DRV_NAME	\
+					" : Ver " fmt, tv.tv_sec,	\
+					tv.tv_usec, ##__VA_ARGS__) :	\
+				pr_alert("[%5ld.%03ld] " SNDP_DRV_NAME	\
+					" : Ver " fmt, tv.tv_sec,	\
+					tv.tv_usec, ##__VA_ARGS__);	\
 		}							\
 	}								\
 } while (0)
@@ -355,12 +265,25 @@ do {									\
 #define sndp_log_err(fmt, ...)						\
 do {									\
 	if (LOG_ERR_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {		\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err(SNDP_DRV_NAME " : %s():" fmt,		\
-					__func__, ##__VA_ARGS__);	\
+		if (g_sndp_log_level & LOG_BIT_TIME_DEL) {		\
+			(g_sndp_log_level & LOG_BIT_DMESG) ?		\
+				pr_err(SNDP_DRV_NAME " : %s(): "	\
+					fmt, __func__, ##__VA_ARGS__) :	\
+				pr_alert(SNDP_DRV_NAME " : %s(): "	\
+					fmt, __func__, ##__VA_ARGS__);	\
 		} else {						\
-			pr_alert(SNDP_DRV_NAME " : %s(): " fmt,		\
-					__func__, ##__VA_ARGS__);	\
+			struct timeval tv;				\
+			GET_PROCESS_TIME(tv);				\
+			tv.tv_usec /= USEC_PER_MSEC;			\
+			(g_sndp_log_level & LOG_BIT_DMESG) ?		\
+				pr_err("[%5ld.%03ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__,		\
+					##__VA_ARGS__) :		\
+				pr_alert("[%5ld.%03ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__,		\
+					##__VA_ARGS__);			\
 		}							\
 	}								\
 } while (0)
@@ -368,12 +291,25 @@ do {									\
 #define sndp_log_info(fmt, ...)						\
 do {									\
 	if (LOG_PROC_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {		\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err(SNDP_DRV_NAME " : %s(): " fmt,		\
-					__func__, ##__VA_ARGS__);	\
+		if (g_sndp_log_level & LOG_BIT_TIME_DEL) {		\
+			(g_sndp_log_level & LOG_BIT_DMESG) ?		\
+				pr_err(SNDP_DRV_NAME " : %s(): "	\
+					fmt, __func__, ##__VA_ARGS__) :	\
+				pr_alert(SNDP_DRV_NAME " : %s(): "	\
+					fmt, __func__, ##__VA_ARGS__);	\
 		} else {						\
-			pr_alert(SNDP_DRV_NAME " : %s(): " fmt,		\
-					__func__, ##__VA_ARGS__);	\
+			struct timeval tv;				\
+			GET_PROCESS_TIME(tv);				\
+			tv.tv_usec /= USEC_PER_MSEC;			\
+			(g_sndp_log_level & LOG_BIT_DMESG) ?		\
+				pr_err("[%5ld.%03ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__,		\
+					##__VA_ARGS__) :		\
+				pr_alert("[%5ld.%03ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__,		\
+					##__VA_ARGS__);			\
 		}							\
 	}								\
 } while (0)
@@ -381,44 +317,54 @@ do {									\
 #define sndp_log_debug(fmt, ...)					\
 do {									\
 	if (LOG_DEBUG_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {	\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err(SNDP_DRV_NAME " : %s(): " fmt,		\
-					__func__, ##__VA_ARGS__);	\
+		if (g_sndp_log_level & LOG_BIT_TIME_DEL) {		\
+			(g_sndp_log_level & LOG_BIT_DMESG) ?		\
+				pr_err(SNDP_DRV_NAME " : %s(): "	\
+					fmt, __func__, ##__VA_ARGS__) :	\
+				pr_alert(SNDP_DRV_NAME " : %s(): "	\
+					fmt, __func__, ##__VA_ARGS__);	\
 		} else {						\
-			pr_alert(SNDP_DRV_NAME " : %s(): " fmt,		\
-					__func__, ##__VA_ARGS__);	\
+			struct timeval tv;				\
+			GET_PROCESS_TIME(tv);				\
+			tv.tv_usec /= USEC_PER_MSEC;			\
+			(g_sndp_log_level & LOG_BIT_DMESG) ?		\
+				pr_err("[%5ld.%03ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__,		\
+					##__VA_ARGS__) :		\
+				pr_alert("[%5ld.%03ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__,		\
+					##__VA_ARGS__);			\
 		}							\
 	}								\
 } while (0)
-
-#define sndp_log_dump(fmt, ...)						\
-do {									\
-	(g_sndp_log_level & LOG_BIT_DMESG) ?				\
-		pr_err(fmt, ##__VA_ARGS__) : pr_alert(fmt, ##__VA_ARGS__)\
-} while (0)
-
-#ifdef DEBUG_FUNC
 
 #define sndp_log_debug_func(fmt, ...)					\
 do {									\
 	if (LOG_FUNC_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {		\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err(SNDP_DRV_NAME " : %s(): " fmt,		\
-					__func__, ##__VA_ARGS__);	\
+		if (g_sndp_log_level & LOG_BIT_TIME_DEL) {		\
+			(g_sndp_log_level & LOG_BIT_DMESG) ?		\
+				pr_err(SNDP_DRV_NAME " : %s(): "	\
+					fmt, __func__, ##__VA_ARGS__) :	\
+				pr_alert(SNDP_DRV_NAME " : %s(): "	\
+					fmt, __func__, ##__VA_ARGS__);	\
 		} else {						\
-			pr_alert(SNDP_DRV_NAME " : %s(): " fmt,		\
-					__func__, ##__VA_ARGS__);	\
+			struct timeval tv;				\
+			GET_PROCESS_TIME(tv);				\
+			tv.tv_usec /= USEC_PER_MSEC;			\
+			(g_sndp_log_level & LOG_BIT_DMESG) ?		\
+				pr_err("[%5ld.%03ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__,		\
+					##__VA_ARGS__) :		\
+				pr_alert("[%5ld.%03ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__,		\
+					##__VA_ARGS__);			\
 		}							\
 	}								\
 } while (0)
-
-#else	/* != DEBUG_FUNC */
-
-#define sndp_log_debug_func(fmt, ...)		do { } while (0)
-
-#endif	/* DEBUG_FUNC */
-
-#endif	/* __PRN_ADD_TIME__ */
 
 #else /* != __PRN_SNDP__ */
 
@@ -432,8 +378,6 @@ do {									\
 
 #endif	/* __PRN_SNDP__ */
 
-#ifdef __PRN_ADD_TIME__
-
 #define sndp_log_always_err(fmt, ...)					\
 do {									\
 	struct timeval tv;						\
@@ -441,13 +385,6 @@ do {									\
 	pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): " fmt,		\
 			tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
 } while (0)
-
-#else	/* != __PRN_ADD_TIME__ */
-
-#define sndp_log_always_err(fmt, ...)					\
-	pr_alert(SNDP_DRV_NAME " : %s(): " fmt, __func__, ##__VA_ARGS__)
-
-#endif	/* __PRN_ADD_TIME__ */
 
 /*
  * Constant definitions

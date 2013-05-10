@@ -2109,6 +2109,8 @@ int read_soc(int *soc)
 	  	GasGaugeData.ExternalTemperature = chip->pdata->ExternalTemperature(); /*External temperature fonction, return C*/
 	  	GasGaugeData.ForceExternalTemperature = chip->pdata->ForceExternalTemperature; /* 1=External temperature, 0=STC3115 temperature */
 #endif
+	} else {
+		return -1;
 	}
 
 	res=GasGauge_Task(&GasGaugeData);  /* process gas gauge algorithm, returns results */

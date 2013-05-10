@@ -166,7 +166,7 @@ void u2audio_init(unsigned int u2_board_rev)
 			tpa2026_entry = create_proc_entry("tpa2026",
 				S_IRUGO, root_device);
 			if (NULL != tpa2026_entry) {
-				if (!tpa2026_device)
+				if (0 == tpa2026_device)
 					tpa2026_entry->read_proc =
 						proc_read_u2audio_device_none;
 				else
@@ -184,7 +184,7 @@ void u2audio_init(unsigned int u2_board_rev)
 			sub_mic_entry = create_proc_entry("sub_mic",
 				S_IRUGO, root_input);
 			if (NULL != sub_mic_entry) {
-				if (!sub_mic)
+				if (0 == sub_mic)
 					sub_mic_entry->read_proc =
 						proc_read_u2audio_device_none;
 				else

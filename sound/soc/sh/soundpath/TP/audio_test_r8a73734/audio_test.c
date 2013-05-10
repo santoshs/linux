@@ -259,7 +259,8 @@ static atomic_t g_audio_test_watch_start_vcd;
 /*!
   @brief	Power domain.
 */
-static struct device *g_audio_test_power_domain;
+static struct device *g_audio_test_power_domain
+			[AUDIO_TEST_POWER_DOMAIN_MAX];
 /*!
   @brief	Power domain count.
 */
@@ -607,6 +608,7 @@ error:
 static int audio_test_proc_stop_scuw_loopback(void)
 {
 	int ret = 0;
+	int i;
 
 	audio_test_log_efunc("");
 
@@ -638,9 +640,12 @@ static int audio_test_proc_stop_scuw_loopback(void)
 				AUDIO_TEST_DRV_STATE_OFF);
 
 	/* Disable the power domain */
-	ret = pm_runtime_put_sync(g_audio_test_power_domain);
-	if (0 != ret)
-		audio_test_log_err("pm_runtime_put_sync res[%d]\n", ret);
+	for (i = 0; i < g_audio_test_power_domain_count; i++) {
+		ret = pm_runtime_put_sync(g_audio_test_power_domain[i]);
+		if (0 != ret)
+			audio_test_log_err(
+				"pm_runtime_put_sync res[%d]\n", ret);
+	}
 
 	fsi_d2153_loopback_notify(FSI_D2153_LOOPBACK_STOP);
 
@@ -1137,6 +1142,7 @@ static int audio_test_loopback_setup(void)
 {
 	int ret = 0;
 	int res = 0;
+	int i;
 	struct snd_pcm_hw_params params;
 
 	audio_test_log_efunc("");
@@ -1152,11 +1158,14 @@ static int audio_test_loopback_setup(void)
 	}
 
 	/* Enable the power domain */
-	res = pm_runtime_get_sync(g_audio_test_power_domain);
-	if (!(0 == res || 1 == res)) {  /* 0:success 1:active */
-		audio_test_log_err("pm_runtime_get_sync res[%d]\n", res);
-		ret = -1;
-		goto error;
+	for (i = 0; i < g_audio_test_power_domain_count; i++) {
+		res = pm_runtime_get_sync(g_audio_test_power_domain[i]);
+		if (!(0 == res || 1 == res)) {  /* 0:success 1:active */
+			audio_test_log_err(
+				"pm_runtime_get_sync res[%d]\n", res);
+			ret = -1;
+			goto error;
+		}
 	}
 
 	/***********************************/
@@ -1216,6 +1225,7 @@ error:
 static void audio_test_loopback_remove(void)
 {
 	int res = 0;
+	int i;
 	struct snd_pcm_hw_params params;
 
 	audio_test_log_efunc("");
@@ -1230,9 +1240,12 @@ static void audio_test_loopback_remove(void)
 	atomic_set(&g_audio_test_watch_stop_clk, 0);
 
 	/* Disable the power domain */
-	res = pm_runtime_put_sync(g_audio_test_power_domain);
-	if (0 != res)
-		audio_test_log_err("pm_runtime_put_sync res[%d]\n", res);
+	for (i = 0; i < g_audio_test_power_domain_count; i++) {
+		res = pm_runtime_put_sync(g_audio_test_power_domain[i]);
+		if (0 != res)
+			audio_test_log_err(
+				"pm_runtime_put_sync res[%d]\n", res);
+	}
 
 	params.intervals[SNDRV_PCM_HW_PARAM_RATE
 		- SNDRV_PCM_HW_PARAM_FIRST_INTERVAL].min = 48000;
@@ -1519,7 +1532,7 @@ static void audio_test_common_set_register(enum audio_test_hw_val drv,
 			/* Modify                          */
 			/***********************************/
 			/* CLKGEN */
-			if (AUDIO_TEST_HW_FSI == drv)
+			if (AUDIO_TEST_HW_CLKGEN == drv)
 				sh_modify_register32(
 					(g_audio_test_clkgen_Base +
 						reg_tbl[i].uiReg),
@@ -1918,6 +1931,7 @@ done:
 static int __init audio_test_init(void)
 {
 	int ret = 0;
+	int i;
 	struct audio_test_priv *dev_conf = NULL;
 
 	audio_test_log_efunc("");
@@ -1960,7 +1974,7 @@ static int __init audio_test_init(void)
 
 	/* Power domain setting */
 	ret = power_domain_devices("snd-soc-audio-test",
-				    &g_audio_test_power_domain,
+				    g_audio_test_power_domain,
 				    &g_audio_test_power_domain_count);
 	if (0 != ret) {
 		audio_test_log_err("Power domain setting ret[%d]\n", ret);
@@ -1968,11 +1982,14 @@ static int __init audio_test_init(void)
 	}
 
 	/* RuntimePM */
-	pm_runtime_enable(g_audio_test_power_domain);
-	ret = pm_runtime_resume(g_audio_test_power_domain);
-	if (ret < 0) {
-		audio_test_log_err("pm_runtime_resume ret[%d]\n", ret);
-		goto error;
+	for (i = 0; i < g_audio_test_power_domain_count; i++) {
+		pm_runtime_enable(g_audio_test_power_domain[i]);
+		ret = pm_runtime_resume(g_audio_test_power_domain[i]);
+		if (ret < 0) {
+			audio_test_log_err(
+				"pm_runtime_get_sync[%d].\n", ret);
+			goto error;
+		}
 	}
 
 	/***********************************/
@@ -2000,9 +2017,9 @@ destroy_wakelock:
 	/* Add not to be suspend in loopback */
 	wake_lock_destroy(&g_audio_test_wake_lock);
 error:
-	if (g_audio_test_power_domain) {
-		pm_runtime_disable(g_audio_test_power_domain);
-		g_audio_test_power_domain = NULL;
+	for (i = 0; i < g_audio_test_power_domain_count; i++) {
+		pm_runtime_disable(g_audio_test_power_domain[i]);
+		g_audio_test_power_domain[i] = NULL;
 	}
 
 	if (audio_test_conf->log_entry)
@@ -2032,6 +2049,7 @@ rtn:
 */
 static void __exit audio_test_exit(void)
 {
+	int i;
 	audio_test_log_efunc("");
 
 	misc_deregister(&audio_test_misc_dev);
@@ -2059,9 +2077,9 @@ static void __exit audio_test_exit(void)
 	kfree(audio_test_conf);
 	audio_test_conf = NULL;
 
-	if (g_audio_test_power_domain) {
-		pm_runtime_disable(g_audio_test_power_domain);
-		g_audio_test_power_domain = NULL;
+	for (i = 0; i < g_audio_test_power_domain_count; i++) {
+		pm_runtime_disable(g_audio_test_power_domain[i]);
+		g_audio_test_power_domain[i] = NULL;
 	}
 
 	audio_test_log_rfunc("");

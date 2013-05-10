@@ -104,6 +104,11 @@ static ssize_t GNSS_EN_value_store(struct device *dev,
         if (ret < 0)
                 return ret;
 
+        if(value != 0)
+	  gpio_pull_up_port(GPIO_PORT78);
+        else
+	  gpio_pull_off_port(GPIO_PORT78);
+
         printk(KERN_ALERT "%s: %ld\n", __func__, value);
 
         gpio_set_value(GPIO_PORT11, value);
@@ -153,7 +158,7 @@ void gps_gpio_init(void)
 	gpio_pull_up_port(GPIO_PORT79);
 
 	gpio_request(GPIO_FN_SCIFB1_TXD, NULL);
-	gpio_pull_up_port(GPIO_PORT78);
+	gpio_pull_off_port(GPIO_PORT78);
 
 	gpio_request(GPIO_FN_SCIFB1_CTS, NULL);
 	gpio_pull_off_port(GPIO_PORT77);
