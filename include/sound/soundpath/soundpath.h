@@ -81,7 +81,8 @@ struct sndp_work_info {
 	struct list_head		link;
 	void				(*func)(struct sndp_work_info *work);
 	int				status;
-	atomic_long_t data;
+	atomic_long_t			data;
+	struct sndp_work_info		*del_work;
 };
 
 #ifdef __SOUNDPATHLOGICAL_NO_EXTERN__
@@ -173,7 +174,9 @@ SOUNDPATH_NO_EXTERN int sndp_pt_device_change(u_int dev, u_int onoff);
 
 /* queue work initialize function */
 SOUNDPATH_NO_EXTERN void sndp_work_initialize(
-	struct sndp_work_info *work, void (*func)(struct sndp_work_info *));
+					struct sndp_work_info *work,
+					void (*func)(struct sndp_work_info *),
+					struct sndp_work_info *del_work);
 /* destroy workqueue function */
 SOUNDPATH_NO_EXTERN void sndp_workqueue_destroy(struct sndp_workqueue *wq);
 /* create workqueue function */

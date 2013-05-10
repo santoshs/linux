@@ -177,11 +177,7 @@ static struct platform_device fsi_b_device = {
 };
 
 static struct fsi_d2153_platform_data audio_pdata = {
-	.gpio_spkr_en		= -1,
-	.gpio_hp_det		= GPIO_PORT24,
-	.gpio_hp_mute		= -1,
-	.gpio_int_mic_en	= -1,
-	.gpio_ext_mic_en	= -1,
+	.hp_spk_path_en		= false,
 	.private_data		= NULL,
 };
 
