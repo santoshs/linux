@@ -22,6 +22,9 @@
 #include <linux/tick.h>
 #include <linux/ktime.h>
 #include <linux/sched.h>
+#ifdef CONFIG_ARCH_R8A7373
+#include <mach/pm.h>
+#endif /* CONFIG_ARCH_R8A7373 */
 
 /*
  * dbs is used in this file as a shortform for demandbased switching
@@ -539,6 +542,10 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	struct cpufreq_policy *policy;
 	unsigned int j;
+#ifdef CONFIG_ARCH_R8A7373
+	unsigned int max_load;
+	unsigned int loads[PMDBG_MAX_CPUS];
+#endif /* CONFIG_ARCH_R8A7373 */
 
 	this_dbs_info->freq_lo = 0;
 	policy = this_dbs_info->cur_policy;
@@ -554,6 +561,14 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	 * Frequency reduction happens at minimum steps of
 	 * 5% (default) of current frequency
 	 */
+
+#ifdef CONFIG_ARCH_R8A7373
+	if (pmdbg_get_enable_cpu_profile()) {
+		for (j = 0; j < PMDBG_MAX_CPUS; j++)
+			loads[j] = 0;
+		max_load = 0;
+	}
+#endif /* CONFIG_ARCH_R8A7373 */
 
 	/* Get Absolute Load - in terms of freq */
 	max_load_freq = 0;
@@ -619,9 +634,30 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			freq_avg = policy->cur;
 
 		load_freq = load * freq_avg;
+#ifdef CONFIG_ARCH_R8A7373
+		if (pmdbg_get_enable_cpu_profile()) {
+			if (load_freq > max_load_freq) {
+				max_load_freq = load_freq;
+				max_load = load;
+			}
+			loads[j] = load;
+		} else {
+			if (load_freq > max_load_freq)
+				max_load_freq = load_freq;
+		}
+#else
 		if (load_freq > max_load_freq)
 			max_load_freq = load_freq;
+#endif /* CONFIG_ARCH_R8A7373 */
 	}
+
+#ifdef CONFIG_ARCH_R8A7373
+	if (pmdbg_get_enable_cpu_profile()) {
+		pmdbg_mon(this_dbs_info->cpu, max_load,
+			loads[0], loads[1],
+			policy->cur, max_load_freq);
+	}
+#endif /* CONFIG_ARCH_R8A7373 */
 
 	/* Check for frequency increase */
 	if (max_load_freq > dbs_tuners_ins.up_threshold * policy->cur) {

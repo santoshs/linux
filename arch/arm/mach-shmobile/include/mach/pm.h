@@ -526,4 +526,13 @@ static inline void pm_release_spinlock(unsigned long flag) { }
 #define SYSFS_HOTPLUG_ID	(1 << 12)
 #endif /*CONFIG_HOTPLUG_CPU_MGR && CONFIG_ARCH_R8A7373*/
 
+#ifdef CONFIG_ARCH_R8A7373
+/* Common functions of the PM debug */
+#define PMDBG_MAX_CPUS		2
+extern void pmdbg_mon(int cpum, unsigned int max_load,
+		unsigned int load0, unsigned int load1,
+		unsigned int cur, unsigned int req);
+extern char pmdbg_get_enable_cpu_profile(void);
+#endif /* CONFIG_ARCH_R8A7373 */
+
 #endif /* __ASM_ARCH_PM_H */
