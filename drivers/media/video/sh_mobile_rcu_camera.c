@@ -2965,6 +2965,7 @@ void sh_mobile_rcu_flash(int led)
 		rear_flash_set(set_state, SH_RCU_LED_MODE_PRE);
 	return;
 }
+
 void sh_mobile_rcu_init_dumplog(void)
 {
 #ifdef SH_RCU_DUMP_LOG_ENABLE
@@ -3243,7 +3244,7 @@ static void sh_mobile_rcu_late_resume(struct early_suspend *h)
 		dev_err(pcdev->ici.v4l2_dev.dev,
 			"%s down_interruptible -ERESTARTSYS\n", __func__);
 	pcdev->rcu_early_suspend_state = false;
-	if (pcdev->rcu_early_suspend_state)
+	if (pcdev->rcu_add_device_state)
 		up(&pcdev->sem_rcu_late_resume);
 	up(&pcdev->sem_rcu_state);
 	return;
