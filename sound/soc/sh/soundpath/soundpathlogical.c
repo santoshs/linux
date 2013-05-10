@@ -86,7 +86,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_STAT_IN_CALL},
 	[SNDP_MODE_INIT][SNDP_MODE_INCOMM]  =	{SNDP_PROC_INCOMM_START,
 							SNDP_STAT_IN_COMM},
-	[SNDP_MODE_NORMAL][SNDP_MODE_NORMAL] =	{SNDP_PROC_NO,
+	[SNDP_MODE_NORMAL][SNDP_MODE_NORMAL] =	{SNDP_PROC_DEV_CHANGE,
 							SNDP_STAT_NOT_CHG},
 	[SNDP_MODE_NORMAL][SNDP_MODE_RING]   =	{SNDP_PROC_NO,
 							SNDP_STAT_RINGTONE},
@@ -96,7 +96,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_STAT_IN_COMM},
 	[SNDP_MODE_RING][SNDP_MODE_NORMAL]   =	{SNDP_PROC_NO,
 							SNDP_STAT_NORMAL},
-	[SNDP_MODE_RING][SNDP_MODE_RING]     =	{SNDP_PROC_NO,
+	[SNDP_MODE_RING][SNDP_MODE_RING]     =	{SNDP_PROC_DEV_CHANGE,
 							SNDP_STAT_NOT_CHG},
 	[SNDP_MODE_RING][SNDP_MODE_INCALL]   =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
@@ -1212,25 +1212,33 @@ int sndp_soc_put(
 			/* Change the device type */
 			if ((SNDP_GET_DEVICE_VAL(uiOldValue) !=
 					SNDP_GET_DEVICE_VAL(uiValue))) {
+				if ((SNDP_MODE_INCALL == uiMode) ||
+					(SNDP_MODE_INCOMM == uiMode) ||
+					(SNDP_GET_DEVICE_VAL(uiOldValue) &
+						SNDP_SPEAKER &
+						SNDP_GET_DEVICE_VAL(uiValue))) {
 
-				/* Wake Lock */
-				sndp_wake_lock(E_LOCK);
+					/* Wake Lock */
+					sndp_wake_lock(E_LOCK);
 
-				/*
-				 * Registered in the work queue for
-				 * voice call device change
-				 */
-				sndp_log_debug("uiValue %08x  old_value %08x\n",
+					/*
+					* Registered in the work queue for
+					* voice call device change
+					*/
+					sndp_log_debug(
+						"uiValue %08x  old_value %08x\n",
 						uiValue, uiOldValue);
 
-				g_sndp_work_voice_dev_chg.new_value =
-								uiValue;
+					g_sndp_work_voice_dev_chg.new_value =
+						uiValue;
 
-				g_sndp_work_voice_dev_chg.old_value =
-								uiOldValue;
+					g_sndp_work_voice_dev_chg.old_value =
+						uiOldValue;
 
-				sndp_workqueue_enqueue(g_sndp_queue_main,
+					sndp_workqueue_enqueue(
+						g_sndp_queue_main,
 						&g_sndp_work_voice_dev_chg);
+				}
 			}
 		}
 	}
@@ -2265,10 +2273,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		goto start_err;
 	}
 
-	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
-			     SNDP_GET_AUDIO_DEVICE(work->new_value),
-			     SNDP_EXTDEV_START);
-
 	/* start SCUW */
 	iRet = scuw_start(work->new_value, g_bluetooth_band_frequency);
 	if (ERROR_NONE != iRet) {
@@ -2299,6 +2303,13 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 		goto start_err;
 	}
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
+		SNDP_GET_AUDIO_DEVICE(work->new_value),
+		SNDP_EXTDEV_START);
 
 #ifndef __SNDP_INCALL_CLKGEN_MASTER
 	if (SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(work->new_value)) {
@@ -2586,6 +2597,9 @@ static int sndp_work_voice_dev_chg_bt_to_audioic(
 	else
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
 	/* start CLKGEN */
 	iRet = clkgen_start(new_value, 0, g_bluetooth_band_frequency);
 	if (ERROR_NONE != iRet)
@@ -2614,6 +2628,8 @@ static int sndp_work_voice_dev_chg_in_audioic(
 	const u_int new_value)
 {
 	sndp_log_debug_func("start\n");
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
 
 	sndp_log_debug_func("end\n");
 
@@ -2861,10 +2877,6 @@ static void sndp_work_incomm_start(const u_int new_value)
 		common_set_fsi2cr(SNDP_NO_DEVICE, STAT_OFF);
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
-	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
-			     SNDP_GET_AUDIO_DEVICE(new_value),
-			     SNDP_EXTDEV_START);
-
 	/* start SCUW */
 	ret = scuw_start(new_value, g_bluetooth_band_frequency);
 	if (ERROR_NONE != ret) {
@@ -2892,6 +2904,13 @@ static void sndp_work_incomm_start(const u_int new_value)
 		sndp_log_err("fsi start error(code=%d)\n", ret);
 		goto start_err;
 	}
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
+			     SNDP_GET_AUDIO_DEVICE(new_value),
+			     SNDP_EXTDEV_START);
 
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
 	wait_event_interruptible_timeout(
@@ -3556,10 +3575,6 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 		}
 	}
 
-	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
-			     SNDP_GET_AUDIO_DEVICE(work->new_value),
-			     SNDP_EXTDEV_START);
-
 	/* start SCUW */
 	iRet = scuw_start(work->new_value, g_bluetooth_band_frequency);
 	if (ERROR_NONE != iRet) {
@@ -3576,6 +3591,13 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 		goto start_err;
 	}
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
+		SNDP_GET_AUDIO_DEVICE(work->new_value),
+		SNDP_EXTDEV_START);
 
 	/* start CLKGEN */
 	iRet = clkgen_start(work->new_value,
@@ -3805,14 +3827,6 @@ static void sndp_work_start(const int direction)
 	sndp_log_info("dir[%d]\n", direction);
 
 	uiValue = GET_OLD_VALUE(direction);
-
-	/* Output device ON */
-	if (SNDP_PCM_OUT == direction)
-		fsi_d2153_set_dac_power(g_kcontrol, 1);
-	/* Input device ON */
-	if (SNDP_PCM_IN == direction)
-		fsi_d2153_set_adc_power(g_kcontrol, 1);
-
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
 
 	/* PM_RUNTIME */
@@ -3849,12 +3863,7 @@ static void sndp_work_start(const int direction)
 		}
 	}
 
-	if (SNDP_PT_NOT_STARTED == g_pt_start) {
-		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
-			sndp_extdev_set_state(SNDP_GET_MODE_VAL(uiValue),
-					SNDP_GET_AUDIO_DEVICE(uiValue),
-					SNDP_EXTDEV_START);
-	}
+	fsi_clk_start(g_sndp_main[direction].arg.fsi_substream);
 
 	/* FSI startup */
 	if (NULL != g_sndp_dai_func.fsi_startup) {
@@ -3912,6 +3921,20 @@ static void sndp_work_start(const int direction)
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 		return;
+	}
+
+	/* Output device ON */
+	if (SNDP_PCM_OUT == direction)
+		fsi_d2153_set_dac_power(g_kcontrol, 1);
+	/* Input device ON */
+	if (SNDP_PCM_IN == direction)
+		fsi_d2153_set_adc_power(g_kcontrol, 1);
+
+	if (SNDP_PT_NOT_STARTED == g_pt_start) {
+		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
+			sndp_extdev_set_state(SNDP_GET_MODE_VAL(uiValue),
+					SNDP_GET_AUDIO_DEVICE(uiValue),
+					SNDP_EXTDEV_START);
 	}
 
 	/* FSI Trigger start */
@@ -4007,6 +4030,8 @@ static void sndp_work_stop(
 			pm_runtime_put_sync(g_sndp_power_domain);
 		}
 	}
+
+	fsi_clk_stop(&(work->stop.fsi_substream));
 
 	/* Wake Unlock or Force Unlock */
 	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);

@@ -30,6 +30,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/fsi_d2153.h>
 #include <linux/d2153/d2153_codec.h>
+#include <linux/platform_data/fsi_d2153_pdata.h>
 
 #include <sound/sh_fsi.h>
 #include <sound/soundpath/soundpath.h>
@@ -73,6 +74,10 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 struct fsi_d2153_priv {
 	struct sndp_workqueue *fsi_d2153_workqueue;
 	struct sndp_work_info sync_work;
+	bool hp_spk_path_en;
+	bool spk_en;
+	bool hp_en;
+	bool ep_en;
 };
 
 static struct snd_soc_codec *fsi_d2153_codec;
@@ -83,6 +88,8 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 	const char *stream, int active)
 {
 	struct snd_soc_dapm_widget *w;
+	struct fsi_d2153_priv *priv =
+			snd_soc_card_get_drvdata(codec->card);
 
 	if (strstr(stream, D2153_PLAYBACK_STREAM_NAME))
 		w = playback_widget;
@@ -94,6 +101,29 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 		w->name, w->active);
 	snd_soc_dapm_sync(&codec->dapm);
 
+	/* Un-mute output device */
+	if (playback_widget == w) {
+		if (active) {
+			if (priv->spk_en) {
+				snd_soc_update_bits(codec, D2153_SP_CTRL,
+					D2153_SP_AMP_MUTE_EN, 0);
+				sndp_log_info("spk unmute\n");
+			}
+			if (priv->ep_en) {
+				snd_soc_update_bits(codec, D2153_EP_CTRL,
+					D2153_EP_AMP_MUTE_EN, 0);
+				sndp_log_info("ep unmute\n");
+			}
+			if (priv->hp_en) {
+				snd_soc_update_bits(codec, D2153_HP_L_CTRL,
+					D2153_HP_AMP_MUTE_EN, 0);
+				snd_soc_update_bits(codec, D2153_HP_R_CTRL,
+					D2153_HP_AMP_MUTE_EN, 0);
+				sndp_log_info("hp unmute\n");
+			}
+			msleep(20);
+		}
+	}
 }
 
 void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
@@ -471,12 +501,13 @@ static int fsi_d2153_sndp_spk_event(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct fsi_d2153_priv *priv =
+			snd_soc_card_get_drvdata(codec->card);
 
-	if (event & SND_SOC_DAPM_POST_PMU) {
-		snd_soc_update_bits(codec, D2153_SP_CTRL,
-			D2153_SP_AMP_MUTE_EN, 0);
-		sndp_log_info("spk unmute\n");
-	} else if (event & SND_SOC_DAPM_PRE_PMD) {
+	if (event & SND_SOC_DAPM_POST_PMU)
+		priv->spk_en = true;
+	else if (event & SND_SOC_DAPM_PRE_PMD) {
+		priv->spk_en = false;
 		snd_soc_update_bits(codec, D2153_SP_CTRL,
 			D2153_SP_AMP_MUTE_EN, D2153_SP_AMP_MUTE_EN);
 		msleep(50);
@@ -491,20 +522,19 @@ static int fsi_d2153_sndp_hp_event(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct fsi_d2153_priv *priv =
+			snd_soc_card_get_drvdata(codec->card);
 
-	if (event & SND_SOC_DAPM_POST_PMU) {
-		snd_soc_update_bits(codec, D2153_HP_L_CTRL,
-			D2153_HP_AMP_MUTE_EN, 0);
-		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
-			D2153_HP_AMP_MUTE_EN, 0);
-		sndp_log_info("hp unmute\n");
-	} else if (event & SND_SOC_DAPM_PRE_PMD) {
+	if (event & SND_SOC_DAPM_POST_PMU)
+		priv->hp_en = true;
+	else if (event & SND_SOC_DAPM_PRE_PMD) {
+		priv->hp_en = false;
 		snd_soc_update_bits(codec, D2153_HP_L_CTRL,
 			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
 		snd_soc_update_bits(codec, D2153_HP_R_CTRL,
 			D2153_HP_AMP_MUTE_EN, D2153_HP_AMP_MUTE_EN);
 		if (snd_soc_dapm_get_pin_status(&codec->dapm,
-			"Headphone Enable"))
+			"Headphone Enable") || priv->hp_spk_path_en)
 			msleep(25);
 		sndp_log_info("hp mute\n");
 	} else {
@@ -517,12 +547,13 @@ static int fsi_d2153_sndp_ep_event(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct fsi_d2153_priv *priv =
+			snd_soc_card_get_drvdata(codec->card);
 
-	if (event & SND_SOC_DAPM_POST_PMU) {
-		snd_soc_update_bits(codec, D2153_EP_CTRL,
-			D2153_EP_AMP_MUTE_EN, 0);
-		sndp_log_info("ep unmute\n");
-	} else if (event & SND_SOC_DAPM_PRE_PMD) {
+	if (event & SND_SOC_DAPM_POST_PMU)
+		priv->ep_en = true;
+	else if (event & SND_SOC_DAPM_PRE_PMD) {
+		priv->ep_en = false;
 		snd_soc_update_bits(codec, D2153_EP_CTRL,
 			D2153_EP_AMP_MUTE_EN, D2153_EP_AMP_MUTE_EN);
 		msleep(50);
@@ -780,8 +811,15 @@ static __devinit int fsi_d2153_driver_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &fsi_soc_card;
 	struct fsi_d2153_priv *priv = NULL;
+	struct fsi_d2153_platform_data *pdata;
 	int ret = -ENOMEM;
 	unsigned int mclk;
+
+	pdata = pdev->dev.platform_data;
+	if (!pdata) {
+		sndp_log_err("No platform data supplied\n");
+		return -EINVAL;
+	}
 
 	priv = kzalloc(sizeof(struct fsi_d2153_priv), GFP_KERNEL);
 	if (!priv) {
@@ -798,6 +836,11 @@ static __devinit int fsi_d2153_driver_probe(struct platform_device *pdev)
 		goto err_create_singlethread_workqueue;
 	}
 	sndp_work_initialize(&priv->sync_work, fsi_d2153_sync_work_func, NULL);
+
+	priv->hp_spk_path_en = pdata->hp_spk_path_en;
+	priv->spk_en = false;
+	priv->ep_en = false;
+	priv->hp_en = false;
 
 	vclk4_clk = clk_get(NULL, "vclk4_clk");
 	if (IS_ERR(vclk4_clk)) {
