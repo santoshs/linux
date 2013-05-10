@@ -23,7 +23,11 @@
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #include <linux/d2153/d2153_codec.h>
-#endif
+#include <linux/d2153/audio.h>
+#ifdef CONFIG_SND_SOC_D2153_AAD
+#include <linux/d2153/d2153_aad.h>
+#endif	/* CONFIG_SND_SOC_D2153_AAD */
+#endif	/* CONFIG_MFD_D2153 */
 #include <mach/board.h>
 
 /* Proc root entries */
@@ -81,6 +85,73 @@ void u2audio_codec_micbias_level_init(void)
 }
 #endif	/* D2153_DEFAULT_SET_MICBIAS */
 
+#ifdef CONFIG_SND_SOC_D2153_AAD
+void u2audio_codec_aad_init(unsigned int u2_board_rev)
+{
+	int res;
+	int debounce_ms;
+
+#if defined(CONFIG_MACH_LOGANLTE)
+	if (RLTE_BOARD_REV_0_1 < u2_board_rev) {
+		d2153_pdata.audio.aad_codec_detect_enable = true;
+		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
+	} else {
+		d2153_pdata.audio.aad_codec_detect_enable = false;
+		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+	}
+#elif defined(CONFIG_MACH_LT02LTE)
+	if (RLTE_BOARD_REV_0_1 < u2_board_rev) {
+		d2153_pdata.audio.aad_codec_detect_enable = true;
+		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
+	} else {
+		d2153_pdata.audio.aad_codec_detect_enable = false;
+		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+	}
+#else
+	return;	/* not supported */
+#endif
+
+	d2153_pdata.audio.aad_jack_debounce_ms = debounce_ms;
+	d2153_pdata.audio.aad_jackout_debounce_ms =
+						D2153_AAD_JACKOUT_DEBOUNCE_MS;
+	d2153_pdata.audio.aad_button_debounce_ms =
+						D2153_AAD_BUTTON_DEBOUNCE_MS;
+	d2153_pdata.audio.aad_gpio_detect_enable = true;
+	d2153_pdata.audio.aad_gpio_port = GPIO_PORT7;
+
+	/* GPIO Interrupt for G-DET */
+	res = gpio_request(d2153_pdata.audio.aad_gpio_port,
+			(d2153_pdata.audio.aad_codec_detect_enable ?
+				"GPIO detect" : "Jack detect"));
+	if (res < 0)
+		printk(KERN_ERR "%s: gpio request failed[%d]\n",
+				__func__, res);
+
+	res = gpio_direction_input(d2153_pdata.audio.aad_gpio_port);
+	if (res < 0)
+		printk(KERN_ERR "%s: gpio direction input failed[%d]\n",
+				__func__, res);
+
+	if (d2153_pdata.audio.aad_codec_detect_enable) {
+		gpio_pull_off_port(d2153_pdata.audio.aad_gpio_port);
+		res = gpio_set_debounce(d2153_pdata.audio.aad_gpio_port,
+					D2153_GPIO_DEBOUNCE_TIME_LONG);
+		if (res < 0)
+			printk(KERN_ERR "%s: gpio set debounce failed[%d]\n",
+					__func__, res);
+	} else {
+		gpio_pull_up_port(d2153_pdata.audio.aad_gpio_port);
+		res = gpio_set_debounce(d2153_pdata.audio.aad_gpio_port,
+					D2153_GPIO_DEBOUNCE_TIME_SHORT);
+		if (res < 0)
+			printk(KERN_ERR "%s: gpio set debounce failed[%d]\n",
+					__func__, res);
+	}
+}
+#endif	/* CONFIG_SND_SOC_D2153_AAD */
+
 void u2audio_init(unsigned int u2_board_rev)
 {
 #if defined(CONFIG_MACH_LOGANLTE)
@@ -134,6 +205,10 @@ void u2audio_init(unsigned int u2_board_rev)
 #ifndef D2153_DEFAULT_SET_MICBIAS
 	u2audio_codec_micbias_level_init();
 #endif	/* D2153_DEFAULT_SET_MICBIAS */
+
+#ifdef CONFIG_SND_SOC_D2153_AAD
+	u2audio_codec_aad_init(u2_board_rev);
+#endif	/* CONFIG_SND_SOC_D2153_AAD */
 
 	return;
 }

@@ -2205,6 +2205,7 @@ int d2153_aad_enable(struct snd_soc_codec *codec)
 		snd_soc_codec_get_drvdata(codec);
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
+	int aad_codec_detect_enable = d2153_aad->codec_detect_enable;
 
 	d2153_aad_write(client,D2153_ACCDET_UNLOCK_AO,0x4a);
 	
@@ -2234,13 +2235,13 @@ int d2153_aad_enable(struct snd_soc_codec *codec)
 	snd_soc_write(codec, D2153_MICBIAS1_CTRL, D2153_MICBIAS_LEVEL_2_6V);
 #endif	/* D2153_DEFAULT_SET_MICBIAS */
 
-#ifdef D2153_JACK_DETECT	
-	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
-#else	
-	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
-#endif	
+	if (aad_codec_detect_enable)
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x08);
+	else
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x80);
+
 	d2153_aad->button.status = D2153_BUTTON_PRESS; //ignore the fist interrupt	
-	
+
 	return 0;
 }
 
@@ -2250,6 +2251,7 @@ int d2153_aad_resume(struct snd_soc_codec *codec)
 		snd_soc_codec_get_drvdata(codec);
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
+	int aad_codec_detect_enable = d2153_aad->codec_detect_enable;
 
 	d2153_aad_write(client,D2153_ACCDET_UNLOCK_AO,0x4a);
 	
@@ -2268,12 +2270,12 @@ int d2153_aad_resume(struct snd_soc_codec *codec)
 
 	d2153_aad->first_check_done = 0;
 
-#ifdef D2153_JACK_DETECT	
-	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
-#else	
-	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
-#endif	
-	
+	if (aad_codec_detect_enable)
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x08);
+	else
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x80);
+
+	d2153_aad->switch_data.state = D2153_NO_JACK;
 	d2153_aad->button.status = D2153_BUTTON_PRESS; //ignore the fist interrupt	
 	
 	return 0;
@@ -2726,7 +2728,7 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 				   sizeof(struct d2153_codec_priv), GFP_KERNEL);
 	if (!d2153_codec)
 		return -ENOMEM;
-		
+
 #ifdef CONFIG_SND_SOC_D2153_AAD
 	d2153_codec->d2153_pmic = client->dev.platform_data;
 #endif /* CONFIG_SND_SOC_D2153_AAD */
