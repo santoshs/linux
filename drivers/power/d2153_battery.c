@@ -70,7 +70,7 @@ static const char __initdata d2153_battery_banner[] = \
 #endif
 #define FULL_CAPACITY						1000
 
-#define FIRST_VOLTAGE_DROP_ADC				215   /* About 102mV */
+#define FIRST_VOLTAGE_DROP_ADC				175   /* About 102mV */
 #define NORM_NUM                			10000
 #define MAX_WEIGHT							10000
 #define MAX_DIS_OFFSET_FOR_WEIGHT2			300
@@ -1290,35 +1290,14 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 										pbat->pd2153->vbat_init_adc[2]) / 3;
 
 			if(pbat_data->is_charging) {
-				int Y;
-				union power_supply_propval is_cv_charging;	
-
-				ps->get_property(ps, POWER_SUPPLY_PROP_CHARGE_STATUS, &is_cv_charging);
-				is_cv_charging.intval= (is_cv_charging.intval & 0x4);
-
-				if(is_cv_charging.intval) {
-					X0 = CV_START_ADC; X1 = ADC_VAL_100_PERCENT;
-					Y0 = 10;	Y1 = 100;
-					X = pbat->pd2153->average_vbat_init_adc;
-
-					if((X > ADC_VAL_100_PERCENT)
-						|| (X > (new_vol_orign + (Y0 * 2)))) {
-						X = new_vol_orign;
-						pr_info("[L%d] %s. Changed X = %d\n", __LINE__, __func__, X);
-					}
-					
-					Y = Y0 + ((X - X0) * (Y1 - Y0)) / (X1 - X0);
-					new_vol_adc = X - (Y1 - Y);
-					pr_info("[L%d] %s. X = %d, Y = %d, new_vol_adc = %d\n", __LINE__, __func__, X, Y, new_vol_adc);
-				} else {
-					pr_info("[L%d] %s new_vol_adc is %4d \n", __LINE__, __func__, new_vol_adc);
+				pr_info("[L%d] %s cc charging. new_vol_adc is %4d\n",
+					__LINE__, __func__, new_vol_adc);
 					offset = initialize_charge_up_cc[charging_index];
 					new_vol_adc = pbat->pd2153->average_vbat_init_adc - offset;
-				}
-				
 			} else {
 				new_vol_adc = pbat->pd2153->average_vbat_init_adc;
-				pr_info("[L%d] %s discharging new_vol_adc = %d	\n", __LINE__, __func__, new_vol_adc);
+				pr_info("[L%d] %s discharging new_vol_adc = %d\n",
+					__LINE__, __func__, new_vol_adc);
 				
 				Y0 = FIRST_VOLTAGE_DROP_ADC;
 				if(C2K(pbat_data->average_temperature) <= BAT_LOW_LOW_TEMPERATURE) {
@@ -1663,7 +1642,7 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
 
 void d2153_battery_start(void)
 {
-	schedule_delayed_work(&gbat->monitor_volt_work, 0);
+	schedule_delayed_work(&gbat->monitor_volt_work, (3 * HZ));
 }
 EXPORT_SYMBOL_GPL(d2153_battery_start);
 
