@@ -1698,11 +1698,8 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	u32 freq_ref;
 	u64 frac_div;
 
-	dlg_info("%s() fout = %d  \n",__FUNCTION__,fout);
+	dlg_info("%s() fout = %d\n", __func__, fout);
 	
-	/* Disable PLL before setting the divisors */
-	snd_soc_update_bits(codec, D2153_PLL_CTRL, D2153_PLL_EN, 0);
-
 	pll_ctrl = 0;
 	
 	/* Workout input divider based on MCLK rate */
@@ -1736,18 +1733,27 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	
 	pll_ctrl |= indiv_bits;
 
+	/* If SRM enabled, freq_out is (98304000 + 90316800)/2 = 94310400 */
+	if (d2153_codec->srm_en) {
+		fout = D2153_PLL_FREQ_OUT_94310400;
+		pll_ctrl |= D2153_PLL_SRM_EN;
+	}
+
+	/* Are we changing anything? */
+	if (d2153_codec->source == source &&
+	    d2153_codec->freq_ref == freq_ref &&
+		d2153_codec->fout == fout)
+		return 0;
+
+	/* Disable PLL before setting the divisors */
+	snd_soc_update_bits(codec, D2153_PLL_CTRL, D2153_PLL_EN, 0);
+
 	/* PLL Bypass mode */
 	if (source == D2153_SYSCLK_MCLK) {
 		snd_soc_write(codec, D2153_PLL_CTRL, pll_ctrl);
 		return 0;
 	}
 
-	/* If SRM enabled, freq_out is (98304000 + 90316800)/2 = 94310400 */
-	if (d2153_codec->srm_en) {
-		fout = D2153_PLL_FREQ_OUT_94310400;
-		pll_ctrl |= D2153_PLL_SRM_EN;
-	}
-	
 	/* Calculate dividers for PLL */
 	pll_integer = fout / freq_ref;
 	frac_div = (u64)(fout % freq_ref) * 8192ULL;
@@ -1762,6 +1768,10 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	snd_soc_write(codec, 0x52, 0x03);
 	snd_soc_update_bits(codec, D2153_PC_COUNT, 0x02, 0x02);
 	
+	d2153_codec->source = source;
+	d2153_codec->freq_ref = freq_ref;
+	d2153_codec->fout = fout;
+
 	/* Enable PLL */
 	pll_ctrl |= D2153_PLL_EN;
 	snd_soc_write(codec, D2153_PLL_CTRL, pll_ctrl);
