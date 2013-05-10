@@ -67,7 +67,7 @@ static struct gpio_keys_button gpio_buttons[] = {
 #if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
 	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 1),
 #endif
-	GPIO_KEY(KEY_HOME,       GPIO_PORT18, "Home",  1),
+	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT18, "Home",  1),
 	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     0),
 	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     0),
 };
