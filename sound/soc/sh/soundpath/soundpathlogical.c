@@ -2307,6 +2307,9 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
 
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
 		SNDP_GET_AUDIO_DEVICE(work->new_value),
 		SNDP_EXTDEV_START);
@@ -2507,6 +2510,9 @@ static int sndp_work_voice_dev_chg_audioic_to_bt(
 
 	sndp_log_debug_func("start\n");
 
+	/* Input device OFF */
+	fsi_d2153_set_adc_power(g_kcontrol, 0);
+
 	/* stop SCUW */
 	scuw_stop();
 
@@ -2599,6 +2605,9 @@ static int sndp_work_voice_dev_chg_bt_to_audioic(
 
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
 
 	/* start CLKGEN */
 	iRet = clkgen_start(new_value, 0, g_bluetooth_band_frequency);
@@ -2907,6 +2916,9 @@ static void sndp_work_incomm_start(const u_int new_value)
 
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
 
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
 			     SNDP_GET_AUDIO_DEVICE(new_value),

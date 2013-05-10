@@ -95,6 +95,18 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 		w = playback_widget;
 	else
 		w = capture_widget;
+
+	if (capture_widget == w) {
+		if (!active) {
+			sndp_log_info("adc mute\n");
+			snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
+				D2153_ADC_MUTE_EN, D2153_ADC_MUTE_EN);
+			snd_soc_update_bits(codec, D2153_ADC_R_CTRL,
+				D2153_ADC_MUTE_EN, D2153_ADC_MUTE_EN);
+		}
+		msleep(20);
+	}
+
 	dapm_mark_dirty(w, "fsi_d2153_set_active");
 	w->active = active;
 	printk(KERN_INFO "w->name[%s] w->active[%d]\n",
@@ -123,6 +135,15 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 			}
 			msleep(20);
 		}
+	} else {
+		if (active) {
+			sndp_log_info("adc unmute\n");
+			snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
+				D2153_ADC_MUTE_EN, 0);
+			snd_soc_update_bits(codec, D2153_ADC_R_CTRL,
+				D2153_ADC_MUTE_EN, 0);
+		}
+		msleep(20);
 	}
 }
 
