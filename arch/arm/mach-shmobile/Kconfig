@@ -296,6 +296,24 @@ config SH_FRQ_STEP
 	depends on SHMOBILE_CPUFREQ
 	help
 	  Frequency Step.
+
+config SH_SAMPLING_DOWN_FACTOR
+	int "Sampling Down Factor"
+	range 1 20
+	default "20"
+	depends on SHMOBILE_CPUFREQ
+	help
+	  Multiplier of transition latency.
+
+config SH_ENABLE_DYNAMIC_DOWN_DIFF
+	bool "SH-Mobile Support Dynamic down_differential"
+	depends on SHMOBILE_CPUFREQ
+	default n
+	help
+	  This enables move down_differential parameter.
+	  y : down_differential will decrease on each "CPU Frequency sampling" work.
+	  n : down_differential is fixed value.
+
 endmenu
 
 config PDC
