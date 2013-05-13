@@ -35,7 +35,7 @@ DECLARE_MOD(idle);
 DECLARE_MOD(suspend);
 DECLARE_MOD(mem);
 DECLARE_MOD(dbgpin);
-
+DECLARE_MOD(cpu);
 
 struct pmdbg_mod *pmdbg_mod_list[] = {
 	&MOD_OBJ(hw),
@@ -47,6 +47,7 @@ struct pmdbg_mod *pmdbg_mod_list[] = {
 	&MOD_OBJ(suspend),
 	&MOD_OBJ(mem),
 	&MOD_OBJ(dbgpin),
+	&MOD_OBJ(cpu),
 };
 
 static int __init init_pmdbg(void);
