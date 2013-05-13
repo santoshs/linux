@@ -1265,16 +1265,8 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	host->pdata = pdata;
  	host->reg = reg;
 
-#if defined(CONFIG_MFD_D2153)
-	/*This call only used for updating the usage count of regulator,
-		as it is already turned on from bootloader.*/
-	if (pdata->set_pwr)
-		pdata->set_pwr(host->pdev, 1);
-#endif
 	/* powr off */
 	host->power_mode = MMC_POWER_OFF;
-	if (pdata->set_pwr)
-		pdata->set_pwr(host->pdev, 0);
 
 	if (!pdata->dma_en_val)
 		pdata->dma_en_val = SDHI_DMA_EN;
@@ -1490,7 +1482,7 @@ int renesas_sdhi_suspend(struct device *dev)
 	sdhi_save_register(host);
 	if (!host->dynamic_clock) {
 		clk_disable(host->clk);
-		
+
 	}
 	ret = pm_runtime_put_sync(dev);
 	if (0 > ret)
@@ -1515,6 +1507,8 @@ int renesas_sdhi_resume(struct device *dev)
 	u32 val;
 	u32 ret = 0;
 
+	wakeup_from_suspend_sd = 1;
+
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		if (host->pdata != NULL)
 			gpio_set_portncr_value(host->pdata->port_cnt,
@@ -1537,7 +1531,6 @@ int renesas_sdhi_resume(struct device *dev)
 				pdata->set_pwr(host->pdev, 0);
 		}
 	}
-	wakeup_from_suspend_sd = 1;
 	return ret;
 }
 #else
