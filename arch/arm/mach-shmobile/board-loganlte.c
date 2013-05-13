@@ -215,53 +215,6 @@ static int proc_read_board_rev(char *page, char **start, off_t off,
 	return count;
 }
 
-#if defined(CONFIG_MFD_D2153)
-#if 0
-static struct regulator *emmc_regulator;
-void d2153_mmcif_pwr_control(int onoff)
-{
-	int ret;
-
-	printk(KERN_EMERG "%s %s\n", __func__, (onoff) ? "on" : "off");
-
-	if (emmc_regulator == NULL) {
-		printk(KERN_ALERT " %s,%d\n", __func__, __LINE__);
-		emmc_regulator = regulator_get(NULL, "vmmc");
-		if (IS_ERR(emmc_regulator)) {
-			printk(KERN_ALERT "can not get vmmc regulator\n");
-			return;
-		}
-	}
-
-	if (onoff == 1) {
-		printk(KERN_ALERT " %s,%d vmmc On\n", __func__, __LINE__);
-		printk(KERN_ALERT " %s,%d\n", __func__, __LINE__);
-		ret = regulator_enable(emmc_regulator);
-		printk(KERN_ALERT "regulator_enable ret = %d\n", ret);
-	} else {
-		printk(KERN_ALERT "%s,%d vmmc Off\n", __func__, __LINE__);
-		ret = regulator_disable(emmc_regulator);
-		printk(KERN_ALERT "regulator_disable ret = %d\n", ret);
-	}
-}
-#endif
-#endif
-#if 0
-void mmcif_set_pwr(struct platform_device *pdev, int state)
-{
-#if defined(CONFIG_MFD_D2153)
-	d2153_mmcif_pwr_control(1);
-#endif /* CONFIG_MFD_D2153 */
-}
-
-void mmcif_down_pwr(struct platform_device *pdev)
-{
-#if defined(CONFIG_MFD_D2153)
-	d2153_mmcif_pwr_control(0);
-#endif /* CONFIG_MFD_D2153 */
-}
-#endif
-
 static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
 	.gpio_port = GPIO_PORT47,
 };
@@ -434,39 +387,13 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
 
-#if 0
-static struct map_desc loganlte_io_desc[] __initdata = {
-	{
-		.virtual	= 0xe6000000,
-		.pfn		= __phys_to_pfn(0xe6000000),
-		.length		= SZ_256M,
-		.type		= MT_DEVICE
-	},
-	{
-		/*
-		 * Create 4 MiB of virtual address hole within a big 1:1 map
-		 * requested above, which is dedicated for the RT-CPU driver.
-		 *
-		 * According to the hardware manuals, physical 0xefc00000
-		 * space is reserved for Router and a data abort error will
-		 * be generated if access is made there.  So this partial
-		 * mapping change won't be a problem.
-		 */
-		.virtual        = 0xefc00000,
-		.pfn            = __phys_to_pfn(0xffc00000),
-		.length         = SZ_4M,
-		.type           = MT_DEVICE
-	},
-};
-#endif
-
-void loganlte_restart(char mode, const char *cmd)
+void board_restart(char mode, const char *cmd)
 {
 	printk(KERN_INFO "%s\n", __func__);
 	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
 
-static void __init loganlte_init(void)
+static void __init board_init(void)
 {
   int stm_select = -1; // Shall tell how to route STM traces. See setup-u2stm.c for details.
 	void __iomem *sbsc_sdmra_28200 = 0;
@@ -525,7 +452,7 @@ static void __init loganlte_init(void)
 		*GPIO_DRVCR_SIM1 = 0x0022;
 		*GPIO_DRVCR_SIM2 = 0x0022;
 	}
-	shmobile_arch_reset = loganlte_restart;
+	shmobile_arch_reset = board_restart;
 
 	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 	if (u2_board_rev == RLTE_BOARD_REV_0_0) {
@@ -791,7 +718,7 @@ struct sys_timer loganlte_timer = {
 	.init	= loganlte_timer_init,
 };
 
-static void __init loganlte_reserve(void)
+static void __init board_reserve(void)
 {
 	u2evm_ion_adjust();
 
@@ -801,13 +728,13 @@ static void __init loganlte_reserve(void)
 }
 
 MACHINE_START(U2EVM, "u2evm")
-	.map_io			= r8a7373_map_io,/*loganlte_map_io,*/
-	.init_irq		= r8a7373_init_irq,/*loganlte_init_irq,*/
-	.init_early             = r8a7373_init_early,
-	.nr_irqs                = NR_IRQS_LEGACY,
+	.map_io			= r8a7373_map_io,
+	.init_irq		= r8a7373_init_irq,
+	.init_early		= r8a7373_init_early,
+	.nr_irqs		= NR_IRQS_LEGACY,
 	.handle_irq		= gic_handle_irq,
-	.init_machine		= loganlte_init,
-	.timer			= &shmobile_timer,/*&loganlte_timer,*/
-	.restart		= loganlte_restart,
-	.reserve		= loganlte_reserve,
+	.init_machine	= board_init,
+	.timer			= &shmobile_timer,
+	.restart		= board_restart,
+	.reserve		= board_reserve,
 MACHINE_END
