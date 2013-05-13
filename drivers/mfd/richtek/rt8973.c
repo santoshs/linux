@@ -794,8 +794,6 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_OFF_USB);
                 break;
-                default:
-                    ;
                 }
                 en_int_mask(0x08);
                 return;
@@ -1631,7 +1629,7 @@ alloc_device_fail:
 }
 static void __exit rt8973_exit(void)
 {
-    if (rtmus_dev);
+    if (rtmus_dev)
     {
         platform_device_put(rtmus_dev);
         platform_device_unregister(rtmus_dev);
