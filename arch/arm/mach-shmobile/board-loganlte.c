@@ -645,11 +645,6 @@ static void __init loganlte_init(void)
 		/* add the SDIO device */
 	}
 
-	/* touch key Interupt */
-	gpio_request(GPIO_PORT104, NULL);
-	gpio_direction_input(GPIO_PORT104);
-
-	gpio_pull_up_port(GPIO_PORT104);
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
