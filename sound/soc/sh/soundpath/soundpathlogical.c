@@ -2751,9 +2751,6 @@ static void sndp_work_play_incomm_stop(struct sndp_work_info *work)
 	/* Stop Playback runnning */
 	g_sndp_incomm_playrec_flg &= ~E_PLAY;
 
-	sndp_log_info("g_sndp_incomm_playrec_flg[0x%02x]\n",
-					g_sndp_incomm_playrec_flg);
-
 	if (!g_sndp_incomm_playrec_flg) {
 		/* To register a work queue to stop processing Playback */
 		sndp_work_incomm_stop(work->old_value);
@@ -3284,88 +3281,6 @@ static void sndp_work_call_capture_incomm_stop(struct sndp_work_info *work)
 	sndp_log_debug_func("end\n");
 }
 
-
-#if 0
-/**
- * Not used function.
- */
- */
-/*!
-
-   @param[in]	work	work queue structure
-   @param[out]	none
-
-   @retval	none
- */
-static void sndp_work_pt_playback_start(struct sndp_work_info *work)
-{
-	int	iRet = ERROR_NONE;
-
-	sndp_log_debug_func("start\n");
-
-	/* Running Playback */
-	g_sndp_playrec_flg |= E_PLAY;
-
-	/* set Audience state (start) */
-#if 0
-	sndp_a2220_set_state(SNDP_MODE_NORMAL, g_pt_device, SNDP_A2220_START);
-#endif
-
-	/* FSI Trigger start */
-	if (NULL != g_sndp_dai_func.fsi_trigger) {
-		sndp_log_debug("fsi_dai_trigger start in PT\n");
-
-		iRet = g_sndp_dai_func.fsi_trigger(
-			g_sndp_main[SNDP_PCM_OUT].arg.fsi_substream,
-			SNDRV_PCM_TRIGGER_START,
-			g_sndp_main[SNDP_PCM_OUT].arg.fsi_dai);
-
-		if (ERROR_NONE != iRet)
-			sndp_log_err("fsi_trigger error(code=%d)\n", iRet);
-	}
-
-	sndp_log_debug_func("end\n");
-}
-#endif
-
-#if 0
-/**
- * Not used function.
- */
-/*!
-   @brief Work queue function for Stop during a PT playback
-
-   @param[in]	work	work queue structure
-   @param[out]	none
-
-   @retval	none
- */
-static void sndp_work_pt_playback_stop(struct sndp_work_info *work)
-{
-	sndp_log_debug_func("start\n");
-
-	/* Stop Playback runnning */
-	g_sndp_playrec_flg &= ~E_PLAY;
-
-	/* FSI Trigger stop */
-	if (NULL != g_sndp_dai_func.fsi_trigger) {
-		sndp_log_debug("fsi_dai_trigger stop in PT\n");
-		g_sndp_dai_func.fsi_trigger(&(work->stop.fsi_substream),
-					    SNDRV_PCM_TRIGGER_STOP,
-					    &(work->stop.fsi_dai));
-	}
-
-	/* set Audience state (stop) */
-#if 0
-	sndp_a2220_set_state(SNDP_MODE_NORMAL, g_pt_device, SNDP_A2220_STOP);
-#endif
-
-	/* Wake Unlock or Force Unlock */
-	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);
-
-	sndp_log_debug_func("end\n");
-}
-#endif
 
 /*!
    @brief Work queue processing for all down link mute control
@@ -4021,8 +3936,6 @@ static void sndp_work_stop(
 	}
 
 	if (SNDP_PCM_OUT == direction) {
-                /* shut down external amp prior to PMU */
-		sndp_extdev_set_state(SNDP_MODE_NORMAL,SNDP_OUT_SPEAKER,SNDP_EXTDEV_STOP );
 		/* Output device OFF */
 		fsi_d2153_set_dac_power(g_kcontrol, 0);
 	}
