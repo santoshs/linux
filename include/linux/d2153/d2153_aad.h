@@ -150,9 +150,6 @@ struct d2153_aad_priv {
 	struct d2153_jack_info button;
 	unsigned int button_detect_rate;
 	struct wake_lock wakeup;
-	struct class* audio_class;
-	struct device* headset_dev;
-	unsigned int button_state;	
 	struct input_dev *input_dev;        
 	struct d2153_switch_data switch_data;
 	struct delayed_work	jack_monitor_work;
