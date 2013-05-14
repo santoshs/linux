@@ -946,7 +946,7 @@ ssize_t ld_set_switch_buf(struct device *dev,
                    strstr(at_isi_switch_buf, "AT+MODECHAN=0,0\r") != NULL) {
 		memset(at_isi_switch_buf, 0, 400);
 		ld_set_manualsw(NULL, NULL, isi_cmd_buf, strlen(isi_cmd_buf));
-	        return TSU6712_UART_INVALID_MODE;
+	        return MUSB_IC_UART_INVALID_MODE;
 	}
 
 	if (error != 0) {
