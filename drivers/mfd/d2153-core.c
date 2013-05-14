@@ -422,7 +422,7 @@ static long d2153_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct d2153 *d2153 =  file->private_data;
 	pmu_reg reg;
-	int ret = 0;
+	long ret = 0;
 	u8 reg_val = 0;
 
 	if (!d2153)
@@ -442,7 +442,7 @@ static long d2153_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case D2153_IOCTL_WRITE_REG:
 		if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 			return -EFAULT;
-		d2153_write(d2153, reg.reg, 1, (u8 *)&reg.val);
+		ret = d2153_write(d2153, reg.reg, 1, (u8 *)&reg.val);
 		break;
 
 	default:
