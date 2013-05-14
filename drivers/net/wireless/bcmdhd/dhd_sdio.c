@@ -1090,9 +1090,6 @@ dhdsdio_htclk(dhd_bus_t *bus, bool on, bool pendok)
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
-#if defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID)
-		pendok = FALSE;
-#endif /* defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID) */
 	clkctl = 0;
 	sdh = bus->sdh;
 
