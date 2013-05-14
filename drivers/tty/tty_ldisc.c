@@ -619,9 +619,6 @@ int tty_set_ldisc(struct tty_struct *tty, int ldisc)
 	 */
 
 	tty->receive_room = 0;
-
-	o_ldisc = tty->ldisc;
-
 	tty_unlock();
 	/*
 	 *	Make sure we don't change while someone holds a
@@ -666,9 +663,15 @@ int tty_set_ldisc(struct tty_struct *tty, int ldisc)
 		retval = -EIO;
 		goto enable;
 	}
+	/* In order to ensure that we don't free Dangling pointer
+	Copy tty->ldisc to o_ldisc just before close.
+	This might copy the newly assigned tty->ldisc pointer
+	due to the racing between tty_set_ldisc() & tty_ldisc_hangup() */
+	o_ldisc = tty->ldisc;
 
 	/* Shutdown the current discipline. */
-	tty_ldisc_close(tty, o_ldisc);
+	if (o_ldisc && o_ldisc->ops)
+		tty_ldisc_close(tty, o_ldisc);
 
 	/* Now set up the new line discipline. */
 	tty_ldisc_assign(tty, new_ldisc);
@@ -684,10 +687,11 @@ int tty_set_ldisc(struct tty_struct *tty, int ldisc)
 	/* At this point we hold a reference to the new ldisc and a
 	   a reference to the old ldisc. If we ended up flipping back
 	   to the existing ldisc we have two references to it */
-
-	if (tty->ldisc->ops->num != o_ldisc->ops->num && tty->ops->set_ldisc)
-		tty->ops->set_ldisc(tty);
-
+	if (o_ldisc && o_ldisc->ops) {
+		if (tty->ldisc->ops->num != o_ldisc->ops->num && \
+					tty->ops->set_ldisc)
+			tty->ops->set_ldisc(tty);
+	}
 	tty_ldisc_put(o_ldisc);
 
 enable:
