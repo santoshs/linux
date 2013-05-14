@@ -29,22 +29,6 @@
 #include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
 
-static ssize_t subcamtype_SR130PC20_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	char *sensorname = "SR130PC20";
-	return sprintf(buf, "%s\n", sensorname);
-}
-
-static ssize_t subcamfw_SR130PC20_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
-{
-	char *sensorfw = "SR130PC20";
-	return sprintf(buf, "%s\n", sensorfw);
-}
-
-static DEVICE_ATTR(front_camtype, 0644, subcamtype_SR130PC20_show, NULL);
-static DEVICE_ATTR(front_camfw, 0644, subcamfw_SR130PC20_show, NULL);
 
 struct SR130PC20_datafmt {
 	enum v4l2_mbus_pixelcode	code;
@@ -425,36 +409,6 @@ static int SR130PC20_probe(struct i2c_client *client,
 			ret);
 		kfree(priv);
 		return ret;
-	}
-
-	if (cam_class_init == false) {
-		dev_dbg(&client->dev,
-			"Start create class for factory test mode !\n");
-		camera_class = class_create(THIS_MODULE, "camera");
-		cam_class_init = true;
-	}
-
-	if (camera_class) {
-		dev_dbg(&client->dev, "Create Sub camera device !\n");
-		sec_sub_cam_dev = device_create(camera_class,
-						NULL, 0, NULL, "front");
-		if (IS_ERR(sec_sub_cam_dev)) {
-			dev_err(&client->dev,
-				"Failed to create device(sec_sub_cam_dev)!\n");
-		}
-
-		if (device_create_file(sec_sub_cam_dev,
-					&dev_attr_front_camtype) < 0) {
-			dev_err(&client->dev,
-				"failed to create sub camera device file, %s\n",
-				dev_attr_front_camtype.attr.name);
-		}
-		if (device_create_file(sec_sub_cam_dev,
-					&dev_attr_front_camfw) < 0) {
-			dev_err(&client->dev,
-				"failed to create sub camera device file, %s\n",
-				dev_attr_front_camfw.attr.name);
-		}
 	}
 
 	return ret;
