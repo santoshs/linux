@@ -57,10 +57,6 @@ extern ssize_t ld_set_switch_buf(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count);
 
-extern ssize_t ld_set_switch_buf(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count);
-
 struct tsu6712_platform_data{
 	void (*cfg_gpio) (void);
 	void (*otg_cb) (bool attached);
