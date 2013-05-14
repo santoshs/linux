@@ -571,7 +571,7 @@ static void __init board_init(void)
 	l2x0_init_later();
 #endif
 
-	camera_init(u2_board_rev);
+	camera_init();
 
 	gpio_key_init(stm_select, u2_board_rev,
 			devices_stm_sdhi0,

@@ -176,7 +176,7 @@ struct platform_device camera_devices[] = {
 	},
 };
 
-int camera_init(unsigned int u2_board_rev)
+int camera_init(void)
 {
 	struct clk *vclk1_clk;
 	struct clk *pll1_div2_clk;
@@ -187,8 +187,8 @@ int camera_init(unsigned int u2_board_rev)
 	gpio_request(GPIO_PORT20, NULL);
 	gpio_direction_output(GPIO_PORT20, 0);	/* CAM0_RST_N */
 	/* Gardalte, Logan, lt02lte */
-		gpio_request(GPIO_PORT45, NULL);
-		gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
+	gpio_request(GPIO_PORT45, NULL);
+	gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
 
 	pll1_div2_clk = clk_get(NULL, "pll1_div2_clk");
 	if (IS_ERR(pll1_div2_clk))
@@ -437,7 +437,7 @@ static void MIC2871_write(char addr, char data)
 		gpio_set_value(CAM_FLASH_ENSET, 1);
 		udelay(1);
 	}
-// THis only needs to be 405us
+/* THis only needs to be 405us */
 	/* wait T end */
 	udelay(405);
 }
@@ -465,20 +465,21 @@ int main_cam_led(int light, int mode)
 			MIC2871_write(2, 21);
 		} else {
 			MIC2871_write(5, 1);
-// Register value 7 is the default for regiser 3, so no need to do this
-//			MIC2871_write(3, 7);
-#if 0	// Old case
-// IF you use the FEN pin,then there is no need to program this register (FCUR default is 100%)
+/* Register value 7 is the default for regiser 3, so no need to do this */
+			/* MIC2871_write(3, 7); */
+#if 0	/* Old case */
+/* IF you use the FEN pin,then there is no need to program this register
+						(FCUR default is 100%) */
 			/* write 100%(0) to FEN/FCUR(1) */
 			MIC2871_write(1, 0);
 
-			//Noneed to do this for torch mode
-		/* enable */
-		gpio_set_value(CAM_FLASH_FLEN, 1);
-#else	// Following is hte new case using registers only
-		/* write 100%(0) to FEN/FCUR(1) */
-		MIC2871_write(1, 16);
-#endif		
+			/* Noneed to do this for torch mode */
+			/* enable */
+			gpio_set_value(CAM_FLASH_FLEN, 1);
+#else	/* Following is hte new case using registers only */
+			/* write 100%(0) to FEN/FCUR(1) */
+			MIC2871_write(1, 16);
+#endif
 		}
 
 		spin_unlock_irqrestore(&lock, flags);
@@ -488,8 +489,8 @@ int main_cam_led(int light, int mode)
 		/* initailize falsh IC */
 		gpio_set_value(CAM_FLASH_FLEN, 0);
 		gpio_set_value(CAM_FLASH_ENSET, 0);
-//For SWI this only needs to be 400us
-//		mdelay(1);
+/* For SWI this only needs to be 400us */
+		/* mdelay(1); */
 		udelay(500);
 		break;
 	default:

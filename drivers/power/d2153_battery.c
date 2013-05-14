@@ -1523,12 +1523,14 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 										pbat->pd2153->vbat_init_adc[2]) / 3;
 
 			if(pbat_data->is_charging) {
-					pr_info("[L%d] %s cc charging. new_vol_adc is %4d \n", __LINE__, __func__, new_vol_adc);
-					offset = initialize_charge_up_cc[0];
+				pr_info("[L%d] %s cc charging. new_vol_adc is %4d\n",
+					__LINE__, __func__, new_vol_adc);
+					offset = initialize_charge_up_cc[charging_index];
 					new_vol_adc = pbat->pd2153->average_vbat_init_adc - offset;
 			} else {
 				new_vol_adc = pbat->pd2153->average_vbat_init_adc;
-				pr_info("[L%d] %s discharging new_vol_adc = %d	\n", __LINE__, __func__, new_vol_adc);
+				pr_info("[L%d] %s discharging new_vol_adc = %d\n",
+					__LINE__, __func__, new_vol_adc);
 
 				Y0 = FIRST_VOLTAGE_DROP_ADC;
 				if(C2K(pbat_data->average_temperature) <= BAT_LOW_LOW_TEMPERATURE) {
@@ -1945,7 +1947,7 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
  */
 void d2153_battery_start(void)
 {
-	schedule_delayed_work(&gbat->monitor_volt_work, 0);
+	schedule_delayed_work(&gbat->monitor_volt_work, (3 * HZ));
 }
 EXPORT_SYMBOL_GPL(d2153_battery_start);
 

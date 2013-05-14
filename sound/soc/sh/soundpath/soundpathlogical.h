@@ -28,6 +28,9 @@
  *
  */
 /* Trigger stop parameter setting for FSI */
+extern void fsi_clk_start(struct snd_pcm_substream *substream);
+extern void fsi_clk_stop(struct snd_pcm_substream *substream);
+
 extern void fsi_set_trigger_stop(
 	struct snd_pcm_substream *substream,
 	bool flag);

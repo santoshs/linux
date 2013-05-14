@@ -1,7 +1,7 @@
 /*
  * Driver for Samsung SR130PC20 VGA Camera
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,6 +29,24 @@
 #include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
 
+#if 0
+static ssize_t subcamtype_SR130PC20_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorname = "SR130PC20";
+	return sprintf(buf, "%s\n", sensorname);
+}
+
+static ssize_t subcamfw_SR130PC20_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *sensorfw = "SR130PC20";
+	return sprintf(buf, "%s\n", sensorfw);
+}
+
+static DEVICE_ATTR(front_camtype, 0644, subcamtype_SR130PC20_show, NULL);
+static DEVICE_ATTR(front_camfw, 0644, subcamfw_SR130PC20_show, NULL);
+#endif
 
 struct SR130PC20_datafmt {
 	enum v4l2_mbus_pixelcode	code;

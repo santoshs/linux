@@ -349,19 +349,6 @@ static struct i2c_board_info i2c_quickvx_board_info[] __initdata = {
 	},
 };
 
-#if 0
-static struct led_regulator_platform_data key_backlight_data = {
-	.name   = "button-backlight",
-};
-
-static struct platform_device key_backlight_device = {
-	.name = "leds-regulator",
-	.id   = 0,
-	.dev  = {
-		.platform_data = &key_backlight_data,
-	},
-};
-#endif
 static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
 		I2C_BOARD_INFO(TPA2026_I2C_DRIVER_NAME, 0x58),
@@ -566,11 +553,6 @@ static void __init board_init(void)
 		/* add the SDIO device */
 	}
 
-	/* touch key Interupt */
-	gpio_request(GPIO_PORT104, NULL);
-	gpio_direction_input(GPIO_PORT104);
-
-	gpio_pull_up_port(GPIO_PORT104);
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
@@ -617,7 +599,7 @@ static void __init board_init(void)
 	l2x0_init_later();
 #endif
 
-	camera_init(u2_board_rev);
+	camera_init();
 
 	gpio_key_init(stm_select, u2_board_rev,
 			devices_stm_sdhi0,

@@ -764,6 +764,9 @@ struct d2153_codec_priv {
 	struct snd_soc_codec *codec;
 	unsigned int mclk_rate;
 	bool srm_en;
+	int source;
+	u32 freq_ref;
+	unsigned int fout;
 	bool alc_calib_auto;
 	bool alc_en;
 	u8 spk_mixer_out;

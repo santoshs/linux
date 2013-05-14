@@ -181,11 +181,7 @@ static struct platform_device fsi_b_device = {
 };
 
 static struct fsi_d2153_platform_data audio_pdata = {
-	.gpio_spkr_en		= -1,
-	.gpio_hp_det		= GPIO_PORT24,
-	.gpio_hp_mute		= -1,
-	.gpio_int_mic_en	= -1,
-	.gpio_ext_mic_en	= -1,
+	.hp_spk_path_en		= true,
 	.private_data		= NULL,
 };
 
@@ -372,7 +368,7 @@ static struct resource	tpu_resources[] = {
 /* GPIO Settings */
 static struct portn_gpio_setting_info_tpu tpu0_gpio_setting_info[] = {
 	[0] = { /* TPU CHANNEL */
-		.flag = 1,
+		.flag = 0,
 		.port = GPIO_PORT36,
 		/* GPIO settings to be retained at resume state */
 		.active = {
@@ -397,7 +393,7 @@ tpu_pwm_pfc[TPU_MODULE_MAX][TPU_CHANNEL_MAX] = {
 	[TPU_MODULE_0] = {
 		[TPU_CHANNEL_0]	= {
 			/* GPIO_FN_TPUTO0,*/
-			.port_func	=  GPIO_FN_PORT36_TPU0TO0,
+			.port_func	=  GPIO_PORT36,
 			.func_name	= "pwm-tpu0to0",
 			.port_count	= ARRAY_SIZE(tpu0_gpio_setting_info),
 			.tpu_gpio_setting_info	= tpu0_gpio_setting_info,

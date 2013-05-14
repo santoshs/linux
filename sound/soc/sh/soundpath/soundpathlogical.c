@@ -86,7 +86,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_STAT_IN_CALL},
 	[SNDP_MODE_INIT][SNDP_MODE_INCOMM]  =	{SNDP_PROC_INCOMM_START,
 							SNDP_STAT_IN_COMM},
-	[SNDP_MODE_NORMAL][SNDP_MODE_NORMAL] =	{SNDP_PROC_NO,
+	[SNDP_MODE_NORMAL][SNDP_MODE_NORMAL] =	{SNDP_PROC_DEV_CHANGE,
 							SNDP_STAT_NOT_CHG},
 	[SNDP_MODE_NORMAL][SNDP_MODE_RING]   =	{SNDP_PROC_NO,
 							SNDP_STAT_RINGTONE},
@@ -96,7 +96,7 @@ const struct sndp_mode_trans g_sndp_mode_map[SNDP_MODE_MAX][SNDP_MODE_MAX] = {
 							SNDP_STAT_IN_COMM},
 	[SNDP_MODE_RING][SNDP_MODE_NORMAL]   =	{SNDP_PROC_NO,
 							SNDP_STAT_NORMAL},
-	[SNDP_MODE_RING][SNDP_MODE_RING]     =	{SNDP_PROC_NO,
+	[SNDP_MODE_RING][SNDP_MODE_RING]     =	{SNDP_PROC_DEV_CHANGE,
 							SNDP_STAT_NOT_CHG},
 	[SNDP_MODE_RING][SNDP_MODE_INCALL]   =	{SNDP_PROC_CALL_START,
 							SNDP_STAT_IN_CALL},
@@ -468,67 +468,93 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 
 	/* Initializing work queue processing */
 	sndp_work_initialize(&g_sndp_work_voice_start,
-		  sndp_work_voice_start);
+				sndp_work_voice_start,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_voice_stop,
-		  sndp_work_voice_stop);
+				sndp_work_voice_stop,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_voice_dev_chg,
-		  sndp_work_voice_dev_chg);
+				sndp_work_voice_dev_chg,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_fm_radio_dev_chg,
-		  sndp_work_fm_radio_dev_chg);
-	sndp_work_initialize(&g_sndp_work_fm_radio_dev_chg,
-		  sndp_work_fm_radio_dev_chg);
+				sndp_work_fm_radio_dev_chg,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_play_start,
-		  sndp_work_play_start);
+				sndp_work_play_start,
+				&g_sndp_work_play_stop);
 	sndp_work_initialize(&g_sndp_work_capture_start,
-		  sndp_work_capture_start);
+				sndp_work_capture_start,
+				&g_sndp_work_capture_stop);
 	sndp_work_initialize(&g_sndp_work_play_stop,
-		  sndp_work_play_stop);
+				sndp_work_play_stop,
+				&g_sndp_work_play_start);
 	sndp_work_initialize(&g_sndp_work_capture_stop,
-		  sndp_work_capture_stop);
+				sndp_work_capture_stop,
+				&g_sndp_work_capture_start);
 	sndp_work_initialize(&g_sndp_work_call_playback_start,
-		  sndp_work_call_playback_start);
+				sndp_work_call_playback_start,
+				&g_sndp_work_call_playback_stop);
 	sndp_work_initialize(&g_sndp_work_call_capture_start,
-		  sndp_work_call_capture_start);
+				sndp_work_call_capture_start,
+				&g_sndp_work_call_capture_stop);
 	sndp_work_initialize(&g_sndp_work_call_playback_stop,
-		  sndp_work_call_playback_stop);
+				sndp_work_call_playback_stop,
+				&g_sndp_work_call_playback_start);
 	sndp_work_initialize(&g_sndp_work_call_capture_stop,
-		  sndp_work_call_capture_stop);
+				sndp_work_call_capture_stop,
+				&g_sndp_work_call_capture_start);
 	sndp_work_initialize(&g_sndp_work_fm_playback_start,
-		  sndp_work_fm_playback_start);
+				sndp_work_fm_playback_start,
+				&g_sndp_work_fm_playback_stop);
 	sndp_work_initialize(&g_sndp_work_fm_capture_start,
-		  sndp_work_fm_capture_start);
+				sndp_work_fm_capture_start,
+				&g_sndp_work_fm_capture_stop);
 	sndp_work_initialize(&g_sndp_work_fm_playback_stop,
-		  sndp_work_fm_playback_stop);
+				sndp_work_fm_playback_stop,
+				&g_sndp_work_fm_playback_start);
 	sndp_work_initialize(&g_sndp_work_fm_capture_stop,
-		  sndp_work_fm_capture_stop);
+				sndp_work_fm_capture_stop,
+				&g_sndp_work_fm_capture_start);
 	sndp_work_initialize(&g_sndp_work_watch_stop_fw,
-		  sndp_work_watch_stop_fw);
+				sndp_work_watch_stop_fw,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_fm_radio_start,
-		  sndp_work_fm_radio_start);
+				sndp_work_fm_radio_start,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_fm_radio_stop,
-		  sndp_work_fm_radio_stop);
+				sndp_work_fm_radio_stop,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_play_incomm_start,
-		  sndp_work_play_incomm_start);
+				sndp_work_play_incomm_start,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_play_incomm_stop,
-		  sndp_work_play_incomm_stop);
+				sndp_work_play_incomm_stop,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_capture_incomm_start,
-		  sndp_work_capture_incomm_start);
+				sndp_work_capture_incomm_start,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_capture_incomm_stop,
-		  sndp_work_capture_incomm_stop);
+				sndp_work_capture_incomm_stop,
+				NULL);
 	sndp_work_initialize(&g_sndp_work_call_playback_incomm_start,
-		  sndp_work_call_playback_incomm_start);
+				sndp_work_call_playback_incomm_start,
+				&g_sndp_work_call_playback_incomm_stop);
 	sndp_work_initialize(&g_sndp_work_call_capture_incomm_start,
-		  sndp_work_call_capture_incomm_start);
+				sndp_work_call_capture_incomm_start,
+				&g_sndp_work_call_capture_incomm_stop);
 	sndp_work_initialize(&g_sndp_work_call_playback_incomm_stop,
-		  sndp_work_call_playback_incomm_stop);
+				sndp_work_call_playback_incomm_stop,
+				&g_sndp_work_call_playback_incomm_start);
 	sndp_work_initialize(&g_sndp_work_call_capture_incomm_stop,
-		  sndp_work_call_capture_incomm_stop);
+				sndp_work_call_capture_incomm_stop,
+				&g_sndp_work_call_capture_incomm_start);
 	sndp_work_initialize(&g_sndp_work_all_dl_mute,
-		  sndp_work_all_dl_mute);
+				sndp_work_all_dl_mute,
+				NULL);
 
 	for (iCnt = 0; SNDP_PCM_DIRECTION_MAX > iCnt; iCnt++) {
 		sndp_work_initialize(&g_sndp_work_hw_free[iCnt],
-						sndp_work_hw_free);
+						sndp_work_hw_free, NULL);
 		init_waitqueue_head(&g_sndp_hw_free_wait[iCnt]);
 		g_sndp_hw_free_condition[iCnt] = false;
 
@@ -1184,25 +1210,33 @@ int sndp_soc_put(
 			/* Change the device type */
 			if ((SNDP_GET_DEVICE_VAL(uiOldValue) !=
 					SNDP_GET_DEVICE_VAL(uiValue))) {
+				if ((SNDP_MODE_INCALL == uiMode) ||
+					(SNDP_MODE_INCOMM == uiMode) ||
+					(SNDP_GET_DEVICE_VAL(uiOldValue) &
+						SNDP_SPEAKER &
+						SNDP_GET_DEVICE_VAL(uiValue))) {
 
-				/* Wake Lock */
-				sndp_wake_lock(E_LOCK);
+					/* Wake Lock */
+					sndp_wake_lock(E_LOCK);
 
-				/*
-				 * Registered in the work queue for
-				 * voice call device change
-				 */
-				sndp_log_debug("uiValue %08x  old_value %08x\n",
+					/*
+					* Registered in the work queue for
+					* voice call device change
+					*/
+					sndp_log_debug(
+						"uiValue %08x  old_value %08x\n",
 						uiValue, uiOldValue);
 
-				g_sndp_work_voice_dev_chg.new_value =
-								uiValue;
+					g_sndp_work_voice_dev_chg.new_value =
+						uiValue;
 
-				g_sndp_work_voice_dev_chg.old_value =
-								uiOldValue;
+					g_sndp_work_voice_dev_chg.old_value =
+						uiOldValue;
 
-				sndp_workqueue_enqueue(g_sndp_queue_main,
+					sndp_workqueue_enqueue(
+						g_sndp_queue_main,
 						&g_sndp_work_voice_dev_chg);
+				}
 			}
 		}
 	}
@@ -1578,9 +1612,6 @@ static int sndp_fsi_trigger(
 	/* Initialize the cycle counter */
 	LOG_INIT_CYCLE_COUNT(substream->stream);
 
-	g_sndp_main[substream->stream].arg.fsi_substream = substream;
-	g_sndp_main[substream->stream].arg.fsi_dai = dai;
-
 	/* for Production Test (Loopback) */
 	if (SNDP_PT_LOOPBACK_START == g_pt_start) {
 		/* Same Call process route */
@@ -1816,8 +1847,7 @@ static void sndp_work_hw_free(struct sndp_work_info *work)
 		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
 	g_sndp_hw_free_condition[direction] = true;
-	wake_up_interruptible(
-		&g_sndp_hw_free_wait[direction]);
+	wake_up(&g_sndp_hw_free_wait[direction]);
 
 	up(&g_sndp_wait_free[direction]);
 
@@ -1827,7 +1857,6 @@ static void sndp_work_hw_free(struct sndp_work_info *work)
 static int sndp_fsi_hw_free(struct snd_pcm_substream *substream)
 {
 	int	ret;
-	u_int in_old_val = GET_OLD_VALUE(SNDP_PCM_IN);
 
 	sndp_log_debug_func("start\n");
 
@@ -1839,21 +1868,16 @@ static int sndp_fsi_hw_free(struct snd_pcm_substream *substream)
 
 		sndp_workqueue_enqueue(g_sndp_queue_main,
 			&g_sndp_work_hw_free[substream->stream]);
+		sndp_log_info("enqueue\n");
 
-		ret = wait_event_interruptible_timeout(
+		ret = wait_event_timeout(
 			g_sndp_hw_free_wait[substream->stream],
 			g_sndp_hw_free_condition[substream->stream],
 			msecs_to_jiffies(SNDP_WAIT_MAX));
 
-		sndp_log_info("complete\n");
+		sndp_log_info("complete ret[%d]\n", ret);
 
 		ret = g_sndp_dai_func.fsi_hw_free(substream);
-
-		if ((SNDP_PCM_IN == substream->stream) &&
-		    (SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(in_old_val))) {
-			SET_OLD_VALUE(SNDP_PCM_IN, SNDP_VALUE_INIT);
-			SET_SNDP_STATUS(SNDP_PCM_IN, SNDP_STAT_NORMAL);
-		}
 	}
 	sndp_log_debug_func("end\n");
 
@@ -2247,10 +2271,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		goto start_err;
 	}
 
-	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
-			     SNDP_GET_AUDIO_DEVICE(work->new_value),
-			     SNDP_EXTDEV_START);
-
 	/* start SCUW */
 	iRet = scuw_start(work->new_value, g_bluetooth_band_frequency);
 	if (ERROR_NONE != iRet) {
@@ -2281,6 +2301,16 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 		goto start_err;
 	}
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
+		SNDP_GET_AUDIO_DEVICE(work->new_value),
+		SNDP_EXTDEV_START);
 
 #ifndef __SNDP_INCALL_CLKGEN_MASTER
 	if (SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(work->new_value)) {
@@ -2478,6 +2508,9 @@ static int sndp_work_voice_dev_chg_audioic_to_bt(
 
 	sndp_log_debug_func("start\n");
 
+	/* Input device OFF */
+	fsi_d2153_set_adc_power(g_kcontrol, 0);
+
 	/* stop SCUW */
 	scuw_stop();
 
@@ -2568,6 +2601,12 @@ static int sndp_work_voice_dev_chg_bt_to_audioic(
 	else
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
 	/* start CLKGEN */
 	iRet = clkgen_start(new_value, 0, g_bluetooth_band_frequency);
 	if (ERROR_NONE != iRet)
@@ -2596,6 +2635,8 @@ static int sndp_work_voice_dev_chg_in_audioic(
 	const u_int new_value)
 {
 	sndp_log_debug_func("start\n");
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
 
 	sndp_log_debug_func("end\n");
 
@@ -2843,10 +2884,6 @@ static void sndp_work_incomm_start(const u_int new_value)
 		common_set_fsi2cr(SNDP_NO_DEVICE, STAT_OFF);
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
-	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
-			     SNDP_GET_AUDIO_DEVICE(new_value),
-			     SNDP_EXTDEV_START);
-
 	/* start SCUW */
 	ret = scuw_start(new_value, g_bluetooth_band_frequency);
 	if (ERROR_NONE != ret) {
@@ -2874,6 +2911,16 @@ static void sndp_work_incomm_start(const u_int new_value)
 		sndp_log_err("fsi start error(code=%d)\n", ret);
 		goto start_err;
 	}
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
+			     SNDP_GET_AUDIO_DEVICE(new_value),
+			     SNDP_EXTDEV_START);
 
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
 	wait_event_interruptible_timeout(
@@ -3538,10 +3585,6 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 		}
 	}
 
-	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
-			     SNDP_GET_AUDIO_DEVICE(work->new_value),
-			     SNDP_EXTDEV_START);
-
 	/* start SCUW */
 	iRet = scuw_start(work->new_value, g_bluetooth_band_frequency);
 	if (ERROR_NONE != iRet) {
@@ -3558,6 +3601,13 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 		goto start_err;
 	}
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
+		SNDP_GET_AUDIO_DEVICE(work->new_value),
+		SNDP_EXTDEV_START);
 
 	/* start CLKGEN */
 	iRet = clkgen_start(work->new_value,
@@ -3787,14 +3837,6 @@ static void sndp_work_start(const int direction)
 	sndp_log_info("dir[%d]\n", direction);
 
 	uiValue = GET_OLD_VALUE(direction);
-
-	/* Output device ON */
-	if (SNDP_PCM_OUT == direction)
-		fsi_d2153_set_dac_power(g_kcontrol, 1);
-	/* Input device ON */
-	if (SNDP_PCM_IN == direction)
-		fsi_d2153_set_adc_power(g_kcontrol, 1);
-
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
 
 	/* PM_RUNTIME */
@@ -3831,12 +3873,7 @@ static void sndp_work_start(const int direction)
 		}
 	}
 
-	if (SNDP_PT_NOT_STARTED == g_pt_start) {
-		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
-			sndp_extdev_set_state(SNDP_GET_MODE_VAL(uiValue),
-					SNDP_GET_AUDIO_DEVICE(uiValue),
-					SNDP_EXTDEV_START);
-	}
+	fsi_clk_start(g_sndp_main[direction].arg.fsi_substream);
 
 	/* FSI startup */
 	if (NULL != g_sndp_dai_func.fsi_startup) {
@@ -3894,6 +3931,20 @@ static void sndp_work_start(const int direction)
 	if (ERROR_NONE != iRet) {
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 		return;
+	}
+
+	/* Output device ON */
+	if (SNDP_PCM_OUT == direction)
+		fsi_d2153_set_dac_power(g_kcontrol, 1);
+	/* Input device ON */
+	if (SNDP_PCM_IN == direction)
+		fsi_d2153_set_adc_power(g_kcontrol, 1);
+
+	if (SNDP_PT_NOT_STARTED == g_pt_start) {
+		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue))
+			sndp_extdev_set_state(SNDP_GET_MODE_VAL(uiValue),
+					SNDP_GET_AUDIO_DEVICE(uiValue),
+					SNDP_EXTDEV_START);
 	}
 
 	/* FSI Trigger start */
@@ -3989,6 +4040,8 @@ static void sndp_work_stop(
 			pm_runtime_put_sync(g_sndp_power_domain);
 		}
 	}
+
+	fsi_clk_stop(&(work->stop.fsi_substream));
 
 	/* Wake Unlock or Force Unlock */
 	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);
@@ -4427,13 +4480,16 @@ static void sndp_fsi_interrupt(void)
  * @retval	none.
  */
 void sndp_work_initialize(
-	struct sndp_work_info *work, void (*func)(struct sndp_work_info *))
+			struct sndp_work_info *work,
+			void (*func)(struct sndp_work_info *),
+			struct sndp_work_info *del_work)
 {
 	sndp_log_debug_func("work[%p]func[%p]\n", work, func);
 
 	INIT_LIST_HEAD(&work->link);
 	work->func = func;
 	work->status = 0;
+	work->del_work = del_work;
 
 	sndp_log_debug_func("end\n");
 	return;
@@ -4599,6 +4655,10 @@ void sndp_workqueue_enqueue(
 		if (!test_and_set_bit(
 			WORK_STRUCT_PENDING_BIT, work_data_bits(work))) {
 			list_add_tail(&work->link, &wq->top);
+		} else if (NULL != work->del_work) {
+			work_clear_pending(work->del_work);
+			list_del_init(&work->del_work->link);
+			sndp_log_err("Cancel work.\n");
 		} else {
 			sndp_log_err("Already pending work.\n");
 		}
