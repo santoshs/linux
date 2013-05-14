@@ -75,7 +75,7 @@ enum clock_state {
 /* For change sampling rate & down factor dynamically */
 #define SAMPLING_RATE_DEF FREQ_TRANSITION_LATENCY
 #define SAMPLING_RATE_LOW 500000
-#define SAMPLING_DOWN_FACTOR_DEF 2
+#define SAMPLING_DOWN_FACTOR_DEF 20
 #define SAMPLING_DOWN_FACTOR_LOW 1
 
 #define INIT_STATE	1
@@ -1514,14 +1514,10 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 
 	ret = __set_all_clocks(freq);
 
-/* block due to many log */
-#if 0
 	/* the_cpuinfo.freq == freq when frequency changed */
 	if (the_cpuinfo.freq == freq)
 		pr_info("[%07uKHz->%07uKHz]%s\n", old_freq, freq,
 			(old_freq < freq) ? "^" : "v");
-#endif				
-				
 done:
 #ifdef DYNAMIC_HOTPLUG_CPU
 	hlg_config.freq_his_flg = 1;
