@@ -226,6 +226,12 @@ struct d2153_audio {
 	u8 micbias1_level;
 	u8 micbias2_level;
 	u8 micbias3_level;
+	int aad_jack_debounce_ms;
+	int aad_jackout_debounce_ms;
+	int aad_button_debounce_ms;
+	bool aad_codec_detect_enable;	/* d2153 detect configuration */
+	bool aad_gpio_detect_enable;	/* gpio detect configuration */
+	int aad_gpio_port;		/* gpio port for jack detect */
 };
 
 int d2153_audio_hs_poweron(bool on);

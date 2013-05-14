@@ -659,14 +659,14 @@ int call_create_workque(void)
 {
 	sndp_log_debug_func("start\n");
 
-	sndp_work_initialize(&g_call_work_in, call_work_dummy_rec);
-	sndp_work_initialize(&g_call_work_out, call_work_dummy_play);
+	sndp_work_initialize(&g_call_work_in, call_work_dummy_rec, NULL);
+	sndp_work_initialize(&g_call_work_out, call_work_dummy_play, NULL);
 	sndp_work_initialize(&g_call_work_before_start_fw,
-		  call_work_before_start_fw);
+		  call_work_before_start_fw, NULL);
 	sndp_work_initialize(&g_call_work_playback_incomm_dummy_set,
-		  call_work_playback_incomm_dummy_set);
+		  call_work_playback_incomm_dummy_set, NULL);
 	sndp_work_initialize(&g_call_work_record_incomm_dummy_set,
-		  call_work_record_incomm_dummy_set);
+		  call_work_record_incomm_dummy_set, NULL);
 
 	/* create work queue */
 	g_call_queue_in = sndp_workqueue_create("sndp_queue_in");
@@ -1537,10 +1537,6 @@ static void call_work_dummy_rec(struct sndp_work_info *work)
 	if (0 != ret)
 		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
-	ret = down_interruptible(&g_sndp_wait_free[SNDP_PCM_IN]);
-	if (0 != ret)
-		sndp_log_err("down_interruptible ret[%d]\n", ret);
-
 	/* If process had been driver closed. */
 	if (NULL == g_call_substream[SNDP_PCM_IN]->runtime) {
 		sndp_log_info("runtime is NULL\n");
@@ -2133,13 +2129,21 @@ static void call_work_record_incomm_dummy_set(struct sndp_work_info *work)
 	/* If Buffer >= Data */
 	if ((g_call_record_incomm_len + buf_size) <=
 		(pcm_info->buffer_len - pcm_info->byte_offset)) {
-		if (0 < g_call_record_incomm_len)
+		if (0 < g_call_record_incomm_len) {
+			memset((runtime->dma_area + pcm_info->byte_offset),
+				0, g_call_record_incomm_len);
 			g_call_record_incomm_len = 0;
+		}
 
+		memset((void *)(runtime->dma_area +
+				pcm_info->byte_offset +
+				g_call_record_incomm_len), 0, buf_size);
 		/* Offset update */
 		pcm_info->byte_offset += (g_call_record_incomm_len + buf_size);
 	/* If Buffer < Data */
 	} else {
+		memset((void *)(runtime->dma_area + pcm_info->byte_offset),
+			0, pcm_info->buffer_len - pcm_info->byte_offset);
 		/* Offset update */
 		pcm_info->byte_offset +=
 			(pcm_info->buffer_len - pcm_info->byte_offset);
