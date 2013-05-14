@@ -2792,6 +2792,9 @@ static void sndp_work_play_incomm_stop(struct sndp_work_info *work)
 	/* Stop Playback runnning */
 	g_sndp_incomm_playrec_flg &= ~E_PLAY;
 
+	sndp_log_info("g_sndp_incomm_playrec_flg[0x%02x]\n",
+					g_sndp_incomm_playrec_flg);
+
 	if (!g_sndp_incomm_playrec_flg) {
 		/* To register a work queue to stop processing Playback */
 		sndp_work_incomm_stop(work->old_value);

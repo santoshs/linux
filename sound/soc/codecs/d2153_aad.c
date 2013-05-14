@@ -37,6 +37,9 @@
 struct d2153_aad_priv *d2153_aad_ex;
 EXPORT_SYMBOL(d2153_aad_ex);
 
+static int d2153_aad_read(struct i2c_client *client, u8 reg);
+struct i2c_client *add_client;
+
 
 /*
  * Samsung defined resistances for 4-pole key presses:
@@ -51,14 +54,14 @@ EXPORT_SYMBOL(d2153_aad_ex);
 static const struct button_resistance button_res_2V6_tbl[MAX_BUTTONS] = {
 	[SEND_BUTTON] = {
 		.min_val = 0,
-		.max_val = 12,
+		.max_val = 15,
 	},
 	[VOL_UP_BUTTON] = {
-		.min_val = 17,
-		.max_val = 35,
+		.min_val = 16,
+		.max_val = 31,
 	},
 	[VOL_DN_BUTTON] = {
-		.min_val = 39,
+		.min_val = 32,
 		.max_val = 86,
 	},
 };
@@ -66,19 +69,76 @@ static const struct button_resistance button_res_2V6_tbl[MAX_BUTTONS] = {
 static const struct button_resistance button_res_2V5_tbl[MAX_BUTTONS] = {
 	[SEND_BUTTON] = {
 		.min_val = 0,
-		.max_val = 11,
+		.max_val = 14,
 	},
 	[VOL_UP_BUTTON] = {
-		.min_val = 17,
-		.max_val = 34,
+		.min_val = 15,
+		.max_val = 31,
 	},
 	[VOL_DN_BUTTON] = {
-		.min_val = 39,
-		.max_val = 85,
+		.min_val = 32,
+		.max_val = 95,
 	},
 };
 
 static const struct button_resistance *button_res_tbl;
+static ssize_t show_headset(struct device *dev,
+			struct device_attribute *attr, char *buf);
+
+#define HEADSET_ATTR(_name)						\
+{									\
+	.attr = { .name = #_name, .mode = 0644, },			\
+	.show = show_headset,						\
+}
+
+enum {
+	STATE = 0,
+	KEY_STATE,
+	ADC,
+};
+
+static struct device_attribute headset_Attrs[] = {
+	HEADSET_ATTR(state),
+	HEADSET_ATTR(key_state),
+	HEADSET_ATTR(adc),
+};
+
+static ssize_t show_headset(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	const ptrdiff_t off = attr - headset_Attrs;
+	u8 adc_det_status = 0;
+	struct i2c_client *client = add_client;
+
+	switch (off) {
+	case STATE:
+		ret = scnprintf(buf, PAGE_SIZE, "%d\n",
+			(((d2153_aad_ex->switch_data.state == D2153_HEADPHONE)
+			|| (d2153_aad_ex->switch_data.state == D2153_HEADSET))
+				? 1 : 0));
+		dlg_info("[%s]:kwanjin : state : %d\n",
+				__func__, d2153_aad_ex->switch_data.state);
+		break;
+	case KEY_STATE:
+		dlg_info("[%s]:kwanjin : button_status : %d\n",
+				__func__, d2153_aad_ex->button.status);
+		ret = scnprintf(buf, PAGE_SIZE, "%d\n",
+			d2153_aad_ex->button.status);
+		break;
+	case ADC:
+		adc_det_status = d2153_aad_read(client, D2153_ACCDET_STATUS);
+		dlg_info("[%s]:kwanjin : earjack adc : %d\n", __func__,
+				adc_det_status);
+		ret = scnprintf(buf, PAGE_SIZE, "%d\n", adc_det_status);
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
 
 /* Following register access methods based on soc-cache code */
 static int d2153_aad_read(struct i2c_client *client, u8 reg)
@@ -593,6 +653,7 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 			input_event(d2153_aad->input_dev, EV_KEY,
 				d2153_aad->button.key, 0);
 			input_sync(d2153_aad->input_dev);
+			d2153_aad->button.status = D2153_BUTTON_RELEASE;
 			dlg_info("%s event Rel key=%d!\n", __func__,
 				d2153_aad->button.key);
 		}
@@ -636,6 +697,7 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 
 	d2153_aad->i2c_client = client;
 	d2153_aad->d2153_codec = client->dev.platform_data;
+	add_client = client;
 
 	wake_lock_init(&d2153_aad->wakeup, WAKE_LOCK_SUSPEND, "jack_monitor");
 
@@ -700,6 +762,18 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	enable_irq_wake(d2153_aad->g_det_irq);
 
 	/* Generate node for DFMS  */
+	dlg_info("--------------------------------------------\n");
+	d2153_aad_ex->audio_class = class_create(THIS_MODULE, "audio");
+	d2153_aad_ex->headset_dev = device_create(d2153_aad_ex->audio_class,
+						NULL, client->dev.devt,
+						NULL, "earjack");
+	device_create_file(d2153_aad_ex->headset_dev,
+			&headset_Attrs[STATE]);
+	device_create_file(d2153_aad_ex->headset_dev,
+			&headset_Attrs[KEY_STATE]);
+	device_create_file(d2153_aad_ex->headset_dev,
+			&headset_Attrs[ADC]);
+	dlg_info("--------------------------------------------+++++++\n");
 	d2153_register_irq(d2153_aad->d2153_codec->d2153_pmic,
 			D2153_IRQ_EACCDET, d2153_button_handler, 0,
 			"Button detect", d2153_aad);
