@@ -621,7 +621,7 @@ static void __init board_init(void)
 #endif
 
 #ifdef CONFIG_SOC_CAMERA /* camera */
-	camera_init(u2_board_rev);
+	camera_init();
 #endif /* camera */
 	gpio_key_init(stm_select, u2_board_rev,
 			loganlte_devices_stm_sdhi0,
