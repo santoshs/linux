@@ -458,9 +458,9 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 		}
 		printk(KERN_ALERT "T010\n");
 
-		ape5r_modify_register32(CPG_SMSTPCR5, 0, (1<<25) | (0x0F << 16)); /* Module stop control register 5 (SMSTPCR5) */
+		ape5r_modify_register32(CPG_SMSTPCR5, (1<<25), (0x0F << 16)); /* Module stop control register 5 (SMSTPCR5) */
                                                               /* Supply clocks to OCP2SuperHiWay and OCP2Memory and SuperHiWay2OCP0/1 instances */
-                                                              /* bit25: MSTP525=0, IICB0 operates */
+                                                              /* bit25: MSTP525=1, IICB0 does not operate */
                                                               /* bit19: MSTP519=0, O2S operates */
                                                               /* bit18: MSTP519=0, O2M operates */
                                                               /* bit17: MSTP517=0, S2O0 operates */
