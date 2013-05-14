@@ -400,7 +400,7 @@ static long sec_hal_usr_ioctl(
 	} break;
 	case SD_TEE_PRE_MMAP: {
 		uint32_t* shmem = (uint32_t *)input.param0;
-		uint32_t size_rounded_to_pages;
+		size_t size_rounded_to_pages;
 		client->next_teec_shmem = kmalloc(sizeof(TEEC_SharedMemory), GFP_KERNEL);
 
 		if (copy_from_user(client->next_teec_shmem,shmem,sizeof(TEEC_SharedMemory)))
@@ -410,7 +410,7 @@ static long sec_hal_usr_ioctl(
 		SEC_HAL_TRACE("client->next_teec_shmem->size %d", client->next_teec_shmem->size);
 		SEC_HAL_TRACE("client->next_teec_shmem->flags 0x%x", client->next_teec_shmem->flags);
 
-		size_rounded_to_pages = ((client->next_teec_shmem->size / 4096) + 1) * 4096;
+		size_rounded_to_pages = ((client->next_teec_shmem->size / PAGE_SIZE) + 1) * PAGE_SIZE;
 		client->next_teec_shmem_buffer = kmalloc(size_rounded_to_pages, GFP_KERNEL);
 		client->next_teec_shmem->buffer = (void *)virt_to_phys(client->next_teec_shmem_buffer);
 
