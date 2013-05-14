@@ -2657,6 +2657,13 @@ static void sndp_work_fm_radio_dev_chg(struct sndp_work_info *work)
 
 	sndp_log_debug_func("start\n");
 
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
+				SNDP_GET_AUDIO_DEVICE(work->new_value),
+				SNDP_EXTDEV_CH_DEV);
+
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
 
@@ -4244,10 +4251,6 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 				 g_bluetooth_band_frequency);
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
-		sndp_log_info("call extdev set_state\n");
-
-		sndp_extdev_set_state(mode, device, dev_chg);
-
 		/* start SCUW */
 		iRet = scuw_start(SNDP_PLAYBACK_EARPIECE_INCALL,
 				g_bluetooth_band_frequency);
@@ -4263,6 +4266,15 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 			return iRet;
 		}
 
+		/* Output device ON */
+		fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+		/* Input device ON */
+		fsi_d2153_set_adc_power(g_kcontrol, 1);
+
+		sndp_log_info("call extdev set_state\n");
+		sndp_extdev_set_state(mode, device, dev_chg);
+
 		/* start CLKGEN */
 		iRet = clkgen_start(SNDP_PLAYBACK_EARPIECE_INCALL,
 				0,
@@ -4274,6 +4286,16 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 
 		fsi_fifo_reset(SNDP_PCM_PORTA);
 	} else {
+
+		sndp_log_info("call extdev set_state\n");
+		sndp_extdev_set_state(mode, device, dev_chg);
+
+		/* Output device OFF */
+		fsi_d2153_set_dac_power(g_kcontrol, 0);
+
+		/* Input device OFF */
+		fsi_d2153_set_adc_power(g_kcontrol, 0);
+
 		/* stop SCUW */
 		scuw_stop();
 
@@ -4282,10 +4304,6 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 
 		/* stop CLKGEN */
 		clkgen_stop();
-
-		sndp_log_info("call extdev set_state\n");
-
-		sndp_extdev_set_state(mode, device, dev_chg);
 
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
 		/* CLKGEN master process */
