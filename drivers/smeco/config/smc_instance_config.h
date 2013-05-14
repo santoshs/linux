@@ -80,8 +80,7 @@ Description :  File created
      * CONFIG_ARCH_R8A73734             EOS2        -> SMC_CONFIG_ARCH_R8A73734
      * CONFIG_ARCH_R8A7373              EOS2        ->
      * CONFIG_ARCH_R8A73724             EOS3 U3     -> SMC_CONFIG_ARCH_R8A73724 + SMC_TARGET_PRODUCT_EOS3_U3
-     * CONFIG_ARCH_R8A73724             EOS3 U3CA   -> SMC_CONFIG_ARCH_R8A73724 + SMC_TARGET_PRODUCT_EOS3_U3CA
-     * TODO Own target R8A for U3CA??
+     * CONFIG_ARCH_R8A7372A             EOS3 U3CA   -> SMC_CONFIG_ARCH_R8A73724 + SMC_TARGET_PRODUCT_EOS3_U3CA
      *
      */
 
@@ -89,17 +88,12 @@ Description :  File created
       /* EOS2 configuration */
       #define SMC_CURRENT_PRODUCT_CONFIG           SMC_CONFIG_EOS2
 
-  #elif( defined(CONFIG_ARCH_R8A73724) )
-      /* EOS3 configuration */
-      #ifdef SMC_TARGET_PRODUCT_EOS3_U3
-          #define SMC_CURRENT_PRODUCT_CONFIG           SMC_CONFIG_EOS3_WGE31        /* U3 */
-      #elif defined( SMC_TARGET_PRODUCT_EOS3_U3CA )
-          #define SMC_CURRENT_PRODUCT_CONFIG           SMC_CONFIG_EOS3              /* U3CA */
-      #else
-          #warning "---- No target product defined for EOS3, using U3 ----"
-          #define SMC_CURRENT_PRODUCT_CONFIG           SMC_CONFIG_EOS3_WGE31        /* U3 */
-      #endif
-
+  #elif( defined(SMC_CONFIG_ARCH_R8A73724) )
+      /* EOS3 U3 configuration */
+      #define SMC_CURRENT_PRODUCT_CONFIG           SMC_CONFIG_EOS3_WGE31
+  #elif( defined(SMC_CONFIG_ARCH_R8A7372A) )
+      /* EOS3 U3CA configuration */
+      #define SMC_CURRENT_PRODUCT_CONFIG           SMC_CONFIG_EOS3
   #else
       /* <Unknown> configuration */
      #warning "---- No target product defined, using default configuration ----"

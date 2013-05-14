@@ -64,9 +64,6 @@ struct hwspinlock_private
     void __iomem        *ext_base;
 };
 
-
-/*#include "smc_config_l2mux.h" Prevent warnings */
-
 static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id );          /* INTC-BB interrupt handler */
 static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id );      /* GENIO interrupt handler */
 static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_id );    /* SPI resource interrupt handler */
@@ -74,7 +71,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
 static smc_lock_t* g_local_lock_sleep_control = NULL;
 
 static struct wake_lock* wakelock    = NULL;
-static uint8_t wake_lock_initialized = FALSE;
+
 
 static inline smc_lock_t* get_local_lock_sleep_control(void)
 {
@@ -86,16 +83,14 @@ static inline struct wake_lock* get_wake_lock(void)
 {
     if( wakelock==NULL )
     {
-        SMC_TRACE_PRINTF_DEBUG("get_wake_lock: initialize");
+        SMC_TRACE_PRINTF_DEBUG("get_wake_lock: initialize...");
         wakelock = (struct wake_lock*)SMC_MALLOC_IRQ( sizeof( struct wake_lock ) );
 
         wake_lock_init(wakelock, WAKE_LOCK_SUSPEND, "smc_wakelock");
-        wake_lock_initialized = TRUE;
      }
 
     return wakelock;
 }
-
 
 static smc_lock_t* g_local_lock_signal_intgen_set      = NULL;
 
@@ -174,7 +169,6 @@ void smc_register_wakeup_irq( smc_t* smc_instance, uint32_t signal_id, uint32_t 
     const char*   device_name  = NULL;
     void*         dev_id       = NULL;
     unsigned long flags        = 0x00;
-
     int           irq_offset   = SMC_APE_IRQ_OFFSET_INTCSYS_SPI;
 
     struct resource*        res             = NULL;
@@ -222,7 +216,6 @@ void smc_register_wakeup_irq( smc_t* smc_instance, uint32_t signal_id, uint32_t 
             SMC_TRACE_PRINTF_SIGNAL("smc_register_wakeup_irq: signal: 0x%08X: found res 0x%08X, IRQ start is %d",
                     (uint32_t)signal, res, res->start );
 
-            /*flags = IRQF_SHARED | IRQF_DISABLED;*/
             flags = IRQF_DISABLED;
 
             device_name  = dev_name(&platform_device->dev);
@@ -232,7 +225,8 @@ void smc_register_wakeup_irq( smc_t* smc_instance, uint32_t signal_id, uint32_t 
 
             if( result )
             {
-                SMC_TRACE_PRINTF_SIGNAL("smc_register_wakeup_irq: signal: 0x%08X: request_irq FAILED, result %d", (uint32_t)signal, result);
+                SMC_TRACE_PRINTF_SIGNAL("smc_register_wakeup_irq: signal: 0x%08X: request_irq FAILED, result %d",
+                        (uint32_t)signal, result);
             }
             else
             {
@@ -265,7 +259,6 @@ void smc_init_external_wakeup_irqc( smc_t* smc_instance )
     #define SMC_PRI_SET0_VALUE   0x00000001
 
     #define SMC_CONFIG0          0xE61C1980     /**/
-    //#define SMC_CONFIG0_VALUE    0x00000001
     #define SMC_CONFIG0_VALUE    0x00000008     /* Rising edge*/
 
     #define SMC_WAKEN_STS0       0xE61C1884
@@ -368,11 +361,26 @@ static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id )
     RD_TRACE_SEND2(TRA_SMC_IRQ_END, 4, &irq,
                                     4, &signal_type );
 
-    if( smc_channel != NULL && (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_TIMER) == SMC_CHANNEL_WAKELOCK_TIMER)
+    if( smc_channel != NULL )
     {
-        SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X (wakelock timeout %d ms)", (uint32_t)irq, irq, (uint32_t)dev_id, SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC);
+        if( (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_TIMER) == SMC_CHANNEL_WAKELOCK_TIMER )
+        {
+            SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X wake_lock_timeout (wakelock timeout %d ms)", (uint32_t)irq, irq, (uint32_t)dev_id, smc_channel->wakelock_timeout_ms);
 
-        wake_lock_timeout( get_wake_lock(), msecs_to_jiffies(SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC) );
+            if( smc_channel->wakelock_timeout_ms > 0 )
+            {
+                wake_lock_timeout( get_wake_lock(), msecs_to_jiffies(smc_channel->wakelock_timeout_ms) );
+            }
+            else
+            {
+                wake_unlock( get_wake_lock() );
+            }
+        }
+        else if( (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_MESSAGE) == SMC_CHANNEL_WAKELOCK_MESSAGE )
+        {
+            SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_intcbb: IRQ: 0x%02X (%d), Device 0x%08X wake_unlock", (uint32_t)irq, irq, (uint32_t)dev_id);
+            wake_unlock( get_wake_lock() );
+        }
     }
 
     return IRQ_HANDLED;
@@ -421,11 +429,27 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
     RD_TRACE_SEND2(TRA_SMC_IRQ_END, 4, &irq,
                                     4, &signal_type );
 
-    if( smc_channel != NULL && (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_TIMER) == SMC_CHANNEL_WAKELOCK_TIMER)
+    if( smc_channel != NULL )
     {
-        SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X (wakelock timeout %d ms)", (uint32_t)irq, irq, (uint32_t)dev_id, SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC);
+        if( (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_TIMER) == SMC_CHANNEL_WAKELOCK_TIMER )
+        {
+            SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X wake_lock_timeout (wakelock timeout %d ms)", (uint32_t)irq, irq, (uint32_t)dev_id, smc_channel->wakelock_timeout_ms);
 
-        wake_lock_timeout( get_wake_lock(), msecs_to_jiffies(SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC) );
+            if( smc_channel->wakelock_timeout_ms > 0 )
+            {
+                wake_lock_timeout( get_wake_lock(), msecs_to_jiffies(smc_channel->wakelock_timeout_ms) );
+            }
+            else
+            {
+                wake_unlock( get_wake_lock() );
+            }
+        }
+        else if( (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_MESSAGE) == SMC_CHANNEL_WAKELOCK_MESSAGE )
+        {
+            SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X wake_unlock", (uint32_t)irq, irq, (uint32_t)dev_id );
+
+            wake_unlock( get_wake_lock() );
+        }
     }
 
     return IRQ_HANDLED;
@@ -434,21 +458,21 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
 
 static inline irqreturn_t smc_linux_interrupt_handler_int_resource_exec(smc_signal_handler_t* signal_handler)
 {
-    smc_signal_t*         signal         = NULL;
-    smc_channel_t*        smc_channel    = NULL;
+    /*smc_signal_t*         signal         = NULL;*/
+    /*smc_channel_t*        smc_channel    = NULL;*/
 
-    smc_channel = signal_handler->smc_channel;
-    signal      = signal_handler->signal;
+    /*smc_channel = signal_handler->smc_channel;*/
+    /*signal      = signal_handler->signal;*/
 
-    if( smc_channel != NULL )
+    if( signal_handler->smc_channel != NULL )
     {
-        smc_channel_interrupt_handler( smc_channel );
+        smc_channel_interrupt_handler( signal_handler->smc_channel );
 
         SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource_exec: signal handler 0x%08X executed", (uint32_t)signal_handler);
     }
     else
     {
-        SMC_TRACE_PRINTF_WARNING("smc_linux_interrupt_handler_int_resource_exec: No channel initialized signal handler 0x%08X", (uint32_t)signal_handler);
+        SMC_TRACE_PRINTF_WARNING("smc_linux_interrupt_handler_int_resource_exec: No channel initialized for signal handler 0x%08X", (uint32_t)signal_handler);
     }
 
     return IRQ_HANDLED;
@@ -533,11 +557,27 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     RD_TRACE_SEND2(TRA_SMC_IRQ_END, 4, &irq,
                                     4, &signal_type );
 
-    if( smc_channel != NULL && (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_TIMER) == SMC_CHANNEL_WAKELOCK_TIMER)
+    if( smc_channel != NULL)
     {
-        SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: channel %d (wakelock timeout %d ms)", smc_channel->id, SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC);
+        if( (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_TIMER) == SMC_CHANNEL_WAKELOCK_TIMER )
+        {
+            SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource: IRQ: 0x%02X (%d), Device 0x%08X wake_lock_timeout (wakelock timeout %d ms)", (uint32_t)irq, irq, (uint32_t)dev_id, smc_channel->wakelock_timeout_ms);
 
-        wake_lock_timeout( get_wake_lock(), msecs_to_jiffies(SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC) );
+            if( smc_channel->wakelock_timeout_ms > 0 )
+            {
+                wake_lock_timeout( get_wake_lock(), msecs_to_jiffies(smc_channel->wakelock_timeout_ms) );
+            }
+            else
+            {
+                wake_unlock( get_wake_lock() );
+            }
+        }
+        else if( (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_MESSAGE) == SMC_CHANNEL_WAKELOCK_MESSAGE )
+        {
+            SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource: IRQ: 0x%02X (%d), Device 0x%08X wake_unlock", (uint32_t)irq, irq, (uint32_t)dev_id );
+
+            wake_unlock( get_wake_lock() );
+        }
     }
 
     return retval;
@@ -558,7 +598,6 @@ smc_signal_t* smc_signal_create( uint32_t signal_id, uint32_t signal_type )
     if( signal->signal_type == SMC_SIGNAL_TYPE_INTGEN ||
         signal->signal_type == SMC_SIGNAL_TYPE_INT_RESOURCE )
     {
-            /* TODO Peripheral address configurable */
         uint32_t p_address = SMC_PERIPHERAL_ADDRESS_MODEM_GOP_INTGEN_1+SMC_ADDRESS_APE_OFFSET_TO_MODEM ;
 
         signal->peripheral_address = (uint32_t)ioremap(p_address, sizeof(smc_gop001_t));
@@ -617,7 +656,6 @@ void smc_signal_destroy( smc_signal_t* signal )
 uint8_t smc_signal_raise( smc_signal_t* signal )
 {
     SMC_TRACE_PRINTF_SIGNAL("smc_signal_raise: signal: 0x%08X", (uint32_t)signal);
-
 
     if( signal->signal_type == SMC_SIGNAL_TYPE_IRQ_NONE )
     {
@@ -1850,5 +1888,22 @@ struct tasklet_struct* smc_create_tasklet(smc_signal_handler_t* signal_handler, 
 }
 
 #endif
+
+/*
+ * SMC Wake lock implementation.
+ */
+
+
+void smc_wake_lock( uint32_t data )
+{
+    SMC_TRACE_PRINTF_SLEEP_CONTROL("smc_wake_lock: data: 0x%08X", data);
+}
+
+void smc_wake_unlock( uint32_t data )
+{
+    SMC_TRACE_PRINTF_SLEEP_CONTROL("smc_wake_unlock: data: 0x%08X", data);
+
+}
+
 
 /* EOF */

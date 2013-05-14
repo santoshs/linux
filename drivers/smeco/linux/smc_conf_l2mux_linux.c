@@ -155,7 +155,6 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
     uint8_t version_minor = (asic_version&0x0F);
 
         /* Use EOS2 ES2.0 configuration */
-    //smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
     smc_cpu_name = smc_instance_conf_name_get_from_list( smc_instance_conf_l2mux, SMC_CONF_COUNT_L2MUX, SMC_CONFIG_USER_L2MUX, TRUE, version_major, version_minor);
 
 
@@ -187,9 +186,9 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
         smc_channel_conf->smc_receive_data_allocator_cb = NULL;
         smc_channel_conf->smc_event_cb                  = (void*)smc_event_callback_l2mux;
 
-        if( smc_channel_conf->wake_lock_flags == SMC_CHANNEL_WAKELOCK_TIMER)
+        if( (smc_channel_conf->wake_lock_flags&SMC_CHANNEL_WAKELOCK_TIMER) == SMC_CHANNEL_WAKELOCK_TIMER)
         {
-            SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: wakelock policy is timer, timeout %d ms", device_name, i, SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC );
+            SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: wakelock policy is timer, timeout %d ms", device_name, i, smc_channel_conf->wakelock_timeout_ms );
         }
         else
         {
@@ -216,12 +215,6 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
     return smc_conf;
 }
 
-/*
-static void smc_deallocator_callback_l2mux(smc_channel_t* smc_channel, void* ptr, struct _smc_user_data_t* userdata)
-{
-	SMC_TRACE_PRINTF_INFO("smc_deallocator_callback_l2mux: do not deallocate SKB data 0x%08X", (uint32_t)ptr);
-}
-*/
 
 static void  smc_receive_data_callback_channel_l2mux(void*   data,
                                                      int32_t data_length,
@@ -362,6 +355,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
 
                     /* Put the metadata */
                 skb->dev        = device;
+
                 /* TODO Check to put protocol ETH_xxx from channel information */
                 /*skb->protocol = eth_type_trans(skb, dev);*/
                 skb->ip_summed  = CHECKSUM_UNNECESSARY;
@@ -369,6 +363,13 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 smc_net_dev = netdev_priv( device );
 
                 device->stats.rx_packets++;
+
+
+                if( (channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_MESSAGE)==SMC_CHANNEL_WAKELOCK_MESSAGE )
+                {
+                    /*SMC_TRACE_PRINTF_SLEEP_CONTROL("smc_receive_data_callback_channel_l2mux: channel %d: set wakelock data: 0x%08X", channel->id, userdata->userdata1);*/
+                    smc_wake_lock( userdata->userdata1 );
+                }
 
                 SMC_UNLOCK( channel->lock_read );
                 /*

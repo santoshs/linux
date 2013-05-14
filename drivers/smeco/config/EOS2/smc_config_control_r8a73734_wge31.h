@@ -81,6 +81,7 @@ static smc_instance_conf_channel_t smc_instance_conf_control_channels[SMC_CONF_C
             .trace_features_slave                = SMC_TRACE_HISTORY_DATA_TYPE_NONE,
             .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_NONE,
             .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
+            .wakelock_timeout_ms                 = SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC,
      }
 };
 
@@ -94,7 +95,7 @@ static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
     {
         .name                         = SMC_CONFIG_NAME_EOS2_ES20,
         .user_name                    = SMC_CONFIG_USER_CONTROL,
-        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20,
+        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A7373_EOS2_ES20,
         .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20,
 
         .master_cpu_version_major     = 2,

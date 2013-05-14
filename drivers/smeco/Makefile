@@ -90,34 +90,9 @@ ifeq ($(CONFIG_ARCH_R8A73724),y)
 E_CFLAGS   += -DSMC_CONFIG_ARCH_R8A73724=TRUE
 endif
 
-  #
-  # U3/U3CA target 
-  # TODO: Cleanup when U3 CA CPU is known
-  #
-  
-ifeq ($(CONFIG_SMECO_EOS3_U3),y)
-E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS3_U3=TRUE
+ifeq ($(CONFIG_ARCH_R8A7372A),y)
+E_CFLAGS   += -DSMC_CONFIG_ARCH_R8A7372A=TRUE
 endif
-
-ifeq ($(CONFIG_SMECO_EOS3_U3CA),y)
-E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS3_U3CA=TRUE
-endif
-
-#ifeq ($(CONFIG_SMECO_EOS3),y)
-#E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS3=TRUE
-#else
-#ifeq ($(CONFIG_SMECO_EOS3_U3),y)
-#E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS3_U3=TRUE
-#else
-#ifeq ($(CONFIG_SMECO_EOS3_U3CA),y)
-#E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS3_U3CA=TRUE
-#endif
-#endif
-#else
-#E_CFLAGS   += -DSMC_TARGET_PRODUCT_EOS2=TRUE
-#endif
-
-
 
 
   #
@@ -195,4 +170,3 @@ endif
 
 clean:
 	rm -rf *.o *.ko
-subdir-ccflags-y += -Werror
