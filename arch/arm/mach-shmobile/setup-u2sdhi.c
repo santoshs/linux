@@ -225,7 +225,7 @@ static void sdhi0_set_dma(struct platform_device *pdev, int size)
 
 static struct portn_gpio_setting_info sdhi0_gpio_setting_info[] = {
 	[0] = {
-		.flag = 1,
+		.flag = 0,
 		.port = GPIO_PORT327,
 		.active = {
 			.port_fn	= GPIO_PORT327,

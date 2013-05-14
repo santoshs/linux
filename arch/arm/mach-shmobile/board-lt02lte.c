@@ -509,6 +509,8 @@ static void __init lt02lte_init(void)
 		gpio_pull_off_port(GPIO_PORT327);
 		irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
 		gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
+		gpio_free(GPIO_PORT327);
+		gpio_request(GPIO_FN_SDHICD0, NULL);
 	}
 
 	/* ES2.0: SIM powers */
