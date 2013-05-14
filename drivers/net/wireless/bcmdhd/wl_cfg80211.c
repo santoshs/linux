@@ -3626,7 +3626,7 @@ wl_cfg80211_get_key(struct wiphy *wiphy, struct net_device *dev,
 	params.key_len = (u8) min_t(u8, DOT11_MAX_KEY_SIZE, key.len);
 	memcpy(params.key, key.data, params.key_len);
 
-	wldev_iovar_getint_bsscfg(dev, "wsec", &wsec, bssidx);
+	err = wldev_iovar_getint_bsscfg(dev, "wsec", &wsec, bssidx);
 	if (unlikely(err)) {
 		WL_ERR(("WLC_GET_WSEC error (%d)\n", err));
 		return err;
@@ -8617,10 +8617,17 @@ static s32 wl_cfg80211_attach_p2p(void)
 static s32  wl_cfg80211_detach_p2p(void)
 {
 	struct wl_priv *wl = wlcfg_drv_priv;
-	struct wireless_dev *wdev = wl->p2p_wdev;
+	struct wireless_dev *wdev;
 
 	WL_DBG(("Enter \n"));
-	if (!wdev || !wl) {
+	if (!wl) {
+		WL_ERR(("Invalid Ptr\n"));
+		return -EINVAL;
+	}
+	else
+		wdev = wl->p2p_wdev;
+
+	if (!wdev) {
 		WL_ERR(("Invalid Ptr\n"));
 		return -EINVAL;
 	}
@@ -9524,7 +9531,7 @@ wl_update_prof(struct wl_priv *wl, struct net_device *ndev,
 	}
 	spin_unlock_irqrestore(&wl->cfgdrv_lock, flags);
 
-	if (err == EOPNOTSUPP)
+	if (err == -EOPNOTSUPP)
 		WL_ERR(("unsupported item (%d)\n", item));
 
 	return err;

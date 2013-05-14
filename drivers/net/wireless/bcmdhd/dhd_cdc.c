@@ -2763,6 +2763,7 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 #ifdef BDC
 	struct bdc_header *h;
 #endif
+	uint8 data_offset = 0;
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
@@ -2778,12 +2779,12 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 	}
 
 	h = (struct bdc_header *)PKTDATA(dhd->osh, pktbuf);
-
-	if ((*ifidx = BDC_GET_IF_IDX(h)) >= DHD_MAX_IFS) {
-		DHD_ERROR(("%s: rx data ifnum out of range (%d)\n",
-		           __FUNCTION__, *ifidx));
-		return BCME_ERROR;
-	}
+  	if (!ifidx) {
+        	/* for tx packet, skip the analysis */
+                data_offset = h->dataOffset;
+                PKTPULL(dhd->osh, pktbuf, BDC_HEADER_LEN);
+                goto exit;
+        }
 
 #if defined(NDIS630)
 	h->dataOffset = 0;
@@ -2833,6 +2834,10 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 		PKTPULL(dhd->osh, pktbuf, (h->dataOffset << 2));
 #endif
 	return 0;
+exit:
+	PKTPULL(dhd->osh, pktbuf, (data_offset << 2));
+        return 0;
+
 }
 
 #if defined(PROP_TXSTATUS)
