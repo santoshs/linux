@@ -653,8 +653,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 	 * policy. To be safe, we focus 10 points under the threshold.
 	 */
 #ifdef CONFIG_SH_ENABLE_DYNAMIC_DOWN_DIFF
-	if ((dbs_tuners_ins.down_differential - DOWN_DIFFERENTIAL_DEC_RATE) >
-					MICRO_FREQUENCY_DOWN_DIFFERENTIAL) {
+	if (dbs_tuners_ins.down_differential >=
+		(MICRO_FREQUENCY_DOWN_DIFFERENTIAL +
+			DOWN_DIFFERENTIAL_DEC_RATE)) {
 		dbs_tuners_ins.down_differential -= DOWN_DIFFERENTIAL_DEC_RATE;
 	} else {
 		dbs_tuners_ins.down_differential =
