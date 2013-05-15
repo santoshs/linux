@@ -2111,7 +2111,7 @@ static void dma_read_complete(struct r8a66597 *r8a66597,
 			      struct r8a66597_dma *dma)
 {
 	struct r8a66597_ep *ep = dma->ep;
-	struct r8a66597_request *req = get_request_from_ep(ep);
+	struct r8a66597_request *req;
 	int ch = dma->channel;
 	unsigned short tmp, size;
 
@@ -2337,12 +2337,10 @@ static int r8a66597_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 static int r8a66597_set_halt(struct usb_ep *_ep, int value)
 {
 	struct r8a66597_ep *ep;
-	struct r8a66597_request *req;
 	unsigned long flags;
 	int ret = 0;
 
 	ep = container_of(_ep, struct r8a66597_ep, ep);
-	req = get_request_from_ep(ep);
 
 	spin_lock_irqsave(&ep->r8a66597->lock, flags);
 	if (!list_empty(&ep->queue)) {
