@@ -305,6 +305,46 @@ ATTR_STORE_FN(disabled_switches, EV_SW);
  * /sys/devices/platform/gpio-keys/disabled_keys [rw]
  * /sys/devices/platform/gpio-keys/disables_switches [rw]
  */
+
+ /* sys fs  */
+
+extern struct class *sec_class;
+struct device *key_dev;
+EXPORT_SYMBOL(key_dev);
+
+extern int d2153_onkey_check(void);
+
+static int keyreadstatus=0;
+
+static ssize_t key_show(struct device *dev, struct device_attribute *attr, char *buf);
+static DEVICE_ATTR(sec_key_pressed, S_IRUGO, key_show, NULL);
+
+static ssize_t key_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    uint8_t keys_pressed;
+    uint32_t onkey_pressed = 0;
+
+    onkey_pressed = d2153_onkey_check();
+
+	printk("[GPIO_KEY] %s, keyreadstatus%d\n", __func__, keyreadstatus);
+
+	if(keyreadstatus || onkey_pressed)
+    {
+        /* key press */
+        keys_pressed = 1;
+        
+    } 
+    else 
+    {
+        /* key release */
+        keys_pressed = 0;                        
+    }
+
+     return sprintf(buf, "%d\n", keys_pressed );
+}
+/* sys fs */
+
+
 static DEVICE_ATTR(disabled_keys, S_IWUSR | S_IRUGO,
 		   gpio_keys_show_disabled_keys,
 		   gpio_keys_store_disabled_keys);
@@ -336,6 +376,9 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 			input_event(input, type, button->code, button->value);
 	} else {
 		input_event(input, type, button->code, !!state);
+
+		keyreadstatus = !!state;
+		printk("[GPIO_KEY] %s  code=%d, key state=%d\n",__func__, button->code, keyreadstatus);
 	}
 	input_sync(input);
 }
@@ -732,6 +775,18 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
 	input_sync(input);
 
 	device_init_wakeup(&pdev->dev, wakeup);
+
+/* /sec/sec_key/sec_key_pressed */
+     /* sys fs */
+	key_dev = device_create(sec_class, NULL, 0, NULL, "sec_key");
+	if (IS_ERR(key_dev))
+		dev_err(dev, "Failed to create fac tsp temp dev\n");
+
+	if (device_create_file(key_dev, &dev_attr_sec_key_pressed) < 0)
+		pr_err("Failed to create device file(%s)!\n", dev_attr_sec_key_pressed.attr.name); 
+	/* sys fs */
+
+
 
 	return 0;
 

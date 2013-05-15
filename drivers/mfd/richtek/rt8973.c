@@ -50,6 +50,12 @@
 #include <linux/platform_data/rtsmc.h>
 #endif
 
+#define MUSB_IC_UART_AT_MODE           2
+#define MUSB_IC_UART_INVALID_MODE      -1
+#define MUSB_IC_UART_EMPTY_CR          3
+#define MUSB_IC_UART_EMPTY_CRLF        4
+#define MUSB_IC_UART_AT_MODE_MODECHAN  5
+
 void send_usb_insert_event(int);
 
 #define DEVICE_NAME "rt8973"
@@ -174,8 +180,8 @@ ssize_t ld_set_manualsw(struct device *dev,
         return count;
 }
 ssize_t ld_set_switch_buf(struct device *dev,
-                                    struct device_attribute *attr,
-                                    const char *buf, size_t count)
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
 {
 	int i;
 	char temp[100];
@@ -201,7 +207,7 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	    (strncmp((char *)at_isi_switch_buf, "\r\n", 2) == 0)) {
 		memset(at_isi_switch_buf, 0, 400);
 		KERNEL_LOG = 0;
-		return TSU6712_UART_EMPTY_CRLF;
+		return MUSB_IC_UART_EMPTY_CRLF;
 	}
 
 	if (strstr(at_isi_switch_buf, "\r\n"))
@@ -223,11 +229,11 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	if (strstr(at_isi_switch_buf, atbuf) != NULL) {
 		KERNEL_LOG = 0;
 		memset(at_isi_switch_buf, 0, 400);
-		return TSU6712_UART_AT_MODE;
+		return MUSB_IC_UART_AT_MODE;
 	} else if (strstr(at_isi_switch_buf, atmodechanbuf) != NULL) {
 		KERNEL_LOG = 0;
 		memset(at_isi_switch_buf, 0, 400);
-		return TSU6712_UART_AT_MODE_MODECHAN;
+		return MUSB_IC_UART_AT_MODE_MODECHAN;
 	} else if (strstr(at_isi_switch_buf, "AT+ISISTART") != NULL ||
 		   strstr(at_isi_switch_buf, "AT+MODECHAN=0,0") != NULL) {
 
@@ -250,7 +256,7 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	}
 
 	if (error != 0) {
-		count = TSU6712_UART_INVALID_MODE;
+		count = MUSB_IC_UART_INVALID_MODE;
 		memset(at_isi_switch_buf, 0, 400);
 	}
 
@@ -1394,6 +1400,8 @@ static int rt8973musc_probe(struct i2c_client *client,
         err = -ENODEV;
         goto i2c_check_functionality_fail;
     }
+
+    set_cable_status = CABLE_TYPE_NONE;
 
     drv_data = kzalloc(sizeof(struct rt8973_data),GFP_KERNEL);
     drv_data->client = client;

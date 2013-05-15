@@ -21,12 +21,11 @@
 
 
 #define D2153_REG_EOM_IRQ
-#undef D2153_REG_VDD_MON_IRQ
-#undef D2153_REG_VDD_LOW_IRQ
+#undef  D2153_REG_VDD_MON_IRQ
+#undef  D2153_REG_VDD_LOW_IRQ
 #define D2153_REG_TBAT2_IRQ
-
-// Battery capacity
-#define BATTERY_CAPACITY_1800mAH
+#define CONFIG_D2153_EOC_CTRL
+#define CONFIG_D2153_SOC_GO_DOWN_IN_CHG
 
 #define D2153_MANUAL_READ_RETRIES			(5)
 #define ADC2TEMP_LUT_SIZE					(22)
@@ -144,6 +143,7 @@
 #define SYS_CPU_SIDE						(0x40)
 #define BB_CPU_SIDE							(0x93)
 
+
 enum {
 	CHARGER_TYPE_NONE = 0,
 	CHARGER_TYPE_TA,
@@ -163,15 +163,26 @@ enum {
 };
 
 enum {
-	D2153_STATUS_CHARGING = 0,
-	D2153_STATUS_MAX
-};
-
-enum {
 	D2153_BATTERY_STATUS_DISCHARGING = 0,
 	D2153_BATTERY_STATUS_CHARGING,
 	D2153_BATTERY_STATUS_MAX
 };
+
+enum {
+	D2153_STATUS_CHARGING = 0,
+	D2153_RESET_SW_FG,
+	D2153_STATUS_MAX
+};
+
+#ifdef CONFIG_D2153_EOC_CTRL
+enum {
+	D2153_BAT_CHG_START = 0,
+	D2153_BAT_CHG_FRST_FULL,    //EOC 180mA
+	D2153_BAT_CHG_BACKCHG_FULL, //EOC 60mA
+	D2153_BAT_RECHG_FULL,
+	D2153_BAT_CHG_MAX,
+};
+#endif
 
 typedef enum d2153_adc_channel {
 	D2153_ADC_VOLTAGE = 0,
@@ -276,6 +287,9 @@ struct d2153_battery_data {
     struct adc_man_res adc_res[D2153_ADC_CHANNEL_MAX];
 
 	u8 virtual_battery_full;
+#ifdef CONFIG_D2153_EOC_CTRL
+	u8 charger_ctrl_status;
+#endif
 };
 
 struct d2153_battery {
@@ -296,15 +310,13 @@ struct d2153_battery {
 	struct mutex		api_lock;
 	
 	int (*d2153_read_adc)(struct d2153_battery *pbat, adc_channel channel);
-
 };
 
-// In order to set function pointer to control charging.
-int d2153_register_enable_charge(void (*enable_charge)(void));
-int d2153_register_disable_charge(void (*disable_charge)(void));
-void (*d2153_get_external_event_handler(void))(int, int);
 
 void d2153_handle_modem_reset(void);
-int d2153_battery_read_status(int);
+int  d2153_battery_read_status(int type);
+int  d2153_battery_set_status(int type, int status);
+int  d2153_get_rf_temperature(void);
 void d2153_battery_start(void);
+
 #endif /* __D2153_BATTERY_H__ */

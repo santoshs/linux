@@ -1,6 +1,4 @@
 /*
- * arch/arm/mach-shmobile/include/mach/board-gardalte-config.h
- *
  * Copyright (C) 2013 Renesas Mobile Corporation
  *
  * This program is free software; you can redistribute it and/or
@@ -18,14 +16,17 @@
  * MA  02110-1301, USA.
  */
 
-#ifndef __ASM_ARCH_BOARD_GARDALTE_CONFIG_H
-#define __ASM_ARCH_BOARD_GARDALTE_CONFIG_H
+#ifndef __ASM_ARCH_BOARD_CONFIG_H
+#define __ASM_ARCH_BOARD_CONFIG_H
 
 #include <linux/platform_device.h>
 #include <linux/mmcoops.h>
 #include <linux/mmc/renesas_mmcif.h>
 #include <mach/setup-u2sdhi.h>
-#include <mach/setup-u2stm.h>
+
+#if defined(CONFIG_BCM4334_BT)
+#include <mach/board-bcm4334-bt.h>
+#endif
 
 #if defined(CONFIG_RENESAS_BT)
 #include <mach/dev-renesas-bt.h>
@@ -40,10 +41,12 @@
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2gpio_key.h>
+
 #if defined(CONFIG_SAMSUNG_MHL)
 #include <mach/dev-mhl.h>
 #endif
 #include <linux/tpu_pwm_board.h>
+#include <linux/vibrator.h>
 
 #include <mach/r8a7373.h>
 
@@ -427,7 +430,21 @@ static struct platform_device	tpu_devices[] = {
 	},
 };
 
-/* THREE optional devices pointer lists for initializing the platform
+static struct vibrator_port_info vibrator_platdata = {
+	.vibrator_port = GPIO_PORT226 ,
+	.tpu_port      = GPIO_PORT36 ,
+};
+
+static struct platform_device vibrator_device = {
+	.name               = "vibrator-renesas-sh_mobile",
+	.id                 = -1,
+	.dev                = {
+		.platform_data  = &vibrator_platdata,
+	},
+};
+
+/**
+ * THREE optional devices pointer lists for initializing the platform
  * devices
  */
 
@@ -446,7 +463,7 @@ static struct platform_device *devices_stm_sdhi1[] __initdata = {
 	&mmcif_device,
 	&mmcoops_device,
 	&sdhi0_device,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
@@ -457,6 +474,7 @@ static struct platform_device *devices_stm_sdhi1[] __initdata = {
 	&lcdc_device,
 	&mfis_device,
 	&mdm_reset_device,
+	&vibrator_device, /* as dependant to h/w rev, add device seperatly */
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -473,12 +491,14 @@ static struct platform_device *devices_stm_sdhi1[] __initdata = {
 	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
-
+#ifdef CONFIG_VIDEO_SH_MOBILE_RCU
 	&rcu0_device,
 	&rcu1_device,
-
+#endif
+#ifdef CONFIG_SOC_CAMERA
 	&camera_devices[0],
 	&camera_devices[1],
+#endif
 	&stm_device,
 #if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
@@ -499,7 +519,7 @@ static struct platform_device *devices_stm_sdhi0[] __initdata = {
 	&mmcif_device,
 	&mmcoops_device,
 	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
@@ -511,6 +531,7 @@ static struct platform_device *devices_stm_sdhi0[] __initdata = {
 	&mfis_device,
 	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
+	&vibrator_device, /* as dependant to h/w rev, add device seperatly */
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -526,12 +547,14 @@ static struct platform_device *devices_stm_sdhi0[] __initdata = {
 	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
-
+#ifdef CONFIG_VIDEO_SH_MOBILE_RCU
 	&rcu0_device,
 	&rcu1_device,
-
+#endif
+#ifdef CONFIG_SOC_CAMERA
 	&camera_devices[0],
 	&camera_devices[1],
+#endif
 	&stm_device,
 #if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
@@ -553,7 +576,7 @@ static struct platform_device *devices_stm_none[] __initdata = {
 	&mmcoops_device,
 	&sdhi0_device,
 	&sdhi1_device,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
@@ -565,6 +588,7 @@ static struct platform_device *devices_stm_none[] __initdata = {
 	&mfis_device,
 	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
+	&vibrator_device, /* as dependant to h/w rev, add device seperatly */
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
@@ -579,12 +603,14 @@ static struct platform_device *devices_stm_none[] __initdata = {
 	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
-
+#ifdef CONFIG_VIDEO_SH_MOBILE_RCU
 	&rcu0_device,
 	&rcu1_device,
-
+#endif
+#ifdef CONFIG_SOC_CAMERA
 	&camera_devices[0],
 	&camera_devices[1],
+#endif
 #if defined(CONFIG_RENESAS_NFC)
 #ifdef CONFIG_PN544_NFC
 	&pn544_i2c_gpio_device,
@@ -593,6 +619,12 @@ static struct platform_device *devices_stm_none[] __initdata = {
 #if defined(CONFIG_SAMSUNG_MHL)
 	&mhl_i2c_gpio_device,
 #endif
+};
+
+struct i2c_board_info i2c4_devices_tsp_detector[] = {
+	{
+		I2C_BOARD_INFO("tsp_detector", 0x7f),
+	},
 };
 
 #endif

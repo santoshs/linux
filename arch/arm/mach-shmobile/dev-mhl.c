@@ -147,7 +147,7 @@ static void mhl_usb_switch_control(bool on)
 }
 
 
-void __init mhl_init(void)
+void __init board_mhl_init(void)
 {
 	int ret;
 

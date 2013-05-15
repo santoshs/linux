@@ -23,9 +23,6 @@ config FB_R_MOBILE_VX5B3D
 
 endchoice
 
-config LCD_ESD_RECOVERY_BY_CHECK_REG
-        boolean "LCD ESD RECOVERY by checking register"
-
 choice
         depends on FB_SH_MOBILE_LCDC
         prompt "hdmi select"

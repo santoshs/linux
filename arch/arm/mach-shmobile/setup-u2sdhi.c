@@ -50,7 +50,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		break;
 
 	case RENESAS_SDHI_POWER_OFF:
-		printk(KERN_INFO"RENESAS_SDHI_POWER_OFF:%s\n", __func__);
+			printk(KERN_INFO"RENESAS_SDHI_POWER_OFF:%s\n", __func__);
 		__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
 
 		regulator = regulator_get(NULL, "vio_sd");

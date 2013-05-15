@@ -275,9 +275,9 @@ static unsigned char dopctr[] = { 0xB1,
 static unsigned char invctr[] = { 0x36, 0x02 };
 #else
 static unsigned char dopctr[] = { 0xB1,
-		0x1C, 0x06 };
+		0x4C, 0x04 };
 
-static unsigned char invctr[] = { 0x36, 0x00 };
+static unsigned char invctr[] = { 0x36, 0x02 };
 #endif
 
 static unsigned char sdhdtctr[] = { 0xB6, 0x0A };
@@ -388,7 +388,7 @@ static unsigned char raset[] = { 0x2B,
 		0x00, 0x00, 0x03, 0x1F };
 
 /* Normal Display Mode On */
-static unsigned char noron[] = { 0x13 };
+/*static unsigned char noron[] = { 0x13 };*/
 
 static unsigned char dpfrctr1_40hz[] = { 0xBD,
 		0x02, 0x45, 0x07, 0x32, 0x00 };
@@ -438,7 +438,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, teon, sizeof(teon)    },
 #endif
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, colmod, sizeof(colmod)	},
-	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },
+/*	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },*/
 	{ MIPI_DSI_DCS_LONG_WRITE,  caset,  sizeof(caset) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) },
 	{ MIPI_DSI_DCS_LONG_WRITE, slpout,    sizeof(slpout)   },
@@ -1473,6 +1473,7 @@ static int nt35510_panel_resume(void)
 	screen_disp_start_lcd start_lcd;
 	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_delete disp_delete;
+	unsigned char read_data[60];	
 	int ret = 0;
 	int retry_count = NT35510_INIT_RETRY_COUNT;
 
@@ -1519,6 +1520,14 @@ retry:
 	mipi_display_reset();
 
 	is_dsi_read_enabled = 1;
+
+	/* Read display identification information */
+	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
+	if (ret == 0) {
+		printk(KERN_DEBUG "read_data(RDID1) = %02X\n", read_data[1]);
+		printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
+		printk(KERN_DEBUG "read_data(RDID3) = %02X\n", read_data[3]);
+	}
 
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);

@@ -1739,7 +1739,7 @@ static int vcd_write_log_level(struct file *filp, const char *buffer,
 	}
 
 	/* set log level */
-	g_vcd_log_level = temp_log_level;
+	g_vcd_log_level = temp_log_level | VCD_LOG_LEVEL_TIMESTAMP;
 
 rtn:
 	vcd_pr_interface_info("g_vcd_log_level[0x%x].\n", g_vcd_log_level);

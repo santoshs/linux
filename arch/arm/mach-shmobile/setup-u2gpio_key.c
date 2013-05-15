@@ -68,8 +68,8 @@ static struct gpio_keys_button gpio_buttons[] = {
 	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 1),
 #endif
 	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT18, "Home",  1),
-	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     1),
-	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     1),
+	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     0),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     0),
 };
 
 static int gpio_key_enable(struct device *dev)
@@ -123,7 +123,6 @@ int gpio_key_init(int stm_select,
 			p_dev_cnt = u2evm_devices_stm_none_size;
 			break;
 	}
-
 	platform_add_devices(p_dev, p_dev_cnt);
 
 	return 0;

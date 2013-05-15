@@ -1,9 +1,9 @@
-#ifdef CONFIG_VIBRATOR_ISA1000A
-
 #include <mach/r8a7373.h>
 #include <linux/gpio.h>
-#include <linux/isa1000a_haptic.h>
 #include <linux/platform_device.h>
+
+#ifdef CONFIG_VIBRATOR_ISA1000A
+#include <linux/isa1000a_haptic.h>
 
 /******************************************************/
 /*
@@ -46,9 +46,36 @@ static void isa1000_gpio_init(void)
 	gpio_export(GPIO_MOTOR_EN, 0);
 }
 
-void __init isa1000_vibrator_init(void)
+static void __init isa1000_vibrator_init(void)
 {
 	isa1000_gpio_init();
 	platform_device_register(&isa1000_device);
 }
 #endif
+
+#ifdef CONFIG_VIBRATOR_SS
+struct platform_device ss_vibrator_device = {
+		.name = "vibrator",
+		.id = 0,
+		.dev =
+		{
+			.platform_data="vdd_motor_pmic",
+		},
+};
+#endif
+
+void vibrator_init(unsigned int u2_board_rev)
+{
+#if defined(CONFIG_VIBRATOR_ISA1000A)
+#ifdef CONFIG_BOARD_VERSION_GARDA
+	if(3 > u2_board_rev)
+#endif
+	{
+		isa1000_vibrator_init();
+	}
+#endif
+
+#ifdef CONFIG_VIBRATOR_SS
+	platform_device_register(&ss_vibrator_device);
+#endif
+}

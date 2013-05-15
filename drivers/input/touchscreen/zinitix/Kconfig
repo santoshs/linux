@@ -2,11 +2,5 @@
 # ZINITIX Touchscreen driver configuration
 #
 
-config TOUCHSCREEN_ZINITIX
-	tristate "ZINITIX touchscreen driver"
-	depends on I2C
-	help
-	  Say Y here if you have a ZINITIX touchscreen.
-
-	  If unsure, say N.
-
+source "drivers/input/touchscreen/zinitix/loganlte/Kconfig"
+source "drivers/input/touchscreen/zinitix/lt02lte/Kconfig"

@@ -5079,7 +5079,7 @@ void rtds_memory_leak_check_mpro(
 		MSG_MED("[RTDSK]   |flags[0x%08X]\n",
 			(u32)mem_table->task_info->flags);
 		if ((mem_table->task_info->flags & PF_EXITPIDONE) &&
-			(mem_table->event != RTDS_MEM_MAP_PNC_NMA_EVENT)) {
+		    (mem_table->event != RTDS_MEM_MAP_PNC_NMA_EVENT)) {
 			list_add_tail(&(mem_table->list_head_leak),
 				&g_rtds_memory_list_leak_mpro);
 			list_del(&mem_table->list_head);

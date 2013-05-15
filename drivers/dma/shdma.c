@@ -1948,6 +1948,7 @@ static int sh_dmae_resume(struct device *dev)
 	}
 
 	pm_runtime_put(dev);
+
 	return 0;
 }
 #else

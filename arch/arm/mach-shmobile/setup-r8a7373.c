@@ -39,13 +39,16 @@
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
 #endif
-#include <mach/dev-renesas-bt.h>
 
-#if defined(CONFIG_SEC_DEBUG)
-#include <mach/sec_debug.h>
-#if defined(CONFIG_SEC_DEBUG_INFORM)
-#include <mach/sec_debug_inform.h>
+#ifdef CONFIG_RENESAS_BT
+#include <mach/dev-renesas-bt.h>
 #endif
+
+#include <mach/board-bcm4334-bt.h>
+
+#include <mach/sec_debug.h>
+#if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
+#include <mach/sec_debug_inform.h>
 #endif
 
 #ifdef CONFIG_MFD_D2153
@@ -72,16 +75,14 @@ static struct map_desc r8a7373_io_desc[] __initdata = {
 		.length		= SZ_2M,
 		.type		= MT_DEVICE
 	},
-
 #if defined(CONFIG_SEC_DEBUG_INFORM_IOTABLE)
-        {
-                .virtual        = SEC_DEBUG_INFORM_VIRT,
-                .pfn            = __phys_to_pfn(SEC_DEBUG_INFORM_PHYS),
-                .length         = SZ_4K,
-                .type           = MT_UNCACHED,
-        },
+	{
+		.virtual	= SEC_DEBUG_INFORM_VIRT,
+		.pfn		= __phys_to_pfn(SEC_DEBUG_INFORM_PHYS),
+		.length		= SZ_4K,
+		.type		= MT_UNCACHED,
+	},
 #endif
-
 };
 
 void __init r8a7373_map_io(void)
@@ -263,7 +264,7 @@ static struct platform_device i2c4_device = {
 };
 
 /* IIC1H */
-#ifdef CONFIG_MACH_LT02LTE
+#ifdef CONFIG_FB_R_MOBILE_VX5B3D
 static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
@@ -1218,7 +1219,7 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&i2c2_device, /* IIC2  */
 	&i2c3_device, /* IIC3  */
 	&i2c4_device, /* IIC0H */
-#if defined(CONFIG_MACH_LT02LTE)
+#ifdef CONFIG_FB_R_MOBILE_VX5B3D
 	&i2c5_device, /* IIC1H*/
 #endif
 #ifndef CONFIG_SPI_SH_MSIOF
@@ -1385,7 +1386,7 @@ void d2153_mmcif_pwr_control(int onoff)
 	}
 
 	if (onoff == 1) {
-#ifdef CONFIG_MACH_LT02LTE
+#if 1 /* always enabling the vmmc */
 		if (!regulator_is_enabled(emmc_regulator)) {
 			printk(KERN_INFO " %s, %d vmmc On\n", __func__,
 				__LINE__);
@@ -1398,7 +1399,7 @@ void d2153_mmcif_pwr_control(int onoff)
 		printk(KERN_INFO "regulator_enable ret = %d\n", ret);
 #endif
 	} else {
-#ifndef CONFIG_MACH_LT02LTE
+#if 0 /* always enabling the vmmc */
 		printk(KERN_INFO "%s, %d vmmc Off\n", __func__, __LINE__);
 		ret = regulator_disable(emmc_regulator);
 		printk(KERN_INFO "regulator_disable ret = %d\n", ret);

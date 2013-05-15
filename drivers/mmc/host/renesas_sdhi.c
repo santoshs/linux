@@ -117,8 +117,8 @@
 #define SDHI_MIN_DMA_LEN	8
 #define SDHI_TIMEOUT		5000	/* msec */
 
-#define SD_CLK_CMD_DELAY   200     /* microseconds */
-unsigned int wakeup_from_suspend_sd;
+#define SD_CLK_CMD_DELAY	200	/* microseconds */
+static unsigned int wakeup_from_suspend;
 
 /* sdcard1_detect_state variable used to detect the state of the SD card */
 static int sdcard1_detect_state;
@@ -942,6 +942,7 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 			struct mmc_command *cmd, u16 cmddat)
 {
 	u16 val16;
+	
 	host->cmd = cmd;
 
 	cmddat |= cmd->opcode;
@@ -980,14 +981,13 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 	dev_dbg(&host->pdev->dev, "CMD %d %x %x %x %x\n",
 		cmd->opcode, cmd->arg, cmd->flags, cmd->retries, cmddat);
 
-
-	if (wakeup_from_suspend_sd == 1) {
+	if (wakeup_from_suspend == 1) {
 		clk_enable(host->clk);
 		/* Disable automatic control for SD clock output */
 		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
 		sdhi_write16(host, SDHI_CLK_CTRL, (val16 & ~0x200)|0x100);
 
-		/* Delay of 200 us */
+		 /* Delay of 200 us */
 		udelay(SD_CLK_CMD_DELAY);
 
 		/* Send command */
@@ -995,7 +995,7 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 
 		/* enable card clock */
 		sdhi_write16(host, SDHI_CLK_CTRL, val16);
-		wakeup_from_suspend_sd = 0;
+		wakeup_from_suspend = 0;
 		clk_disable(host->clk);
 	} else {
 		/* Send command */
@@ -1209,6 +1209,27 @@ static const struct mmc_host_ops renesas_sdhi_ops = {
 	.start_signal_voltage_switch = renesas_sdhi_signal_voltage_switch,
 };
 
+	//Add sdcard detection value to sysfs
+extern struct class *sec_class;
+static struct device *sd_detection_cmd_dev;
+
+static ssize_t sd_detection_cmd_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	if(sdcard1_detect_state==1)
+	{
+		printk("sdhci: card inserted.\n");
+		return sprintf(buf, "Insert\n");
+	}
+	else
+	{
+		printk("sdhci: card removed.\n");
+		return sprintf(buf, "Remove\n");
+	}
+}
+	
+static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
+
 static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
@@ -1349,9 +1370,9 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	}
 
 	if (host->connect == 1)
-		wakeup_from_suspend_sd = 1;
+		wakeup_from_suspend = 1;
 	else
-		wakeup_from_suspend_sd = 0;
+		wakeup_from_suspend = 0;
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		/* updating the SD card presence*/
@@ -1359,6 +1380,15 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		sysfs_ret = sdhi_sysfs_init(host);
 		if (sysfs_ret)
 			printk(KERN_ERR "SYSFS initialization for SDHI:sdcard1 detection failed\n");
+	}
+	//Create sdcard detection value to sysfs
+	if (sd_detection_cmd_dev == NULL){
+		sd_detection_cmd_dev = device_create(sec_class, NULL, 0, NULL, "sdcard");
+		if (IS_ERR(sd_detection_cmd_dev))
+			printk("Fail to create sysfs dev\n");
+
+		if (device_create_file(sd_detection_cmd_dev, &dev_attr_status) < 0)
+			printk("Fail to create sysfs file\n");
 	}
 
 	/* irq */
@@ -1507,7 +1537,7 @@ int renesas_sdhi_resume(struct device *dev)
 	u32 val;
 	u32 ret = 0;
 
-	wakeup_from_suspend_sd = 1;
+	wakeup_from_suspend = 1;
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		if (host->pdata != NULL)
