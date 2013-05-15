@@ -120,6 +120,7 @@ static const char __initdata d2153_battery_banner[] = \
 #define LAST_VOL_UP_PERCENT                 75
 #define LAST_CHARGING_WEIGHT      			900
 
+/*efine D2153_DEBUG*/
 /* Static Function Prototype */
 /* static void d2153_external_event_handler(int category, int event); */
 static int  d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channel);
@@ -805,8 +806,9 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 		pr_err("%s. Invalid parameter. \n", __func__);
 		return -EINVAL;
 	}
-
+#ifdef D2153_DEBUG
 	pr_info("%s. Getting SOC\n", __func__);
+#endif
 
 	pbat_data = &pbat->battery_data;
 
@@ -1903,6 +1905,7 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_FAST);
 	}
 
+#ifdef D2153_DEBUG
 	pr_info("# SOC = %3d.%d %%, ADC(read) = %4d, ADC(avg) = %4d, Voltage(avg) = %4d mV, ADC(VF) = %4d\n",
 				(pbat->battery_data.soc/10),
 				(pbat->battery_data.soc%10),
@@ -1910,6 +1913,7 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 				pbat->battery_data.average_volt_adc,
 				pbat->battery_data.average_voltage,
 				pbat->battery_data.vf_adc);
+#endif
 
 	if (is_called_by_ticker == 1) {
 		is_called_by_ticker = 0;
@@ -1944,10 +1948,12 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
 		schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_FAST);
 	}
 
+#ifdef D2153_DEBUG
 	pr_info("# TEMP_BOARD(ADC) = %4d, Board Temperauter(Celsius) = %3d.%d\n",
 				pbat->battery_data.average_temp_adc,
 				(pbat->battery_data.average_temperature/10),
 				(pbat->battery_data.average_temperature%10));
+#endif
 
 	return ;
 }
