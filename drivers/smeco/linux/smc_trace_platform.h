@@ -76,7 +76,10 @@ Description :  File created
 #define SMC_TRACE_EVENT_RECEIVED_ENABLED
 #define SMC_TRACE_DMA_ENABLED
 #define SMC_TRACE_TASKLET_ENABLED
+#define SMC_TRACE_APE_EXTENDED_MHI_FILE_ENABLED
 */
+
+
 
 #ifdef SMC_TRACE_TASKLET_ENABLED
   #define SMC_TRACE_PRINTF_TASKLET(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"TASKLET: " __VA_ARGS__ )
@@ -103,9 +106,6 @@ Description :  File created
   #define SMC_TRACE_PRINTF_DATA_STM(prefix_text, data, length, max_print_len)
 #endif
 
-    /* Show UI traces */
-//#define SMC_TRACE_PRINTF_UI(...)                   printk(KERN_ALERT __VA_ARGS__ )
-//#define SMC_TRACE_PRINTF_ALWAYS(...)               printk(KERN_ALERT __VA_ARGS__ )
 
 #ifdef SMC_APE_LINUX_KERNEL_STM
   #define SMC_TRACE_PRINTF_UI(format, arg...)        printk(KERN_ALERT format "\n",## arg ); smc_printk( format,## arg )

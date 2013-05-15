@@ -53,15 +53,16 @@ Description :  File created
   #if(SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED==TRUE)
 
     #define SMC_HOST_ACCESS_WAKEUP(spinlock, timeout)  { uint32_t timer = 0;                                          \
+                                                         uint32_t timeout_val = timeout;                              \
                                                          if( spinlock != NULL ) SMC_LOCK_IRQ( spinlock );             \
                                                          __raw_writel(SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_REQ, SMC_WPMCIF_EPMU_ACC_CR);           \
                                                          (void)__raw_readl(SMC_WPMCIF_EPMU_ACC_CR);                   \
                                                          while (SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_OK != __raw_readl(SMC_WPMCIF_EPMU_ACC_CR)) {  \
-                                                             if(timeout != 0 && ++timer >= timeout ) {                 \
-                                                                 SMC_TRACE_PRINTF_ERROR("SMC_HOST_ACCESS_WAKEUP: modem not woken up in %d ms", timeout); \
+                                                             if(timeout_val != 0 && ++timer >= timeout_val ) {                 \
+                                                                 SMC_TRACE_PRINTF_ERROR("SMC_HOST_ACCESS_WAKEUP: modem not woken up in %d ms", timeout_val); \
                                                                  break;                                               \
                                                              }                                                        \
-                                                             else if( timeout > 0 ) {                                 \
+                                                             else if( timeout_val != 0 ) {                                 \
                                                                  SMC_SLEEP_MS(1);                                     \
                                                              }                                                        \
                                                          }                                                            \
@@ -221,6 +222,9 @@ int smc_dma_transfer_mdb(smc_dma_t* dma, void* target_address, void* source_addr
 #endif
 
 uint16_t smc_asic_version_get(void);
+
+void smc_wake_lock( uint32_t data );
+void smc_wake_unlock( uint32_t data );
 
 #endif
 

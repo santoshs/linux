@@ -57,6 +57,7 @@ Description :  File created
 #define SMC_TRACE_FIFO_GET_ENABLED
 #define SMC_TRACE_FIFO_PUT_ENABLED
 #define SMC_TRACE_MDB_ENABLED
+#define SMC_TRACE_MDB_ALLOC_ENABLED
 #define SMC_TRACE_SIGNALS_ENABLED
 #define SMC_TRACE_SIGNAL_RAISE_ENABLED
 #define SMC_TRACE_SIGNAL_RECEIVE_ENABLED
@@ -78,11 +79,19 @@ Description :  File created
 #define SMC_TRACE_FIFO_BUFFER_ENABLED
 #define SMC_TRACE_DMA_ENABLED
 #define SMC_TRACE_SHM_VARIABLE_ENABLED
+#define SMC_TRACE_SLEEP_CONTROL_ENABLED
 */
+
 
 /**
  * ----------- R&D Trace macros begin ---------------
  */
+
+#ifdef SMC_TRACE_SLEEP_CONTROL_ENABLED
+  #define SMC_TRACE_PRINTF_SLEEP_CONTROL(...)             SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"SLEEPCTRL: " __VA_ARGS__ )
+#else
+  #define SMC_TRACE_PRINTF_SLEEP_CONTROL(...)
+#endif
 
 
 #ifdef SMC_TRACE_SHM_VARIABLE_ENABLED
@@ -188,6 +197,16 @@ Description :  File created
   #define SMC_TRACE_PRINTF_MDB(...)
   #define SMC_TRACE_PRINTF_MDB_DATA( length, data )
 #endif
+
+
+#ifdef SMC_TRACE_MDB_ALLOC_ENABLED
+  #define SMC_TRACE_PRINTF_MDB_ALLOC(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"MDB_ALLOC:  " __VA_ARGS__ )
+  #define SMC_TRACE_PRINTF_MDB_ALLOC_DATA( length, data ) SMC_TRACE_PRINTF_DATA(length, data)
+#else
+  #define SMC_TRACE_PRINTF_MDB_ALLOC(...)
+  #define SMC_TRACE_PRINTF_MDB_ALLOC_DATA( length, data )
+#endif
+
 
 #ifdef SMC_TRACE_SIGNALS_ENABLED
   #define SMC_TRACE_PRINTF_SIGNAL(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"SIGNL:" __VA_ARGS__ )
@@ -297,7 +316,7 @@ Description :  File created
 #endif
 
 #ifdef SMC_TRACE_WARNING_ENABLED
-  #define SMC_TRACE_PRINTF_WARNING(...)               SMC_TRACE_PRINTF(SMC_RD_TRACE_PREFIX"WARN: " __VA_ARGS__)
+  #define SMC_TRACE_PRINTF_WARNING(...)               SMC_TRACE_PRINTF_ALWAYS(SMC_RD_TRACE_PREFIX"WARN: " __VA_ARGS__)
 #else
   #define SMC_TRACE_PRINTF_WARNING(...)
 #endif

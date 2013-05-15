@@ -24,6 +24,9 @@ Description :  File created
 #ifndef SMC_TEST_H
 #define SMC_TEST_H
 
+
+/*#define SMC_INCLUDE_PERF_TEST*/
+
 #if (defined SMECO_LINUX_ANDROID || defined SMECO_LINUX_KERNEL)
 
     /**
@@ -90,16 +93,16 @@ Description :  File created
     #define SMC_TEST_GROUP_ID        MEXE_L1_TEST_GROUP
     #define SMC_TEST_GROUP_ID_REMOTE MEXE_L23_TEST_GROUP
 
-    #define SMC_CPU_ID_LOCAL         VD1_CortexL1
-    #define SMC_CPU_ID_REMOTE        VD1_CortexL2
+    #define SMC_CPU_ID_LOCAL         0x01
+    #define SMC_CPU_ID_REMOTE        0x02
 
   #else
 
     #define SMC_TEST_GROUP_ID        MEXE_L23_TEST_GROUP
     #define SMC_TEST_GROUP_ID_REMOTE MEXE_L1_TEST_GROUP
 
-    #define SMC_CPU_ID_LOCAL         VD1_CortexL2
-    #define SMC_CPU_ID_REMOTE        VD1_CortexL1
+    #define SMC_CPU_ID_LOCAL         0x02
+    #define SMC_CPU_ID_REMOTE        0x01
 
   #endif
 

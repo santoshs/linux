@@ -29,7 +29,6 @@ Description :  File created
 #include "smc_trace.h"
 
 #include "smc_linux.h"
-// TODO Cleanup #include "smc_instance_config_control.h"
 #include "smc_config_control.h"
 
 #if( SMC_CONTROL_USE_PHONET == TRUE)
@@ -133,12 +132,6 @@ static smc_conf_t* smc_device_create_conf_control(char* device_name)
     char* smc_cpu_name = NULL;
     uint16_t asic_version = smc_asic_version_get();
 
-        /* Use EOS2 ES2.0 configuration */
-        /* TODO Cleanup
-    smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
-
-    */
-
     smc_cpu_name = smc_instance_conf_name_get_from_list( smc_instance_conf_control, SMC_CONF_COUNT_CONTROL, SMC_CONFIG_USER_CONTROL, TRUE, 2, 0);
 
     SMC_TRACE_PRINTF_STARTUP("Control configuration '%s' for ASIC version 0x%02X", smc_cpu_name, asic_version);
@@ -193,7 +186,7 @@ static void  smc_receive_data_callback_channel_control(void*   data,
 
             smc_net_dev = netdev_priv( device );
 
-            if( smc_net_dev->smc_dev_config->skb_rx_function )
+            if( smc_net_dev->smc_dev_config->skb_rx_function != NULL )
             {
                 struct sk_buff *skb = NULL;
 
@@ -217,7 +210,7 @@ static void  smc_receive_data_callback_channel_control(void*   data,
                     SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_control: Deliver SKB to upper layer RX ...");
                     SMC_TRACE_PRINTF_DEBUG_DATA( skb->len , skb->data );
 
-                    /*smc_net_dev->smc_dev_config->skb_rx_function( skb, device );*/
+                    smc_net_dev->smc_dev_config->skb_rx_function( skb, device );
                 }
             }
             else

@@ -49,16 +49,6 @@ Description :  File created
 #define SMC_MDB_IN  0
 #define SMC_MDB_OUT 1
 
-/* TODO CLEAN UP
-#if TLSF_USE_REF
-    #define SMC_MDB_ALLOC_FROM_POOL( pool, size )  malloc_ex(size, pool)
-    #define SMC_MDB_FREE_FROM_POOL(pool, ptr)      free_ex(ptr, pool)
-#else
-    #define SMC_MDB_ALLOC_FROM_POOL( pool, size )  tlsf_malloc(pool, size)
-    #define SMC_MDB_FREE_FROM_POOL(pool, ptr)      tlsf_free(pool, ptr)
-#endif
-*/
-
 typedef struct _smc_mdb_channel_info_t
 {
     void*    pool_in;
@@ -92,19 +82,22 @@ uint32_t smc_mdb_channel_largest_free_block_get( smc_channel_t* smc_channel );
 
 #if !TLSF_USE_REF
 typedef void* tlsf_pool;
-/* Debugging. */
+
+    /* Debugging. */
 typedef void (*tlsf_walker)(void* ptr, size_t size, int used, void* user);
 void tlsf_walk_heap(tlsf_pool pool, tlsf_walker walker, void* user);
-/* Returns nonzero if heap check fails. */
+
+    /* Returns nonzero if heap check fails. */
 int tlsf_check_heap(tlsf_pool pool);
 
-/* Returns internal block size, not original request size */
+    /* Returns internal block size, not original request size */
 size_t tlsf_block_size(void* ptr);
-/* Returns external block size, should be equal or greater 
- * than the original request size */
+
+    /* Returns external block size, should be equal or greater
+     * than the original request size */
 size_t tlsf_ptr_size(void * ptr);
 
-/* Overhead of per-pool internal structures. */
+    /* Overhead of per-pool internal structures. */
 size_t tlsf_overhead( void );
 #endif
 

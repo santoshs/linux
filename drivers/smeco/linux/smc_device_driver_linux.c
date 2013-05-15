@@ -157,6 +157,26 @@ MODULE_LICENSE("Dual BSD/GPL");
 
 
 
+#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+
+    static struct wake_lock* wakelock_tx    = NULL;
+
+    static inline struct wake_lock* get_wake_lock_tx(void)
+    {
+        if( wakelock_tx==NULL )
+        {
+            SMC_TRACE_PRINTF_DEBUG("get_wake_lock: initialize...");
+            wakelock_tx = (struct wake_lock*)SMC_MALLOC_IRQ( sizeof( struct wake_lock ) );
+
+            wake_lock_init(wakelock_tx, WAKE_LOCK_SUSPEND, "smc_wakelock_tx");
+         }
+
+        return wakelock_tx;
+    }
+
+#endif
+
+
     /*
      * Net Device configuration array of variables defined above.
      * The first device has id 0, the second has id 1, etc.
@@ -468,6 +488,20 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
     smc_t*                    smc_instance = NULL;
     uint8_t                   drop_packet  = 0;
 
+
+#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+    wake_lock( get_wake_lock_tx() );
+#endif
+
+#ifdef SMC_TRACE_APE_EXTENDED_MHI_FILE_ENABLED
+    /* TODO Special traces to be cleaned */
+
+    if( skb->protocol == htons(ETH_P_MHI) )
+    {
+        SMC_TRACE_PRINTF_ALWAYS("smc_net_device_driver_xmit: device 0x%08X, MHI protocol 0x%04X len %d, queue %d...", (uint32_t)device, skb->protocol, skb->len, skb->queue_mapping );
+    }
+#endif
+
     SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: device 0x%08X, protocol 0x%04X, queue %d...", (uint32_t)device, skb->protocol, skb->queue_mapping );
     SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: SKB Data (len %d, queue):", skb->len, skb->queue_mapping);
     SMC_TRACE_PRINTF_TRANSMIT_DATA( skb->len , skb->data );
@@ -630,6 +664,10 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                         {
                             SMC_SHM_CACHE_CLEAN( data_to_send, ((void*)(((uint32_t)data_to_send)+data_to_send_len)) );
                         }
+                        else
+                        {
+                            SMC_HW_ARM_MEMORY_SYNC(NULL);
+                        }
                     }
                     else
                     {
@@ -726,6 +764,13 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
             goto DROP_PACKET;
         }
 
+#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+#error "Not implemented yet, do not enable"
+        wake_unlock( get_wake_lock_tx() );
+
+        wake_lock_timeout( get_wake_lock_tx(), msecs_to_jiffies(SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS) );
+#endif
+
         return ret_val;
      }
      else
@@ -777,6 +822,10 @@ DROP_PACKET:
     dev_kfree_skb_any( skb);
 
     ret_val = SMC_DRIVER_ERROR;
+
+#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+        wake_unlock( get_wake_lock_tx() );
+#endif
 
     return ret_val;
 }
@@ -1009,7 +1058,6 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
             strcpy( if_req_smc_info->smc_version, SMC_SW_VERSION );
         }
 
-
         SMC_TRACE_PRINTF_STM("smc_net_device_driver_ioctl: device '%s': SIOCDEV_INFO: return version '%s' for version type %d", device->name, if_req_smc_info->smc_version, if_req_smc_info->smc_version_selection );
 
         ret_val = SMC_DRIVER_OK;
@@ -1120,7 +1168,7 @@ static int smc_device_notify(struct notifier_block *me, unsigned long event, voi
 	struct net_device *dev = arg;
 	struct wake_lock   smc_wakelock_conf;
 
-	SMC_TRACE_PRINTF_INFO("smc_device_notify: device '%s' notifies 0x%02X", dev!=NULL?dev->name:"<NO NAME>", event);
+	SMC_TRACE_PRINTF_INFO("smc_device_notify: device '%s' notifies 0x%08X", dev!=NULL?dev->name:"<NO NAME>", (uint32_t)event);
 
 	wake_lock_init(&smc_wakelock_conf, WAKE_LOCK_SUSPEND, "smc_wakelock_conf");
 
