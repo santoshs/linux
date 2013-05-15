@@ -91,8 +91,8 @@
 #define D2153_BUTTON_REPORT_TYPE	(SND_JACK_BTN_0 | SND_JACK_BTN_1 |\
 					 SND_JACK_BTN_2 | SND_JACK_BTN_3)
 
-#define D2153_GPIO_DEBOUNCE_TIME_LONG (4000)  /*4000ms*/
-#define D2153_GPIO_DEBOUNCE_TIME_SHORT (1000)  /*1000ms*/
+#define D2153_GPIO_DEBOUNCE_TIME_LONG (4000)  /*4ms*/
+#define D2153_GPIO_DEBOUNCE_TIME_SHORT (1000)  /*1ms*/
 
 #define D2153_AAD_BUTTON_DEBOUNCE_MS 50
 #define D2153_AAD_JACKOUT_DEBOUNCE_MS 100
@@ -150,6 +150,9 @@ struct d2153_aad_priv {
 	struct d2153_jack_info button;
 	unsigned int button_detect_rate;
 	struct wake_lock wakeup;
+	struct class *audio_class;
+	struct device *headset_dev;
+	unsigned int button_state;
 	struct input_dev *input_dev;        
 	struct d2153_switch_data switch_data;
 	struct delayed_work	jack_monitor_work;
