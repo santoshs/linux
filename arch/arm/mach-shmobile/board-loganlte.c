@@ -294,6 +294,14 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 			.irq           = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
 	},
 #endif
+
+#if defined(CONFIG_RT8973)
+	{
+		I2C_BOARD_INFO("rt8973", 0x28>>1),
+		.platform_data = NULL,
+		.irq = irqpin2irq(GPIO_MUS_INT),
+	},
+#endif
 #if defined(CONFIG_CHARGER_SMB328A)
 	{
 		I2C_BOARD_INFO("smb328a", SMB327B_ADDRESS),
@@ -548,6 +556,12 @@ static void __init board_init(void)
 	gpio_request(GPIO_PORT32, NULL);
 	gpio_direction_input(GPIO_PORT32);
 	gpio_pull_up_port(GPIO_PORT32);
+
+#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
+	gpio_request(GPIO_PORT97, NULL);
+	gpio_direction_input(GPIO_PORT97);
+	gpio_pull_up_port(GPIO_PORT97);
+#endif
 
 	USBGpio_init();
 
