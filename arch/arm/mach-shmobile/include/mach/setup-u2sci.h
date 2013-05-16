@@ -303,7 +303,7 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 			/* Function 2 - Direction not set as
 			same as Deep sleep value */
 			.port_fn	= GPIO_FN_SCIFB1_CTS,
-			.pull		= PORTn_CR_PULL_UP,
+			.pull		= PORTn_CR_PULL_OFF,
 			.direction	= PORTn_CR_DIRECTION_NOT_SET,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
@@ -312,7 +312,7 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 			/* Function 2 - Retain same initial value
 			in deep sleep to avoid leakage or Hi-Z state */
 			.port_fn	= GPIO_FN_SCIFB1_CTS,
-			.pull		= PORTn_CR_PULL_UP,
+			.pull		= PORTn_CR_PULL_OFF,
 			.direction	= PORTn_CR_DIRECTION_NOT_SET,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
