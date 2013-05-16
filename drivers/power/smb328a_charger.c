@@ -86,9 +86,12 @@ struct smb328a_chip {
 };
 
 static struct smb328a_chip *smb_charger = NULL;
-static bool FullChargeSend;
 static int smb328a_disable_charging(struct i2c_client *client);
 static int smb328a_enable_charging(struct i2c_client *client);
+
+#ifdef CONFIG_USE_MUIC
+static bool FullChargeSend;
+#endif
 
 #ifdef CONFIG_PMIC_INTERFACE
 extern int pmic_get_temp_status(void);

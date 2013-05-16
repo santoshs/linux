@@ -47,6 +47,10 @@
 #define GPIO_MUS_INT 41
 #endif
 
+#ifdef CONFIG_RT8973
+#define GPIO_MUS_INT 41
+#endif
+
 /**
  * RLTE_BOARD_REV
  */
