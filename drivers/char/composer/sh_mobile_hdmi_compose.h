@@ -31,8 +31,11 @@ struct cmp_information_hdmi {
 	unsigned long          allocatesize;
 	struct appmem_handle   *hdmi_map_handle;
 	int                    hdmi_count_display;
+	int                    max_width;
+	int                    max_height;
 
-	int                    hdmi_direct_display[2];
+	int                    direct_display[2];
+	int                    blend_bufferid;
 };
 
 /******************************/
@@ -48,7 +51,7 @@ static int hdmi_rtapi_output(void *handle, struct composer_rh *rh) \
 static int hdmi_rtapi_blend(void *handle, struct composer_rh *rh) \
 	__maybe_unused;
 
-/* worke memory */
+/* work memory */
 static int hdmi_memory_allocate(struct cmp_information_hdmi *info,
 	unsigned long size);
 static int hdmi_memory_free(struct cmp_information_hdmi *info);

@@ -987,7 +987,7 @@ static void sh_mobile_appmem_dump_rt_phys_list(void)
 
 
 /**************************************************/
-/* name : sh_mobile_rtmem_physarea_regist         */
+/* name : sh_mobile_rtmem_physarea_register       */
 /* function: map physical memory                  */
 /**************************************************/
 struct rtmem_phys_handle *sh_mobile_rtmem_physarea_register(
@@ -1137,7 +1137,7 @@ EXPORT_SYMBOL(sh_mobile_rtmem_physarea_register);
 
 
 /**************************************************/
-/* name : sh_mobile_rtmem_physarea_unregist       */
+/* name : sh_mobile_rtmem_physarea_unregister     */
 /* function: unmap physical memory                */
 /**************************************************/
 void sh_mobile_rtmem_physarea_unregister(
