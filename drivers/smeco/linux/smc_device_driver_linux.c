@@ -488,7 +488,6 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
     smc_t*                    smc_instance = NULL;
     uint8_t                   drop_packet  = 0;
 
-
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
     wake_lock( get_wake_lock_tx() );
 #endif
@@ -765,10 +764,25 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
         }
 
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
-#error "Not implemented yet, do not enable"
-        wake_unlock( get_wake_lock_tx() );
 
-        wake_lock_timeout( get_wake_lock_tx(), msecs_to_jiffies(SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS) );
+        /* Lock the list */
+
+        /*
+        if( skb_queue_empty(const struct sk_buff_head *list) )
+        SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: SMC");
+        SMC_TRACE_PRINTF_STARTUP("smc_net_device_driver_xmit: SKB 0x%08X, prev: 0x%08X, next: 0x%08X",
+                (uint32_t)skb, (uint32_t)skb->prev, (uint32_t)skb->next);
+        */
+        if( 0 )
+        {
+            wake_unlock( get_wake_lock_tx() );
+        }
+        else
+        {
+            wake_lock_timeout( get_wake_lock_tx(), msecs_to_jiffies(SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS) );
+        }
+
+        /* Unlock the list */
 #endif
 
         return ret_val;
@@ -816,10 +830,14 @@ DROP_PACKET:
     }
     else
     {
-        SMC_TRACE_PRINTF_WARNING("smc_net_device_driver_xmit: packet 0x%08X, len %d (unknown reason)", (uint32_t)skb->data, skb->len);
+        SMC_TRACE_PRINTF_WARNING("smc_net_device_driver_xmit: packet 0x%08X, len %d (reason %d)", (uint32_t)skb->data, skb->len, drop_packet);
     }
 
-    dev_kfree_skb_any( skb);
+        /* If skb_pad fails, it frees the packet, so not freeing it here */
+    if( drop_packet != 5 )
+    {
+        dev_kfree_skb_any(skb);
+    }
 
     ret_val = SMC_DRIVER_ERROR;
 

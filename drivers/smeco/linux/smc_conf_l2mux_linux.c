@@ -168,6 +168,12 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
     SMC_TRACE_PRINTF_STARTUP("Device '%s': UL SKB fragments not supported", device_name);
 #endif
 
+#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock feature enabled, timeout %d ms", device_name, SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS);
+#else
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock feature not enabled", device_name);
+#endif
+
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
     smc_instance_conf = smc_instance_conf_get_l2mux( SMC_CONFIG_USER_L2MUX, smc_cpu_name );
@@ -181,7 +187,6 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
         smc_channel_conf = smc_conf->smc_channel_conf_ptr_array[i];
 
         smc_channel_conf->smc_receive_data_cb           = (void*)smc_receive_data_callback_channel_l2mux;
-        //smc_channel_conf->smc_send_data_deallocator_cb  = (void*)smc_deallocator_callback_l2mux;
         smc_channel_conf->smc_send_data_deallocator_cb  = NULL;
         smc_channel_conf->smc_receive_data_allocator_cb = NULL;
         smc_channel_conf->smc_event_cb                  = (void*)smc_event_callback_l2mux;

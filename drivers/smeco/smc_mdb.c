@@ -42,8 +42,6 @@ Description :  File created
 #endif
 
 #include "smc_common_includes.h"
-
-/*#include "smc_conf.h"*/
 #include "smc.h"
 #include "smc_trace.h"
 #include "smc_mdb.h"
@@ -1114,9 +1112,12 @@ static __inline__ block_header_t* search_suitable_block(pool_t* pool, int* fli, 
  */
 static __inline__ void remove_free_block(pool_t* pool, block_header_t* block, int fl, int sl)
 {
+    block_header_t* prev = NULL;
+    block_header_t* next = NULL;
+
     if( pool == NULL )
     {
-        SMC_TRACE_PRINTF_ASSERT("MDB: remove_free_block: Target pool for block 0x%08X is NULL (fl: %d, sl: %d)", block, fl, sl);
+        SMC_TRACE_PRINTF_ASSERT("MDB: remove_free_block: Target pool for block 0x%08X is NULL (fl: %d, sl: %d)", (uint32_t)block, fl, sl);
         tlsf_assert(0);
     }
 
@@ -1126,12 +1127,12 @@ static __inline__ void remove_free_block(pool_t* pool, block_header_t* block, in
         tlsf_assert(0);
     }
 
-	block_header_t* prev = block->prev_free;
-	block_header_t* next = block->next_free;
+	prev = block->prev_free;
+	next = block->next_free;
 
 	if( prev == NULL )
 	{
-	    SMC_TRACE_PRINTF_ASSERT("MDB: remove_free_block: Block 0x%08X->prev_free is NULL (fl: %d, sl: %d)", block, fl, sl);
+	    SMC_TRACE_PRINTF_ASSERT("MDB: remove_free_block: Block 0x%08X->prev_free is NULL (fl: %d, sl: %d)", (uint32_t)block, fl, sl);
 	    tlsf_assert(prev);  /* prev_free field can not be null */
 	}
 
