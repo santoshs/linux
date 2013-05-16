@@ -545,6 +545,7 @@ void smc_fifo_dump(char* indent, smc_fifo_t* p_fifo, int32_t mem_offset )
         uint32_t* address = 0x00000000;
         int32_t   fifo_unread = p_fifo->write_index-p_fifo->read_index;
         int       iDataLinesToPrint = 4;
+        uint32_t iCounter = 0;
 
         if( fifo_unread < 0 ) fifo_unread *= -1;
 
@@ -560,7 +561,6 @@ void smc_fifo_dump(char* indent, smc_fifo_t* p_fifo, int32_t mem_offset )
 
         address = FIFO_HEADER_GET_START_ADDRESS_WRITE(p_fifo);
 
-        uint32_t iCounter = 0;
         for(int i = 0; i < 1; i++)
         {
             SMC_TRACE_PRINTF_ALWAYS("%s       data[%d]: 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X", indent,i,
@@ -569,7 +569,6 @@ void smc_fifo_dump(char* indent, smc_fifo_t* p_fifo, int32_t mem_offset )
 
             iCounter+=8;
         }
-
 
         SMC_TRACE_PRINTF_ALWAYS("%s   Header read: 0x%08X - 0x%08X (PHY-ADDR: 0x%08X - 0x%08X): read index %d, read counter %d", indent,
                 (uint32_t)FIFO_HEADER_GET_START_ADDRESS_READ(p_fifo), (uint32_t)FIFO_HEADER_GET_END_ADDRESS_READ(p_fifo),

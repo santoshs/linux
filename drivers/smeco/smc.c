@@ -395,17 +395,18 @@ static inline uint32_t smc_local_address_translate( const smc_channel_t* smc_cha
  */
 static void smc_fifo_timer_expired(uint32_t data)
 {
-    if( data != NULL )
+    if( data != 0x00000000 )
     {
         smc_timer_t* timer = (smc_timer_t*)data;
+        smc_channel_t* smc_channel = NULL;
 
-        if( timer-> timer_data == NULL )
+        if( timer-> timer_data == 0x00000000 )
         {
             SMC_TRACE_PRINTF_ERROR("smc_fifo_timer_expired: invalid timer_data pointer <NULL> inside timer");
             return;
         }
 
-        smc_channel_t* smc_channel = (smc_channel_t*)timer->timer_data;
+        smc_channel = (smc_channel_t*)timer->timer_data;
 
         SMC_TRACE_PRINTF_TIMER("smc_fifo_timer_expired: channel %d (0x%08X)", smc_channel->id, (uint32_t)smc_channel);
 

@@ -265,7 +265,7 @@ Description :  File created
 
 
 
-  /*#define SMC_NETDEV_WAKELOCK_IN_TX */                           /* If defined, the wakelock is used in the net device TX */
+  /*#define SMC_NETDEV_WAKELOCK_IN_TX*/                                /* If defined, the wakelock is used in the net device TX */
   #define SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS     10              /* Timeout in milliseconds if wakelock timer used in net device TX */
 
 #endif  /* End of target specific configuration */
