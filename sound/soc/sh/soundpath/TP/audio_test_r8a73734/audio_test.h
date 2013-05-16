@@ -62,6 +62,12 @@
 #define __PRN_AUDIO_TEST__
 #define __PRN_AUDIO_TEST_ADD_TIME__
 
+/***********************************/
+/* pcm dump                        */
+/***********************************/
+#define AUDIO_TEST_PCMNAME		"pcmname"
+
+
 /*!
   @brief	Device file name.
 */

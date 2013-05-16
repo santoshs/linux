@@ -91,6 +91,7 @@ struct audio_test_priv {
 	/* log                             */
 	/***********************************/
 	struct proc_dir_entry *log_entry;	/**< log level entry. */
+	struct proc_dir_entry *pcmname_entry;	/**< pcm dump entry. */
 	struct proc_dir_entry *proc_parent;	/**< proc parent. */
 };
 
@@ -120,6 +121,10 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 static int audio_test_proc_stop_spuv_loopback(void);
 static int audio_test_proc_start_sound_play(void);
 static int audio_test_proc_stop_sound_play(void);
+static void audio_test_proc_get_pcmname(
+			struct audio_test_ioctl_pcmname_cmd *pcm);
+static int audio_test_proc_set_pcmname(
+			struct audio_test_ioctl_pcmname_cmd *pcm);
 /***********************************/
 /* HW write                        */
 /***********************************/
@@ -149,6 +154,11 @@ static int audio_test_proc_log_read(char *page, char **start, off_t offset,
 					int count, int *eof, void *data);
 static int audio_test_proc_log_write(struct file *filp, const char *buffer,
 					u_long count, void *data);
+/***********************************/
+/* pcm dump                        */
+/***********************************/
+static int audio_test_proc_pcm_read(char *page, char **start, off_t offset,
+					int count, int *eof, void *data);
 /***********************************/
 /* callback                        */
 /***********************************/
@@ -209,6 +219,16 @@ static u_int audio_test_drv_out_device_type = AUDIO_TEST_DRV_OUT_SPEAKER;
   @brief	Loopback state.
 */
 static u_int audio_test_pt_state = AUDIO_TEST_DRV_STATE_OFF;
+/*!
+  @brief	PCM name.
+		pcmname[0][0] Playback Normal
+		pcmname[0][1] Playback PT
+		pcmname[1][0] Capture Normal
+		pcmname[1][1] Capture PT
+*/
+static char audio_test_pcmname[AUDIO_TEST_DRV_PCMDIR_MAX]
+				[AUDIO_TEST_DRV_PCMTYPE_MAX]
+				[AUDIO_TEST_PCMNAME_MAX_LEN];
 /***********************************/
 /* HW clock flag                   */
 /***********************************/
@@ -380,6 +400,17 @@ static struct audio_test_common_reg_table
 	   CF1EN (3) : 0 (Disable.), CF0EN (2) : 0 (Disable.),
 	   PBEN (1) : 0 (Disable.), PAEN (0) : 1 (Enable.) */
 	{AUDIO_TEST_CLKG_PULSECTL,	0x00000001,	0,	0},
+};
+
+/***********************************/
+/* Table for PCM name prefix       */
+/***********************************/
+static const char *audio_test_pcm_prefix[AUDIO_TEST_DRV_PCMDIR_MAX]
+					[AUDIO_TEST_DRV_PCMTYPE_MAX] = {
+	{ "Playback:     ",
+	  "Playback(PT): " },
+	{ "Capture:      ",
+	  "Capture(PT):  " },
 };
 
 /*---------------------------------------------------------------------------*/
@@ -1003,6 +1034,56 @@ static int audio_test_proc_get_loopback_state(u_int *state)
 	*state = audio_test_pt_state;
 
 	audio_test_log_rfunc("state[%d]", audio_test_pt_state);
+	return ret;
+}
+
+/*!
+  @brief	Get PCM name.
+
+  @param	pcm [i/o] structure audio_test_ioctl_pcmname_cmd.
+
+  @return	Function results.
+
+  @note		.
+*/
+static void audio_test_proc_get_pcmname(
+				struct audio_test_ioctl_pcmname_cmd *pcm)
+{
+	audio_test_log_efunc("");
+
+	strncpy(pcm->pcmname,
+		audio_test_pcmname[pcm->pcmdirection][pcm->pcmtype],
+		AUDIO_TEST_PCMNAME_MAX_LEN);
+
+	audio_test_log_rfunc("PCM name [%s]",
+			audio_test_pcmname[pcm->pcmdirection][pcm->pcmtype]);
+}
+
+/*!
+  @brief	Set PCM name.
+
+  @param	pcm [i] structure audio_test_ioctl_pcmname_cmd.
+
+  @return	Function results.
+
+  @note		.
+*/
+static int audio_test_proc_set_pcmname(
+				struct audio_test_ioctl_pcmname_cmd *pcm)
+{
+	int ret = 0;
+
+	audio_test_log_efunc("");
+
+	if (AUDIO_TEST_DRV_PCMSTATE_OPEN == pcm->pcmstate)
+		strncpy(audio_test_pcmname[pcm->pcmdirection][pcm->pcmtype],
+						pcm->pcmname,
+						AUDIO_TEST_PCMNAME_MAX_LEN);
+	else
+		audio_test_pcmname[pcm->pcmdirection][pcm->pcmtype][0] = '\0';
+
+	audio_test_log_rfunc("PCM name [%s]",
+			audio_test_pcmname[pcm->pcmdirection][pcm->pcmtype]);
 	return ret;
 }
 
@@ -1697,6 +1778,8 @@ static int audio_test_create_proc_entry(char *name,
 		if (strcmp(name, AUDIO_TEST_LOG_LEVEL) == 0) {
 			(*proc_child)->read_proc = audio_test_proc_log_read;
 			(*proc_child)->write_proc = audio_test_proc_log_write;
+		} else if (strcmp(name, AUDIO_TEST_PCMNAME) == 0) {
+			(*proc_child)->read_proc = audio_test_proc_pcm_read;
 		} else {
 			audio_test_log_err("parameter error.");
 			ret = -EINVAL;
@@ -1776,6 +1859,46 @@ static int audio_test_proc_log_write(struct file *filp, const char *buffer,
 	return count;
 }
 
+/*!
+  @brief	Read proc file.
+
+  @param	page [o] Writing range.
+  @param	start [o] Not use.
+  @param	offset [o] Not use.
+  @param	count [o] Not use.
+  @param	eof [o] End of file.
+  @param	data [o] Not use.
+
+  @return	Data length.
+
+  @note		.
+*/
+static int audio_test_proc_pcm_read(char *page, char **start, off_t offset,
+					int count, int *eof, void *data)
+{
+	int len = 0, i, j;
+	char *pcmname;
+	char *none = "--";
+
+	audio_test_log_efunc("");
+
+	for (i = 0; i < AUDIO_TEST_DRV_PCMDIR_MAX; i++) {
+		for (j = 0; j < AUDIO_TEST_DRV_PCMTYPE_MAX; j++) {
+			pcmname = audio_test_pcmname[i][j];
+			if ('\0' == audio_test_pcmname[i][j][0])
+				pcmname = none;
+			len += sprintf(&page[len], "%s%s\n",
+				audio_test_pcm_prefix[i][j],
+				pcmname);
+		}
+	}
+
+	*eof = 1;
+
+	audio_test_log_rfunc("len[%d]", len);
+	return len;
+}
+
 /*------------------------------------*/
 /* for public function                */
 /*------------------------------------*/
@@ -1836,6 +1959,7 @@ long audio_test_ioctl(struct file *filp, u_int cmd, u_long arg)
 {
 	long ret = 0;
 	struct audio_test_ioctl_cmd data;
+	struct audio_test_ioctl_pcmname_cmd pcmdata;
 
 	audio_test_log_efunc("filp[%p] cmd[0x%x]", filp, cmd);
 
@@ -1846,10 +1970,19 @@ long audio_test_ioctl(struct file *filp, u_int cmd, u_long arg)
 		ret = -EFAULT;
 		goto done;
 	}
-	if (copy_from_user(&data, (int __user *)arg,
-					_IOC_SIZE(cmd))) {
-		ret = -EFAULT;
-		goto done;
+	if ((AUDIO_TEST_IOCTL_GET_PCMNAME == cmd) ||
+		(AUDIO_TEST_IOCTL_SET_PCMNAME == cmd)) {
+		if (copy_from_user(&pcmdata, (int __user *)arg,
+						_IOC_SIZE(cmd))) {
+			ret = -EFAULT;
+			goto done;
+		}
+	} else {
+		if (copy_from_user(&data, (int __user *)arg,
+						_IOC_SIZE(cmd))) {
+			ret = -EFAULT;
+			goto done;
+		}
 	}
 
 	switch (cmd) {
@@ -1907,6 +2040,18 @@ long audio_test_ioctl(struct file *filp, u_int cmd, u_long arg)
 		ret = audio_test_proc_stop_sound_play();
 		break;
 
+	case AUDIO_TEST_IOCTL_GET_PCMNAME:
+		audio_test_proc_get_pcmname(&pcmdata);
+		if (copy_to_user((int __user *)arg, &pcmdata,
+						_IOC_SIZE(cmd))) {
+			ret = -EFAULT;
+			goto done;
+		}
+		break;
+
+	case AUDIO_TEST_IOCTL_SET_PCMNAME:
+		ret = audio_test_proc_set_pcmname(&pcmdata);
+		break;
 	default:
 		audio_test_log_err("unknown command");
 		ret = -ENOTTY;
@@ -1964,9 +2109,15 @@ static int __init audio_test_init(void)
 	audio_test_conf->proc_parent = proc_mkdir(AUDIO_TEST_DRV_NAME, NULL);
 	if (NULL != audio_test_conf->proc_parent) {
 		ret = audio_test_create_proc_entry(AUDIO_TEST_LOG_LEVEL,
-						&audio_test_conf->log_entry);
+					&audio_test_conf->log_entry);
 		if (0 != ret) {
 			audio_test_log_err("Create proc. ret[%d]", ret);
+			goto error;
+		}
+		ret = audio_test_create_proc_entry(AUDIO_TEST_PCMNAME,
+					&audio_test_conf->pcmname_entry);
+		if (0 != ret) {
+			audio_test_log_err("Create proc2. ret[%d]", ret);
 			goto error;
 		}
 	}
@@ -2010,6 +2161,8 @@ static int __init audio_test_init(void)
 		goto destroy_wakelock;
 	}
 
+	memset(&audio_test_pcmname, '\0', sizeof(audio_test_pcmname));
+
 	goto rtn;
 
 destroy_wakelock:
@@ -2023,6 +2176,9 @@ error:
 
 	if (audio_test_conf->log_entry)
 		remove_proc_entry(AUDIO_TEST_LOG_LEVEL,
+				audio_test_conf->proc_parent);
+	if (audio_test_conf->pcmname_entry)
+		remove_proc_entry(AUDIO_TEST_PCMNAME,
 				audio_test_conf->proc_parent);
 	if (audio_test_conf->proc_parent)
 		remove_proc_entry(AUDIO_TEST_DRV_NAME, NULL);
@@ -2058,6 +2214,9 @@ static void __exit audio_test_exit(void)
 	/***********************************/
 	if (audio_test_conf->log_entry)
 		remove_proc_entry(AUDIO_TEST_LOG_LEVEL,
+				audio_test_conf->proc_parent);
+	if (audio_test_conf->pcmname_entry)
+		remove_proc_entry(AUDIO_TEST_PCMNAME,
 				audio_test_conf->proc_parent);
 	if (audio_test_conf->proc_parent)
 		remove_proc_entry(AUDIO_TEST_DRV_NAME, NULL);
