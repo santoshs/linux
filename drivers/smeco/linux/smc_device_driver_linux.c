@@ -879,7 +879,14 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
         uint32_t        lb_rounds    = 0;
 
         smc_instance = smc_net_dev->smc_instance;
-        smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc->if_channel_id);
+        if( smc_instance != NULL )
+        {
+	        smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc->if_channel_id);
+        }
+        else
+        {
+            ret_val = SMC_DRIVER_ERROR;
+        }
 
         lb_data_len = if_req_smc->if_loopback_payload_length;
         lb_rounds   = if_req_smc->if_loopback_rounds;

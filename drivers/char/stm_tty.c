@@ -71,7 +71,7 @@ inline void __iomem *get_stm(uint32_t channel)
 {
 	void __iomem *stm = NULL;
 
-	if ((channel < 0) || (channel > stm_channel_end) || !stm_prt_reg)
+	if ((channel > stm_channel_end) || !stm_prt_reg)
 		return NULL;
 
 	stm = stm_prt_reg + STM_PORT_SIZE*channel;
