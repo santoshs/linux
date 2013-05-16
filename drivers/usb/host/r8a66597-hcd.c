@@ -1905,8 +1905,10 @@ static void r8a66597_root_hub_control(struct r8a66597 *r8a66597, int port)
 
 		tmp = r8a66597_read(r8a66597, dvstctr_reg);
 		if ((tmp & USBRST) == USBRST) {
-			r8a66597_mdfy(r8a66597, UACT, USBRST | UACT,
-				      dvstctr_reg);
+			/* Workaround for the Errata - RMU2-ECR065 */
+			r8a66597_bclr(r8a66597,USBRST,dvstctr_reg);
+			udelay(200);
+			r8a66597_bset(r8a66597,UACT,dvstctr_reg);
 			r8a66597_root_hub_start_polling(r8a66597);
 		} else
 			r8a66597_usb_connect(r8a66597, port);
@@ -2386,9 +2388,12 @@ static void r8a66597_hnp_work(struct work_struct *work)
 				otg->state == OTG_STATE_A_WAIT_BCON) {
 	r8a66597_bset(r8a66597, DRPD, SYSCFG0);
 	tmp = r8a66597_read(r8a66597, dvstctr_reg);
-	if ((tmp & USBRST) == USBRST)
-	r8a66597_mdfy(r8a66597, UACT, USBRST | UACT,
-					dvstctr_reg);
+	if ((tmp & USBRST) == USBRST) {
+		/* Workaround for Errata :RMU2-ECR065 */
+		r8a66597_bclr(r8a66597,USBRST,get_dvstctr_reg(0));
+		udelay(200);
+		r8a66597_bset(r8a66597,UACT,get_dvstctr_reg(0));
+	}
 	r8a66597_bclr(r8a66597, HNPBTOA, DVSTCTR0);
 	/* start usb bus sampling */
 	start_root_hub_sampling(r8a66597, 0, 1);
