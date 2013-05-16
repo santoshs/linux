@@ -437,7 +437,7 @@ static void smc_fifo_timer_expired(uint32_t data)
                 }
             }
 
-            SMC_LOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+            SMC_UNLOCK_TX_BUFFER( smc_channel->lock_tx_queue );
 
 #ifdef SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS
             smc_channel_buffer_fifo_flush( smc_channel );
@@ -1671,7 +1671,7 @@ uint8_t smc_channel_enable_receive_mode( smc_channel_t* smc_channel, uint8_t ena
                             smc_channel->id, (uint32_t)smc_channel, ((enable_receive==TRUE)?"ENABLED":"DISABLED"));
     }
 
-    SMC_LOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+    SMC_UNLOCK_TX_BUFFER( smc_channel->lock_tx_queue );
     /*
      * Critical section ends
      * ========================================
