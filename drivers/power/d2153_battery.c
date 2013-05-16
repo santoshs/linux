@@ -26,8 +26,6 @@
 #include <linux/delay.h>
 #include <linux/wakelock.h>
 #include <linux/gpio.h>
-#include <linux/irq.h>
-#include <mach/irqs.h>
 
 #include <linux/atomic.h>
 #include <mach/r8a7373.h>
@@ -133,8 +131,6 @@ static struct task_struct *d2153_modem_reset_thread;
 static atomic_t modem_reset_handing = ATOMIC_INIT(0);
 
 static struct d2153_battery *gbat = NULL;
-static struct timeval suspend_time = {0, 0};
-static struct timeval resume_time = {0, 0};
 static u8  is_called_by_ticker = 0;
 static u16 ACT_4P2V_ADC = 0;
 static u16 ACT_3P4V_ADC = 0;
@@ -1491,6 +1487,8 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 						pbat_data->voltage_adc[pbat_data->voltage_idx] = new_vol_adc;
 						pbat_data->voltage_idx = (pbat_data->voltage_idx+1) % AVG_SIZE;
 					}
+
+					is_called_by_ticker=0;
 				}
 			}
 		} else {
@@ -1763,8 +1761,8 @@ int d2153_battery_read_status(int type)
 
 		case D2153_BATTERY_SLEEP_MONITOR:
 			is_called_by_ticker = 1;
-			do_gettimeofday(&suspend_time);
-			wake_lock(&gbat->battery_data.sleep_monitor_wakeup);
+			wake_lock_timeout(&pbat->battery_data.sleep_monitor_wakeup,
+									D2153_SLEEP_MONITOR_WAKELOCK_TIME);
 			cancel_delayed_work_sync(&pbat->monitor_temp_work);
 			cancel_delayed_work_sync(&pbat->monitor_volt_work);
 			schedule_delayed_work(&pbat->monitor_temp_work, 0);
@@ -1915,10 +1913,6 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 				pbat->battery_data.vf_adc);
 #endif
 
-	if (is_called_by_ticker == 1) {
-		is_called_by_ticker = 0;
-		wake_unlock(&gbat->battery_data.sleep_monitor_wakeup);
-	}
 	return;
 
 err_adc_read:
@@ -1997,168 +1991,6 @@ static void d2153_battery_data_init(struct d2153_battery *pbat)
 	return;
 }
 
-#define CMSTR17				IO_ADDRESS(0xE6130700U)
-#define CMCSR17				IO_ADDRESS(0xE6130710U)
-#define CMCNT17				IO_ADDRESS(0xE6130714U)
-#define CMCOR17				IO_ADDRESS(0xE6130718U)
-#define CMT17_SPI			100U
-
-#define ICD_ISR0 0xF0001080
-#define ICD_IPTR0 0xf0001800
-
-static DEFINE_SPINLOCK(cmt_lock);
-#define CONFIG_D2153_BAT_CMT_OVF  (60 * 5)
-
-#define CMT_OVF		((256*CONFIG_D2153_BAT_CMT_OVF) - 2)
-
-static inline u32 dec2hex(u32 dec)
-{
-	return dec;
-}
-
-
-/*
- * rmu2_cmt_start: start CMT
- * input: none
- * output: none
- * return: none
- */
-static void d2153_battery_cmt_start(void)
-{
-	unsigned long flags, wrflg, i = 0;
-
-	printk(KERN_INFO "START < %s >\n", __func__);
-	dlg_info("< %s >CMCLKE=%08x\n", __func__, __raw_readl(CMCLKE));
-	dlg_info("< %s >CMSTR17=%08x\n", __func__, __raw_readl(CMSTR17));
-	dlg_info("< %s >CMCSR17=%08x\n", __func__, __raw_readl(CMCSR17));
-	dlg_info("< %s >CMCNT17=%08x\n", __func__, __raw_readl(CMCNT17));
-	dlg_info("< %s >CMCOR17=%08x\n", __func__, __raw_readl(CMCOR17));
-
-	spin_lock_irqsave(&cmt_lock, flags);
-	__raw_writel(__raw_readl(CMCLKE) | (1<<7), CMCLKE);
-	spin_unlock_irqrestore(&cmt_lock, flags);
-
-	mdelay(8);
-
-	__raw_writel(0, CMSTR17);
-	__raw_writel(0U, CMCNT17);
-	__raw_writel(0x000000a6U, CMCSR17);	/* Int enable */
-	__raw_writel(dec2hex(CMT_OVF), CMCOR17);
-
-	do {
-		wrflg = ((__raw_readl(CMCSR17) >> 13) & 0x1);
-		i++;
-	} while (wrflg != 0x00 && i < 0xffffffff);
-
-	__raw_writel(1, CMSTR17);
-
-	dlg_info("< %s >CMCLKE=%08x\n", __func__, __raw_readl(CMCLKE));
-	dlg_info("< %s >CMSTR17=%08x\n", __func__, __raw_readl(CMSTR17));
-	dlg_info("< %s >CMCSR17=%08x\n", __func__, __raw_readl(CMCSR17));
-	dlg_info("< %s >CMCNT17=%08x\n", __func__, __raw_readl(CMCNT17));
-	dlg_info("< %s >CMCOR17=%08x\n", __func__, __raw_readl(CMCOR17));
-}
-
-/*
- * rmu2_cmt_stop: stop CMT
- * input: none
- * output: none
- * return: none
- */
-void d2153_battery_cmt_stop(void)
-{
-	unsigned long flags, wrflg, i = 0;
-
-	printk(KERN_INFO "START < %s >\n", __func__);
-	__raw_readl(CMCSR17);
-	__raw_writel(0x00000186U, CMCSR17);	/* Int disable */
-	__raw_writel(0U, CMCNT17);
-	__raw_writel(0, CMSTR17);
-
-	do {
-		wrflg = ((__raw_readl(CMCSR17) >> 13) & 0x1);
-		i++;
-	} while (wrflg != 0x00 && i < 0xffffffff);
-
-	mdelay(12);
-	spin_lock_irqsave(&cmt_lock, flags);
-	__raw_writel(__raw_readl(CMCLKE) & ~(1<<7), CMCLKE);
-	spin_unlock_irqrestore(&cmt_lock, flags);
-}
-
-#if 0
-/*
- * rmu2_cmt_clear: CMT counter clear
- * input: none
- * output: none
- * return: none
- */
-static void d2153_battery_cmt_clear(void)
-{
-
-	int wrflg, i = 0;
-	printk(KERN_INFO "START < %s >\n", __func__);
-	__raw_writel(0, CMSTR17);	/* Stop counting */
-
-	__raw_writel(0U, CMCNT17);	/* Clear the count value */
-
-	do {
-		wrflg = ((__raw_readl(CMCSR17) >> 13) & 0x1);
-		i++;
-	} while (wrflg != 0x00 && i < 0xffffffff);
-	__raw_writel(1, CMSTR17);	/* Enable counting again */
-}
-#endif
-
-/*
- * rmu2_cmt_irq: IRQ handler for CMT
- * input:
- *		@irq: interrupt number
- *		@dev_id: device ID
- * output: none
- * return:
- *		IRQ_HANDLED: irq handled
- */
-static irqreturn_t d2153_battery_cmt_irq(int irq, void *dev_id)
-{
-	unsigned int reg_val = __raw_readl(CMCSR17);
-
-	reg_val &= ~0x0000c000U;
-	__raw_writel(reg_val, CMCSR17);
-
-	printk(KERN_ERR "d2153_battery_cmt_irq!!!!!!!!!!!!!!!!!!..");
-
-	d2153_battery_read_status(D2153_BATTERY_SLEEP_MONITOR);
-
-	return IRQ_HANDLED;
-}
-
-/*
- * rmu2_cmt_init_irq: IRQ initialization handler for CMT
- * input: none
- * output: none
- * return: none
- */
-static void d2153_battery_cmt_init_irq(void)
-{
-	int ret;
-	unsigned int irq;
-
-	dlg_info("START < %s >\n", __func__);
-
-	irq = gic_spi(CMT17_SPI);
-	set_irq_flags(irq, IRQF_VALID);
-	ret = request_irq(irq, d2153_battery_cmt_irq, IRQF_DISABLED,
-				"CMT17_RWDT0", (void *)irq);
-	if (0 > ret) {
-		printk(KERN_ERR "%s:%d request_irq failed err=%d\n",
-				__func__, __LINE__, ret);
-		free_irq(irq, (void *)irq);
-		return;
-	}
-
-	enable_irq_wake(irq);
-}
 
 /* 
  * Name : d2153_battery_probe
@@ -2216,9 +2048,6 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 				__func__, __LINE__);
 		goto err_default;
 	}
-
-	d2153_battery_cmt_init_irq();
-
 	pr_info("# D2153 Battery driver information \n");
 	pr_info("# MAX_ADD_DIS_PERCENT_FOR_WEIGHT2 = %d\n",   MAX_ADD_DIS_PERCENT_FOR_WEIGHT2);
 	pr_info("# MAX_ADD_DIS_PERCENT_FOR_WEIGHT1 = %d\n",   MAX_ADD_DIS_PERCENT_FOR_WEIGHT1);
@@ -2248,7 +2077,7 @@ static int d2153_battery_suspend(struct platform_device *pdev, pm_message_t stat
 
 	pr_info("%s. Enter\n", __func__);
 
-	if (unlikely(!d2153)) {
+	if(unlikely(!d2153)) {
 		pr_err("%s. Invalid parameter\n", __func__);
 		return -EINVAL;
 	}
@@ -2261,15 +2090,7 @@ static int d2153_battery_suspend(struct platform_device *pdev, pm_message_t stat
 		pmdbg_pmic_dump_suspend(d2153);
 #endif /* CONFIG_ARCH_R8A7373 */
 
-	if (suspend_time.tv_sec == 0) {
-		do_gettimeofday(&suspend_time);
-		pr_info("##### suspend_time = %ld\n", suspend_time.tv_sec);
-	}
-
 	pr_info("%s. Leave\n", __func__);
-
-	d2153_battery_cmt_start();
-
 	return 0;
 }
 
@@ -2281,8 +2102,7 @@ static int d2153_battery_resume(struct platform_device *pdev)
 {
 	struct d2153_battery *pbat = platform_get_drvdata(pdev);
 	struct d2153 *d2153 = pbat->pd2153;
-	u8 do_sampling = 0;
-	unsigned long monitor_work_start = 0;
+//	int ret;
 
 	pr_info("%s. Enter\n", __func__);
 
@@ -2291,30 +2111,11 @@ static int d2153_battery_resume(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	d2153_battery_cmt_stop();
-
+	
 	// Start schedule of dealyed work for monitoring voltage and temperature.
 	if(!is_called_by_ticker) {
-		do_gettimeofday(&resume_time);
-
-		pr_info("##### suspend_time = %ld, resume_time = %ld\n",
-				suspend_time.tv_sec, resume_time.tv_sec);
-		if ((resume_time.tv_sec - suspend_time.tv_sec) > 10) {
-			memset(&suspend_time, 0, sizeof(struct timeval));
-			do_sampling = 1;
-			pr_info("###### Sampling voltage & temperature ADC\n");
-		}
-
-		if (do_sampling) {
-			monitor_work_start = 0;
-
-			wake_lock_timeout(&pbat->battery_data.sleep_monitor_wakeup,
-						D2153_SLEEP_MONITOR_WAKELOCK_TIME);
-		} else {
-			monitor_work_start = 1 * HZ;
-		}
-		schedule_delayed_work(&pbat->monitor_temp_work, monitor_work_start);
-		schedule_delayed_work(&pbat->monitor_volt_work, monitor_work_start);
+		schedule_delayed_work(&pbat->monitor_temp_work, 0);
+		schedule_delayed_work(&pbat->monitor_volt_work, 0);
 	}
 
 	pr_info("%s. Leave\n", __func__);
