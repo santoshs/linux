@@ -501,9 +501,9 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #endif /* CONFIG_PM */
 
 #endif /* __ASSEMBLY__*/
-/* IO_ADDRESS */ 
-#ifndef IO_ADDRESS 
-#define IO_ADDRESS(x) (x) 
+/* IO_ADDRESS */
+#ifndef IO_ADDRESS
+#define IO_ADDRESS(x) (x)
 #endif
 
 
@@ -517,7 +517,8 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define CMCOR0		IO_ADDRESS(0xe6130018)
 #define CMSTR3		IO_ADDRESS(0xe6130300)
 #define CMCSR3		IO_ADDRESS(0xe6130310)
-#define CMCNT3		IO_ADDRESS(0xe6130314)
+#define CMCNT3Phys	0xE6130314
+#define CMCNT3		IO_ADDRESS(CMCNT3Phys)
 #define CMCOR3		IO_ADDRESS(0xe6130318)
 /* CMT14 sched_clock */
 #define CMSTR4		IO_ADDRESS(0xe6130400)
@@ -527,23 +528,26 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /* CMT10 clocksource */
 #define CMCLKE		IO_ADDRESS(0xe6131000)
 
-#define FRQCRA		IO_ADDRESS(0xE6150000)
+#define CPG_BASEPhys	0xE6150000
+#define FRQCRA		IO_ADDRESS(CPG_BASEPhys)
 #define FRQCRB		IO_ADDRESS(0xE6150004)
 #define VCLKCR1	IO_ADDRESS(0xE6150008)
 #define VCLKCR2	IO_ADDRESS(0xE615000C)
 #define ZBCKCR		IO_ADDRESS(0xE6150010)
 #define VCLKCR3	IO_ADDRESS(0xE6150014)
 #define FSIACKCR	IO_ADDRESS(0xE6150018)
-#define VCLKCR4	IO_ADDRESS(0xE615001C)
+#define VCLKCR4Phys	0xE615001C
+#define VCLKCR4		IO_ADDRESS(VCLKCR4Phys)
 #define RTSTBCR	IO_ADDRESS(0xE6150020)
 #define PLL1CR		IO_ADDRESS(0xE6150028)
 #define CPG_PLL2CR	IO_ADDRESS(0xE615002C)
-#define CPG_PLL3CR	IO_ADDRESS(0xE61500DC)
-#define MSTPSR0	IO_ADDRESS(0xE6150030)
+#define MSTPSR0Phys	0xE6150030
+#define MSTPSR0	IO_ADDRESS(MSTPSR0Phys)
 #define VCLKCR5	IO_ADDRESS(0xE6150034)
 #define MSTPSR1	IO_ADDRESS(0xE6150038)
 #define MSTPSR5	IO_ADDRESS(0xE615003C)
-#define MSTPSR2	IO_ADDRESS(0xE6150040)
+#define MSTPSR2Phys	0xE6150040
+#define MSTPSR2	IO_ADDRESS(MSTPSR2Phys)
 #define MSTPSR3	IO_ADDRESS(0xE6150048)
 #define MSTPSR4	IO_ADDRESS(0xE615004C)
 #define ASTAT		IO_ADDRESS(0xE6150054)
@@ -572,17 +576,21 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define PLL1STPCR	IO_ADDRESS(0xE61500C8)
 #define MPMODE		IO_ADDRESS(0xE61500CC)
 /* PLL Enable Register */
-#define PLLECR		IO_ADDRESS(0xE61500D0)
+#define PLLECRPhys	0xE61500D0
+#define PLLECR		IO_ADDRESS(PLLECRPhys)
 #define PLL0CR		IO_ADDRESS(0xE61500D8)
-#define RMSTPCR0	IO_ADDRESS(0xE6150110)
+#define RMSTPCR0Phys	0xE6150110
+#define RMSTPCR0	IO_ADDRESS(RMSTPCR0Phys)
 #define RMSTPCR1	IO_ADDRESS(0xE6150114)
-#define RMSTPCR2	IO_ADDRESS(0xE6150118)
+#define RMSTPCR2Phys	0xE6150118
+#define RMSTPCR2	IO_ADDRESS(RMSTPCR2Phys)
 #define RMSTPCR3	IO_ADDRESS(0xE615011C)
 #define RMSTPCR4	IO_ADDRESS(0xE6150120)
 #define RMSTPCR5	IO_ADDRESS(0xE6150124)
 #define SMSTPCR0	IO_ADDRESS(0xE6150130)
 #define SMSTPCR1	IO_ADDRESS(0xE6150134)
-#define SMSTPCR2	IO_ADDRESS(0xE6150138)
+#define SMSTPCR2Phys	0xE6150138
+#define SMSTPCR2	IO_ADDRESS(SMSTPCR2Phys)
 #define SMSTPCR3	IO_ADDRESS(0xE615013C)
 #define SMSTPCR4	IO_ADDRESS(0xE6150140)
 #define SMSTPCR5	IO_ADDRESS(0xE6150144)
@@ -610,14 +618,11 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define SRCR5		IO_ADDRESS(0xE61580C4)
 
 #define BBFRQCRD	IO_ADDRESS(0xE61500E8)
-#define PLLECRPhys	0xE61500D0
 #define RMSTPCR4Phys	0xE6150120
 #define SMSTPCR4Phys	0xE6150140
 #define MSTPSR4Phys	0xE615004C
 
 #define UFCKCR		IO_ADDRESS(0xE615009C)
-#define SPU2ACKCR	IO_ADDRESS(0xE6150084)
-#define SPU2VCKCR	IO_ADDRESS(0xE6150094)
 #define MSTPSR6		IO_ADDRESS(0xE61501C0)
 #define MMSTPCR6	IO_ADDRESS(0xE6150168)
 #define SRCR6		IO_ADDRESS(0xE61581c8)
@@ -625,6 +630,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define PLL22STPCR	IO_ADDRESS(0xE61501F8)
 #define RMSTPCR6	IO_ADDRESS(0xE6150128)
 
+#define CPG_SEMCTRLPhys 0xE6158000
 /******************************************/
 /* XTAL though mode				*/
 /*****************************************/
@@ -633,13 +639,17 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 
 #define LPMR			IO_ADDRESS(0xE6150200)
 
+#define CPG_PLL3CR_1040MHZ		(0x27000000)
+#define CPG_PLL3CR_X30			(0x1D000000)
+#define CPG_PLLECR_PLL3ST		(0x00000800)
+
 /*System-CPU PERIPHCLK Control Register*/
 #define PCLKCR          IO_ADDRESS(0xE6151020)
 
 #define PLL22CR	IO_ADDRESS(0xE61501F4)
 #define ZDIVCR5	IO_ADDRESS(0xE61501b4)
 
-#define GPIO_BASE		IO_ADDRESS(0xe6050000)
+#define GPIO_BASE		IO_ADDRESS(0xE6050000)
 #define GPIO_DRVCR_SD0		IO_ADDRESS((volatile ushort*)(0xE6050000ul + 0x818E))
 #define GPIO_DRVCR_SIM1	IO_ADDRESS((volatile ushort*)(0xE6050000ul + 0x8192))
 #define GPIO_DRVCR_SIM2	IO_ADDRESS((volatile ushort*)(0xE6050000ul + 0x8194))
@@ -675,18 +685,32 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define IRQC_EVENTDETECTOR_BLK11_BASE	IO_ADDRESS(0xE61C1600)
 #define IRQC_EVENTDETECTOR_BLK12_BASE	IO_ADDRESS(0xE61C1800)
 
-#define PHYFUNCTR	IO_ADDRESS(0xe6890104) /* 16-bit */
-#define PHYOTGCTR	IO_ADDRESS(0xe689010a) /* 16-bit */
+#define HSUSB_BASEPhys	0xE6890000
+#define PHYFUNCTR	IO_ADDRESS(0xE6890104) /* 16-bit */
+#define PHYOTGCTR	IO_ADDRESS(0xE689010A) /* 16-bit */
 
 #define PORT47CR	IO_ADDRESS(0xE605002F)
 
 /*
  * SYSC
 */
+#define SYSC0_BASEPhys	0xE6180000
 #define SBAR            IO_ADDRESS(0xe6180020)
 #define SBAR2           IO_ADDRESS(0xe6180060)
+#define RESCNTPhys	0xE618801C
+#define RESCNT		IO_ADDRESS(RESCNTPhys)
 #define RESCNT2		IO_ADDRESS(0xE6188020)
+#define STBCHRB1Phys	0xE6180041
+#define STBCHRB1	IO_ADDRESS(STBCHRB1Phys)
 #define STBCHRB2	IO_ADDRESS(0xE6180042)
+#define STBCHRB3Phys	0xE6180043
+
+#define STBCHR0		IO_ADDRESS(0xE6180000)
+#define STBCHR1		IO_ADDRESS(0xE6180001)
+#define STBCHR2		IO_ADDRESS(0xE6180002)
+#define STBCHR3		IO_ADDRESS(0xE6180003)
+
+#define RBARPhys	0xE618001C
 /* WakeUpS Factor Mask Register*/
 #define WUPSMSK		IO_ADDRESS(0xe618002C)
 /* WakeUpS Factor Register	*/
@@ -697,7 +721,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 
 #define SWUCR           IO_ADDRESS(0xE6180014)
 #define SWBCR		IO_ADDRESS(0xE6180204)
-
+#define SYSC_SEMCTRLPhys	0xE6188000
 /* C4 Area Power Control Register (C4POWCR) */
 /*Power Status Register (PSTR)*/
 #define SYSC_PSTR	0xE6180080
@@ -760,7 +784,15 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 
 #define HSGPR_BASE_PHYS		0xFFA00000
 #define SYSGPR_BASE_PHYS	0xFF700000
+
 #define HPB_BASE		0xE6000000
+#define HPB_HPBCTRL2		IO_ADDRESS(0xE6001018)
+#define HPB_SEM_MPACCTLPhys	0xE6001604
+#define HPB_SEM_PMICPhys	0xE6001830
+#define HPB_OCPBRGWIN1_MDM2MEM	IO_ADDRESS(0xE6001200)
+#define HPB_OCPBRGWIN2_MDM2APE	IO_ADDRESS(0xE6001204)
+#define HPB_OCPBRGWIN3_APE2MDM	IO_ADDRESS(0xE6001208)
+
 #define CCCR                    IO_ADDRESS(0xE600101C)
 #define SHWYSTATHS_BASE		0xE6F30000
 #define SHWYSTATSY_BASE		0xE6F20000
@@ -794,12 +826,6 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define SBSC_SDMRA_28200	(0xFE528200U)
 #define SBSC_SDMRA_38200	(0xFE538200U)
 
-#define SDMRA_DONE		(0x00000000)
-#define SDMRACR1A_ZQ		(0x0000560A)
-
-
-#define PHYFUNCTR			IO_ADDRESS(0xe6890104) /* 16-bit */
-
 /********************************************/
 /********************************************/
 #define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
@@ -817,8 +843,9 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /********************************************/
 
 /* RCLK watchdog timer counter	*/
-#define RWTCNTPhys	0xE6020000
-#define RWTCNT IO_ADDRESS(0xE6020000)
+#define RWDT_BASEPhys	0xE6020000
+#define RWTCNTPhys	RWDT_BASEPhys
+#define RWTCNT 		IO_ADDRESS(RWTCNTPhys)
 /* RCLK watchdog timer control/status Register	*/
 #define RWDTCSRAPhys	0xE6020004
 #define RWDTCSRA	IO_ADDRESS(0xE6020004)
@@ -832,8 +859,6 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
  */
 #define	SdramZQCalib1Phys	0xFE528200
 #define	SdramZQCalib2Phys	0xFE538200
-/* Standby Flag Register B3 */
-#define STBCHRB3		0xE6180043
 
 #define DBGREG1                 IO_ADDRESS(0xE6100020)
 #define DBGREG9                 IO_ADDRESS(0xE6100040)

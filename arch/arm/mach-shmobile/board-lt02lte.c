@@ -210,9 +210,9 @@ static struct bcmbt_rfkill_platform_data board_bcmbt_rfkill_cfg = {
 	.vreg_gpio    = BCMBT_VREG_GPIO,
 	.n_reset_gpio = BCMBT_N_RESET_GPIO,
 	/* CLK32 */
-	.aux0_gpio    = BCMBT_AUX0_GPIO,  
+	.aux0_gpio    = BCMBT_AUX0_GPIO,
 	/* UARTB_SEL, probably not required */
-	.aux1_gpio    = BCMBT_AUX1_GPIO,  
+	.aux1_gpio    = BCMBT_AUX1_GPIO,
 };
 
 static struct platform_device board_bcmbt_rfkill_device = {
@@ -374,20 +374,20 @@ static void __init board_init(void)
 	int inx = 0;
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 	unsigned int u2_board_rev = 0;
-	u8 reg8 = __raw_readb(STBCHRB3);
+	u8 reg8 = __raw_readb(STBCHRB3Phys);
 
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(CPG_PLL3CR));
+				__func__, __raw_readl(PLL3CR));
 		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
 		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
 		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
-			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);
-			__raw_writel(SDMRA_DONE, sbsc_sdmra_28200);
-			__raw_writel(SDMRA_DONE, sbsc_sdmra_38200);
+			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
 		} else {
 			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
 		}

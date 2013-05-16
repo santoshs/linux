@@ -35,7 +35,6 @@
 #include <linux/gpio.h>
 #include <linux/sched.h>
 #include <mach/setup-u2current_timer.h>
-
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
 #endif
@@ -55,7 +54,6 @@
 #include <linux/d2153/core.h>
 #endif
 #include <mach/setup-u2sci.h>
-#include <mach/memory-r8a7373.h>
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
 /*
@@ -1517,8 +1515,6 @@ EXPORT_SYMBOL_GPL(sh_modify_register32);
 
 void __iomem *sbsc_sdmracr1a;
 
-#define CPG_PLLECR_PLL3ST		(0x00000800)
-#define CPG_PLL3CR_1040MHZ		(0x27000000)
 void SBSC_Init_520Mhz(void)
 {
 	unsigned long work;

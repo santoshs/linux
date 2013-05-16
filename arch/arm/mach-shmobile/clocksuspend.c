@@ -627,7 +627,7 @@ struct hwspinlock *gen_sem1;
 /*SBSC clock (ZB3) table parameter*/
 struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 	[ZB3_FREQ_65] = {
-		.pll3multiplier_1 = 30, 
+		.pll3multiplier_1 = 30,
 		.zb3divider_1 = 12,
  		.pll3multiplier_2 = 40,
  		.zb3divider_2 = 16,
@@ -669,7 +669,7 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.freq = 97500,
 	},
 	[ZB3_FREQ_130] = {
-		.pll3multiplier_1 = 30, 
+		.pll3multiplier_1 = 30,
 		.zb3divider_1 = 6,
 		.pll3multiplier_2 = 40,
 		.zb3divider_2 = 8,
@@ -1115,7 +1115,7 @@ static unsigned int cpg_sbsc_decide_clock(unsigned int ape_freq_req)
 		if ((system_freq_req <= zb3_lut[i].freq)
 			&& (((pll_change == 0) &&
 			(zb3_lut[i].pll3multiplier_2 != 0))
-			|| ((pll_change == 1) && 
+			|| ((pll_change == 1) &&
 			((zb3_lut[i].pll3multiplier_2 != 0) || (zb3_lut[i].pll3multiplier_1 != 0))))) {
 			ret = i;
 			goto exit;
@@ -1136,9 +1136,6 @@ exit:
  * Return:
  *		void
  */
-#define CPG_PLL3CR_X40		(0x27000000)
-#define CPG_PLL3CR_X30		(0x1D000000)
-#define CPG_PLLECR_PLL3ST	(0x00000800)
 /*need to be called under semaphore/spinlock*/
 static void cpg_PLL3_change(unsigned int pll_multiplier)
 {
@@ -1151,7 +1148,7 @@ static void cpg_PLL3_change(unsigned int pll_multiplier)
 		return;
 
 	if (pll_multiplier == 40)
-		__raw_writel(CPG_PLL3CR_X40, PLL3CR);
+		__raw_writel(CPG_PLL3CR_1040MHZ, PLL3CR);
 	else if (pll_multiplier == 30)
 		__raw_writel(CPG_PLL3CR_X30, PLL3CR);
 
@@ -1203,9 +1200,9 @@ static int __cpg_set_sbsc_freq(unsigned int new_ape_freq)
 
 	/*first determine frequency*/
 	idx_newfreq = cpg_sbsc_decide_clock(new_ape_freq);
-	
-	if((shmobile_get_pll_reprogram() == 1) && (zb3_lut[idx_newfreq].zb3divider_1 !=0) 
-		&& (zb3_lut[idx_newfreq].pll3multiplier_1 !=0)) {	
+
+	if((shmobile_get_pll_reprogram() == 1) && (zb3_lut[idx_newfreq].zb3divider_1 !=0)
+		&& (zb3_lut[idx_newfreq].pll3multiplier_1 !=0)) {
 		zb3divider = zb3_lut[idx_newfreq].zb3divider_1;
 		pll3multiplier = zb3_lut[idx_newfreq].pll3multiplier_1;
 	} else {
@@ -1791,8 +1788,8 @@ int pm_setup_clock(void)
 	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		__shmobile_freq_modes = __shmobile_freq_modes_es2_x;
 		__clk_hw_info = __clk_hw_info_es2_x;
-	} 
-	
+	}
+
 	shmobile_sbsc_init();
 	the_clock.zs_disabled_cnt = 0;
 	the_clock.hp_disabled_cnt = 0;

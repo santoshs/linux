@@ -42,12 +42,6 @@ static int all_toc_entries_loaded = 0;
 #define TOC_ENTRY_SIZE (sizeof(struct toc_str))
 #define BUF_SIZE       256
 
-#define HPB_OCPBRGWIN1_MDM2MEM		IO_ADDRESS(0xE6001200)
-#define HPB_OCPBRGWIN2_MDM2APE		IO_ADDRESS(0xE6001204)
-#define HPB_OCPBRGWIN3_APE2MDM		IO_ADDRESS(0xE6001208)
-
-#define C4POWCR				IO_ADDRESS(0xE618004C)
-
 #define WPMCIF_EPMU_BASE		IO_ADDRESS(0xE6190000)
 #define WPMCIF_EPMU_START_CR		(WPMCIF_EPMU_BASE + 0x0000)
 #define WPMCIF_EPMU_ACC_CR		(WPMCIF_EPMU_BASE + 0x0004)
@@ -55,9 +49,6 @@ static int all_toc_entries_loaded = 0;
 #define WPMCIF_EPMU_PLL2_REALLY5_CR	(WPMCIF_EPMU_BASE + 0x0020)
 #define WPMCIF_EPMU_RFCLK_CR		(WPMCIF_EPMU_BASE + 0x0024)
 #define WPMCIF_EPMU_HPSSCLK_CR		(WPMCIF_EPMU_BASE + 0x0028)
-
-#define CPG_SMSTPCR5			IO_ADDRESS(0xE6150144)
-#define CPG_SMSTPCR3			IO_ADDRESS(0xE615013C)
 
 /* HostCPU CoreSight ETR for modem STM traces to SDRAM */
 #define CPU_ETR_BASE			IO_ADDRESS(0xE6FA5000)
@@ -149,7 +140,7 @@ static ssize_t rmc_loader_read(struct file *file, char __user *buf,
 	if (stm_sdram_read_ptr > stm_sdram_write_ptr) {
 		stm_sdram_write_ptr = stm_sdram_base + stm_sdram_size;
 	}
-	
+
 	if (len + stm_sdram_read_ptr >= stm_sdram_write_ptr) {
 		len = stm_sdram_write_ptr - stm_sdram_read_ptr;
 	}
@@ -180,7 +171,7 @@ static int find_next_toc_index(char *ptr)
 	int min_diff = -1;
 	int min_index = -1;
 	int index;
-	
+
 	for (index=0; index<MAX_TOC_ENTRY; index++)
 	{
 		if (toc[index].start == -1) { // End of TOC
@@ -213,9 +204,9 @@ static ssize_t rmc_loader_write(struct file *file, const char __user *buf,
 	uint32_t al_data=0;
 	void __iomem * remapped_phys_addr=0;
 	void __iomem * remapped_phys_addr_mem=0;
-	
+
 //	printk(KERN_ALERT "rmc_loader_write(len=%d)\n", (int)len);
-	
+
 	if (!data_ptr) {
 	        if (len > TOC_ENTRY_SIZE) {
 			len = TOC_ENTRY_SIZE;
@@ -308,28 +299,28 @@ static ssize_t rmc_loader_write(struct file *file, const char __user *buf,
 			}
 	                for(; i < (len&~3); i += 4) {
 				/* Write 4-byte aligned data, potentially writes 1-3 extra bytes but never mind */
-				al_data = (data_ptr[0+i] << (0*8)) | 
+				al_data = (data_ptr[0+i] << (0*8)) |
 				          (data_ptr[1+i] << (1*8)) |
 				          (data_ptr[2+i] << (2*8)) |
 				          (data_ptr[3+i] << (3*8));
-					  
+
 	                        __raw_writel(al_data, remapped_phys_addr);
 				remapped_phys_addr += 4;
 			}
 			switch (len - i) {
 				case 0:
 					break;
-				case 1: 
+				case 1:
 					al_data = data_ptr[0+i] << (0*8);
 					__raw_writel(al_data, remapped_phys_addr);
 					break;
 				case 2:
-					al_data = (data_ptr[0+i] << (0*8)) | 
+					al_data = (data_ptr[0+i] << (0*8)) |
 					          (data_ptr[1+i] << (1*8));
 					__raw_writel(al_data, remapped_phys_addr);
 					break;
 				case 3:
-					al_data = (data_ptr[0+i] << (0*8)) | 
+					al_data = (data_ptr[0+i] << (0*8)) |
 					          (data_ptr[1+i] << (1*8)) |
 				        	  (data_ptr[2+i] << (2*8));
 					__raw_writel(al_data, remapped_phys_addr);
@@ -358,7 +349,7 @@ static ssize_t rmc_loader_write(struct file *file, const char __user *buf,
 			return len;
 		}
 	}
-	
+
   fault_reset:
 	printk(KERN_ALERT "modem loader fault_reset");
   	toc_ptr = toc_buffer;
@@ -372,13 +363,12 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
 	volatile unsigned int data;
-	
+
 	if ((file->f_flags & O_ACCMODE) == O_WRONLY) {
 
 		/* Opened for WRITING, i.e. for Loading modem firware image */
 
 		{
-#define DBGREG1		IO_ADDRESS(0xE6100020)
 
 			/* data = __raw_readl(DBGREG1); */
 
@@ -396,7 +386,7 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 				printk("EPMU DBGMD_CR B\n");
 				__raw_writel(0x0000800B, 0xE61900C0);
 			}
-		
+
 		}
 
 		printk(KERN_ALERT "rmc_loader_open(), O_WRONLY Initialize modem to receive boot data >>\n");
@@ -425,7 +415,7 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
                                                             /*   0xE3D40000 ==> OCP Bus address 0x07D40000, and */
                                                             /* SCU_AD.CCR.OUTPUT would be mapped like this: */
                                                             /*   0xE3D40410 ==> 0x07D0410            */
-							    
+
 		/* TODO: Should we configure HPB_OCPBRGWIN3_MDM2APE to something away from reset value? */
 		/* That would allow modem to access some APE peripherals, maybe Modem can configure that register by itself later... */
 
@@ -434,7 +424,7 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 		data &= 0x0000FFFF;
 		data |= 0x05140000;
                 __raw_writel(data, WPMCIF_EPMU_HPSSCLK_CR);
-                data = __raw_readl(WPMCIF_EPMU_HPSSCLK_CR); 
+                data = __raw_readl(WPMCIF_EPMU_HPSSCLK_CR);
 
 
 		printk(KERN_ALERT "T006 START\n");
@@ -458,7 +448,7 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 		}
 		printk(KERN_ALERT "T010\n");
 
-		ape5r_modify_register32(CPG_SMSTPCR5, 0, (1<<25) | (0x0F << 16)); /* Module stop control register 5 (SMSTPCR5) */
+		ape5r_modify_register32(SMSTPCR5, 0, (1<<25) | (0x0F << 16)); /* Module stop control register 5 (SMSTPCR5) */
                                                               /* Supply clocks to OCP2SuperHiWay and OCP2Memory and SuperHiWay2OCP0/1 instances */
                                                               /* bit25: MSTP525=0, IICB0 operates */
                                                               /* bit19: MSTP519=0, O2S operates */
@@ -468,7 +458,7 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 
 
 		// IF I WANT TO RESET MODEM, THIS WILL DO IT:
-		// EPMU RES_CR, write 1. TO CHECK: how to know when modem is finished with resetting so that I can access TCM memories?	
+		// EPMU RES_CR, write 1. TO CHECK: how to know when modem is finished with resetting so that I can access TCM memories?
 		printk(KERN_ALERT "rmc_loader_open(), Initialize modem to receive boot data <<\n");
 
 	} else {
@@ -493,14 +483,14 @@ static int rmc_loader_flush(struct file *file, fl_owner_t id)
 
 		if (all_toc_entries_loaded) {
 			printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold >>\n");
-	                remapped_mdm_io = ioremap(0xE3D40410,4); 
+	                remapped_mdm_io = ioremap(0xE3D40410,4);
 	                __raw_writel(2, ((void __iomem *)((uint32_t)remapped_mdm_io)));
                                                /* bit 5: 0=Internal TCM boot, 1=External ROM boot (VINTHI) */
                                                /* bit 4: 0=HF clock, 1=RF Clock forced to be used */
                                                /* bit 3: 0=PSS Clk Req is NOT masked, 1=PSS Clkc Req is MASKED */
                                                /* bit 2: 0=EModem MA_Int is selected, 1=EModem MA_Int is NOT selected */
                                                /* bit 1: 0=Cortex R4 L23 in pre-fetch hold, 1=run */
-                                               /* bit 0: 0=Cortex R4 L1  in pre-fetch hold, 1=run */ 
+                                               /* bit 0: 0=Cortex R4 L1  in pre-fetch hold, 1=run */
 	                iounmap(remapped_mdm_io);
 		  	toc_ptr = toc_buffer;
 			data_ptr = 0;
@@ -546,16 +536,16 @@ static int __init rmc_loader_init(void)
 	int ret = -ENOMEM;
 
         printk(KERN_ALERT "rmc_loader_init()\n");
-	
+
 	toc_buffer = kmalloc(TOC_ENTRY_SIZE*2, GFP_KERNEL);
 	toc = kmalloc(TOC_ENTRY_SIZE*MAX_TOC_ENTRY*2, GFP_KERNEL);
 	data_buf = kmalloc(BUF_SIZE*2, GFP_KERNEL);
 	if (!toc_buffer || !toc) {
 		printk(KERN_ALERT "rmc_loader_init() kmalloc failed!\n");
-		return ret;	
+		return ret;
 	}
 	toc_ptr = toc_buffer;
-	
+
 	ret = alloc_chrdev_region(&rmc_loader_dev, 0, 1, devname);
 	if (ret < 0) {
 		printk(KERN_ALERT "rmc_loader_init() alloc_chrdev_region failed!\n");
@@ -569,7 +559,7 @@ static int __init rmc_loader_init(void)
 		return ret;
 	}
 
-#ifdef CONFIG_U2_STM_ETR_TO_SDRAM 
+#ifdef CONFIG_U2_STM_ETR_TO_SDRAM
 	stm_sdram_size = 	__raw_readl(CPU_ETR_RSZ) * 4;
 	stm_sdram_base =	__raw_readl(CPU_ETR_DBALO);
 	stm_sdram_write_ptr = 	__raw_readl(CPU_ETR_RWP);
@@ -579,7 +569,7 @@ static int __init rmc_loader_init(void)
 	stm_sdram_base =	0;
 	stm_sdram_write_ptr = 	0;
 	stm_sdram_read_ptr =	0;
-#endif		
+#endif
 	printk(KERN_ALERT "rmc_loader_init() STM SDRAM size=0x%x, base=0x%x, wptr=0x%x, rptr=0x%x\n", stm_sdram_size, stm_sdram_base, stm_sdram_write_ptr,
 		stm_sdram_read_ptr);
 

@@ -63,7 +63,7 @@
 #define CPG_PLL1CR			0xe6150028
 /* #define CPG_PLL2CR		0xe615002c */
 #define CPG_PLL22CR			0xe61501f4
-/* #define CPG_PLL3CR		0xe61500dc */
+#define CPG_PLL3CR		0xe61500dc
 #define CPG_PLL0STPCR		0xe61500f0
 #define CPG_PLL1STPCR		0xe61500c8
 #define CPG_PLL2STPCR		0xe61500f8

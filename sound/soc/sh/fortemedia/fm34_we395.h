@@ -38,7 +38,6 @@
 #endif
 
 /* vclk4 */
-#define FM34_VCLKCR4_ADDR	0xE615001C
 #define FM34_VCLKCR4_REGSIZE	0x4
 
 /* GPIO */

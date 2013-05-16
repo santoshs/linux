@@ -52,8 +52,6 @@
     #define FALSE 0
 #endif
 
-#define RESCNT			IO_ADDRESS(0xE618801C)
-					/* Reset control register */
 #define TRESV			0x00000008
 					/* Temp sensor reset enable bit */
 #define HPB_TIMEOUT		1
@@ -64,7 +62,7 @@
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #define EARLY_SUSPEND_MAX_TRY 1
-/* ths_wait_wq: Work_queue used to wait power domain to be turned off 
+/* ths_wait_wq: Work_queue used to wait power domain to be turned off
    during early suspend */
 struct workqueue_struct *ths_wait_wq;
 static DECLARE_DEFERRED_WORK(ths_work, NULL);

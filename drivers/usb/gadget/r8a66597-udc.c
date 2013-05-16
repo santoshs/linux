@@ -33,6 +33,7 @@
 #include <mach/hardware.h>
 #include <mach/pm.h>
 #include <mach/r8a7373.h>
+#include <mach/setup-u2usb.h>
 #include <mach/gpio.h>
 #include <linux/pm.h>
 
@@ -61,8 +62,8 @@
 #ifdef  UDC_LOG
 #define udc_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 #else
-#define udc_log(fmt, ...) 
-#endif 
+#define udc_log(fmt, ...)
+#endif
 
 #define VBUS_HANDLE_IRQ_BASED
 
@@ -82,15 +83,7 @@ static const char *r8a66597_ep_name[] = {
 };
 
 #if USB_DRVSTR_DBG
-#define U2_USB_BASE_REG				0xE6890000 
 #define TUSB_VENDOR_SPECIFIC1		0x80
-#define USB_SPWDAT					((volatile ushort *)(U2_USB_BASE_REG + 0x013A)) /* H'E689 013A */
-#define USB_SPCTRL					((volatile ushort *)(U2_USB_BASE_REG + 0x013C)) /* H'E689 013C */
-#define USB_SPRDAT					((volatile ushort *)(U2_USB_BASE_REG + 0x013E)) /* H'E689 013E */
-#define USB_SPEXADDR				((volatile ushort *)(U2_USB_BASE_REG + 0x0140)) /* H'E689 0140 */
-#define USB_SPWR					0x0001
-#define USB_SPRD					0x0002
-#define USB_SPADDR					((volatile ushort *)(U2_USB_BASE_REG + 0x0138)) /*H'E689 0138*/
 
 void usb_drv_str_read(unsigned char *val)
 {
@@ -98,7 +91,7 @@ void usb_drv_str_read(unsigned char *val)
 	__raw_writew(0x0020, USB_SPEXADDR);    /* set HSUSB.SPEXADDR */
 	__raw_writew(USB_SPRD, USB_SPCTRL);		/* set HSUSB.SPCTRL */
 	mdelay(1);
-	*val=__raw_readw(IO_ADDRESS(USB_SPRDAT));               
+	*val=__raw_readw(IO_ADDRESS(USB_SPRDAT));
 }
 
 void usb_drv_str_write(unsigned char *val)
@@ -2978,10 +2971,10 @@ void tusb_drive_event(int event, unsigned char *val)
 if (event)	 //read event
 usb_drv_str_read(val);
 else		//write event
-usb_drv_str_write(val); 
+usb_drv_str_write(val);
 }
 EXPORT_SYMBOL_GPL(tusb_drive_event);
-#endif	//USB_DRVSTR_DBG 
+#endif	//USB_DRVSTR_DBG
 
 #ifdef CONFIG_PM
 

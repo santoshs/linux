@@ -4348,7 +4348,6 @@ EXPORT_SYMBOL(sndp_pt_device_change);
 
 #ifdef SOUND_TEST
 
-#define SYSC_PHY_BASE	(0xE6180000)
 #define SYSC_REG_MAX	(0x0084)
 
 /* SYSC base address */
@@ -4365,7 +4364,7 @@ void sndp_path_test_pm_runtime_get_sync(void)
 /*	pm_runtime_get_sync(g_sndp_power_domain); */
 
 	/* Get SYSC Logical Address */
-	g_sysc_Base = (u_long)ioremap_nocache(SYSC_PHY_BASE, SYSC_REG_MAX);
+	g_sysc_Base = (u_long)ioremap_nocache(SYSC0_BASEPhys, SYSC_REG_MAX);
 	if (0 >= g_sysc_Base) {
 		printk(KERN_WARNING "%s SYSC ioremap failed\n", __func__);
 		return;

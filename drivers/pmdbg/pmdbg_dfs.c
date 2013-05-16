@@ -19,7 +19,7 @@
  */
 
 #include "pmdbg_dfs.h"
-
+#include <mach/r8a7373.h>
 #ifndef IOMEM
 #define IOMEM __io
 #endif /*IOMEM*/
@@ -53,7 +53,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[ZG_CLK] = {
 		.mask_bit	= 0xf,
@@ -76,7 +76,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[B_CLK] = {
 		.mask_bit	= 0xf,
@@ -99,7 +99,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[M1_CLK] = {
 		.mask_bit	= 0xf,
@@ -122,7 +122,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[M3_CLK] = {
 		.mask_bit	= 0xf,
@@ -145,7 +145,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[Z_CLK] = {
 		.mask_bit	= 0x1f,
@@ -168,7 +168,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0x1b,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZTR_CLK] = {
 		.mask_bit	= 0xf,
@@ -191,7 +191,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZT_CLK] = {
 		.mask_bit	= 0xf,
@@ -214,7 +214,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZX_CLK] = {
 		.mask_bit	= 0xf,
@@ -237,7 +237,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[HP_CLK] = {
 		.mask_bit	= 0xf,
@@ -260,7 +260,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZS_CLK] = {
 		.mask_bit	= 0xf,
@@ -283,7 +283,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
 		.mask_bit	= 0x1bf,
@@ -306,7 +306,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0x27,
 			[DIV1_96] = 0x2f
 		},
-		.addr = IOMEM(CPG_ZBCKCR)
+		.addr = IOMEM(ZBCKCR)
 	},
 	[ZB3_CLK] = {
 		.mask_bit	= 0x1f,
@@ -329,7 +329,7 @@ static struct clk_hw_info __clk_hw_info_es1_x[] = {
 			[DIV1_48] = 0x18,
 			[DIV1_96] = 0x1b
 		},
-		.addr = IOMEM(CPG_FRQCRD)
+		.addr = IOMEM(FRQCRD)
 	}
 };
 static struct clk_hw_info __clk_hw_info_es2_x[] = {
@@ -354,7 +354,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[ZG_CLK] = {
 		.mask_bit	= 0xf,
@@ -377,7 +377,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[B_CLK] = {
 		.mask_bit	= 0xf,
@@ -400,7 +400,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[M1_CLK] = {
 		.mask_bit	= 0xf,
@@ -423,7 +423,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[M3_CLK] = {
 		.mask_bit	= 0xf,
@@ -446,7 +446,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[M5_CLK] = {
 		.mask_bit	= 0xf,
@@ -469,7 +469,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[Z_CLK] = {
 		.mask_bit	= 0x1f,
@@ -492,7 +492,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x1b,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZTR_CLK] = {
 		.mask_bit	= 0xf,
@@ -515,7 +515,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZT_CLK] = {
 		.mask_bit	= 0xf,
@@ -538,7 +538,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZX_CLK] = {
 		.mask_bit	= 0xf,
@@ -561,7 +561,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[HP_CLK] = {
 		.mask_bit	= 0xf,
@@ -584,7 +584,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZS_CLK] = {
 		.mask_bit	= 0xf,
@@ -607,7 +607,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
 		.mask_bit	= 0x1bf,
@@ -630,7 +630,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x27,
 			[DIV1_96] = 0x2f
 		},
-		.addr = IOMEM(CPG_ZBCKCR)
+		.addr = IOMEM(ZBCKCR)
 	},
 	[ZB3_CLK] = {
 		.mask_bit	= 0x1f,
@@ -653,7 +653,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x18,
 			[DIV1_96] = 0x1b
 		},
-		.addr = IOMEM(CPG_FRQCRD)
+		.addr = IOMEM(FRQCRD)
 	}
 };
 
@@ -689,20 +689,20 @@ static int cpg_get_pll(int pll)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
-	unsigned int addr = CPG_PLL0CR;
+	unsigned int addr = PLL0CR;
 
 	switch (pll) {
 	case PLL0:
-		addr = CPG_PLL0CR;
+		addr = PLL0CR;
 		break;
 	case PLL1:
-		addr = CPG_PLL1CR;
+		addr = PLL1CR;
 		break;
 	case PLL2:
 		addr = CPG_PLL2CR;
 		break;
 	case PLL3:
-		addr = CPG_PLL3CR;
+		addr = PLL3CR;
 		break;
 	default:
 		return -EINVAL;
@@ -733,18 +733,18 @@ static int cpg_get_freqval(int clk, int *div)
 		return -EINVAL;
 	/* get divrate */
 	if (clk == ZB3_CLK) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRD), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRD), clk);
 	} else if (clk == ZB_CLK) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_ZBCKCR), clk);
+		div_rate = HW_TO_DIV(__raw_readl(ZBCKCR), clk);
 	} else if ((clk == ZB_CLK) || (clk == ZG_CLK) || (clk == B_CLK)
 		|| (clk == M1_CLK) || (clk == M3_CLK) || (clk == I_CLK)) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRA), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRA), clk);
 	} else if ((clk == Z_CLK) || (clk == ZTR_CLK) || (clk == ZT_CLK)
 		|| (clk == ZX_CLK) || (clk == HP_CLK) || (clk == ZS_CLK)) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRB), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRB), clk);
 	} else if ((shmobile_chip_rev() >= ES_REV_2_0) &&
 		(clk == M5_CLK)) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRA), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRA), clk);
 	} else {
 
 		return -EINVAL;
@@ -853,10 +853,10 @@ static inline int __div(enum clk_div c_div)
 static int cpg_get_freq(struct clk_rate *rates)
 {
 	struct clk_rate get_rate;
-	unsigned int frqcra = __raw_readl(CPG_FRQCRA);
-	unsigned int frqcrb = __raw_readl(CPG_FRQCRB);
-	unsigned int frqcrd = __raw_readl(CPG_FRQCRD);
-	unsigned int zbckcr = __raw_readl(CPG_ZBCKCR);
+	unsigned int frqcra = __raw_readl(FRQCRA);
+	unsigned int frqcrb = __raw_readl(FRQCRB);
+	unsigned int frqcrd = __raw_readl(FRQCRD);
+	unsigned int zbckcr = __raw_readl(ZBCKCR);
 
 	if (!rates)
 		return -EINVAL;
