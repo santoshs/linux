@@ -664,7 +664,7 @@ static void fsi_soft_all_reset(struct fsi_master *master)
 #if 0
 	uint addr;
 
-	addr = (u_long)ioremap_nocache(0xE6150000, 0x100);
+	addr = (u_long)ioremap_nocache(CPG_BASEPhys, 0x100);
 
 	fsi_clk_enable(master);
 

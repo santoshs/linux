@@ -41,12 +41,6 @@ static int wa_zq_flg;
 static void __iomem *sbsc_sdmra_28200;
 static void __iomem *sbsc_sdmra_38200;
 
-#define SBSC_SDMRA_DONE			(0x00000000)
-#define SBSC_SDMRACR1A_ZQ		(0x0000560A)
-
-/* CPG register address */
-#define CPG_BASE			(0xE6150000U)
-
 #define CONFIG_RMU2_RWDT_ZQ_CALIB	(500)
 
 /*
@@ -68,8 +62,8 @@ void rmu2_modify_register32(unsigned int addr, u32 clear, u32 set)
 
 static struct resource rmu2_rwdt_resources[] = {
 	[0] = {
-		.start = RWDT_BASE,
-		.end = RWDT_BASE + REG_SIZE - 1,
+		.start = RWDT_BASEPhys,
+		.end = RWDT_BASEPhys + REG_SIZE - 1,
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
@@ -407,9 +401,9 @@ static int rmu2_rwdt_start(void)
 	}
 	/* set 11 to SYSC RESCNT2 RWD0A for selecting soft power on reset */
 #ifdef CONFIG_RMU2_RWDT_REBOOT_ENABLE
-	rmu2_modify_register32(SYSC_RESCNT2, 0x00000000, RESCNT2_RWD0A_MASK);
+	rmu2_modify_register32(RESCNT2, 0x00000000, RESCNT2_RWD0A_MASK);
 #else	/* CONFIG_RMU2_RWDT_REBOOT_ENABLE */
-	rmu2_modify_register32(SYSC_RESCNT2, RESCNT2_RWD0A_MASK, 0x00000000);
+	rmu2_modify_register32(RESCNT2, RESCNT2_RWD0A_MASK, 0x00000000);
 #endif	/* CONFIG_RMU2_RWDT_REBOOT_ENABLE */
 
 	hwspin_unlock(r8a7373_hwlock_sysc);
@@ -537,7 +531,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 	wa_zq_flg = 0;
-	reg8 = __raw_readb(STBCHRB3);
+	reg8 = __raw_readb(STBCHRB3Phys);
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		RWDT_DEBUG("< %s > Apply for ZQ calibration\n", __func__);
 
@@ -837,7 +831,7 @@ void rmu2_rwdt_software_reset(void)
 	u8 reg = 0;
 	int hwlock;
 	/* set 0x22 to STBCHRB1(0xE6180041) */
-	/* __raw_writeb(0x22, (unsigned long)0xE6180041); */
+	/* __raw_writeb(0x22, (unsigned long)STBCHRB1Phys); */
 
 	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
 	__raw_writeb((reg | APE_RESETLOG_RWDT_SOFTWARE_RESET),
@@ -852,7 +846,7 @@ void rmu2_rwdt_software_reset(void)
 			break;
 		}
 	}
-	rmu2_modify_register32(SYSC_RESCNT2, RESCNT2_PRES_MASK,
+	rmu2_modify_register32(RESCNT2, RESCNT2_PRES_MASK,
 							RESCNT2_PRES_MASK);
 
 	hwspin_unlock(r8a7373_hwlock_sysc);

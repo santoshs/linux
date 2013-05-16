@@ -19,7 +19,6 @@
 
 #ifdef CONFIG_GPIOLIB
 
-#define GPIO_BASE      IO_ADDRESS(0xe6050000)
 /* gpio address calculation */
 #define GPIO_PORTCR(n) ({		 \
 ((n) < 96) ? (GPIO_BASE + 0x0000 + (n)) : \

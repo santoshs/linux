@@ -25,7 +25,7 @@
 #include <linux/ioport.h>
 
 #include <mach/crashlog.h>
-
+#include <mach/r8a7373.h>
 
 #ifndef CONFIG_IRQ_TRACE
 char *tmplog_nocache_address;

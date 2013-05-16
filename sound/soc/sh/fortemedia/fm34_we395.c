@@ -986,7 +986,7 @@ static int fm34_probe(
 		goto err_init_gpio_failed;
 	}
 
-	g_fm34_vclk_adr = (unsigned int)ioremap(FM34_VCLKCR4_ADDR,
+	g_fm34_vclk_adr = (unsigned int)ioremap(VCLKCR4Phys,
 						FM34_VCLKCR4_REGSIZE);
 
 	if (0 >= g_fm34_vclk_adr) {

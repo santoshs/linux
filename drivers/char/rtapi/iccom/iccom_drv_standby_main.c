@@ -30,6 +30,8 @@
 #include <linux/mfis.h>
 #include <linux/jiffies.h>
 
+#include <mach/r8a7373.h>
+
 #include <screen_display.h>
 
 #include "log_kernel.h"
@@ -352,47 +354,47 @@ int rtctl_change_rt_state_standby(void)
 	spin_lock_irqsave(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_lock_irqsave\n", __func__);
 
-	reg_modify32(0, RTCTL_RT_CLOCK_STOP, SYSC_RESCNT);
+	reg_modify32(0, RTCTL_RT_CLOCK_STOP, RESCNTPhys);
 
 	MSG_MED("[ICCOMK]   |[%s] : SYSC_RESCNT = 0x%08x\n", __func__,
-					readl(SYSC_RESCNT));
+					readl(RESCNTPhys));
 	spin_unlock_irqrestore(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_unlock_irqrestore\n", __func__);
 
 	disable_irq(INT_MFIS);
 	MSG_MED("[ICCOMK]   |[%s] : disable_irq\n", __func__);
 
-	reg_modify32(0, RTCTL_RT_MOD_STPSR0_SET , CPGA_RMSTPCR0);
+	reg_modify32(0, RTCTL_RT_MOD_STPSR0_SET , RMSTPCR0Phys);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__ ,
-				readl(CPGA_MSTPSR0));
-	readl(CPGA_RMSTPCR0);
-	readl(CPGA_RMSTPCR0);
-	reg_mstpsr = readl(CPGA_MSTPSR0);
+				readl(MSTPSR0Phys));
+	readl(RMSTPCR0Phys);
+	readl(RMSTPCR0Phys);
+	reg_mstpsr = readl(MSTPSR0Phys);
 	reg_mstpsr = (reg_mstpsr & RTCTL_RT_MOD_STPSR0_SET);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__,
-				readl(CPGA_MSTPSR0));
+				readl(MSTPSR0Phys));
 
 /*
 	if (RTCTL_RT_MOD_STPSR0_SET != reg_mstpsr) {
 		panic("rtctl_change_rt_state_standby error MSTPSR0 = 0x%08x\n",
-			readl(CPGA_MSTPSR0));
+			readl(MSTPSR0Phys));
 	}
  */
 
-	reg_modify32(0, RTCTL_RT_MOD_STPSR2_SET , CPGA_RMSTPCR2);
+	reg_modify32(0, RTCTL_RT_MOD_STPSR2_SET , RMSTPCR2Phys);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__ ,
-				readl(CPGA_MSTPSR2));
-	readl(CPGA_RMSTPCR2);
-	readl(CPGA_RMSTPCR2);
-	reg_mstpsr = readl(CPGA_MSTPSR2);
+				readl(MSTPSR2Phys));
+	readl(RMSTPCR2Phys);
+	readl(RMSTPCR2Phys);
+	reg_mstpsr = readl(MSTPSR2Phys);
 	reg_mstpsr = (reg_mstpsr & RTCTL_RT_MOD_STPSR2_SET);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__,
-				readl(CPGA_MSTPSR2));
+				readl(MSTPSR2Phys));
 
 /*
 	if (RTCTL_RT_MOD_STPSR2_SET != reg_mstpsr) {
 		panic("rtctl_change_rt_state_standby error MSTPSR2 = 0x%08x\n",
-			readl(CPGA_MSTPSR2));
+			readl(MSTPSR2Phys));
 	}
  */
 
@@ -478,17 +480,17 @@ int rtctl_change_rt_state_active(void)
 	status_rt_now = RTCTL_STS_CHANGING_ACTIVE;
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
 
-	reg_modify32(RTCTL_RT_MOD_STPSR0_SET, 0, CPGA_RMSTPCR0);
-	readl(CPGA_RMSTPCR0);
-	readl(CPGA_RMSTPCR0);
+	reg_modify32(RTCTL_RT_MOD_STPSR0_SET, 0, RMSTPCR0Phys);
+	readl(RMSTPCR0Phys);
+	readl(RMSTPCR0Phys);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__,
-				readl(CPGA_MSTPSR0));
+				readl(MSTPSR0Phys));
 
-	reg_modify32(RTCTL_RT_MOD_STPSR2_SET, 0, CPGA_RMSTPCR2);
-	readl(CPGA_RMSTPCR2);
-	readl(CPGA_RMSTPCR2);
+	reg_modify32(RTCTL_RT_MOD_STPSR2_SET, 0, RMSTPCR2Phys);
+	readl(RMSTPCR2Phys);
+	readl(RMSTPCR2Phys);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__,
-				readl(CPGA_MSTPSR2));
+				readl(MSTPSR2Phys));
 
 	MSG_MED("[ICCOMK]   |[%s] : rtctl_intcs_mask_in_active()\n", __func__);
 	rtctl_intcs_mask_in_active();
@@ -503,9 +505,9 @@ int rtctl_change_rt_state_active(void)
 	spin_lock_irqsave(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_lock_irqsave\n", __func__);
 
-	reg_modify32(RTCTL_RT_CLOCK_STOP, 0 , SYSC_RESCNT);
+	reg_modify32(RTCTL_RT_CLOCK_STOP, 0 , RESCNTPhys);
 	MSG_MED("[ICCOMK]   |[%s] : SYSC_RESCNT = 0x%08x\n", __func__,
-			readl(SYSC_RESCNT));
+			readl(RESCNTPhys));
 	spin_unlock_irqrestore(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_unlock_irqrestore\n", __func__);
 

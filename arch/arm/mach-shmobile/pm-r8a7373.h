@@ -1,22 +1,40 @@
 #ifndef __ARCH_ARM_MACH_SHMOBILE_PM_R8A7373_H
 #define __ARCH_ARM_MACH_SHMOBILE_PM_R8A7373_H
+/*
+ * arch/arm/mach-shmobile/pm-r8a7373.h
+ *
+ * Copyright (C) 2013 Renesas Mobile Corporation
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
+ */
 
-
+#include <mach/r8a7373.h>
 /* SCU */
-#define SCU_BASE	0xf0000000
+#define SCU_BASE	0xF0000000
 #define SCU_PWRST	(SCU_BASE + 0x08)
 #define SCU_INVALL	(SCU_BASE + 0x0c)
 
 /* CPG */
-#define CPG_BASE	0xe6150000
-#define WUPCR		(CPG_BASE + 0x1010)
-#define SRESCR		(CPG_BASE + 0x1018)
-#define SCPUSTR		(CPG_BASE + 0x1040)
-#define CPU0RFR		(CPG_BASE + 0x1104)
-#define CPU1RFR		(CPG_BASE + 0x1114)
-#define SPCTR		(CPG_BASE + 0x01a4)
-#define SPCMMR		(CPG_BASE + 0x01ac)
-#define SPCDMR		(CPG_BASE + 0x01b0)
+#define WUPCR		(CPG_BASEPhys + 0x1010)
+#define SRESCR		(CPG_BASEPhys + 0x1018)
+#define SCPUSTR		(CPG_BASEPhys + 0x1040)
+#define CPU0RFR		(CPG_BASEPhys + 0x1104)
+#define CPU1RFR		(CPG_BASEPhys + 0x1114)
+#define SPCTR		(CPG_BASEPhys + 0x01a4)
+#define SPCMMR		(CPG_BASEPhys + 0x01ac)
+#define SPCDMR		(CPG_BASEPhys + 0x01b0)
 
 /* SYSC */
 #define APARMBAREA	0xe6f10020

@@ -21,6 +21,8 @@
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
 
+#include <mach/r8a7373.h>
+
 #include <asm/cputype.h>
 #include <asm/irq.h>
 #include <asm/irq_regs.h>
@@ -29,7 +31,6 @@
 #include <asm/io.h>
 
 #define DYNAMIC_ENABLE 1
-#define DBGREG1 0xE6100020
 
 /*
  * ARMv6 supports a maximum of 3 events, starting from index 0. If we add

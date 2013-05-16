@@ -218,7 +218,6 @@
 /***************************/
 /* CPG setting             */
 /***************************/
-#define AUDIO_TEST_CPG_PHY_BASE_SRST	(0xE6158000)
 #define AUDIO_TEST_CPG_REG_MAX_SRST	(0x01CC)
 #define AUDIO_TEST_CPG_SRCR2	(g_audio_test_ulSrstRegBase + 0x000000B0)
 #define AUDIO_TEST_CPG_SRCR3	(g_audio_test_ulSrstRegBase + 0x000000B8)

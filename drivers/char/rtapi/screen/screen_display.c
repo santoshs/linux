@@ -37,8 +37,8 @@
 #include <rt_boot_drv.h>
 #include "screen_display_private.h"
 #include "system_rtload_internal.h"
+#include <mach/r8a7373.h>
 
-#define	REG_SYSC_PSTR	((unsigned long)0xE6180080)
 #define	POWER_A3R		((unsigned long)0x00002000)
 
 static int output_state = ICCOM_DRV_STATE_LCD_OFF;
@@ -443,7 +443,7 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
 
-	if (!(POWER_A3R & readl(REG_SYSC_PSTR))) {
+	if (!(POWER_A3R & readl(SYSC_PSTR))) {
 		result = mfis_drv_resume();
 		if (SMAP_OK != result) {
 			return result;

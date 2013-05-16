@@ -115,13 +115,6 @@
 #include <linux/spa_power.h>
 #endif
 
-#define STBCHRB3  0xE6180043
-#define PHYFUNCTR IO_ADDRESS(0xe6890104) /* 16-bit */
-
-/* SBSC register address */
-#define CPG_PLL3CR_1040MHZ (0x27000000)
-#define CPG_PLLECR_PLL3ST  (0x00000800)
-
 #include <mach/sbsc.h>
 
 static int unused_gpios_garda_rev2[] = {
@@ -350,7 +343,7 @@ static void __init board_init(void)
 	int inx = 0;
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 	unsigned int u2_board_rev = 0;
-	u8 reg8 = __raw_readb(STBCHRB3);
+	u8 reg8 = __raw_readb(STBCHRB3Phys);
 	u8 i = 0;
 
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
@@ -362,9 +355,9 @@ static void __init board_init(void)
 		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
-			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);
-			__raw_writel(SDMRA_DONE, sbsc_sdmra_28200);
-			__raw_writel(SDMRA_DONE, sbsc_sdmra_38200);
+			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
 		} else {
 			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
 		}
