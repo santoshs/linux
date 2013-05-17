@@ -1938,7 +1938,7 @@ static int sh_dmae_resume(struct device *dev)
 
 	if ( NULL != dev)
 		shdev = dev_get_drvdata(dev);
-		if ( shdev == NULL  && shdev->pdata == NULL) {
+		if ( shdev == NULL  || shdev->pdata == NULL) {
 			return -ENODEV;
 	}else {
 		return -ENODEV;

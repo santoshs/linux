@@ -939,12 +939,12 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
         smc_t*          smc_instance = NULL;
         smc_channel_t*  smc_channel  = NULL;
 
-		if ( NULL != smc_net_dev->smc_instance )
+		if ( NULL != smc_net_dev->smc_instance ) {
 			smc_instance = smc_net_dev->smc_instance;
+			smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc_msg->if_channel_id);
+		}
 
-	    smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc_msg->if_channel_id);
-
-        SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: SIOCDEV_MSG_INTERNAL, message 0x%08X, param 0x%08X", if_req_smc_msg->if_msg_id, if_req_smc_msg->if_msg_parameter);
+		SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: SIOCDEV_MSG_INTERNAL, message 0x%08X, param 0x%08X", if_req_smc_msg->if_msg_id, if_req_smc_msg->if_msg_parameter);
 
         if( smc_instance != NULL )
         {
