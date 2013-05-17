@@ -512,7 +512,7 @@ static int __devexit rmu2_cmt_remove(struct platform_device *pdev)
  * 0:sucessful
  * -EAGAIN: try again
  */
-static int rmu2_cmt_suspend(struct platform_device *pdev, pm_message_t state)
+static int rmu2_cmt_suspend_noirq(struct device *dev)
 {
 	printk(KERN_ALERT "START < %s >\n", __func__);
 
@@ -533,7 +533,7 @@ static int rmu2_cmt_suspend(struct platform_device *pdev, pm_message_t state)
  * 0:sucessful
  * -EAGAIN: try again
  */
-static int rmu2_cmt_resume(struct platform_device *pdev)
+static int rmu2_cmt_resume_noirq(struct device *dev)
 {
 	printk(KERN_ALERT "START < %s >\n", __func__);
 
@@ -545,13 +545,17 @@ static int rmu2_cmt_resume(struct platform_device *pdev)
 	return 0;
 }
 
+static struct dev_pm_ops rmu2_cmt_driver_pm_ops = {
+	.suspend_noirq = rmu2_cmt_suspend_noirq,
+	.resume_noirq = rmu2_cmt_resume_noirq,
+};
+
 static struct platform_driver rmu2_cmt_driver = {
 	.probe		= rmu2_cmt_probe,
 	.remove		= rmu2_cmt_remove,
-	.suspend	= rmu2_cmt_suspend,
-	.resume		= rmu2_cmt_resume,
 	.driver		= {
 		.name	= "cmt15",
+		.pm	= &rmu2_cmt_driver_pm_ops,
 	}
 };
 
