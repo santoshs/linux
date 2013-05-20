@@ -1878,7 +1878,7 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 			ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
 			if( value.intval == POWER_SUPPLY_STATUS_FULL) {
 				if(((pbat_data->charger_ctrl_status == D2153_BAT_RECHG_FULL)
-					||(pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL))
+					||(pbat_data->charger_ctrl_status == D2153_BAT_CHG_BACKCHG_FULL))
 					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
 					spa_event_handler(SPA_EVT_EOC, 0);
 					pbat_data->charger_ctrl_status = D2153_BAT_RECHG_FULL;
@@ -2117,7 +2117,7 @@ static int d2153_battery_resume(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	
+
 	// Start schedule of dealyed work for monitoring voltage and temperature.
 	if(!is_called_by_ticker) {
 		schedule_delayed_work(&pbat->monitor_temp_work, 0);

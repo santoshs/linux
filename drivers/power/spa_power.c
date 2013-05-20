@@ -663,8 +663,11 @@ static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attrib
 	struct spa_power_desc *spa_power_iter=g_spa_power;
 	const ptrdiff_t off = attr-ss_batt_ext_attrs;
 
-	if(!spa_power_iter)return 0;
-	
+	if(!spa_power_iter) {
+		pr_spa_dbg(LEVEL1, "%s : spa_power_iter is NULL\n", __func__);
+		return 0;
+	}
+
 	switch(off)
 	{
 		case SS_BATT_RESET_SOC:
@@ -672,16 +675,11 @@ static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attrib
 				int val;
 				sscanf(buf, "%d", &val);
 				spa_set_fg_reset(spa_power_iter, val);
-				if (NULL == spa_power_iter) {
-					pr_spa_dbg(LEVEL1, "%s : spa_power_iter is NULL\n", __func__);
-					return -1;
-				} else {
-					spa_power_iter->new_gathering.temperature = 1;
-					spa_power_iter->new_gathering.voltage = 1;
-					cancel_delayed_work_sync(&spa_power_iter->battery_work);
-					schedule_delayed_work(&spa_power_iter->battery_work, msecs_to_jiffies(0));
-					msleep(500);
-				}
+				spa_power_iter->new_gathering.temperature = 1;
+				spa_power_iter->new_gathering.voltage = 1;
+				cancel_delayed_work_sync(&spa_power_iter->battery_work);
+				schedule_delayed_work(&spa_power_iter->battery_work, msecs_to_jiffies(0));
+				msleep(500);
 			}
 			break;
 			/*for CTIA test*/
@@ -1380,7 +1378,7 @@ static void spa_update_batt_info(struct spa_power_desc *spa_power_iter, unsigned
 #endif
 			if (spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL)
 				value.intval = 100;
-#if 0			
+#if 0
 			if(spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY && spa_power_iter->batt_info.vf_status == 0 )
 			{ // batterry removed
 #if defined(REPORT_0_WHEN_NOBATT)
@@ -1882,7 +1880,7 @@ static void spa_delayed_init_work(struct work_struct *work)
 		    spa_power_iter->batt_info.update_interval = SPA_BATT_UPDATE_INTERVAL_WHILE_CHARGING;
 		    cancel_delayed_work_sync(&spa_power_iter->battery_work);
 		    schedule_delayed_work(&spa_power_iter->battery_work, msecs_to_jiffies(0));
-		}		
+		}
 		pr_spa_dbg(LEVEL1, "%s : SPA_INIT_PROGRESS_DONE\n",__func__);
 	}
 	else
@@ -1968,7 +1966,7 @@ static int spa_power_probe(struct platform_device *pdev)
 	schedule_delayed_work(&spa_power_iter->delayed_init_work, msecs_to_jiffies(50));
 
 	probe_status = SPA_PROBE_STATUS_READY;
-	
+
 	goto label_SPA_POWER_PROBE_SUCCESS;
 
 label_SPA_POWER_PROBE_ERROR:
