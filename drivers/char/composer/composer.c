@@ -178,6 +178,7 @@ static int composer_enable_hdmioutput(int enable, int mode);
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 #define HDMI_OUTPUT_MASK_HDMISET  1
 #define HDMI_OUTPUT_MASK_HDMIMEM  2
+#define HDMI_OUTPUT_MASK_HDMIMEM2 4
 #endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI */
 
 #if _TIM_DBG
@@ -541,6 +542,38 @@ static int  ioc_setfbaddr(struct composer_fh *fh, unsigned long *addr)
 
 	rc = composer_set_address(FB_SCREEN_BUFFERID0,
 		fb_addr, fb_size);
+
+	if (rc == 0) {
+		printk_dbg2(3, "down\n");
+		down(&sem);
+
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
+		rc = composer_enable_hdmioutput(false,
+						HDMI_OUTPUT_MASK_HDMIMEM2);
+
+		if (rc) {
+			/* nothing to do */
+			printk_err1("failed to stop output\n");
+			rc = -EINVAL;
+		} else {
+#endif
+			/* update graphic handle. */
+			rc = indirect_call(workqueue,
+				work_re_initialize_handle, 0, NULL);
+
+			if (rc || !graphic_handle) {
+				/* report error */
+				printk_err("lost graphic handle, need restart.\n");
+				rc = -EINVAL;
+			}
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
+		}
+
+		composer_enable_hdmioutput(true, HDMI_OUTPUT_MASK_HDMIMEM2);
+#endif
+
+		up(&sem);
+	}
 
 	DBGLEAVE("%d\n", rc);
 	return rc;
@@ -1382,13 +1415,16 @@ static void work_blend(struct localwork *work)
 
 finish:
 
+#if FEATURE_SKIP_LCD
 	if (blend_flag == 2) {
 		/* reserved for skip */
 		if (rh->lcd_data.display) {
 			/* change display type as skip */
 			rh->lcd_data.display = DISPLAY_FLAG_UNBLANK_SKIP;
 		}
-	} else if (!blend_flag || rc != CMP_OK) {
+	}
+#endif
+	if (!blend_flag || rc != CMP_OK) {
 		/* disable display to avoid illegal display. */
 		rh->lcd_data.display = DISPLAY_FLAG_BLANK;
 	}
@@ -1810,13 +1846,16 @@ finish2:
 
 finish:
 
+#if FEATURE_SKIP_HDMI
 	if (blend_flag == 2) {
 		/* reserved for skip */
 		if (rh->hdmi_data.display) {
 			/* change display type as skip */
 			rh->hdmi_data.display = DISPLAY_FLAG_UNBLANK_SKIP;
 		}
-	} else if (!blend_flag || rc != CMP_OK) {
+	}
+#endif
+	if (!blend_flag || rc != CMP_OK) {
 		/* disable display to avoid illegal display. */
 		rh->hdmi_data.display = DISPLAY_FLAG_BLANK;
 	}
@@ -3470,6 +3509,7 @@ static int __init sh_mobile_composer_init(void)
 	sema_init(&sem, 1);
 	num_open = 0;
 	graphic_handle = NULL;
+	set_blend_size_flag = false;
 
 	spin_lock_init(&irqlock_list);
 
