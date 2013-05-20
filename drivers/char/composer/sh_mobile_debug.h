@@ -23,6 +23,7 @@
 #define _TIM_DBG   0		/* record time log.                 */
 #define _LOG_DBG   1		/* generate debug log.              */
 #define _ERR_DBG   2		/* generate error log.              */
+#define _ATR_DBG   0		/* use atrace log experimentally    */
 #define DEV_NAME   "composer"
 
 #define _EXTEND_TIMEOUT  1
@@ -33,6 +34,24 @@
 #include <rtapi/system_memory.h>
 #if INTERNAL_DEBUG
 #include <linux/sh_mobile_composer.h>
+#ifdef CONFIG_DEBUG_FS
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+#endif
+#endif
+
+#if _ATR_DBG
+#define CREATE_TRACE_POINTS
+#include "../composer/sh_mobile_atrace.h"
+#undef CREATE_TRACE_POINTS
+
+#define ATRACE_BEGIN(X)  trace_tracing_mark_write(1, X, 0);
+#define ATRACE_END(X)    trace_tracing_mark_write(0, X, 0);
+#define ATRACE_INT(X, Y) trace_tracing_mark_write(2, X, Y);
+#else
+#define ATRACE_BEGIN(X)
+#define ATRACE_END(X)
+#define ATRACE_INT(X, Y)
 #endif
 
 /******************************/
@@ -144,6 +163,7 @@
 #define FUNC_WQ_DELETE_HDMI   0x026
 #define FUNC_WQ_BLEND_HDMI    0x027
 #define FUNC_WQ_DISP_HDMI     0x028
+#define FUNC_WQ_DISP_HDMICOMP 0x029
 
 #define TRACE_ENTER(ID) \
 	sh_mobile_composer_tracelog_record(ID_TRACE_ENTER, __LINE__, ID, 0);
@@ -164,15 +184,19 @@ extern void sh_mobile_composer_tracelog_record(
 	int logclass, int line, int ID, int val);
 
 static void sh_mobile_composer_tracelog_init(void);
-static int sh_mobile_composer_tracelog_read(char *msg, int size);
 
 static int sh_mobile_composer_dump_rhandle(char *p, int n,
 	struct composer_rh *rh);
+#ifdef CONFIG_DEBUG_FS
+static void sh_mobile_composer_debug_info_static(struct seq_file *s);
+static void sh_mobile_composer_debug_info_queue(struct seq_file *s);
+#endif
 #endif
 
 /* graphics */
 static void dump_screen_grap_initialize(screen_grap_initialize *arg);
 static void dump_screen_grap_image_blend(screen_grap_image_blend *arg);
+static void dump_screen_grap_set_blend_size(screen_grap_set_blend_size *arg);
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 static void dump_screen_grap_image_output(screen_grap_image_output *arg);
 #endif
