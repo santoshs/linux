@@ -123,8 +123,9 @@ struct vcd_watch_clkgen_info {
 	void *stop_clkgen;
 };
 
+typedef void (*codec_type_callback)(unsigned int);
 struct vcd_watch_codec_type_info {
-	void *codec_type_ind;
+	codec_type_callback codec_type_ind;
 };
 
 struct vcd_wait_path_info {
