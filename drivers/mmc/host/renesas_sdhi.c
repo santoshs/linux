@@ -621,6 +621,9 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		container_of(work, struct renesas_sdhi_host, detect_wq.work);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 status;
+	bool dwflag;
+
+	dwflag = true;
 
 	flush_delayed_work_sync(&host->mmc->detect);
 
@@ -660,9 +663,14 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 				dmaengine_terminate_all(host->dma_tx);
 			if (host->dma_rx)
 				dmaengine_terminate_all(host->dma_rx);
-			cancel_delayed_work(&host->timeout_wq);
+
+			/* true if delayed work was pending and cancelled,
+				false if it was running and waited for finish */
+			dwflag = cancel_delayed_work_sync(&host->timeout_wq);
 		}
-		renesas_sdhi_data_done(host, host->cmd);
+
+		if (dwflag)
+			renesas_sdhi_data_done(host, host->cmd);
 	}
 
 	clk_disable(host->clk);
