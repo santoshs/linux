@@ -518,9 +518,6 @@ long sec_hal_rpc_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param)
 {
 	long rv;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
-
 	switch (cmd) {
 	case SD_SECURE_STORAGE_DAEMON_PID_REGISTER:
 		g_secure_storage_pid = current->tgid;

@@ -741,9 +741,6 @@ long sec_hal_cnf_ioctl(unsigned int cmd,
 {
 	long rv;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
-
 	switch (cmd) {
 	case SD_CNF_SIML:
 		rv = _write_siml(param, pdev);
