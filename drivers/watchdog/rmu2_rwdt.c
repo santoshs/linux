@@ -43,6 +43,10 @@ static void __iomem *sbsc_sdmra_38200;
 
 #define CONFIG_RMU2_RWDT_ZQ_CALIB	(500)
 
+#ifdef CONFIG_RWDT_CMT15_TEST
+extern int test_mode;
+#endif
+
 /*
  * Modify register
  */
