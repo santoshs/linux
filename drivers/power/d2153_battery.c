@@ -117,8 +117,8 @@ static const char __initdata d2153_battery_banner[] = \
 #define DISCHARGE_SLEEP_OFFSET              55    // 45
 #define LAST_VOL_UP_PERCENT                 75
 #define LAST_CHARGING_WEIGHT      			900
+/*#define CONFIG_D2153_BATTERY_DEBUG*/
 
-/*efine D2153_DEBUG*/
 /* Static Function Prototype */
 /* static void d2153_external_event_handler(int category, int event); */
 static int  d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channel);
@@ -802,7 +802,7 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 		pr_err("%s. Invalid parameter. \n", __func__);
 		return -EINVAL;
 	}
-#ifdef D2153_DEBUG
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 	pr_info("%s. Getting SOC\n", __func__);
 #endif
 
@@ -1690,11 +1690,13 @@ int d2153_get_rf_temperature(void)
 		pbat_data->current_rf_temp_adc = (sum_temp_adc / j);
 		pbat_data->current_rf_temperature =
 		degree_k2c(adc_to_degree_k(pbat_data->current_rf_temp_adc));
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 		pr_info("%s. RF_TEMP_ADC = %d, RF_TEMPERATURE = %3d.%d\n",
 				__func__,
 				pbat_data->current_rf_temp_adc,
 				(pbat_data->current_rf_temperature/10),
 				(pbat_data->current_rf_temperature%10));
+#endif
 		return pbat_data->current_rf_temperature;
 	} else {
 		pr_err("%s:ERROR in reading RF temperature.\n", __func__);
@@ -1739,12 +1741,16 @@ int d2153_battery_read_status(int type)
 			u8 ch = D2153_ADC_VOLTAGE;
 
 			val = pbat->d2153_read_adc(pbat, ch);
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 			printk("%s: read adc value = %d\n",__func__, val);
+#endif
 			if(val < 0)
 				return val;
 			if(pbat->battery_data.adc_res[ch].is_adc_eoc) {
 				val = adc_to_vbat(pbat->battery_data.adc_res[ch].read_adc, 0);
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 				printk("%s: read adc to bat value = %d\n",__func__, val);
+#endif
 			} else {
 				val = -EINVAL;
 			}
@@ -1903,7 +1909,7 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_FAST);
 	}
 
-#ifdef D2153_DEBUG
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 	pr_info("# SOC = %3d.%d %%, ADC(read) = %4d, ADC(avg) = %4d, Voltage(avg) = %4d mV, ADC(VF) = %4d\n",
 				(pbat->battery_data.soc/10),
 				(pbat->battery_data.soc%10),
@@ -1942,7 +1948,7 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
 		schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_FAST);
 	}
 
-#ifdef D2153_DEBUG
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 	pr_info("# TEMP_BOARD(ADC) = %4d, Board Temperauter(Celsius) = %3d.%d\n",
 				pbat->battery_data.average_temp_adc,
 				(pbat->battery_data.average_temperature/10),

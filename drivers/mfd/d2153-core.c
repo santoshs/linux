@@ -356,7 +356,8 @@ static void d2153_codec_dev_register(struct d2153 *d2153,
 	struct i2c_board_info info;
 
 	memset(info.type, '\0', sizeof(info.type));
-	strncpy(info.type, name, strlen(name));
+	strncpy(info.type, name, sizeof(info.type));
+	info.type[sizeof(info.type)-1] = '\0';
 
 	/* D2153 actual address */
 	info.addr = D2153_CODEC_I2C_ADDR;

@@ -1392,7 +1392,8 @@ static void spa_update_batt_info(struct spa_power_desc *spa_power_iter, unsigned
 #endif
 			}
 #endif
-			pr_spa_dbg(LEVEL1, "%s : capacity = %d\n notified capacity=%d\n", __func__, spa_power_iter->batt_info.capacity, value.intval);
+			pr_spa_dbg(LEVEL1, "%s : notified capacity=%d\n",
+						 __func__, value.intval);
 			ps->set_property(ps, POWER_SUPPLY_PROP_CAPACITY, &value);
 			break;
 		case POWER_SUPPLY_PROP_TEMP:

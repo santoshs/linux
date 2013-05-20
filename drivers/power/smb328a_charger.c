@@ -63,6 +63,7 @@
 #define STATUS_A_TAPER_CHARGING			(0x01 << 2)
 #define STATUS_A_INPUT_VALID 			(0x01 << 1)
 #define STATUS_A_AICL_COMPLETE 			(0x01 << 0)
+/*#define CONFIG_SMB328A_CHARGER_DEBUG*/
 
 enum {
 	BAT_NOT_DETECTED,
@@ -383,13 +384,16 @@ static bool smb328a_check_bat_missing(struct i2c_client *client)
 	u8 data = 0;
 	bool ret = false;
 
+#ifdef CONFIG_SMB328A_CHARGER_DEBUG
 	pr_info("%s\n", __func__);
+#endif
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_B);
 	if (val >= 0) {
 		data = (u8)val;
 		if (data&0x1) {
 			ret = true; /* missing battery */
+			pr_err("%s : error!\n", __func__);
 		}
 	}
 
