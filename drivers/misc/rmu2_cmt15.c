@@ -45,6 +45,11 @@
 
 static struct proc_dir_entry *proc_watch_entry;
 
+/* Various nasty things we can do to the system to test the watchdog and
+ * CMT timer. Example: "echo 8 > /proc/proc_watch_entry"
+ */
+int test_mode;
+
 void loop(void *info)
 {
 	uint32_t psr = 0;
@@ -204,7 +209,7 @@ static void rmu2_cmt_start(void)
 	__raw_writel(0, CMSTR15);
 	__raw_writel(0U, CMCNT15);
 	__raw_writel(0x000001a6U, CMCSR15);     /* Int enable */
-	__raw_writel(dec2hex(CMT_OVF), CMCOR15);
+	__raw_writel(CMT_OVF, CMCOR15);
 
 	do {
 		wrflg = ((__raw_readl(CMCSR15) >> 13) & 0x1);

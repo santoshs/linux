@@ -55,11 +55,6 @@
 #ifdef CONFIG_RWDT_CMT15_TEST
 void loop(void *info);
 
-/* Various nasty things we can do to the system to test the watchdog and
- * CMT timer. Example: "echo 8 > /proc/proc_watch_entry"
- */
-static int test_mode;
-
 enum crash_type {
 	TEST_NORMAL = 0,		/* Normal operation, watchdog kicked */
 	TEST_NO_KICK = 1,		/* Normal system, watchdog not kicked */
@@ -84,10 +79,6 @@ enum crash_type {
 };
 #endif
 
-#ifndef IO_ADDRESS
-#define IO_ADDRESS(x)   x
-#endif  /* IO_ADDRESS */
-
 #define CONFIG_GIC_NS_CMT
 
 /* Macro definition */
@@ -109,10 +100,6 @@ enum crash_type {
 /* FIQ handle excecute panic before RWDT request CPU reset system */
 #define CMT_OVF			((256*CONFIG_RMU2_RWDT_CMT_OVF)/1000 - 2)
 
-static inline u32 dec2hex(u32 dec)
-{
-	return dec;
-}
 #endif  /* CONFIG_GIC_NS_CMT */
 
 void cpg_check_check(void);
