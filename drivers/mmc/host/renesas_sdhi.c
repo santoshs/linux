@@ -117,8 +117,8 @@
 #define SDHI_MIN_DMA_LEN	8
 #define SDHI_TIMEOUT		5000	/* msec */
 
-#define SD_CLK_CMD_DELAY	200	/* microseconds */
-static unsigned int wakeup_from_suspend;
+#define SD_CLK_CMD_DELAY   200     /* microseconds */
+static unsigned int wakeup_from_suspend_sd;
 
 /* sdcard1_detect_state variable used to detect the state of the SD card */
 static int sdcard1_detect_state;
@@ -950,7 +950,6 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 			struct mmc_command *cmd, u16 cmddat)
 {
 	u16 val16;
-	
 	host->cmd = cmd;
 
 	cmddat |= cmd->opcode;
@@ -989,13 +988,14 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 	dev_dbg(&host->pdev->dev, "CMD %d %x %x %x %x\n",
 		cmd->opcode, cmd->arg, cmd->flags, cmd->retries, cmddat);
 
-	if (wakeup_from_suspend == 1) {
+
+	if (wakeup_from_suspend_sd == 1) {
 		clk_enable(host->clk);
 		/* Disable automatic control for SD clock output */
 		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
 		sdhi_write16(host, SDHI_CLK_CTRL, (val16 & ~0x200)|0x100);
 
-		 /* Delay of 200 us */
+		/* Delay of 200 us */
 		udelay(SD_CLK_CMD_DELAY);
 
 		/* Send command */
@@ -1003,7 +1003,7 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 
 		/* enable card clock */
 		sdhi_write16(host, SDHI_CLK_CTRL, val16);
-		wakeup_from_suspend = 0;
+		wakeup_from_suspend_sd = 0;
 		clk_disable(host->clk);
 	} else {
 		/* Send command */
@@ -1378,9 +1378,9 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	}
 
 	if (host->connect == 1)
-		wakeup_from_suspend = 1;
+		wakeup_from_suspend_sd = 1;
 	else
-		wakeup_from_suspend = 0;
+		wakeup_from_suspend_sd = 0;
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		/* updating the SD card presence*/
@@ -1545,7 +1545,7 @@ int renesas_sdhi_resume(struct device *dev)
 	u32 val;
 	u32 ret = 0;
 
-	wakeup_from_suspend = 1;
+	wakeup_from_suspend_sd = 1;
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		if (host->pdata != NULL)
