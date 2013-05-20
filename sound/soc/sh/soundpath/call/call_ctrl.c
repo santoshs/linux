@@ -846,7 +846,6 @@ static void call_playback_data_set(void)
 		memset(g_call_playback_buff, '\0', g_call_playback_len);
 		/* Clear temporary information. */
 		pcm_info->period = 0;
-		pcm_info->byte_offset = g_call_playback_len;
 		call_playback_len = g_call_playback_len;
 		g_call_playback_len = 0;
 	}
@@ -861,7 +860,7 @@ static void call_playback_data_set(void)
 			VCD_PLAYBACK_BUFFER_SIZE - call_playback_len);
 
 		/* Offset update */
-		pcm_info->byte_offset += VCD_PLAYBACK_BUFFER_SIZE;
+		pcm_info->byte_offset += VCD_PLAYBACK_BUFFER_SIZE - call_playback_len;
 
 		/* If Buffer > Data */
 		if (VCD_PLAYBACK_BUFFER_SIZE >
@@ -1108,7 +1107,6 @@ static void call_record_data_set(void)
 
 			/* Clear temporary area and information. */
 			memset(g_call_record_buff, '\0', g_call_record_len);
-			g_call_record_len = 0;
 		}
 
 		/* Get data */
@@ -1121,16 +1119,14 @@ static void call_record_data_set(void)
 		/* Offset update */
 		pcm_info->byte_offset +=
 			(g_call_record_len + VCD_RECORD_BUFFER_SIZE);
+		g_call_record_len = 0;
+
 	/* Get data, If Buffer < Data */
 	} else {
 		/* Get data */
 		memcpy((void *)(runtime->dma_area + pcm_info->byte_offset),
 		       (void *)g_call_rec_data_addr[next_pd_side],
 		       pcm_info->buffer_len - pcm_info->byte_offset);
-
-		/* Offset update */
-		pcm_info->byte_offset +=
-			(pcm_info->buffer_len - pcm_info->byte_offset);
 
 		/* Length of the temporary area to update information. */
 		g_call_record_len = VCD_RECORD_BUFFER_SIZE -
@@ -1141,6 +1137,10 @@ static void call_record_data_set(void)
 		       (void *)(g_call_rec_data_addr[next_pd_side] +
 			       (pcm_info->buffer_len - pcm_info->byte_offset)),
 		       g_call_record_len);
+
+		/* Offset update */
+		pcm_info->byte_offset +=
+			(pcm_info->buffer_len - pcm_info->byte_offset);
 	}
 
 	/* If it reaches the period of data */
@@ -1333,7 +1333,6 @@ static void call_record_incomm_data_set(unsigned int buf_size)
 			memcpy((runtime->dma_area + pcm_info->byte_offset),
 			       (void *)g_call_record_incomm_buff,
 			       g_call_record_incomm_len);
-			g_call_record_incomm_len = 0;
 		}
 
 		/* Get data */
@@ -1345,16 +1344,14 @@ static void call_record_incomm_data_set(unsigned int buf_size)
 
 		/* Offset update */
 		pcm_info->byte_offset += (g_call_record_incomm_len + buf_size);
+		g_call_record_incomm_len = 0;
+
 	/* Get data, If Buffer < Data */
 	} else {
 		/* Get data */
 		memcpy((void *)(runtime->dma_area + pcm_info->byte_offset),
 		       (void *)g_call_rec_incomm_data_addr[next_pd_side],
 		       pcm_info->buffer_len - pcm_info->byte_offset);
-
-		/* Offset update */
-		pcm_info->byte_offset +=
-			(pcm_info->buffer_len - pcm_info->byte_offset);
 
 		/* Length of the temporary area to update information. */
 		g_call_record_incomm_len = buf_size -
@@ -1365,6 +1362,10 @@ static void call_record_incomm_data_set(unsigned int buf_size)
 		       (void *)(g_call_rec_incomm_data_addr[next_pd_side] +
 			       (pcm_info->buffer_len - pcm_info->byte_offset)),
 		       g_call_record_incomm_len);
+
+		/* Offset update */
+		pcm_info->byte_offset +=
+			(pcm_info->buffer_len - pcm_info->byte_offset);
 	}
 
 	/* If it reaches the period of data */
@@ -1560,8 +1561,6 @@ static void call_work_dummy_rec(struct sndp_work_info *work)
 			       0,
 			       g_call_dummy_record_len);
 
-			/* Clear temporary information. */
-			g_call_dummy_record_len = 0;
 		}
 
 		/* Get 0 padding data */
@@ -1575,6 +1574,9 @@ static void call_work_dummy_rec(struct sndp_work_info *work)
 		pcm_info->byte_offset +=
 			(g_call_dummy_record_len + VCD_RECORD_BUFFER_SIZE);
 
+		/* Clear temporary information. */
+		g_call_dummy_record_len = 0;
+
 	/* Get data, If Buffer < Data */
 	} else {
 		/* Get 0 padding data */
@@ -1582,12 +1584,12 @@ static void call_work_dummy_rec(struct sndp_work_info *work)
 		       0,
 		       pcm_info->buffer_len - pcm_info->byte_offset);
 
-		/* Offset update */
-		pcm_info->byte_offset +=
-			(pcm_info->buffer_len - pcm_info->byte_offset);
-
 		/* Length of the temporary area to update information. */
 		g_call_dummy_record_len = VCD_RECORD_BUFFER_SIZE -
+			(pcm_info->buffer_len - pcm_info->byte_offset);
+
+		/* Offset update */
+		pcm_info->byte_offset +=
 			(pcm_info->buffer_len - pcm_info->byte_offset);
 	}
 
