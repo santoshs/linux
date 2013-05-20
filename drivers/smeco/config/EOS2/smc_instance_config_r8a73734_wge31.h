@@ -202,17 +202,26 @@ Description :  File created
   /* #define SMC_HISTORY_DATA_COLLECTION_ENABLED */             /* If defined, the SMC data transfer collection is enabled in the modem side. This has some impact to throughput performance */
 
     /* Definition for Modem to wakeup APE when the channel interrupt does not do that */
+
+  #define SMC_APE_WAKEUP_WAIT_LOOP_COUNT          20     /* Wait loop timer, if not defined wakeup loop delay uses busy loop */
+
   #define SYSC_PSTR_REG (*(volatile uint32_t *)0x20180080)
   #define SYSC_PSTR_C4_A3SM_A2SL ((1 << 16) | (1 << 20) | (1 << 19))
 
-  #define SMC_MODEM_WAKEUP_APE()           {                                                                            \
-                                                volatile uint32_t sysc_pstr_data;                                       \
-                                                volatile uint32_t sysc_poll_delay;                                      \
-                                                                                                                        \
+  #define SMC_MODEM_WAKEUP_APE()           {                                                                                                            \
+                                                volatile uint32_t sysc_pstr_data;                                                                       \
+                                                volatile uint32_t sysc_poll_delay = 0;                                                                  \
+                                                uint32_t sysc_poll_delay_counter = 0;                                                          \
                                                 while (SYSC_PSTR_C4_A3SM_A2SL != ((sysc_pstr_data = SYSC_PSTR_REG) & SYSC_PSTR_C4_A3SM_A2SL))           \
                                                 {                                                                                                       \
                                                     SMC_TRACE_PRINTF_INFO("smc_signal_raise: SYSC.PSTR C4/A3SM/A2SL is off (0x%08X)", sysc_pstr_data);  \
                                                     for (sysc_poll_delay = 0xFFF; sysc_poll_delay; sysc_poll_delay--);                                  \
+                                                    sysc_poll_delay_counter++;                                                                          \
+                                                    if(sysc_poll_delay_counter >= SMC_APE_WAKEUP_WAIT_LOOP_COUNT) {                                     \
+                                                        SMC_TRACE_PRINTF_ERROR("smc_signal_raise: APE not detected to woken UP, counter %d", sysc_poll_delay_counter);  \
+                                                        RD_TRACE_SEND1(TRA_SMC_SIGNAL_WAKEUP_APE_NOT_WOKEN_UP, 32, &sysc_poll_delay_counter);           \
+                                                        break;                                                                                          \
+                                                    }                                                                                                   \
                                                 }                                                                                                       \
                                                 SMC_TRACE_PRINTF_SIGNAL("smc_signal_raise: SYSC.PSTR C4ST C4+A3SM+A2SL is ON (0x%08X)", sysc_pstr_data);\
                                             }
@@ -265,8 +274,8 @@ Description :  File created
 
 
 
-  /*#define SMC_NETDEV_WAKELOCK_IN_TX*/                                /* If defined, the wakelock is used in the net device TX */
-  #define SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS     10              /* Timeout in milliseconds if wakelock timer used in net device TX */
+  #define SMC_NETDEV_WAKELOCK_IN_TX                                /* If defined, the wakelock is used in the net device TX */
+  #define SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS     50              /* Timeout in milliseconds if wakelock timer used in net device TX */
 
 #endif  /* End of target specific configuration */
 

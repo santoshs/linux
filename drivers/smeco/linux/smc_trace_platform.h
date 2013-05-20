@@ -80,7 +80,6 @@ Description :  File created
 #define SMC_TRACE_APE_WAKELOCK_TX
 */
 
-
 #ifdef SMC_TRACE_APE_WAKELOCK_TX
   #define SMC_TRACE_PRINTF_APE_WAKELOCK_TX(...)                 SMC_TRACE_PRINTF( SMC_RD_TRACE_PREFIX"WAKELOCK_TX: " __VA_ARGS__ )
 #else
