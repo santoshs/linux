@@ -520,11 +520,8 @@ void sec_hal_vma_close(struct vm_area_struct *vma)
 	unsigned long vaddr;
 	unsigned long vsize = vma->vm_end - vma->vm_start;
 	TEEC_SharedMemory *shmem_to_release;
-	int *kmalloc_area = NULL;
 	struct client_data *client = vma->vm_private_data;
-
-	shmem_to_release = kmalloc(sizeof(TEEC_SharedMemory), GFP_KERNEL);
-	kmalloc_area = phys_to_virt(off);
+	int *kmalloc_area = phys_to_virt(off);
 
 	SEC_HAL_TRACE("Simple VMA close.\n");
 	SEC_HAL_TRACE("vma->vm_pgoff: 0x%08x",vma->vm_pgoff);
@@ -569,9 +566,9 @@ int sec_hal_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	unsigned long vaddr;
 	unsigned long vsize = vma->vm_end - vma->vm_start;
-	int *kmalloc_area = NULL;
-	shared_memory_node *new_mem_node;
 	struct client_data *client = file->private_data;
+	shared_memory_node *new_mem_node = NULL;
+	int *kmalloc_area = NULL;
 	int i;
 
 	SEC_HAL_TRACE_ENTRY();
@@ -605,10 +602,8 @@ int sec_hal_mmap(struct file *file, struct vm_area_struct *vma)
 	client->next_teec_shmem->size = vsize;
 	if (remap_pfn_range(vma, vma->vm_start,
 			(uint32_t)(client->next_teec_shmem->buffer) >> PAGE_SHIFT,
-			vsize, vma->vm_page_prot)) {
-		SEC_HAL_TRACE("remap page range failed\n");
-		return -ENXIO;
-	}
+			vsize, vma->vm_page_prot))
+		goto kfree_out;
 
 	vma->vm_ops = &sec_hal_remap_vm_ops;
 	new_mem_node->shmem = client->next_teec_shmem;
@@ -622,6 +617,10 @@ int sec_hal_mmap(struct file *file, struct vm_area_struct *vma)
 
 	SEC_HAL_TRACE_EXIT();
 	return 0;
+kfree_out:
+	kfree(new_mem_node);
+	SEC_HAL_TRACE_EXIT_INFO("remap failed, aborting");
+	return -ENXIO;
 }
 #endif /* CONFIG_ARM_SEC_HAL_TEE */
 
