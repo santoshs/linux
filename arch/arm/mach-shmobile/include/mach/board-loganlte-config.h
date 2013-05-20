@@ -221,6 +221,12 @@ static struct resource lcdc_resources[] = {
 		.end	= GPIO_PORT27,
 		.flags	= IORESOURCE_MEM,
 	},
+	[4] = {
+		.name	= "panel_esd_irq_port",
+		.start	= GPIO_PORT6,
+		.end	= GPIO_PORT6,
+		.flags	= IORESOURCE_MEM,
+	},
 };
 
 static struct sh_mobile_lcdc_info lcdc_info = {
