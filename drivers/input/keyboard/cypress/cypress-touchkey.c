@@ -59,9 +59,6 @@ static int touchkey_keycode[5] = { NULL,
 	|| defined(CONFIG_MACH_C1) \
 	|| defined(CONFIG_MACH_C1VZW)
 static int touchkey_keycode[3] = { 0, KEY_BACK, KEY_MENU,};
-#elif defined (CONFIG_MACH_U2EVM_SR_REV021) \
-	|| defined (CONFIG_MACH_U2EVM_SR_REV022)
-static int touchkey_keycode[3] = { 0, KEY_MENU, KEY_BACK };
 #else
 static int touchkey_keycode[3] = { 0, KEY_MENU, KEY_BACK };
 #endif

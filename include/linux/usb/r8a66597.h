@@ -4,7 +4,7 @@
  * Copyright (C) 2009  Renesas Solutions Corp.
  * Copyright (C) 2012 Renesas Mobile Corporation
  *
- * Author : Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+ * Author : Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,32 +28,6 @@
 #define R8A66597_PLATDATA_XTAL_24MHZ	0x02
 #define R8A66597_PLATDATA_XTAL_48MHZ	0x03
 
-#define R8A66597_PULL_OFF	0
-#define R8A66597_PULL_DOWN	1
-#define R8A66597_PULL_UP	2
-
-#define R8A66597_DIRECTION_NOT_SET	(-1)
-#define R8A66597_DIRECTION_NONE		0
-#define R8A66597_DIRECTION_OUTPUT	1
-#define R8A66597_DIRECTION_INPUT	2
-
-#define R8A66597_OUT_LEVEL_NOT_SET	(-1)
-#define R8A66597_OUT_LEVEL_HI		1
-#define R8A66597_OUT_LEVEL_LOW		0
-
-struct r8a66597_gpio_setting {
-	u32	port_mux;	/* pin function */
-	s32	pull;
-	s32 direction;
-	s32 out_level;	/* It become enable only when direction is output. */
-};
-
-struct r8a66597_gpio_setting_info {
-	u32	flag;		/* 0:nochange 1:change */
-	u32	port;		/* gpio port num */
-	struct r8a66597_gpio_setting active;
-	struct r8a66597_gpio_setting deactive;
-};
 struct r8a66597_platdata {
 	/* This callback can control port power instead of DVSTCTR register. */
 	void (*port_power)(int port, int power);
@@ -94,21 +68,13 @@ struct r8a66597_platdata {
 
 	/* (external controller only) set one = WR0_N shorted to WR1_N */
 	unsigned	wr0_shorted_to_wr1:1;
-	
-	/* (external usb phy chip select)  cs*/
-	unsigned int pin_gpio_1_fn;
 
-	/* (external usb phy chip select) cs  */
-	unsigned int pin_gpio_1;
-	
-	/* (external usb phy active low reset pin) reset_n */
-	unsigned int pin_gpio_2_fn;
-	
-	/* (external usb phy active low reset pin) reset_n */
-	unsigned int pin_gpio_2;
+	/* set one = using USBHS-DMAC */
+	unsigned	dmac:1;
+
 	/* Gpio setting */
-	unsigned int port_cnt;
-	struct r8a66597_gpio_setting_info	*gpio_setting_info;
+	unsigned int	port_cnt;
+	struct portn_gpio_setting_info  *usb_gpio_setting_info;
 };
 
 /* Register definitions */
@@ -502,26 +468,61 @@ struct r8a66597_platdata {
 #define	USBSPD		0x00C0
 #define	RTPORT		0x0001
 
-#ifdef CONFIG_USB_OTG
-#define USBHS_PHYOTGCTR	0x010A
+/* SUDMAC registers */
+#define CH0CFG		0x00
+#define CH1CFG		0x04
+#define CH0BA		0x10
+#define CH1BA		0x14
+#define CH0BBC		0x18
+#define CH1BBC		0x1C
+#define CH0CA		0x20
+#define CH1CA		0x24
+#define CH0CBC		0x28
+#define CH1CBC		0x2C
+#define CH0DEN		0x30
+#define CH1DEN		0x34
+#define DSTSCLR		0x38
+#define DBUFCTRL	0x3C
+#define DINTCTRL	0x40
+#define DINTSTS		0x44
+#define DINTSTSCLR	0x48
+#define CH0SHCTRL	0x50
+#define CH1SHCTRL	0x54
 
-#define USEVBUS		0x8000 	
-#define DVBUSEX 	0x4000
-#define DRVVBUS 	0x2000
-#define CHRGVBUS 	0x1000
-#define DISCHRGVBUS 0x0800
-#define DMPUDWN 	0x0400
-#define DPPUDWN 	0x0200
-#define IDPUUP 		0x0100
-/* System Configuration Status Register */
-#define	VSESS_VLD		0x8000	/* b15-14: Over-current bit */
-#define	VA_VBUS_VLD		0xC000	/* b15-14: Over-current monitor */
-#define	VB_SESS_END		0x0000	/* b15-14: Over-current monitor */
-/* Device State Control Register */
-#define HNPBTOA		0x0800	/* b11: switches HNPBTOA*/
-/* Interrupt Enable Register 1 */
-#define	VBCOMPE		0x8000	/* b15: Over-current interrupt */
-/* Interrupt Status Register 1 */
-#define	VBCOMP		0x8000	/* b15: Over-current interrupt */
-#endif
+/* SUDMAC Configuration Registers */
+#define SENDBUFM	0x1000 /* b12: Transmit Buffer Mode */
+#define RCVENDM		0x0100 /* b8: Receive Data Transfer End Mode */
+#define LBA_WAIT	0x0030 /* b5-4: Local Bus Access Wait */
+
+/* DMA Enable Registers */
+#define DEN		0x0001 /* b1: DMA Transfer Enable */
+
+/* DMA Status Clear Register */
+#define CH1STCLR	0x0002 /* b2: Ch1 DMA Status Clear */
+#define CH0STCLR	0x0001 /* b1: Ch0 DMA Status Clear */
+
+/* DMA Buffer Control Register */
+#define CH1BUFW		0x0200 /* b9: Ch1 DMA Buffer Data Transfer Enable */
+#define CH0BUFW		0x0100 /* b8: Ch0 DMA Buffer Data Transfer Enable */
+#define CH1BUFS		0x0002 /* b2: Ch1 DMA Buffer Data Status */
+#define CH0BUFS		0x0001 /* b1: Ch0 DMA Buffer Data Status */
+
+/* DMA Interrupt Control Register */
+#define CH1ERRE		0x0200 /* b9: Ch1 SHwy Res Err Detect Int Enable */
+#define CH0ERRE		0x0100 /* b8: Ch0 SHwy Res Err Detect Int Enable */
+#define CH1ENDE		0x0002 /* b2: Ch1 DMA Transfer End Int Enable */
+#define CH0ENDE		0x0001 /* b1: Ch0 DMA Transfer End Int Enable */
+
+/* DMA Interrupt Status Register */
+#define CH1ERRS		0x0200 /* b9: Ch1 SHwy Res Err Detect Int Status */
+#define CH0ERRS		0x0100 /* b8: Ch0 SHwy Res Err Detect Int Status */
+#define CH1ENDS		0x0002 /* b2: Ch1 DMA Transfer End Int Status */
+#define CH0ENDS		0x0001 /* b1: Ch0 DMA Transfer End Int Status */
+
+/* DMA Interrupt Status Clear Register */
+#define CH1ERRC		0x0200 /* b9: Ch1 SHwy Res Err Detect Int Stat Clear */
+#define CH0ERRC		0x0100 /* b8: Ch0 SHwy Res Err Detect Int Stat Clear */
+#define CH1ENDC		0x0002 /* b2: Ch1 DMA Transfer End Int Stat Clear */
+#define CH0ENDC		0x0001 /* b1: Ch0 DMA Transfer End Int Stat Clear */
+
 #endif /* __LINUX_USB_R8A66597_H */

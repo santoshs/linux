@@ -25,23 +25,19 @@ Description :  File created
 #ifndef SMC_CONF_PLATFORM_H
 #define SMC_CONF_PLATFORM_H
 
-/*#define SMC_HISTORY_DATA_COLLECTION_ENABLED*/
-
 #define SMC_SEND_USE_SEMAPHORE
 
-/*#define SMC_XMIT_BUFFER_FAIL_SEND*/
+/* #define SMC_XMIT_BUFFER_FAIL_SEND */
 #define SMC_XMIT_BUFFER_SIZE                  15
 
-
-//#define SMC_LOCK_TX_BUFFER                    SMC_LOCK
 #define SMC_LOCK_TX_BUFFER                    SMC_LOCK_IRQ
-
-//#define SMC_UNLOCK_TX_BUFFER                  SMC_UNLOCK
 #define SMC_UNLOCK_TX_BUFFER                  SMC_UNLOCK_IRQ
 
 #define SMC_CHANNEL_FIFO_BUFFER_SIZE_MAX      10
 
 #define SMC_FREE_LOCAL_PTR_OS_NOT_NEEDED
+
+/*#define SMC_LINUX_USE_TASKLET_IN_IRQ*/                      /* If defined, tasklet usage for IRQs is enabled */
 
     /* ===============================================
      * Define Linux Kernel Specific data types for SMC
@@ -85,6 +81,7 @@ Description :  File created
   #error "SMC_CONF_PM_APE_HOST_ACCESS_REQ_ENABLED --- NOT DEFINED"
 #endif
 
+#define SMC_SIGNAL_TYPE_IRQ_NONE       (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x00)  /* 0x03000000 */
 #define SMC_SIGNAL_TYPE_INTGEN         (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x01)  /* 0x03000001 */
 #define SMC_SIGNAL_TYPE_INTCBB         (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x02)  /* 0x03000002 */
 #define SMC_SIGNAL_TYPE_INT_WGM_GENOUT (SMC_SIGNAL_TYPE_INTERRUPT + SMC_SIGNAL_TYPE_PRIVATE_START + 0x04)  /* 0x03000004 */
@@ -143,8 +140,8 @@ typedef struct
 #define  SMC_UNLOCK_IRQ( lock )  { spin_unlock_irqrestore( &lock->mr_lock, lock->flags); SMC_TRACE_PRINTF_LOCK("unlock irq save: 0x%08X...", (uint32_t)lock); }
 
 
-#define  SMC_LOCK_MUTEX( smc_semaphore )        { SMC_TRACE_PRINTF_LOCK("mutex lock: 0x%08X...", (uint32_t)smc_semaphore); mutex_lock( &(smc_semaphore->smc_mutex) ); }
-#define  SMC_UNLOCK_MUTEX( smc_semaphore )      { mutex_unlock( &(smc_semaphore->smc_mutex) ); SMC_TRACE_PRINTF_LOCK("mutex unlock: 0x%08X...", (uint32_t)smc_semaphore);}
+#define  SMC_LOCK_MUTEX( smc_semaphore )        { SMC_TRACE_PRINTF_LOCK_MUTEX("mutex lock: 0x%08X...", (uint32_t)smc_semaphore); mutex_lock( &(smc_semaphore->smc_mutex) ); }
+#define  SMC_UNLOCK_MUTEX( smc_semaphore )      { mutex_unlock( &(smc_semaphore->smc_mutex) ); SMC_TRACE_PRINTF_LOCK_MUTEX("mutex unlock: 0x%08X...", (uint32_t)smc_semaphore);}
 
     /*
      * Data type for SMC locking
@@ -157,6 +154,17 @@ typedef struct _smc_lock_t
     unsigned long flags;   /* For IRQ lock */
 
 } smc_lock_t;
+
+    /* Lockdep friendly macro for spinlock */
+#define smc_lock_create()                                           \
+    ({                                                              \
+        smc_lock_t *lock = SMC_MALLOC_IRQ( sizeof(smc_lock_t) );    \
+        spin_lock_init(&lock->mr_lock);                             \
+        lock->flags = 0x00000000;                                   \
+        lock;                                                       \
+    })
+
+
 
     /*
      * Data type for SMC semaphore
@@ -181,6 +189,36 @@ typedef struct _smc_timer_t
 
 } smc_timer_t;
 
+
+
+
+#ifdef SMC_DMA_TRANSFER_ENABLED
+    /*
+     * DMA structures
+     */
+
+typedef void ( *dma_transfer_cb )( void* );
+
+
+typedef struct _smc_dma_t
+{
+    /*struct device*      device;*/
+
+    dma_cap_mask_t      dma_cap_mask;
+    struct dma_chan*    dma_channel;
+    enum dma_ctrl_flags dma_ctrl_flags;
+
+    int                 dma_transfer_timeout_ms;
+
+    struct completion   completion_conf;
+
+    dma_transfer_cb     completion_func;
+
+} smc_dma_t;
+
+int smc_dma_transfer_mdb(smc_dma_t* dma, void* target_address, void* source_address, uint32_t length, uint8_t from_mdb);
+
+#endif
 
 uint16_t smc_asic_version_get(void);
 

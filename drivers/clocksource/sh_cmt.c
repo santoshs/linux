@@ -31,6 +31,8 @@
 #include <linux/clockchips.h>
 #include <linux/sh_timer.h>
 #include <linux/slab.h>
+#include <linux/module.h>
+#include <linux/pm_domain.h>
 
 struct sh_cmt_priv {
 	void __iomem *mapbase;
@@ -160,7 +162,7 @@ static void sh_cmt_clk_disable(struct sh_cmt_priv *p)
 	p->clk_enabled = 0;
 }
 
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 /*
  * In R-Mobile U2 CMT hardware,
  * 1. CMSTR is not a shared register any more
@@ -741,6 +743,9 @@ static int __devinit sh_cmt_probe(struct platform_device *pdev)
 {
 	struct sh_cmt_priv *p = platform_get_drvdata(pdev);
 	int ret;
+
+	if (!is_early_platform_device(pdev))
+		pm_genpd_dev_always_on(&pdev->dev, true);
 
 	if (p) {
 		dev_info(&pdev->dev, "kept as earlytimer\n");

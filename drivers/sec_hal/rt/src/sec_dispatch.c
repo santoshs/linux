@@ -12,26 +12,16 @@
 ** Copyright (C) 2012 Renesas Electronics Corp.                            **
 ** All rights reserved.                                                    **
 ** *********************************************************************** */
+
 #include "sec_dispatch.h"
-#include "sec_hal_rt_trace.h"
 #include "sec_hal_rt_cmn.h"
+#include "sec_serv_api.h"
 
 #include <stdarg.h>
-#include <linux/cdev.h>
-#include <linux/device.h>
 #include <linux/mutex.h>
-#include <linux/spinlock.h>
-#include <linux/spinlock_types.h>
-#include <linux/completion.h>
-#include <linux/ioport.h>
-#include <linux/fs.h>
 #include <linux/types.h>
-#include <linux/slab.h>
-#include <linux/uaccess.h>
 #include <linux/sched.h>
-#include <linux/platform_device.h>
-#include <linux/uaccess.h>
-#include <linux/percpu.h>
+#include <linux/hardirq.h>
 #include <asm/cacheflush.h>
 
 
@@ -55,53 +45,89 @@
 #define FIQ_MASK                                0x40
 #define IRQ_MASK                                0x80
 
-extern unsigned long icram_offset;      /* offset */
 
+/* only one process allowed simultaneously. secside has failsafe spinlock. */
+static DEFINE_MUTEX(disp_mutex);
+
+/* bridge function decl */
 uint32_t hw_sec_rom_pub_bridge(uint32_t appl_id, uint32_t flags, va_list *);
-/* **************************************************************************
-** Function name      : sec_dispatcher
-** Description        :
-** Parameters         :
-** Return value       : uint32
-**                      ==0 operation successful
-**                      failure otherwise.
-** *************************************************************************/
+
+
+/* ****************************************************************************
+ * Function name      : raw_pub2sec_dispatcher
+ * Description        : raw dispatcher, can be used from IRQ context.
+ *                      service calls should short, to reduce possible IRQ lat.
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * ***************************************************************************/
+uint32_t raw_pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
+{
+	uint32_t pub_cpsr, rv = 0;
+	va_list ap;
+
+	/* Read current CPSR */
+	__asm__ __volatile__("MRS %0, CPSR" : "=r"(pub_cpsr));
+
+	/* FIQ won't be enabled in secure mode if FIQ is currently disabled */
+	if (pub_cpsr & FIQ_MASK)
+		flags &= ~SEC_ROM_FIQ_ENABLE_MASK;
+
+	/* IRQ won't be enabled in secure mode if IRQ is currently disabled */
+	if (pub_cpsr & IRQ_MASK)
+		flags &= ~SEC_ROM_IRQ_ENABLE_MASK;
+
+	va_start(ap, flags);
+	/* 'Address of va_list' convention is inherited from prev. projects */
+	rv = hw_sec_rom_pub_bridge(appl_id, flags, &ap);
+	va_end(ap);
+
+	return rv;
+}
+
+
+/* ****************************************************************************
+ * Function name      : pub2sec_dispatcher
+ * Description        : common dispatcher, for process context only.
+ * Return value       : uint32
+ *                      ==0 operation successful
+ *                      failure otherwise.
+ * ***************************************************************************/
 uint32_t pub2sec_dispatcher(uint32_t appl_id, uint32_t flags, ...)
 {
-    uint32_t return_value, pub_cpsr;
-    va_list ap;
+	uint32_t pub_cpsr, rv = 0;
+	va_list ap;
 
-    SEC_HAL_TRACE_ENTRY
+	BUG_ON(in_atomic()); /* escalate wrong context. */
+	mutex_lock(&disp_mutex);
 
-    /* Read current CPSR */
-    __asm__ __volatile__("MRS %0, CPSR" : "=r"(pub_cpsr));
+	/* Read current CPSR */
+	__asm__ __volatile__("MRS %0, CPSR" : "=r"(pub_cpsr));
 
-    /* FIQ won't be enabled in secure mode if FIQ is currently disabled */
-    if (pub_cpsr & FIQ_MASK) {
-        flags &= ~SEC_ROM_FIQ_ENABLE_MASK;
-    }
+	/* FIQ won't be enabled in secure mode if FIQ is currently disabled */
+	if (pub_cpsr & FIQ_MASK)
+		flags &= ~SEC_ROM_FIQ_ENABLE_MASK;
 
-    /* IRQ won't be enabled in secure mode if IRQ is currently disabled */
-    if (pub_cpsr & IRQ_MASK) {
-        flags &= ~SEC_ROM_IRQ_ENABLE_MASK;
-    }
+	/* IRQ won't be enabled in secure mode if IRQ is currently disabled */
+	if (pub_cpsr & IRQ_MASK)
+		flags &= ~SEC_ROM_IRQ_ENABLE_MASK;
 
-    va_start(ap, flags);
-    /* 'Address of va_list' convention is inherited from previous projects */
-    return_value = hw_sec_rom_pub_bridge(appl_id, flags, &ap);
-    va_end(ap);
+	va_start(ap, flags);
+	/* 'Address of va_list' convention is inherited from prev. projects */
+	rv = hw_sec_rom_pub_bridge(appl_id, flags, &ap);
+	va_end(ap);
 
-    SEC_HAL_TRACE_EXIT
-    return return_value;
+	mutex_unlock(&disp_mutex);
+	return rv;
 }
 
 
 /* MMU */
 void* hw_mmu_physical_address_get(void* arg)
 {
-    va_list* va_ptr = (va_list*)arg;
-    va_ptr->__ap = virt_to_phys(va_ptr->__ap); 
-    return (void*)virt_to_phys(arg);
+	va_list *va_ptr = (va_list *)arg;
+	va_ptr->__ap = (void *)virt_to_phys((void *)va_ptr->__ap);
+	return (void*)virt_to_phys(arg);
 }
 
 
@@ -116,28 +142,20 @@ void* hw_mmu_physical_address_get(void* arg)
 #define HW_ARM_DCACHE_LEVEL_POU               0
 void hw_arm_dcache_maintenance(uint32_t op, uint32_t lvl)
 {
-    switch(op)
-    {
-        case HW_ARM_DCACHE_OP_CLEAN:
-        case HW_ARM_DCACHE_OP_INVALIDATE:
-        case HW_ARM_DCACHE_OP_CLEAN_INVALIDATE:
-        default: break;
-    }
+	switch(op) {
+	case HW_ARM_DCACHE_OP_CLEAN:
+	case HW_ARM_DCACHE_OP_INVALIDATE:
+	case HW_ARM_DCACHE_OP_CLEAN_INVALIDATE:
+	default: break;
+	}
 }
 
 
 /* L2-Cache */
 void hw_arm_l2_cache_area_clean(void * virt_addr, int32_t size)
 {
-    __cpuc_flush_dcache_area(virt_addr, size);
+	__cpuc_flush_dcache_area(virt_addr, size);
 }
 
 
-unsigned long sec_hal_virt_to_icram_phys(unsigned long virt_addr)
-{
-    unsigned long phys_addr;
-    phys_addr = virt_addr - icram_offset;
-    return phys_addr;
-}
-
-/* ******************************** END ********************************** */
+/* ******************************** END ************************************ */

@@ -27,6 +27,7 @@
 #include <linux/d2153/hwmon.h>
 #include <linux/d2153/core.h>
 
+#include <mach/common.h>
 
 #define DRIVER_NAME                 "d2153-regulator"
 
@@ -139,22 +140,18 @@ static struct d2153_reg_info d2153_regulator_info[D2153_NUMBER_OF_REGULATORS] = 
 	D2153_DEFINE_INFO(LDO_AUD2,LDOAUD2),
 };
 
-
-////////////////////////////////////////////////////////////////////////////////
-///////  Static Variable
-////////////////////////////////////////////////////////////////////////////////
-static int mctl_status = 0;   // default is disable
+static int mctl_status;   /* default is disable */
 static struct regulator_dev *d2153_rdev[D2153_NUMBER_OF_REGULATORS];
 
 static int d2153_register_regulator(struct d2153 *d2153, int reg, struct regulator_init_data *initdata);
 
 static int is_mode_control_enabled(void)
 {
-	// 0 : mctl disable, 1 : mctl enable
+	/* 0 : mctl disable, 1 : mctl enable */
 	return mctl_status;
 }
 
-/* 
+/*
  * get_global_mctl_mode
  */
 static inline int get_global_mctl_mode(struct d2153 *d2153)
@@ -163,11 +160,11 @@ static inline int get_global_mctl_mode(struct d2153 *d2153)
 
 	d2153_reg_read(d2153, D2153_STATUS_A_REG, &reg_val);
 
-	// Remove "NOT" operation
+	/* Remove "NOT" operation */
 	return ((reg_val & D2153_M_CTL_MASK) >> D2153_M_CTL_BIT);
 }
 
-/* 
+/*
  * get_regulator_mctl_mode
  */
 static unsigned int get_regulator_mctl_mode(struct d2153 *d2153, int regulator_id)
@@ -175,7 +172,7 @@ static unsigned int get_regulator_mctl_mode(struct d2153 *d2153, int regulator_i
 	u8 reg_val, mctl_reg;
 	int ret = 0;
 
-	if(regulator_id < 0 || regulator_id >= D2153_NUMBER_OF_REGULATORS)
+	if (regulator_id < 0 || regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
 	mctl_reg = regulator_register_map[regulator_id].mctl_reg;
 
@@ -186,7 +183,7 @@ static unsigned int get_regulator_mctl_mode(struct d2153 *d2153, int regulator_i
 	return reg_val;
 }
 
-/* 
+/*
  * set_regulator_mctl_mode
  */
 static int set_regulator_mctl_mode(struct d2153 *d2153, int regulator_id, u8 mode)
@@ -194,14 +191,14 @@ static int set_regulator_mctl_mode(struct d2153 *d2153, int regulator_id, u8 mod
 	u8 reg_val, mctl_reg;
 	int ret = 0;
 
-	if(regulator_id < 0 || regulator_id >= D2153_NUMBER_OF_REGULATORS)
+	if (regulator_id < 0 || regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
-	if(mode > REGULATOR_MCTL_TURBO)
+	if (mode > REGULATOR_MCTL_TURBO)
 		return -EINVAL;
 
 	mctl_reg = regulator_register_map[regulator_id].mctl_reg;
 	ret = d2153_reg_read(d2153, mctl_reg, &reg_val);
-	if(ret < 0)
+	if (ret < 0)
 		return ret;
 
 	reg_val &= ~(D2153_REGULATOR_MCTL0 | D2153_REGULATOR_MCTL2);
@@ -212,14 +209,14 @@ static int set_regulator_mctl_mode(struct d2153 *d2153, int regulator_id, u8 mod
 	return ret;
 }
 
-/* 
+/*
  * d2153_set_mctl_enable
  */
 void d2153_set_mctl_enable(void)
 {
 	u8 reg_val;
 
-	if(d2153_regl_info) {
+	if (d2153_regl_info) {
 		d2153_reg_read(d2153_regl_info, D2153_POWER_CONT_REG, &reg_val);
 		reg_val |= D2153_MCTRL_EN_MASK;
 		d2153_reg_write(d2153_regl_info, D2153_POWER_CONT_REG, reg_val);
@@ -233,14 +230,14 @@ void d2153_set_mctl_enable(void)
 EXPORT_SYMBOL(d2153_set_mctl_enable);
 
 
-/* 
+/*
  * d2153_set_mctl_enable
  */
 void d2153_lcd_power_on(void)
 {
 	u8 reg_val;
 
-	if(d2153_regl_info) {
+	if (d2153_regl_info) {
 		reg_val = 0x56;
 		d2153_reg_write(d2153_regl_info,D2153_LDO8_MCTL_REG,reg_val);
 		d2153_reg_write(d2153_regl_info,D2153_LDO9_MCTL_REG,reg_val);
@@ -253,8 +250,28 @@ void d2153_lcd_power_on(void)
 EXPORT_SYMBOL(d2153_lcd_power_on);
 
 
+/*
+ * d2153_clk32k_enable
+ */
+void d2153_clk32k_enable(int onoff)
+{
+	if (d2153_regl_info) {
+		dlg_info("[%s] OUT1_32K onoff ->[%d]\n", __func__, onoff);
 
-/* 
+		if (onoff == 1)
+			d2153_set_bits(d2153_regl_info,  D2153_OUT2_32K_ONKEY_CONT_REG, D2153_OUT2_32K_EN_MASK);
+		else
+			d2153_clear_bits(d2153_regl_info,  D2153_OUT2_32K_ONKEY_CONT_REG, D2153_OUT2_32K_EN_MASK);
+	}
+	else {
+		dlg_err("Failed OUT1_32K on/off\n");
+		return;
+	}
+}
+EXPORT_SYMBOL(d2153_clk32k_enable);
+
+
+/*
  * d2153_platform_regulator_init
  */
 int d2153_platform_regulator_init(struct d2153 *d2153)
@@ -263,7 +280,7 @@ int d2153_platform_regulator_init(struct d2153 *d2153)
 	u8 reg_val=0;
 	struct d2153_regl_init_data *regl_data = d2153->pdata->regulator_data;
 
-	if(regl_data == NULL)
+	if (regl_data == NULL)
 		return -1;
 
 	for(i = D2153_BUCK_1; i < D2153_NUMBER_OF_REGULATORS; i++) {
@@ -272,25 +289,17 @@ int d2153_platform_regulator_init(struct d2153 *d2153)
 		d2153_reg_write(d2153, regulator_register_map[i].mctl_reg, d2153->pdata->regl_map[i].dsm_opmode);
 	}
 
-	// ******************************************************************************
-	//
-	// set MISC_MCTL
-	/*
-	reg_val = (LEOPARD_MISC_MCTL3_DIGICLK | LEOPARD_MISC_MCTL2_DIGICLK |
-	LEOPARD_MISC_MCTL1_DIGICLK | LEOPARD_MISC_MCTL0_DIGICLK |
-	LEOPARD_MISC_MCTL3_BBAT | LEOPARD_MISC_MCTL2_BBAT |
-	LEOPARD_MISC_MCTL1_BBAT | LEOPARD_MISC_MCTL0_BBAT);
-	*/
+	/* set MISC_MCTL */
 	reg_val = 0x0F;
 	d2153_reg_write(d2153_regl_info, D2153_MISC_MCTL_REG, reg_val);
 
-	// ******************************************************************************
+	d2153_reg_write(d2153_regl_info,D2153_BUCK_D_REG,0x67);
 
 	return 0;
 }
 EXPORT_SYMBOL(d2153_platform_regulator_init);
 
-/* 
+/*
  * d2153_regulator_val_to_uVolts
  */
 static int d2153_regulator_val_to_uVolts(unsigned int val, int regulator_id)
@@ -306,7 +315,7 @@ static int d2153_regulator_val_to_uVolts(unsigned int val, int regulator_id)
 		return val_uVolts;
 }
 
-/* 
+/*
  * d2153_regulator_uvolts_to_val
  */
 static unsigned int d2153_regulator_uvolts_to_val(int uV, int regulator_id)
@@ -320,7 +329,7 @@ static unsigned int d2153_regulator_uvolts_to_val(int uV, int regulator_id)
 		return 0;
 }
 
-/* 
+/*
  * d2153_regulator_set_voltage
  */
 static int d2153_regulator_set_voltage(struct regulator_dev *rdev, int min_uV, int max_uV,unsigned *selector)
@@ -328,7 +337,7 @@ static int d2153_regulator_set_voltage(struct regulator_dev *rdev, int min_uV, i
 	struct d2153 *d2153 = rdev_get_drvdata(rdev);
 	int value, val_uV;
 	unsigned int reg_num, regulator_id = rdev_get_id(rdev);
-	u8 supply, control;	
+	u8 supply, control;
 	int ret = 0;
 	*selector = -1;
 
@@ -351,7 +360,7 @@ static int d2153_regulator_set_voltage(struct regulator_dev *rdev, int min_uV, i
 	ret = d2153_reg_read(d2153, reg_num, &control);
 	control &= ~regulator_register_map[regulator_id].v_mask;
 	control |= value << regulator_register_map[regulator_id].v_bit;
-	
+
 	d2153_reg_write(d2153, reg_num, control);
 
 	dlg_info("%s(), regl_id=%d, reg_num=%02X, value = %02X\n", __func__, regulator_id, reg_num, value);
@@ -360,11 +369,11 @@ static int d2153_regulator_set_voltage(struct regulator_dev *rdev, int min_uV, i
 		d2153_set_bits(d2153,regulator_register_map[regulator_id].ramp_reg, regulator_register_map[regulator_id].ramp_bit);
 
 	*selector = regulator_id;
-	
+
 	return ret;
 }
 
-/* 
+/*
  * d2153_regulator_get_voltage
  */
 static int d2153_regulator_get_voltage(struct regulator_dev *rdev)
@@ -386,7 +395,7 @@ static int d2153_regulator_get_voltage(struct regulator_dev *rdev)
 	return ret;
 }
 
-/* 
+/*
  * d2153_regulator_enable
  */
 static int d2153_regulator_enable(struct regulator_dev *rdev)
@@ -400,7 +409,7 @@ static int d2153_regulator_enable(struct regulator_dev *rdev)
 	if (regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
 
-	if(!is_mode_control_enabled()){
+	if (!is_mode_control_enabled()) {
 		reg_num = regulator_register_map[regulator_id].en_reg;
 
 		d2153_reg_read(d2153, reg_num, &reg_val);
@@ -411,12 +420,12 @@ static int d2153_regulator_enable(struct regulator_dev *rdev)
 		reg_num = regulator_register_map[regulator_id].mctl_reg;
 
 		ret = d2153_reg_read(d2153, reg_num, &reg_val);
-		if(ret < 0) {
+		if (ret < 0) {
 			dlg_err("I2C read error\n");
 			return ret;
 		}
 
-		reg_val &= ~(D2153_REGULATOR_MCTL1 | D2153_REGULATOR_MCTL3);   // Clear MCTL11 and MCTL01
+		reg_val &= ~(D2153_REGULATOR_MCTL1 | D2153_REGULATOR_MCTL3);   /* Clear MCTL11 and MCTL01 */
 		reg_val |= (D2153_REGULATOR_MCTL1_ON | D2153_REGULATOR_MCTL3_ON);
 
 		switch(regulator_register_map[regulator_id].dsm_opmode) {
@@ -440,7 +449,7 @@ static int d2153_regulator_enable(struct regulator_dev *rdev)
 	return ret;
 }
 
-/* 
+/*
  * d2153_regulator_disable
  */
 static int d2153_regulator_disable(struct regulator_dev *rdev)
@@ -454,7 +463,7 @@ static int d2153_regulator_disable(struct regulator_dev *rdev)
 	if (regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
 
-	if(!is_mode_control_enabled()) {
+	if (!is_mode_control_enabled()) {
 		reg_num = regulator_register_map[regulator_id].en_reg;
 
 		d2153_reg_read(d2153, reg_num, &reg_val);
@@ -462,9 +471,6 @@ static int d2153_regulator_disable(struct regulator_dev *rdev)
 		d2153_reg_write(d2153, reg_num, reg_val);
 	} else {
 		reg_num = regulator_register_map[regulator_id].mctl_reg;
-		/* 0x00 ==  LEOPARD_REGULATOR_MCTL0_OFF | LEOPARD_REGULATOR_MCTL1_OFF 
-		*        | LEOPARD_REGULATOR_MCTL2_OFF | LEOPARD_REGULATOR_MCTL3_OFF 
-		*/
 
 		ret = d2153_reg_write(d2153, reg_num, 0x00);
 	}
@@ -472,7 +478,7 @@ static int d2153_regulator_disable(struct regulator_dev *rdev)
 	return ret;
 }
 
-/* 
+/*
  * d2153_regulator_get_mode
  */
 static unsigned int d2153_regulator_get_mode(struct regulator_dev *rdev)
@@ -510,7 +516,7 @@ static unsigned int d2153_regulator_get_mode(struct regulator_dev *rdev)
 	return mode;
 }
 
-/* 
+/*
  * d2153_regulator_set_mode
  */
 static int d2153_regulator_set_mode(struct regulator_dev *rdev, unsigned int mode)
@@ -544,14 +550,14 @@ static int d2153_regulator_set_mode(struct regulator_dev *rdev, unsigned int mod
 	return ret;
 }
 
-/* 
+/*
  * d2153_regulator_list_voltage
  */
 static int d2153_regulator_list_voltage(struct regulator_dev *rdev, unsigned selector)
 {
 	unsigned int regulator_id = rdev_get_id(rdev);
 
-	if(regulator_id >= D2153_NUMBER_OF_REGULATORS)
+	if (regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
 
 	if (d2153_regulator_info[regulator_id].uVolt_step == 0) {
@@ -567,7 +573,7 @@ static int d2153_regulator_list_voltage(struct regulator_dev *rdev, unsigned sel
 	}
 }
 
-/* 
+/*
  * d2153_regulator_is_enabled
  */
 static int d2153_regulator_is_enabled(struct regulator_dev *rdev)
@@ -580,13 +586,13 @@ static int d2153_regulator_is_enabled(struct regulator_dev *rdev)
 	if (regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
 
-	if(!is_mode_control_enabled()){
+	if (!is_mode_control_enabled()) {
 
 		reg_num = regulator_register_map[regulator_id].en_reg;
 
 		ret = d2153_reg_read(d2153, reg_num, &reg_val);
-		if(ret < 0) {
-			dlg_err("I2C read error. \n");
+		if (ret < 0) {
+			dlg_err("I2C read error.\n");
 			return ret;
 		}
 
@@ -597,8 +603,8 @@ static int d2153_regulator_is_enabled(struct regulator_dev *rdev)
 	} else {
 		reg_num = regulator_register_map[regulator_id].mctl_reg;
 		ret = d2153_reg_read(d2153, reg_num, &reg_val);
-		if(ret < 0) {
-			dlg_err("I2C read error. \n");
+		if (ret < 0) {
+			dlg_err("I2C read error.\n");
 			return ret;
 		}
 
@@ -820,14 +826,13 @@ static struct regulator_desc d2153_reg[D2153_NUMBER_OF_REGULATORS] = {
 };
 
 
-/* 
+/*
  * d2153_regulator_is_enabled
  */
 static int d2153_regulator_probe(struct platform_device *pdev)
 {
 	struct regulator_dev *rdev;
 	u32 min_uVolts,uVolt_step,max_uVolts;
-	//struct d2153 *d2153 = dev_get_drvdata(&pdev->dev); // platform_get_drvdata(pdev);
 
 	dev_info(&pdev->dev, "Starting Regulator\n");
 
@@ -854,7 +859,8 @@ static int d2153_regulator_probe(struct platform_device *pdev)
 	/* register regulator */
 	rdev = regulator_register(&d2153_reg[pdev->id], &pdev->dev,
 				pdev->dev.platform_data,
-				dev_get_drvdata(&pdev->dev));
+				dev_get_drvdata(&pdev->dev),
+				NULL);
 
 	if (IS_ERR(rdev)) {
 		dev_err(&pdev->dev, "failed to register %s\n",
@@ -864,14 +870,12 @@ static int d2153_regulator_probe(struct platform_device *pdev)
 
 	d2153_rdev[pdev->id] = rdev;		/* rdev required for IOCTL support */
 
-//	regulator_has_full_constraints();
-
 	dev_info(&pdev->dev, "Regulator started.\n");
 
 	return 0;
 }
 
-/* 
+/*
  * d2153_regulator_remove
  */
 static int d2153_regulator_remove(struct platform_device *pdev)
@@ -888,7 +892,7 @@ static int d2153_regulator_remove(struct platform_device *pdev)
 	return 0;
 }
 
-/* 
+/*
  * d2153_register_regulator
  */
 static int d2153_register_regulator(struct d2153 *d2153, int reg,

@@ -23,7 +23,6 @@
 #include <linux/irq.h>
 #include <linux/kthread.h>
 
-//#include <asm/mach/irq.h>
 #include <asm/gpio.h>
 
 #include <linux/d2153/pmic.h>
@@ -32,6 +31,7 @@
 #include <linux/d2153/rtc.h>
 #include <linux/d2153/core.h>
 
+#include <mach/common.h>
 
 #define D2153_NUM_IRQ_MASK_REGS			3
 
@@ -48,6 +48,8 @@ struct d2153_irq_data {
 	int reg;
 	int mask;
 };
+
+int d2153_chip_irq;
 
 static struct d2153_irq_data d2153_irqs[] = {
 	/* EVENT Register A start */
@@ -127,7 +129,15 @@ static struct d2153_irq_data d2153_irqs[] = {
 	},
 };
 
+void d2153_set_irq_disable(void)
+{
+	disable_irq(d2153_chip_irq);
+}
 
+void d2153_set_irq_enable(void)
+{
+	enable_irq(d2153_chip_irq);
+}
 
 static void d2153_irq_call_handler(struct d2153 *d2153, int irq)
 {
@@ -192,6 +202,7 @@ static irqreturn_t d2153_irq(int irq, void *data)
 	struct d2153_irq_data *pIrq;
 	int i;
 
+	mutex_lock(&d2153->d2153_audio_ldo_mutex);
 	memset(&read_done, 0, sizeof(read_done));
 
 	for (i = 0; i < ARRAY_SIZE(d2153_irqs); i++) {
@@ -209,9 +220,9 @@ static irqreturn_t d2153_irq(int irq, void *data)
 			d2153_irq_call_handler(d2153, i);
 			/* Now clear EVENT registers */
 			d2153_set_bits(d2153, D2153_EVENT_A_REG + pIrq->reg, d2153_irqs[i].mask);
-			//dev_info(d2153->dev, "\nIRQ Register [%d] MASK [%d]\n",D2153_EVENT_A_REG + pIrq->reg, d2153_irqs[i].mask);
 		}
 	}
+	mutex_unlock(&d2153->d2153_audio_ldo_mutex);
 	return IRQ_HANDLED;
 }
 
@@ -273,8 +284,8 @@ int d2153_irq_init(struct d2153 *d2153, int irq,
 	int reg_data, maskbit;
 
 	if (!irq) {
-	    dev_err(d2153->dev, "No IRQ configured \n");
-	    return -EINVAL;
+		dev_err(d2153->dev, "No IRQ configured\n");
+		return -EINVAL;
 	}
 	reg_data = 0xFFFFFF;
 	d2153_block_write(d2153, D2153_EVENT_A_REG, D2153_NUM_IRQ_EVT_REGS, (u8 *)&reg_data);
@@ -288,23 +299,24 @@ int d2153_irq_init(struct d2153 *d2153, int irq,
 	mutex_init(&d2153->irq_mutex);
 
 	if (irq) {
-		ret = request_threaded_irq(irq, NULL, d2153_irq, 
+		ret = request_threaded_irq(irq, NULL, d2153_irq,
 									IRQF_TRIGGER_LOW|IRQF_ONESHOT,
 				  					"d2153", d2153);
 		if (ret != 0) {
 			dev_err(d2153->dev, "Failed to request IRQ: %d\n", irq);
 			return ret;
 		}
- 		dev_info(d2153->dev, "# IRQ configured [%d] \n", irq);
+		dev_info(d2153->dev, "# IRQ configured [%d]\n", irq);
 	} else {
 		dev_err(d2153->dev, "No IRQ configured\n");
 		return ret;
 	}
-	
+
 	enable_irq_wake(irq);
-	
-	d2153->chip_irq = irq;	
-	
+
+	d2153->chip_irq = irq;
+	d2153_chip_irq = irq;
+
 	return ret;
 }
 

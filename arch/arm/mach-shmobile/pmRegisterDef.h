@@ -28,9 +28,7 @@
 #include "pm_ram0_tz.h"
 #endif /*CONFIG_PM_HAS_SECURE*/
 
-#ifndef CONFIG_PM_SMP
-#define APARMBAREA IO_ADDRESS(0xe6f10020)
-#endif
+#include <mach/r8a7373.h>
 
 #define CA9_SCU_ICD	0x1000	/* GIC Distributor offset from SCU_BASE */
 #define CA9_SCU_ICC	0x100	/* GIC CPU Interface offset from SCU_BASE */
@@ -49,6 +47,8 @@
 #define ICC_ICR		0x00	/* CPU Interface Control Register	*/
 #define ICC_PMR		0x04	/* Interrupt Priority Mask Register	*/
 #define ICC_BPR		0x08	/* Binary Point Register	*/
+#define ICC_HPIR    0x18 /* Highest Priority Pending Interrupt Register */
+
 
 /************************************/
 /* Distrbutor Register				*/
@@ -73,12 +73,12 @@
 #define SCU_PWRST		0x08	/* SCU CPU Power Status Register(RW)*/
 /* SCU Invalidate All Register in Secure State Register(WO)*/
 #define SCU_INVALL	0x0C
+#define SCU_DIAG	0x30
 #define SCU_FILTER_START_ADDR 0x40 /* Filtering Start Address Register(RW)*/
 #define SCU_FILTER_END_ADDR	0x44 /* Filtering End Address Register(RW)*/
 #define SCU_SAC		0x50	/* SCU Access Control Register(RW)*/
 #define SCU_SNSAC	0x54	/* SCU Non-Secure Access Control Register(RW)*/
 
-#define SCU_PWRST_ADDRPhys	(BaseSCUPhys + SCU_PWRST)
 #define SCU_PWRST_ADDR		(BaseSCU + SCU_PWRST)
 
 /************************************************************/
@@ -121,7 +121,6 @@
 /********************************************/
 /* PL310 Register							*/
 /********************************************/
-#define BasePl310Phys		0xF0100000
 #define BasePl310			IO_ADDRESS(BasePl310Phys)
 #define L2_CONTROL			0x100	/* Control Register*/
 #define L2_AUX_CONTROL		0x104	/* Auxiliary Control Register*/
@@ -150,95 +149,22 @@
 #define L2_LOCKDOWNBase				(BasePl310 + 0x900)
 #define L2_LOCKDOWNBasePhys			(BasePl310Phys + 0x900)
 
-/********************************************/
-/* CPG SETTINGS							*/
-/*  Use to PLLC1 Setting					*/
-/********************************************/
-#define CPG_FRQCRABasePhys	0xE6150000
-#define CPG_FRQCRABase		IO_ADDRESS(CPG_FRQCRABasePhys)
-
-/* Frequency control register A*/
-#define CPG_FRQCRAPhys	CPG_FRQCRABasePhys
-/* Frequency control register B	*/
-#define CPG_FRQCRBPhys	(CPG_FRQCRABasePhys + 0x0004)
-/* Frequency control register D	*/
-#define CPG_FRQCRDPhys	(CPG_FRQCRABasePhys + 0x00E4)
-/* Frequency control register D for Modem	*/
-#define CPG_BBFRQCRDPhys	(CPG_FRQCRABasePhys + 0x00E8)
 
 /******************************************/
 /* XTAL though mode				*/
 /*****************************************/
-#define CPG_LPCKCRPhys		0xE6151024
-#define CPG_LPCKCR			IO_ADDRESS(CPG_LPCKCRPhys)
+#define CPG_LPCKCR_LEGACY	0x00000000
 #define CPG_LPCKCR_26MHz	0x00000002
 #define CPG_LPCKCR_PLLOFF	0x00000004
 
 
-/* Frequency control register A	*/
-#define CPG_FRQCRA	CPG_FRQCRABase
-/* Frequency control register B	*/
-#define CPG_FRQCRB	(CPG_FRQCRABase + 0x0004)
-/* Frequency control register D	*/
-#define CPG_FRQCRD	(CPG_FRQCRABase + 0x00E4)
-
-/* System-Cpu Wake Up Control Register		*/
-#define CPG_WUPCR			(CPG_FRQCRABasePhys + 0x1010)
-#define CPU1_WUP			0x02		/* CPU1 Wake Up bit*/
-/* RT module stop control register 4		*/
-#define CPG_RMSTPCR4Phys	(CPG_FRQCRABasePhys + 0x0120)
-#define CPG_RMSTPCR4		(CPG_FRQCRABase + 0x0120)
-/* System module stop control register 4	*/
-#define CPG_SMSTPCR4Phys	(CPG_FRQCRABasePhys + 0x0140)
-#define CPG_SMSTPCR4		(CPG_FRQCRABase + 0x0140)
-/* System module stop control register 5 */
-#define CPG_SMSTPCR5 (CPG_FRQCRABase + 0x0144)
-
-/* Condition for PLL1 OFF */
-
-/* Module stop logical address */
-/* Module stop status register 0  */
-#define CPG_MSTPSR0	(CPG_FRQCRABase + 0x0030)
-/* Module stop status register 1 */
-#define CPG_MSTPSR1	(CPG_FRQCRABase + 0x0038)
-/* Module stop status register 2 */
-#define CPG_MSTPSR2	(CPG_FRQCRABase + 0x0040)
-/* Module stop status register 3 */
-#define CPG_MSTPSR3	(CPG_FRQCRABase + 0x0048)
-/* Module stop status register 4 */
-#define CPG_MSTPSR4	(CPG_FRQCRABase + 0x004C)
-/* Module stop status register 5 */
-#define CPG_MSTPSR5	(CPG_FRQCRABase + 0x003C)
-/* System module stop control register 5 */
-#define CPG_SMSTPCR5 (CPG_FRQCRABase + 0x0144)
-
-/* Module stop physical address */
-/* Module stop status register 0  */
-#define CPG_MSTPSR0Phys	(CPG_FRQCRABasePhys + 0x0030)
-/* Module stop status register 1 */
-#define CPG_MSTPSR1Phys	(CPG_FRQCRABasePhys + 0x0038)
-/* Module stop status register 2 */
-#define CPG_MSTPSR2Phys	(CPG_FRQCRABasePhys + 0x0040)
-/* Module stop status register 3 */
-#define CPG_MSTPSR3Phys	(CPG_FRQCRABasePhys + 0x0048)
-/* Module stop status register 4 */
-#define CPG_MSTPSR4Phys	(CPG_FRQCRABasePhys + 0x004C)
-/* Module stop status register 5 */
-#define CPG_MSTPSR5Phys	(CPG_FRQCRABasePhys + 0x003C)
-
-#define CPG_PLL0STPCR	(CPG_FRQCRABase + 0x00F0)
-#define CPG_PLL1STPCR	(CPG_FRQCRABase + 0x00C8)
-
-#define CPG_PLL0STPCRPhys	(CPG_FRQCRABasePhys + 0x00F0)
-#define CPG_PLL1STPCRPhys	(CPG_FRQCRABasePhys + 0x00C8)
-
-#define A2SLSTP		(1 << 20)
+#define A2SLSTP			(1 << 20)
 #define A2SLSTP_MASK		(~A2SLSTP)
 
 #define D4STP			(1 << 1)
 #define D4STP_MASK		(~D4STP)
-#define A4MP			(1 << 8)
-#define A4MP_MASK		(~A4MP)
+#define A4MPSTP			(1 << 8)
+#define A4MPSTP_MASK		(~A4MPSTP)
 
 #define A3RSTP			(1 << 13)
 #define A3RSTP_MASK		(~A3RSTP)
@@ -246,7 +172,7 @@
 #define C4STP			(1 << 16)
 #define C4STP_MASK		(~C4STP)
 
-#define PLL1STPCR_DEFALT	(A2SLSTP | A3RSTP)
+#define PLL1STPCR_DEFALT	(A2SLSTP | A3RSTP | C4STP | A4MPSTP)
 #define PLL1STPCR_DEFALT_MASK	(~PLL1STPCR_DEFALT)
 
 /* IIC0(MSTPST116) halted */
@@ -300,22 +226,12 @@
 #define MSTP528 0x10000000 /* Module Stop bit 528(Internal RAM1)*/
 #define MSTP529 0x20000000 /* Module Stop bit 529(Secure RAM) */
 
-/* System-CPU Power Status Register (ES1.0)*/
-#define CPG_PSTR		IO_ADDRESS(0xE6151040)
-/* System-CPU Power Status Register (ES2.0) */
-#define CPG_SCPUSTR		IO_ADDRESS(0xE6151040)
 
-#define CPG_PLLECRPhys	0xE61500D0	/* PLL Enable Register*/
-#define CPG_PLLECR	IO_ADDRESS(CPG_PLLECRPhys) /* PLL Enable Register*/
 #define CPG_PLL0E	0x1	/* PLL0 Enable (0:off, 1:on) */
 #define CPG_PLL0ST	0x100	/* PLL0 status (0:off, 1:on)*/
 #define CPG_PLL1E	(1 << 1)	/* PLL0 Enable (0:off, 1:on) */
 #define CPG_PLL1ST	(1 << 9)	/* PLL0 status (0:off, 1:on)*/
-/*System-CPU PERIPHCLK Control Register*/
-#define CPG_PCLKCRPhys		0xE6151020
-#define CPG_PCLKCR	IO_ADDRESS(0xE6151020)
 
-#define FRQCRA_ES1_MASK		0x00000F00 /* 0x00FFFFF0 */
 #define FRQCRA_ES2_MASK		0x00000F00 /* 0x00FFFFFF */
 #define FRQCRB_MASK			0x0000FFF0 /* 0x1FFFFFF0 */
 #define FRQCRB_ZSEL_BIT		0x10000000
@@ -329,108 +245,29 @@
 #define KICK_WAIT		1000
 #define FRRCRB_ZCLK_1_48	0x1B000000 /* Z clk div = 1/48 */
 
-/* For ES 1.0 */
-#define FRQCRA_MASK_ES1		0x00FFFFF0
-#define FRQCRB_MASK_ES1		0x00FFFFF0
-
-/* I:1/6, ZG:1/4, M3:1/8, B:1/12, M1:1/6 */
-#define	POWERDOWN_FRQCRA_ES1	0x00324530
-
-/* Z:No change, ZTR:1/4, ZT:1/6, ZX:1/6, ZS:1/12, HP:1/12 */
-#define	POWERDOWN_FRQCRB_ES1	0x00233550
-
 /* For ES 2.0 and later*/
 #define FRQCRA_MASK_ES2		0x00FFFFFF
 #define FRQCRB_MASK_ES2		0x00FFFFF0
 /* I:1/6, ZG:1/4, M3: 1/8, B:1/48, M1:1/6, M5: 1/8 */
 #define	POWERDOWN_FRQCRA_ES2	0x00324B34
 
-/* Z: Not change, ZTR: 1/4, ZT: 1/6, ZX:1/48, ZS:1/48, HP:1/48 */
-//#define	POWERDOWN_FRQCRB_ES2    0x0023BBB0 /* 0x10238880 */
-#define	POWERDOWN_FRQCRB_ES2    0x00038880 /* 0x10238880 */
+/* Z: Not change, ZTR: 1/4, ZT: 1/6, ZX:1/24, ZS:1/24, HP:1/24 */
+#define	POWERDOWN_FRQCRB_ES2    0x00238880
 
 /********************************************/
 /* RWDT Register			*/
 /********************************************/
-#define BaseRwdtPhys				0xE6020000
-#define BaseRwdt					IO_ADDRESS(0xE6020000)
-
-/* RCLK watchdog timer counter	*/
-#define RWTCNTPhys	(BaseRwdtPhys + 0x0000)
-/* RCLK watchdog timer control/status Register	*/
-#define RWDTCSRAPhys	(BaseRwdtPhys + 0x0004)
-/* RCLK watchdog timer counter	*/
-#define RWTCNT			(BaseRwdt + 0x0000)
-/* RCLK watchdog timer control/status Register	*/
-#define RWDTCSRA		(BaseRwdt + 0x0004)
 #define RWTCNT_CLEAR	0x5A5A0000	/* RWDTCNT clear value	*/
 
-/********************************************/
-/* SYSC Register							*/
-/********************************************/
-#define BaseSyscPhys		0xE6180000
-#define BaseSysc			IO_ADDRESS(BaseSyscPhys)
-
-#define SBAR		(BaseSysc + 0x0020)
-#define SBAR2		(BaseSysc + 0x0060)
-#define WUPSMSK	(BaseSysc + 0x002C)	/* WakeUpS Factor Mask Register*/
-#define WUPSFAC	(BaseSysc + 0x0098)	/* WakeUpS Factor Register	*/
-#define SPDCR	(BaseSysc + 0x0008)	/* SYS Power Down Control Register */
-#define SPDCRPhys	(BaseSyscPhys + 0x0008)
-#define SWBCR		(BaseSyscPhys + 0x0204)
 #define A3SM_PD		0x00080000
 #define A2SLPD		0x00100000
 #define A2SLST		0x00100000
 #define A3SP_ON		0x00020000
 
-/* EXTAL1 Mask Count Register (EXMSKCNT1) */
-#define EXMSKCNT1Phys	(BaseSyscPhys + 0x0214)
-/* EXTAL1 Clock Stop Control Register (APSCSTP) */
-#define APSCSTPPhys		(BaseSyscPhys + 0x0234)
-/* EXTAL1 Control Register (SYCKENMSK) */
-#define SYCKENMSKPhys	(BaseSyscPhys + 0x024C)
-/* C4 Area Power Control Register (C4POWCR) */
-#define C4POWCRPhys		(BaseSyscPhys + 0x004C)
-#define PDNSELPhys		(BaseSyscPhys + 0x0254)		/*C4 Area Power Control Register2 (PDNSEL)*/
-#define PSTRPhys		(BaseSyscPhys + 0x0080)		/*Power Status Register (PSTR)*/
-
-#define EXMSKCNT1		(BaseSysc + 0x0214)		/*EXTAL1 Mask Count Register (EXMSKCNT1)*/
-#define APSCSTP			(BaseSysc + 0x0234)		/*EXTAL1 Clock Stop Control Register (APSCSTP)*/
-#define SYCKENMSK		(BaseSysc + 0x024C)		/*EXTAL1 Control Register (SYCKENMSK)*/
-#define C4POWCR			(BaseSysc + 0x004C)		/*C4 Area Power Control Register (C4POWCR)*/
-#define PDNSEL			(BaseSysc + 0x0254)		/*C4 Area Power Control Register2 (PDNSEL)*/
-#define PSTR			(BaseSysc + 0x0080)		/*Power Status Register (PSTR)*/
-
 /********************************************/
 /* HPBC Register							*/
 /********************************************/
-#define HPBC_CCR			IO_ADDRESS(0xE600101C)
-#define ESREVISION_MASK				0x0000FFFF
-#define ESREVISION_1_0				0x00003E00
-#define ESREVISION_1_1				0x00003E01
-
-/********************************************/
-/* SBSC Register							*/
-/********************************************/
-#define BaseSbscPhys		0xFE400000
-
-/* SDRAM Control Register 0A */
-#define SBSC_SDCR0APhys		(BaseSbscPhys + 0x0008)
-/* SDRAM Common Wait Control Register 0A*/
-#define SBSC_SDWCRC0APhys	(BaseSbscPhys + 0x0040)
-/* SDRAM Common Wait Control Register 1A*/
-#define SBSC_SDWCRC1APhys	(BaseSbscPhys + 0x0044)
-/* SDRAM Common wait control register 2A*/
-#define SBSC_SDWCRC2APhys	(BaseSbscPhys + 0x0064)
-/* SDRAM Wait Control Register 00A */
-#define SBSC_SDWCR00APhys	(BaseSbscPhys + 0x0048)
-/* SDRAM Wait Control Register 01A */
-#define SBSC_SDWCR01APhys	(BaseSbscPhys + 0x004C)
-/* SDRAM Wait Control Register 10A */
-#define SBSC_SDWCR10APhys	(BaseSbscPhys + 0x0050)
-/* SDRAM Wait Control Register 11A */
-#define SBSC_SDWCR11APhys	(BaseSbscPhys + 0x0054)
-
+#define ESREVISION_MASK		0x0000FFFF
 
 #define SDCR0A_DUMMY_READ	0x80000000	/* SDCR0A dummy read bit */
 #define ZB3_HIGHSPEED		0x00000000	/* (1/2)		*/
@@ -505,30 +342,13 @@
 #define POWER_D(Dn)(1 << 22)
 /* Only use of Save VFP-D32 */
 #define POWER_VSTMIA(cc, Rn, Dd, N)		\
-	.word((cc << 28) | (Rn << 16) | (POWER_DN(Dd) << 12) |	\
+	((cc << 28) | (Rn << 16) | (POWER_DN(Dd) << 12) |	\
 		 ((N) * 2) | (POWER_D(Dd)) | (0x0CA00B00))
+
 /* Only use of Restore VFP-D32 */
 #define POWER_VLDMIA(cc, Rn, Dd, N)		\
-	.word((cc << 28) | (Rn << 16) | (POWER_DN(Dd) << 12) |	\
+	((cc << 28) | (Rn << 16) | (POWER_DN(Dd) << 12) |	\
 		 ((N) * 2) | (POWER_D(Dd)) | (0x0CB00B00))
-
-/* ***********************************/
-/* IP registers for platform suspend */
-/*************************************/
-/* IRQC Event Detectors registers */
-#define IRQC_EVENTDETECTOR_BLK0_BASE			0xE61C0000
-#define IRQC_EVENTDETECTOR_BLK1_BASE			0xE61C0200
-#define IRQC_EVENTDETECTOR_BLK10_BASE			0xE61C1400
-#define IRQC_EVENTDETECTOR_BLK11_BASE			0xE61C1600
-#define IRQC_EVENTDETECTOR_BLK12_BASE			0xE61C1800
-
-#define HSGPR_BASE_PHYS				0xFFA00000
-#define SYSGPR_BASE_PHYS			0xFF700000
-#define HPB_BASE					0xE6000000
-#define SHWYSTATHS_BASE				0xE6F30000
-#define SHWYSTATSY_BASE				0xE6F20000
-#define SHWYSTATDM_BASE				0xFE060000
-#define SHBUF_BASE					0xE6240000
 
 /* SPI Status Registers	*/
 #define ICSPISR0Phys	0xF0001D04
@@ -671,30 +491,4 @@
  * LPDDR2 ZQ Calibration Issue WA
  * ********************************************************************
  */
-#define	SdramZQCalib1Phys 0xFE528200
-#define	SdramZQCalib2Phys 0xFE538200
-#define STBCHRB3Phys 0xE6180043
-#define STBCHRB3_bit7 0x80
-/*
- ***************************
- * Semaphore
- ***************************
- */
-#ifndef SMGP100_DFS_ZS    /* General-purpose0 */
-#define    BUS_SMGPxSRC_MSK    0XFF000000
-#define    BUS_SMGPxSRCPhys    0xE6001830
-#define    BUS_SMGPxSRC    IO_ADDRESS(BUS_SMGPxSRCPhys)
-#else    /* General-purpose1 */
-#define    BUS_SMGPxSRC_MSK    0XFF000000
-#define    BUS_SMGPxSRCPhys    0xE6001840
-#define    BUS_SMGPxSRC    IO_ADDRESS(BUS_SMGPxSRCPhys)
-#endif
-/*
- ***************************
- * ZB3 Set Clock W/A
- ***************************
- */
-#define	CPG_CKSCRPhys		0xE61500C0
-#define	CPG_CKSCR			IO_ADDRESS(0xE61500C0)
-#define	CPG_FRQCRD_E054_1	0x00008000
-#define	CPG_FRQCRD_E054_2	0x00008004
+#define STBCHRB3_bit7		0x80

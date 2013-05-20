@@ -1,6 +1,6 @@
 /* soundpath.h
  *
- * Copyright (C) 2011-2012 Renesas Mobile Corp.
+ * Copyright (C) 2011-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -32,6 +32,10 @@
 #include <sound/pcm.h>
 #include <sound/soc.h>
 
+
+/* #define  __SNDP_NORMAL_PLAY_CLKGEN_MASTER */
+/* #define  __SNDP_INCALL_CLKGEN_MASTER      */
+
 /* PCM direction kind */
 enum sndp_direction {
 	SNDP_PCM_OUT,			/* out(playback) */
@@ -46,7 +50,39 @@ enum sndp_wake_lock_kind {
 	E_FORCE_UNLOCK,			/* to Wake Unlock Forced */
 };
 
+/* Port kind */
+enum sndp_port_kind {
+	SNDP_PCM_PORTA,
+	SNDP_PCM_PORTB,
+};
+
 #ifndef __RC5T7316_CTRL_NO_EXTERN__
+
+/* Work queue processing table */
+struct sndp_workqueue {
+	struct list_head top;
+	spinlock_t lock;
+	wait_queue_head_t wait;
+	wait_queue_head_t finish;
+	struct task_struct *task;
+};
+
+struct sndp_stop {
+	struct snd_pcm_substream	fsi_substream;
+	struct snd_soc_dai		fsi_dai;
+};
+
+struct sndp_work_info {
+	struct work_struct		work;		 /* Work             */
+	struct snd_pcm_substream	*save_substream; /* Substream        */
+	struct sndp_stop		stop;		 /* for Stop process */
+	u_int				new_value;	 /* PCM value (NEW)  */
+	u_int				old_value;	 /* PCM value (OLD)  */
+	struct list_head		link;
+	void				(*func)(struct sndp_work_info *work);
+	int				status;
+	atomic_long_t data;
+};
 
 #ifdef __SOUNDPATHLOGICAL_NO_EXTERN__
 #define SOUNDPATH_NO_EXTERN
@@ -60,21 +96,47 @@ enum sndp_wake_lock_kind {
  ** ************************************************** *
  */
 /* use Audience information */
-struct sndp_a2220_callback_func {
+struct sndp_extdev_callback_func {
 	int (*set_state)(unsigned int mode, unsigned int device, unsigned int dev_chg);
+	int (*set_nb_wb) (unsigned int nb_wb);
 };
 
 /* change device */
-enum sndp_a2220_ch_type {
-	SNDP_A2220_NONE,
-	SNDP_A2220_START,
-	SNDP_A2220_STOP,
-	SNDP_A2220_CH_DEV,
+enum sndp_extdev_ch_type {
+	SNDP_EXTDEV_NONE,
+	SNDP_EXTDEV_START,
+	SNDP_EXTDEV_STOP,
+	SNDP_EXTDEV_CH_DEV,
+};
+
+/* PT status */
+enum sndp_pt_status_type {
+	SNDP_PT_NOT_STARTED,	/* PT not started */
+	SNDP_PT_LOOPBACK_START,	/* PT Loopback test start */
+	SNDP_PT_DEVCHG_START,	/* PT device change test start */
 };
 
 SOUNDPATH_NO_EXTERN int sndp_init(
 	struct snd_soc_dai_driver *fsi_port_dai_driver,
-	struct snd_soc_platform_driver *fsi_soc_platform);
+	struct snd_soc_platform_driver *fsi_soc_platform,
+	struct snd_soc_card *fsi_soc_card);
+
+SOUNDPATH_NO_EXTERN int sndp_soc_put(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+
+SOUNDPATH_NO_EXTERN int sndp_soc_get_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+SOUNDPATH_NO_EXTERN int sndp_soc_put_voice_out_volume(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+SOUNDPATH_NO_EXTERN int sndp_soc_get_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
+SOUNDPATH_NO_EXTERN int sndp_soc_put_playback_mute(
+	struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol);
 
 SOUNDPATH_NO_EXTERN void sndp_exit(void);
 SOUNDPATH_NO_EXTERN void sndp_work_portb_start(struct work_struct *work);
@@ -82,10 +144,9 @@ SOUNDPATH_NO_EXTERN void sndp_work_portb_start(struct work_struct *work);
 SOUNDPATH_NO_EXTERN void sndp_set_portb_start(bool flag);
 
 SOUNDPATH_NO_EXTERN void sndp_wake_lock(const enum sndp_wake_lock_kind kind);
-SOUNDPATH_NO_EXTERN  void sndp_call_playback_normal(void);
+SOUNDPATH_NO_EXTERN void sndp_call_playback_normal(void);
 
-SOUNDPATH_NO_EXTERN struct workqueue_struct	*g_sndp_queue_main;
-SOUNDPATH_NO_EXTERN wait_queue_head_t		g_sndp_stop_wait;
+SOUNDPATH_NO_EXTERN struct sndp_workqueue	*g_sndp_queue_main;
 
 SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_idle;
 SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_suspend;
@@ -93,9 +154,33 @@ SOUNDPATH_NO_EXTERN struct wake_lock g_sndp_wake_lock_suspend;
 SOUNDPATH_NO_EXTERN u_int g_sndp_log_level;
 SOUNDPATH_NO_EXTERN u_int g_sndp_mode;
 
+/* for Production test Variable */
+SOUNDPATH_NO_EXTERN int g_pt_start;	/* Production test start flag */
+SOUNDPATH_NO_EXTERN u_int g_pt_device;	/* Production test device */
+
+SOUNDPATH_NO_EXTERN struct semaphore g_sndp_wait_free[SNDP_PCM_DIRECTION_MAX];
+
 /* audience Set Callback function */
-SOUNDPATH_NO_EXTERN void sndp_a2220_regist_callback(
-				struct sndp_a2220_callback_func *func);
+SOUNDPATH_NO_EXTERN void sndp_extdev_regist_callback(
+				struct sndp_extdev_callback_func *func);
+
+/* for Production Test (Loopback test) */
+SOUNDPATH_NO_EXTERN int sndp_pt_loopback(
+				u_int mode, u_int device, u_int dev_chg);
+
+/* for Production Test (Device change) */
+SOUNDPATH_NO_EXTERN int sndp_pt_device_change(u_int dev, u_int onoff);
+
+/* queue work initialize function */
+SOUNDPATH_NO_EXTERN void sndp_work_initialize(
+	struct sndp_work_info *work, void (*func)(struct sndp_work_info *));
+/* destroy workqueue function */
+SOUNDPATH_NO_EXTERN void sndp_workqueue_destroy(struct sndp_workqueue *wq);
+/* create workqueue function */
+SOUNDPATH_NO_EXTERN struct sndp_workqueue *sndp_workqueue_create(char *taskname);
+/* enqueue workqueue function */
+SOUNDPATH_NO_EXTERN void sndp_workqueue_enqueue(
+	struct sndp_workqueue *wq, struct sndp_work_info *work);
 
 #endif	/* != __RC5T7316_CTRL_NO_EXTERN__ */
 
@@ -123,6 +208,7 @@ SOUNDPATH_NO_EXTERN void sndp_a2220_regist_callback(
 #define LOG_FUNC_PRINT		(0x04)
 
 #define LOG_BIT_REG_DUMP	(0x10)
+#define LOG_BIT_TIME_ADD	(0x20)
 #define LOG_BIT_DMESG		(0x80)
 
 #define LOG_LEVEL_MAX		(0xffffffff)
@@ -190,13 +276,25 @@ do {									\
 do {									\
 	struct timeval tv;						\
 	if (LOG_PROC_PRINT <= LOG_BYTE_LOW(g_sndp_log_level)) {		\
-		GET_PROCESS_TIME(tv);					\
-		if (g_sndp_log_level & LOG_BIT_DMESG) {			\
-			pr_err("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): "\
-			fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
+		if (g_sndp_log_level & LOG_BIT_TIME_ADD) {		\
+			GET_PROCESS_TIME(tv);				\
+			if (g_sndp_log_level & LOG_BIT_DMESG) {		\
+				pr_err("[%5ld.%06ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__, ##__VA_ARGS__);\
+			} else {					\
+				pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME	\
+					" : %s(): " fmt, tv.tv_sec,	\
+					tv.tv_usec, __func__, ##__VA_ARGS__);\
+			}						\
 		} else {						\
-			pr_alert("[%5ld.%06ld] " SNDP_DRV_NAME " : %s(): "\
-			fmt, tv.tv_sec, tv.tv_usec, __func__, ##__VA_ARGS__);\
+			if (g_sndp_log_level & LOG_BIT_DMESG) {		\
+				pr_err(SNDP_DRV_NAME " : %s(): "	\
+				fmt, __func__, ##__VA_ARGS__);		\
+			} else {					\
+				pr_alert(SNDP_DRV_NAME " : %s(): "	\
+				fmt, __func__, ##__VA_ARGS__);		\
+			}						\
 		}							\
 	}								\
 } while (0)
@@ -371,6 +469,11 @@ do {									\
 #define SNDP_NORMAL_RATE	(44100)
 #define SNDP_CALL_RATE		(16000)
 
+/*!
+  @brief	D2153 <==> WM1811 change board revision
+*/
+#define D2153_INTRODUCE_BOARD_REV		5
+
 enum sndp_hw_audio {
 	SNDP_HW_CLKGEN,
 	SNDP_HW_FSI,
@@ -398,9 +501,10 @@ struct ctrl_func_tbl {
 
 /* Routing type of the stream, in during a call */
 enum sndp_stream_route_type {
-	SNDP_ROUTE_NORMAL = 0,     /* Normal route */
-	SNDP_ROUTE_PLAY_CHANGED,   /* Playback path, switched to the FSI */
-	SNDP_ROUTE_CAP_DUMMY,      /* Started the dummy recording */
+	SNDP_ROUTE_NORMAL = 0,          /* Normal route */
+	SNDP_ROUTE_PLAY_CHANGED = 0x1,  /* Playback path, switched to the FSI */
+	SNDP_ROUTE_PLAY_DUMMY = 0x2,    /* Started the dummy playing */
+	SNDP_ROUTE_CAP_DUMMY = 0x4,     /* Started the dummy recording */
 };
 
 /* Device type */
@@ -468,6 +572,13 @@ enum sndp_audio_devices {
 #define SNDP_GET_AUDIO_DEVICE(val)				\
 	((u_int)(val) >> SNDP_DEVICE_BIT)
 
+#define SNDP_BLUETOOTH_FREQUENCY_NARROW_BAND	(0x00000000)
+#define SNDP_BLUETOOTH_FREQUENCY_WIDE_BAND	(0x00008000)
+#define SNDP_BLUETOOTH_FREQUENCY_MASK		(0xffff7fff)
+
+#define SNDP_GET_BLUETOOTH_FREQUENCY(val)			\
+	((u_int)(val) & SNDP_BLUETOOTH_FREQUENCY_WIDE_BAND)
+
 static inline u_int SNDP_GET_DEVICE_VAL(u_int val)
 {
 	u_int	audio_val = SNDP_GET_AUDIO_DEVICE(val);
@@ -515,6 +626,26 @@ static inline u_int SNDP_GET_DEVICE_VAL(u_int val)
 
 #define SNDP_GET_VALUE(dev, mod)				\
 	(((u_int)(dev) << SNDP_DEVICE_BIT) | ((u_int)(mod) << SNDP_MODE_BIT))
+
+#ifdef __SNDP_NORMAL_PLAY_CLKGEN_MASTER
+#define SNDP_IS_FSI_MASTER_DEVICE(device)	\
+	((device & SNDP_BLUETOOTHSCO) ||	\
+	 (device & SNDP_FM_RADIO_TX)  ||	\
+	 (device & SNDP_FM_RADIO_RX)  ||	\
+	 (device & SNDP_AUXDIGITAL))
+#else /* !__SNDP_NORMAL_PLAY_CLKGEN_MASTER */
+#define SNDP_IS_FSI_MASTER_DEVICE(device)	\
+	((device & SNDP_SPEAKER)	||	\
+	 (device & SNDP_WIREDHEADSET)	||	\
+	 (device & SNDP_WIREDHEADPHONE)	||	\
+	 (device & SNDP_EARPIECE)	||	\
+	 (device & SNDP_BLUETOOTHSCO)	||	\
+	 (device & SNDP_AUXDIGITAL)	||	\
+	 (device & SNDP_FM_RADIO_TX)	||	\
+	 (device & SNDP_FM_RADIO_RX)	||	\
+	 (device & SNDP_BUILTIN_MIC))
+#endif /* __SNDP_NORMAL_PLAY_CLKGEN_MASTER */
+
 
 /* 0x00000010 */
 #define SNDP_PLAYBACK_EARPIECE_NORMAL			\

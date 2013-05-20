@@ -16,6 +16,7 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/i2c/i2c-sh_mobile.h>
+#include <linux/module.h>
 
 /* BIT VALUE */
 #define BIT_CLR  0
@@ -526,7 +527,10 @@ static irqreturn_t sh7730_i2c_irq(int irq, void *ptr)
 	icier = read_ICIER(id->iobase);
 
 	/* stop condition was sent */
+	/* w-[14] */
 	if (Is_stop_SR_STOP(icsr)) {
+
+		/* r-[12] */
 		icsr = read_ICSR(id->iobase);
 		icsr = set_SR_STOP(BIT_CLR, icsr);
 		write_ICSR(icsr, id->iobase);
@@ -538,12 +542,14 @@ static irqreturn_t sh7730_i2c_irq(int irq, void *ptr)
 		goto out;
 	}
 
+	/* error */
 	if (Is_error_SR_AL_OVE(icsr)) {
 		id->status |= IDS_DONE;
 		id->status |= IDS_ARBLOST;
 		goto out;
 	}
 
+	/* error */
 	if (Is_receive_ack_IER_ACKBR(icier)) {
 		icier = set_IER_TEIE(BIT_CLR, icier);
 		write_ICIER(icier, id->iobase);
@@ -554,10 +560,21 @@ static irqreturn_t sh7730_i2c_irq(int irq, void *ptr)
 
 	/* Issue the stop condition. */
 	if (id->flags & IDF_LAST) {
+		/* r-[9]*/
 		icsr = read_ICSR(id->iobase);
-		icsr = set_SR_RDRF(BIT_CLR, icsr);
-		write_ICSR(icsr, id->iobase);
+		/* Check RDRF only in case of read */
+		if ((id->flags & IDF_RECV) && !Is_full_SR_RDRF(icsr)) {
+			/* Error condition */
+			id->status |= IDS_DONE;
+			goto out;
+		}
+		/* set RDRF if not read */
+		if (!(id->flags & IDF_RECV)) {
+			icsr = set_SR_RDRF(BIT_CLR, icsr);
+			write_ICSR(icsr, id->iobase);
+		}
 
+		/* !! disable receive interrupt */
 		icier = set_IER_ACKBT(BIT_CLR, icier);
 		icier = set_IER_RIE(BIT_CLR, icier);
 		write_ICIER(icier, id->iobase);
@@ -566,10 +583,15 @@ static irqreturn_t sh7730_i2c_irq(int irq, void *ptr)
 	}
 
 	if (id->flags & IDF_RECV) {
+		if ((msg->len - 1) < 3) {
+			/** WORKAROUND set RCVD  from (last-1) - 2*/
+			iccr1 = set_CR1_RCVD(BIT_SET, iccr1);
+			write_ICCR1(iccr1, id->iobase);
+		}
 		if (Is_end_SR_TEND(icsr)) {
-
 			/* Clear TEND, select master receive mode, */
 			/* and then clear TDRE. */
+			/* r-[1] */
 			icsr  = read_ICSR(id->iobase);
 			icsr = set_SR_TEND(BIT_CLR, icsr);
 			write_ICSR(icsr, id->iobase);
@@ -583,26 +605,28 @@ static irqreturn_t sh7730_i2c_irq(int irq, void *ptr)
 
 			/* Set acknowledge to the transmit device. */
 			icier = set_IER_TEIE(BIT_CLR, icier);
+			/* r-[2] */
 			icier = set_IER_ACKBT(BIT_CLR, icier);
 			icier = set_IER_RIE(BIT_SET, icier);
 			write_ICIER(icier, id->iobase);
 
 			/* Check whether it is the (last receive - 1). */
+			/* r-[5] */
 			if ((id->flags & IDF_STOP)
 			 && ((msg->len - 1) < 1)) {
 
 				/* Set acknowledge of the final byte. */
 				/* Disable continuous reception (RCVD = 1). */
+				/* r-[7] */
 				icier = set_IER_ACKBT(BIT_SET, icier);
 				write_ICIER(icier, id->iobase);
-				iccr1 = set_CR1_RCVD(BIT_SET, iccr1);
-				write_ICCR1(iccr1, id->iobase);
 				id->flags |= IDF_RCVD;
+				id->flags |= IDF_LAST;
 			}
-
 			/* Dummy-read ICDDR. */
+			/* r-[3] */
 			dummy = read_ICDRR(id->iobase);
-
+		/* r-[4] */
 		} else if (Is_full_SR_RDRF(icsr)) {
 
 			if ((id->flags & IDF_STOP)
@@ -611,13 +635,14 @@ static irqreturn_t sh7730_i2c_irq(int irq, void *ptr)
 
 				/* Set acknowledge of the final byte. */
 				/* Disable continuous reception (RCVD = 1). */
+				/* r-[7] */
 				icier = set_IER_ACKBT(BIT_SET, icier);
 				write_ICIER(icier, id->iobase);
-				iccr1 = set_CR1_RCVD(BIT_SET, iccr1);
-				write_ICCR1(iccr1, id->iobase);
+				id->flags |= IDF_LAST;
 			}
 
 			/* Read the receive data. */
+			/* r-[6,8] */
 			*data++ = read_ICDRR(id->iobase);
 			msg->len--;
 
@@ -642,6 +667,7 @@ static irqreturn_t sh7730_i2c_irq(int irq, void *ptr)
 
 		/* Write the transmit data. */
 		if (msg->len > 0) {
+			/* w-[7] */
 			write_ICDRT(*data++, id->iobase);
 			msg->len--;
 		} else {
@@ -662,10 +688,12 @@ out:
 	if (id->status & IDS_DONE) {
 
 		if (id->flags & IDF_STOP) {
+			/* r-[14] */
 			iccr1 = set_CR1_RCVD(BIT_CLR, iccr1);
 			write_ICCR1(iccr1, id->iobase);
 
 			/* Set slave receive mode. */
+			/* r-[15] */
 			iccr1 = set_CR1_MST(BIT_CLR, iccr1);
 			iccr1 = set_CR1_TRS(BIT_CLR, iccr1);
 			write_ICCR1(iccr1, id->iobase);
@@ -680,7 +708,11 @@ out:
 stop:
 	/* Clear TEND, select master receive mode, and then clear TDRE. */
 	icsr  = read_ICSR(id->iobase);
+
+	/* w-[11] */
 	icsr = set_SR_TEND(BIT_CLR, icsr);
+	/* w-[12] */
+	/* r-[10] */
 	icsr = set_SR_STOP(BIT_CLR, icsr);
 	write_ICSR(icsr, id->iobase);
 
@@ -689,9 +721,25 @@ stop:
 	icier = set_IER_STIE(BIT_SET, icier);
 	write_ICIER(icier, id->iobase);
 
+	/* w-[13] */
+	/* r-[11] */
 	iccr2 = set_CR2_BBSY(BIT_CLR, iccr2);
 	iccr2 = set_CR2_SCP(BIT_CLR, iccr2);
 	write_ICCR2(iccr2, id->iobase);
+
+	if (id->flags & IDF_RECV) {
+		/*r-[12]*/
+		icsr  = read_ICSR(id->iobase);
+
+		if (Is_stop_SR_STOP(icsr)) {
+			/* Read the receive data. */
+			/* r-[13] */
+			*data++ = read_ICDRR(id->iobase);
+			msg->len--;
+			icsr = set_SR_RDRF(BIT_CLR, icsr);
+			write_ICSR(icsr, id->iobase);
+		}
+	}
 
 	return IRQ_HANDLED;
 }
@@ -730,7 +778,7 @@ static void sh7730_i2c_mrecv(struct i2cm *id)
 		int wait_count = 1000;
 mr_wait:
 		icsr  = read_ICSR(id->iobase);
-		if (!Is_empty_SR_TDRE(iccr2)) {
+		if (!Is_empty_SR_TDRE(icsr)) {
 			udelay(10);
 			if (wait_count--)
 				goto mr_wait;
@@ -778,7 +826,7 @@ static void sh7730_i2c_msend(struct i2cm *id)
 		int wait_count = 1000;
 ms_wait:
 		icsr  = read_ICSR(id->iobase);
-		if (!Is_empty_SR_TDRE(iccr2)) {
+		if (!Is_empty_SR_TDRE(icsr)) {
 			udelay(10);
 			if (wait_count--)
 				goto ms_wait;
@@ -810,6 +858,12 @@ static int sh7730_i2c_master_xfer(struct i2c_adapter *adap,
 		unsigned char iccr1 = read_ICCR1(id->iobase);
 		struct i2c_sh_mobile_platform_data *pd;
 		pd = id->adap.dev.parent->platform_data;
+		if (!pd) {
+				dev_err(&adap->dev, "no platform_data!\n");
+				clk_disable(id->clk);
+        			pm_runtime_put_sync(adap->dev.parent);
+        			return -ENODEV;
+		}
 
 		/* Transfer Clock Select */
 		{
@@ -952,7 +1006,6 @@ again:
 	id->msg = NULL;
 	id->flags = 0;
 	id->status = 0;
-
 	clk_disable(id->clk);
 	pm_runtime_put_sync(adap->dev.parent);
 

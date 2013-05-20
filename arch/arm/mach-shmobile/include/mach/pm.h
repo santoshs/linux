@@ -20,10 +20,13 @@
 #ifndef __ASM_ARCH_PM_H
 #define __ASM_ARCH_PM_H __FILE__
 #include <linux/suspend.h>
-#include <mach/vmalloc.h>
-#include <mach/r8a73734.h>
+#include <linux/version.h>
+#include <mach/r8a7373.h>
+
 #include <linux/io.h>
 #include <linux/spinlock_types.h>
+#include <linux/atomic.h>
+#include <linux/hwspinlock.h>
 
 #ifdef CONFIG_PM_HAS_SECURE
 #include "../../../../../drivers/sec_hal/rt/inc/sec_hal_rt.h"
@@ -65,13 +68,17 @@ struct pm_state_notify_confirm {
 };
 
 /* Need to be used by others of PM */
+
+extern int core_wait_kick(int time);
+extern int core_set_kick(int time);
 extern int clock_update(unsigned int freqA, unsigned int freqA_mask,
 				unsigned int freqB, unsigned int freqB_mask);
-extern struct hwspinlock *pll_1_sem;
+extern unsigned int suspend_ZB3_backup(void);
+extern int shmobile_init_pm(void);
 extern struct hwspinlock *gen_sem1;
 extern struct hwspinlock *sw_cpg_lock;
 extern unsigned int is_suspend_setclock;
-
+extern unsigned int is_suspend_request;
 extern int start_corestandby(void);
 extern int start_corestandby_2(void);
 extern void ArmVector(void);
@@ -87,7 +94,7 @@ extern void save_common_register(void);
 extern void restore_common_register(void);
 extern void sys_powerdown(void);
 extern void sys_powerup(void);
-extern void setclock_systemsuspend(void);
+
 extern void start_wfi(void);
 extern void start_wfi2(void);
 extern void disablemmu(void);
@@ -102,10 +109,12 @@ extern void xtal_though(void);
 extern void PM_Spin_Lock(void);
 extern void PM_Spin_Unlock(void);
 
+extern void copy_functions(void);
+
 extern void jump_systemsuspend(void);
 extern int has_wake_lock_no_expire(int type);
-extern void shmobile_suspend_udelay(unsigned int delay_time);
-extern unsigned int suspend_ZB3_backup(void);
+extern void request_suspend_state(suspend_state_t state);
+extern suspend_state_t get_suspend_state(void);
 
 #ifdef CONFIG_CPU_IDLE
 void register_pm_state_notify(struct pm_state_notify *h);
@@ -117,8 +126,6 @@ unsigned int state_notify(int state);
 #ifdef CONFIG_PM_DEBUG
 extern int control_cpuidle(int is_enable);
 extern int is_cpuidle_enable(void);
-extern void request_suspend_state(suspend_state_t state);
-extern suspend_state_t get_suspend_state(void);
 #endif /* CONFIG_PM_DEBUG */
 #else /*!CONFIG_CPU_IDLE*/
 static inline void register_pm_state_notify(struct pm_state_notify *h) {}
@@ -142,14 +149,6 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 #define CONFIG_PM_RUNTIME_A3R
 #define CONFIG_PM_RUNTIME_A4RM
 #define CONFIG_PM_RUNTIME_A4MP
-
-/* SYSC registers */
-#define SYSC_SPDCR					0xE6180008
-#define SYSC_SWUCR					0xE6180014
-#define SYSC_WUPSMSK					0xE618002C
-#define SYSC_PSTR					0xE6180080
-#define SYSC_PDNSEL					0xE6180254
-#define SBSC_SDPDCR0A					0xFE400058
 
 /*Value of power area (value is appropriate with SWUCR, SPDCR, PSTR registers)*/
 #define POWER_A2SL					BIT(20)
@@ -181,6 +180,9 @@ static inline int is_cpuidle_enable(void)  { return 0; }
 #define ID_A4LC					6
 #define ID_D4					1
 
+extern atomic_t	pdwait_flag;
+void pdwait_judge(void);
+
 #ifdef CONFIG_PDC
 struct power_domain_info {
 	struct device *devs[POWER_DOMAIN_COUNT_MAX];
@@ -196,6 +198,7 @@ void for_each_power_device(const struct device *dev,
 void power_domains_get_sync(const struct device *dev);
 void power_domains_put_noidle(const struct device *dev);
 struct power_domain_info *__to_pdi(const struct device *dev);
+struct power_domain_info *get_pdi(const char *name);
 #ifdef CONFIG_PM_DEBUG
 int control_pdc(int is_enable);
 int is_pdc_enable(void);
@@ -214,6 +217,7 @@ static inline void power_domains_put_noidle(const struct device *dev) {}
 static inline int control_pdc(int is_enable) { return 0; }
 static inline int is_pdc_enable(void) { return 0; }
 #endif
+inline void pdwait_judge(void) {}
 #endif  /*CONFIG_PDC*/
 
 #ifdef CONFIG_SUSPEND
@@ -249,23 +253,18 @@ static inline uint32_t sec_hal_coma_entry(uint32_t mode, uint32_t freq,
 #endif /*CONFIG_PM_HAS_SECURE*/
 
 /* HPB Phys:0xE6000000 + 0x101C */
-#define HPBCCCR				0xE600101C
-#define CHIP_VERSION_ES1_0	0x00003E00
 #define CHIP_VERSION_ES2_0	0x00003E10
 #define CHIP_VERSION_ES2_1	0x00003E11
 #define CHIP_VERSION_ES2_2	0x00003E12
 
 #define CHIP_VERSION_MASK	0x0000FFFF
-#define ES_REV_1_0	(1 << 0)
-#define ES_REV_1_1	(1 << 1)
-#define ES_REV_1X	(ES_REV_1_1 | ES_REV_1_0)
 #define ES_REV_2_0	(1 << 2)
 #define ES_REV_2_1	((1 << 2) | (1 << 0))
 #define ES_REV_2_2	((1 << 2) | (1 << 1))
 
 #define ES_REV_2X	(ES_REV_2_0 | ES_REV_2_1 | ES_REV_2_2)
-#define ES_REV_ALL	(ES_REV_2X | ES_REV_1X)
-#define CCCR	IO_ADDRESS(0xE600101C)
+#define ES_REV_ALL	(ES_REV_2X)
+extern unsigned int system_rev;
 
 /*
  * Helper functions for getting chip revision
@@ -273,8 +272,6 @@ static inline uint32_t sec_hal_coma_entry(uint32_t mode, uint32_t freq,
 static inline int shmobile_chip_rev(void)
 {
 	switch (system_rev & CHIP_VERSION_MASK) {
-	case CHIP_VERSION_ES1_0:
-		return ES_REV_1_0;
 	case CHIP_VERSION_ES2_0:
 		return ES_REV_2_0;
 	case CHIP_VERSION_ES2_1:
@@ -412,11 +409,8 @@ enum {
 	HPCLK = BIT(2)
 };
 /* API use for Power Off module */
-extern void setup_mm_for_reboot(void);
 extern void arm_machine_flush_console(void);
 #ifdef CONFIG_CPU_FREQ
-/* #define DVFS_DEBUG_MODE		1 */
-/* #define DVFS_TEST_MODE		1 */
 #define ZB3_CLK_DFS_ENABLE
 #define ZB3_CLK_SUSPEND_ENABLE
 #define ZB3_CLK_IDLE_ENABLE
@@ -453,6 +447,7 @@ static inline void samplrate_downfact_get(unsigned int *sampl_rate,
 
 /* verylow mode enable flag */
 /* #define SH_CPUFREQ_VERYLOW	1 */
+extern int is_cpufreq_clk_state_earlysuspend(void);
 extern void start_cpufreq(void);
 extern int stop_cpufreq(void);
 extern bool cpufreq_compulsive_exec_get(void);
@@ -473,7 +468,7 @@ extern int control_cpufreq(int is_enable);
 extern int is_cpufreq_enable(void);
 #endif /* CONFIG_PM_DEBUG */
 /* Internal API for CPUFreq driver only */
- /* for corestandby */
+/* for corestandby */
 extern int cpg_get_freq(struct clk_rate *rates);
 extern int cpg_set_sbsc_freq(unsigned int new_ape_freq);
 extern int pm_set_clocks(const struct clk_rate clk_div);
@@ -525,12 +520,10 @@ static inline unsigned long pm_get_spinlock(void) { return 0; }
 static inline void pm_release_spinlock(unsigned long flag) { }
 #endif /* CONFIG_CPU_FREQ */
 
-#if (defined CONFIG_HOTPLUG_CPU_MGR) && (defined CONFIG_ARCH_R8A73734)
+#if (defined CONFIG_HOTPLUG_CPU_MGR) && (defined CONFIG_ARCH_R8A7373)
 #define THS_HOTPLUG_ID		(1 << 4)
 #define DFS_HOTPLUG_ID		(1 << 8)
 #define SYSFS_HOTPLUG_ID	(1 << 12)
-#endif /*CONFIG_HOTPLUG_CPU_MGR && CONFIG_ARCH_R8A73734*/
-
-/* #define PLL1_CAN_OFF 1*/
+#endif /*CONFIG_HOTPLUG_CPU_MGR && CONFIG_ARCH_R8A7373*/
 
 #endif /* __ASM_ARCH_PM_H */

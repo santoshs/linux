@@ -21,46 +21,64 @@
 /* Main processing of RAM defragmentation (Core part) */
 #include <linux/mm.h>
 #include <linux/swap.h>
+#include <linux/syscalls.h>
 #include <linux/memory.h>
 #include <linux/compaction.h>
 #include <linux/page-flags.h>
+#include <linux/export.h>
+#include <linux/module.h>
+#include <mach/memory-r8a7373.h>
 
 #include "ram_defrag_internal.h"
 
-/*#define DEBUG_RAMDEFRAG */
+/* #define DEBUG_RAMDEFRAG */
 
 #ifdef DEBUG_RAMDEFRAG
-	#define DEFRAG_PRINTK(fmt, arg...)  printk(fmt,##arg)
+	#define DEFRAG_PRINTK(fmt, arg...)  printk(fmt, ##arg)
 #else
 	#define DEFRAG_PRINTK(fmt, arg...)
 #endif
 
-#define SDRAM_START			0x40000000
-#define SDRAM_END			0x7FFFFFFF
+#define SDRAM_START_ADDR		0x40000000
+#define SDRAM_END_ADDR			0x7FFFFFFF
 #define BANK_SIZE			0x04000000
 
-#define INUSED_RANGE		(CONFIG_MEMORY_START - SDRAM_START)
-#define USED_BANKS			(((INUSED_RANGE % BANK_SIZE) != 0)  \
-							? ((INUSED_RANGE / BANK_SIZE) + 1) \
-							: (INUSED_RANGE / BANK_SIZE))
+#define INUSED_RANGE	(SDRAM_KERNEL_START_ADDR - SDRAM_START_ADDR)
 
-#define UNUSED_BANKS_START	(SDRAM_START + (USED_BANKS * BANK_SIZE))
-#define NUMBER_PAGES_SKIP	(((INUSED_RANGE % BANK_SIZE) != 0) \
-							? (UNUSED_BANKS_START - CONFIG_MEMORY_START) \
-							: 0 )
+#define USED_BANKS_ABOVE	(((INUSED_RANGE % BANK_SIZE) != 0) \
+				? ((INUSED_RANGE / BANK_SIZE) + 1) \
+				: (INUSED_RANGE / BANK_SIZE))
 
-#define SDRAM_SIZE 			((SDRAM_END - SDRAM_START) + 1)
+#define UNUSED_BANKS_START	(SDRAM_START_ADDR + \
+				(USED_BANKS_ABOVE * BANK_SIZE))
+
+#define RANGE_SKIP		(((INUSED_RANGE % BANK_SIZE) != 0) \
+		? (UNUSED_BANKS_START - SDRAM_KERNEL_START_ADDR) : 0)
+
+#define USED_RANGE_BELOW	\
+				(SDRAM_END_ADDR - SDRAM_KERNEL_END_ADDR)
+
+#define USED_BANKS_BELOW		(((USED_RANGE_BELOW % BANK_SIZE) != 0) \
+				? ((USED_RANGE_BELOW / BANK_SIZE) + 1) : \
+					(USED_RANGE_BELOW / BANK_SIZE))
+
+#define SDRAM_SIZE		((SDRAM_END_ADDR - SDRAM_START_ADDR) + 1)
+
 #define MAX_BANKS			(SDRAM_SIZE / BANK_SIZE)
-#define MAX_UNUSED_BANKS	(MAX_BANKS - USED_BANKS)
+#define UNUSED_BANK_IN_KERNEL	(MAX_BANKS - \
+			USED_BANKS_ABOVE - USED_BANKS_BELOW)
+
 #define MAX_PAGES_IN_BANK	(BANK_SIZE / PAGE_SIZE)
 
-#define USED_BANKS_MASK(nr) (~(0xFFFF0000 | (0xFFFF << (nr))))
+#define USED_BANKS_MASK(nr_above, nr_below)	\
+		(~(0xFFFF0000 | ((0xFFFF << (nr_above)) \
+				& (0xFFFF >> (nr_below)))))
 
-const unsigned int max_unused_banks = MAX_UNUSED_BANKS;
+const unsigned int max_unused_banks = UNUSED_BANK_IN_KERNEL;
 const unsigned int max_pages_in_bank = MAX_PAGES_IN_BANK;
-const unsigned int number_pages_skip = NUMBER_PAGES_SKIP;
-const unsigned int used_banks = USED_BANKS;
-
+const unsigned int range_skip = RANGE_SKIP;
+const unsigned int used_banks_above = USED_BANKS_ABOVE;
+const unsigned int used_banks_below = USED_BANKS_BELOW;
 
 /*
  * get_ram_banks_status: Get status of RAM banks
@@ -69,7 +87,7 @@ const unsigned int used_banks = USED_BANKS;
  *		 return value will be set to 1
  *		- If certain bank is freed, correlative bit status in
  *		 return value will be cleared to 0
- *		- Bit 8 to bit 31 are "Don't Care" which
+ *		- Bit 16 to bit 31 are "Don't Care" which
  *		correspond to non-existent banks, will be set to 1
  *		- Bit status is least significant
  *		(bit 0 corresponds to bank 0, bit 1 corresponds to bank 1, etc.)
@@ -81,7 +99,7 @@ unsigned int get_ram_banks_status(void)
 	unsigned int begin;
 	unsigned int end;
 	unsigned int status;
-	struct page* start_page_check;
+	struct page *start_page_check;
 	i = 0;
 	j = 0;
 	begin = 0;
@@ -89,7 +107,7 @@ unsigned int get_ram_banks_status(void)
 	status = 0xFFFFFFFF;
 	DEFRAG_PRINTK("%s\n", __func__);
 	/* start checking */
-	start_page_check = mem_map + number_pages_skip/PAGE_SIZE;
+	start_page_check = mem_map + range_skip/PAGE_SIZE;
 	for (i = 0; i < max_unused_banks; i++) {
 		begin = i * max_pages_in_bank;
 		end = ((i + 1) * max_pages_in_bank) - 1;
@@ -100,8 +118,9 @@ unsigned int get_ram_banks_status(void)
 		if (j > end)
 			status &= ~(1 << i);
 	}
-	
-	status = (status << used_banks) | USED_BANKS_MASK(used_banks);
+
+	status = (status << used_banks_above) | \
+		USED_BANKS_MASK(used_banks_above, used_banks_below);
 	return status;
 }
 EXPORT_SYMBOL_GPL(get_ram_banks_status);
@@ -134,6 +153,46 @@ static int page_check(struct page *page)
 	}
 }
 
+static void drop_pagecache_sb(struct super_block *sb, void *unused)
+{
+	struct inode *inode;
+	struct inode *toput_inode;
+	toput_inode = NULL;
+	DEFRAG_PRINTK("%s\n", __func__);
+	spin_lock(&inode_sb_list_lock);
+	list_for_each_entry(inode, &sb->s_inodes, i_sb_list) {
+		spin_lock(&inode->i_lock);
+		if ((inode->i_state & (I_FREEING|I_WILL_FREE|I_NEW)) ||
+		    (inode->i_mapping->nrpages == 0)) {
+			spin_unlock(&inode->i_lock);
+			continue;
+		}
+		__iget(inode);
+		spin_unlock(&inode->i_lock);
+		spin_unlock(&inode_sb_list_lock);
+		invalidate_mapping_pages(inode->i_mapping, 0, -1);
+		iput(toput_inode);
+		toput_inode = inode;
+		spin_lock(&inode_sb_list_lock);
+	}
+	spin_unlock(&inode_sb_list_lock);
+	iput(toput_inode);
+}
+
+static void drop_slab(void)
+{
+	int nr_objects;
+
+	struct shrink_control shrink = {
+		.gfp_mask = GFP_KERNEL,
+	};
+
+	DEFRAG_PRINTK("%s\n", __func__);
+	do {
+		nr_objects = shrink_slab(&shrink, 1000, 1000);
+	} while (nr_objects > 10);
+}
+
 #ifdef CONFIG_COMPACTION
 
 /*
@@ -146,11 +205,19 @@ int defrag()
 	int ret;
 	ret = 0;
 	DEFRAG_PRINTK("%s\n", __func__);
+
+	/* Flush caches */
+	iterate_supers(drop_pagecache_sb, NULL);
+	drop_slab();
+
 	/* Do defragmentation on all nodes */
 	ret = compact_nodes();
 	if (ret == 3) { /* If compaction is finished */
 		ret = 0;
 	}
+	/* Flush caches again*/
+	iterate_supers(drop_pagecache_sb, NULL);
+	drop_slab();
 	return ret;
 }
 EXPORT_SYMBOL_GPL(defrag);

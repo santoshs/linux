@@ -36,7 +36,6 @@ Description :  File created
 #define SMC_L2MUX_QUEUE_3_MHDP       2
 
 
-
     /*
      * Product specific configuration header files
      *
@@ -44,7 +43,18 @@ Description :  File created
      */
 
 
-#include "smc_config_l2mux_r8a73734_wge31.h"
+/*#include "smc_config_l2mux_r8a73734_wge31.h"*/
+
+#if( SMC_CURRENT_PRODUCT_CONFIG == SMC_CONFIG_EOS2 )
+    #include "smc_config_l2mux_r8a73734_wge31.h"
+#elif( SMC_CURRENT_PRODUCT_CONFIG == SMC_CONFIG_EOS3 )
+    #include "smc_config_l2mux_u3ca.h"
+#elif( SMC_CURRENT_PRODUCT_CONFIG == SMC_CONFIG_EOS3_WGE31 )
+    #include "smc_config_l2mux_u3.h"
+#else
+    #error "Invalid SMC product configuration"
+#endif
+
 
 
     /*

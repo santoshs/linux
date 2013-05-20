@@ -22,14 +22,9 @@
 #if defined _SEC_MSG_H_
 #error "Multiply included"
 #endif
-
 #define _SEC_MSG_H_
 
-#ifdef __KERNEL__
 #include <linux/types.h>
-#else
-#include <inttypes.h>
-#endif
 
 
 #define SEC_MSG_BYTE_ORDER_LE   0x00

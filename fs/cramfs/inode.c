@@ -388,11 +388,9 @@ static int cramfs_fill_super(struct super_block *sb, void *data, int silent)
 	root = get_cramfs_inode(sb, &super.root, 0);
 	if (IS_ERR(root))
 		goto out;
-	sb->s_root = d_alloc_root(root);
-	if (!sb->s_root) {
-		iput(root);
+	sb->s_root = d_make_root(root);
+	if (!sb->s_root)
 		goto out;
-	}
 #ifdef CONFIG_CRAMFS_LINEAR
 	/* Remap the whole filesystem now */
 	iounmap(sbi->linear_virt_addr);

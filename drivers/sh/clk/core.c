@@ -30,7 +30,7 @@
 #include <linux/sh_clk.h>
 
 static LIST_HEAD(clock_list);
-static DEFINE_SPINLOCK(clock_lock);
+DEFINE_SPINLOCK(sh_clock_lock);
 static DEFINE_MUTEX(clock_list_sem);
 
 void clk_rate_table_build(struct clk *clk,
@@ -258,9 +258,9 @@ void clk_disable(struct clk *clk)
 	if (!clk)
 		return;
 
-	spin_lock_irqsave(&clock_lock, flags);
+	spin_lock_irqsave(&sh_clock_lock, flags);
 	__clk_disable(clk);
-	spin_unlock_irqrestore(&clock_lock, flags);
+	spin_unlock_irqrestore(&sh_clock_lock, flags);
 }
 EXPORT_SYMBOL_GPL(clk_disable);
 
@@ -299,9 +299,9 @@ int clk_enable(struct clk *clk)
 	if (!clk)
 		return -EINVAL;
 
-	spin_lock_irqsave(&clock_lock, flags);
+	spin_lock_irqsave(&sh_clock_lock, flags);
 	ret = __clk_enable(clk);
-	spin_unlock_irqrestore(&clock_lock, flags);
+	spin_unlock_irqrestore(&sh_clock_lock, flags);
 
 	return ret;
 }
@@ -352,7 +352,7 @@ static int clk_establish_mapping(struct clk *clk)
 		 */
 		if (!clk->parent) {
 			clk->mapping = &dummy_mapping;
-			return 0;
+			goto out;
 		}
 
 		/*
@@ -381,6 +381,9 @@ static int clk_establish_mapping(struct clk *clk)
 	}
 
 	clk->mapping = mapping;
+out:
+	clk->mapped_reg = clk->mapping->base;
+	clk->mapped_reg += (phys_addr_t)clk->enable_reg - clk->mapping->phys;
 	return 0;
 }
 
@@ -399,10 +402,12 @@ static void clk_teardown_mapping(struct clk *clk)
 
 	/* Nothing to do */
 	if (mapping == &dummy_mapping)
-		return;
+		goto out;
 
 	kref_put(&mapping->ref, clk_destroy_mapping);
 	clk->mapping = NULL;
+out:
+	clk->mapped_reg = NULL;
 }
 
 int clk_register(struct clk *clk)
@@ -476,7 +481,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 	int ret = -EOPNOTSUPP;
 	unsigned long flags;
 
-	spin_lock_irqsave(&clock_lock, flags);
+	spin_lock_irqsave(&sh_clock_lock, flags);
 
 	if (likely(clk->ops && clk->ops->set_rate)) {
 		ret = clk->ops->set_rate(clk, rate);
@@ -493,7 +498,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 	propagate_rate(clk);
 
 out_unlock:
-	spin_unlock_irqrestore(&clock_lock, flags);
+	spin_unlock_irqrestore(&sh_clock_lock, flags);
 
 	return ret;
 }
@@ -509,7 +514,7 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 	if (clk->parent == parent)
 		return 0;
 
-	spin_lock_irqsave(&clock_lock, flags);
+	spin_lock_irqsave(&sh_clock_lock, flags);
 	if (clk->usecount == 0) {
 		if (clk->ops->set_parent)
 			ret = clk->ops->set_parent(clk, parent);
@@ -525,7 +530,7 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 		}
 	} else
 		ret = -EBUSY;
-	spin_unlock_irqrestore(&clock_lock, flags);
+	spin_unlock_irqrestore(&sh_clock_lock, flags);
 
 	return ret;
 }
@@ -542,9 +547,9 @@ long clk_round_rate(struct clk *clk, unsigned long rate)
 	if (likely(clk->ops && clk->ops->round_rate)) {
 		unsigned long flags, rounded;
 
-		spin_lock_irqsave(&clock_lock, flags);
+		spin_lock_irqsave(&sh_clock_lock, flags);
 		rounded = clk->ops->round_rate(clk, rate);
-		spin_unlock_irqrestore(&clock_lock, flags);
+		spin_unlock_irqrestore(&sh_clock_lock, flags);
 
 		return rounded;
 	}

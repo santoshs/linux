@@ -133,14 +133,13 @@ static smc_conf_t* smc_device_create_conf_control(char* device_name)
     char* smc_cpu_name = NULL;
     uint16_t asic_version = smc_asic_version_get();
 
-    if( asic_version == SMC_EOS_ASIC_ES10 )
-    {
-        smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10;
-    }
-    else
-    {
-        smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
-    }
+        /* Use EOS2 ES2.0 configuration */
+        /* TODO Cleanup
+    smc_cpu_name = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20;
+
+    */
+
+    smc_cpu_name = smc_instance_conf_name_get_from_list( smc_instance_conf_control, SMC_CONF_COUNT_CONTROL, SMC_CONFIG_USER_CONTROL, TRUE, 2, 0);
 
     SMC_TRACE_PRINTF_STARTUP("Control configuration '%s' for ASIC version 0x%02X", smc_cpu_name, asic_version);
 
@@ -391,9 +390,14 @@ static int smc_control_modify_send_data( struct sk_buff *skb, smc_user_data_t* s
 
 static void smc_control_layer_device_driver_setup(struct net_device* device)
 {
-    SMC_TRACE_PRINTF_DEBUG("smc_control_layer_device_driver_setup: modify net device for SMC control usage...");
+    SMC_TRACE_PRINTF_STM("smc_control_layer_device_driver_setup: modify net device for SMC control usage...");
 
-    device->features        = NETIF_F_SG /* Frags to be tested by MHDP team  | NETIF_F_HW_CSUM | NETIF_F_FRAGLIST*/;
+#ifdef SMC_SUPPORT_SKB_FRAGMENT_UL
+    device->features        = NETIF_F_SG | NETIF_F_FRAGLIST /* | NETIF_F_HW_CSUM */ ;
+#else
+    device->features        = NETIF_F_SG;
+#endif
+
     device->type            = 0x00;
     device->flags           = IFF_POINTOPOINT | IFF_NOARP;
     device->mtu             = 2;

@@ -2,7 +2,7 @@
  * rt_boot.c
  *		booting rt_cpu.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -21,12 +21,11 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
+#include <linux/io.h>
+#include <linux/sched.h>
 #include "log_kernel.h"
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
-#if SECURE_BOOT_RT
-#include <sec_hal_cmn.h>
-#endif
 
 MODULE_AUTHOR("Renesas Electronics Corp.");
 MODULE_DESCRIPTION("Device Driver (RT Boot)");
@@ -53,12 +52,12 @@ static int rtboot_init(void)
 {
 	int ret;
 	unsigned int bootaddr = 0;
-#if SECURE_BOOT_RT
+#ifdef SECURE_BOOT_ENABLE
 	uint32_t phys_cert_addr;
 	uint32_t cert_size;
 #endif
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	memset(&g_rtboot_info, 0, sizeof(g_rtboot_info));
 
@@ -85,7 +84,7 @@ static int rtboot_init(void)
 		return 1;
 	}
 
-#if SECURE_BOOT_RT
+#ifdef SECURE_BOOT_ENABLE
 	phys_cert_addr = (PRIMARY_COPY_ADDR + g_rtboot_info.image_size + 0x00001000) & (0xFFFFF000);
 	cert_size = read_rt_cert(phys_cert_addr);
 	if (cert_size == 0) {
@@ -100,7 +99,7 @@ static int rtboot_init(void)
 
 	ret = sec_hal_memcpy((uint32_t)g_rtboot_info.boot_addr, (uint32_t)PRIMARY_COPY_ADDR, (uint32_t)g_rtboot_info.image_size);
 	if (ret == SEC_HAL_CMN_RES_OK) {
-		ret = sec_hal_authenticate(phys_cert_addr, cert_size, NULL );
+		ret = sec_hal_authenticate(phys_cert_addr, cert_size, NULL);
 		if (ret != SEC_HAL_CMN_RES_OK)
 			MSG_ERROR("[RTBOOTK]   |sec_hal_authenticate ret[%d], phys_cert_addr[0x%08x], cert_size[%d]\n",
 				ret, phys_cert_addr, cert_size);
@@ -116,12 +115,22 @@ static int rtboot_init(void)
 		MSG_HIGH("[RTBOOTK]OUT|[%s] ret = 1\n", __func__);
 		return 1;
 	}
+	MSG_ERROR("[RTBOOTK]   |secure boot on\n");
 #else
 	MSG_LOW("[RTBOOTK]   |write_rt_imageaddr bootaddr[%x]\n", bootaddr);
 
 	MSG_LOW("[RTBOOTK]   |write_rt_imageaddr start\n");
 	write_rt_imageaddr(bootaddr);
 #endif
+	{
+		unsigned long long tim;
+		unsigned long *addr_status;
+		tim = local_clock();
+		addr_status = ioremap(g_rtboot_info.command_area_address, 4);
+		addr_status[1] = (unsigned long)(tim>>32);
+		addr_status[2] = (unsigned long)(tim & 0xFFFFFFFF);
+		iounmap(addr_status);
+	}
 	MSG_LOW("[RTBOOTK]   |stop_rt_interrupt start\n");
 	stop_rt_interrupt();
 	MSG_LOW("[RTBOOTK]   |init_rt_register start\n");
@@ -135,6 +144,14 @@ static int rtboot_init(void)
 
 	if (0 != ret) {
 		MSG_ERROR("[RTBOOTK]   |RT boot error\n");
+		{
+			unsigned long *addr_status;
+			addr_status = ioremap(g_rtboot_info.command_area_address, 4);
+			if (addr_status) {
+				MSG_ERROR("[RTBOOTK]   |RT boot status [%ld]\n", *addr_status);
+				iounmap(addr_status);
+			}
+		}
 		do_iounmap_register();
 		ret = misc_deregister(&g_device);
 		if (0 != ret)
@@ -146,7 +163,7 @@ static int rtboot_init(void)
 	MSG_LOW("[RTBOOTK]   |write_req_comp start\n");
 	write_req_comp();
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = 0\n", __func__);
+	MSG_MED("[RTBOOTK]OUT|[%s] ret = 0\n", __func__);
 
 	return 0;
 }
@@ -155,7 +172,7 @@ static void rtboot_exit(void)
 {
 	int ret;
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	do_iounmap_register();
 
@@ -163,7 +180,7 @@ static void rtboot_exit(void)
 	if (0 != ret)
 		MSG_ERROR("[RTBOOTK]   |misc_deregister failed ret[%d]\n", ret);
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]OUT|[%s]\n", __func__);
 }
 
 
@@ -171,14 +188,14 @@ int rtboot_get_section_header(struct rt_boot_info *info)
 {
 	int ret = 1;
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	if (info) {
 		*info = g_rtboot_info;
 		ret = 0;
 	}
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]OUT|[%s]\n", __func__);
 
 	return ret;
 }

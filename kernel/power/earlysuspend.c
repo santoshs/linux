@@ -21,6 +21,7 @@
 #include <linux/syscalls.h> /* sys_sync */
 #include <linux/wakelock.h>
 #include <linux/workqueue.h>
+#include <memlog/memlog.h>
 
 #include "power.h"
 
@@ -78,6 +79,7 @@ static void early_suspend(struct work_struct *work)
 	unsigned long irqflags;
 	int abort = 0;
 
+	memory_log_func(PM_FUNC_ID_EARLY_SUSPEND, 1);
 	mutex_lock(&early_suspend_lock);
 	spin_lock_irqsave(&state_lock, irqflags);
 	if (state == SUSPEND_REQUESTED)
@@ -114,6 +116,7 @@ abort:
 	if (state == SUSPEND_REQUESTED_AND_SUSPENDED)
 		wake_unlock(&main_wake_lock);
 	spin_unlock_irqrestore(&state_lock, irqflags);
+	memory_log_func(PM_FUNC_ID_EARLY_SUSPEND, 0);
 }
 
 static void late_resume(struct work_struct *work)
@@ -122,6 +125,7 @@ static void late_resume(struct work_struct *work)
 	unsigned long irqflags;
 	int abort = 0;
 
+	memory_log_func(PM_FUNC_ID_LATE_RESUME, 1);
 	mutex_lock(&early_suspend_lock);
 	spin_lock_irqsave(&state_lock, irqflags);
 	if (state == SUSPENDED)
@@ -149,6 +153,7 @@ static void late_resume(struct work_struct *work)
 		pr_info("late_resume: done\n");
 abort:
 	mutex_unlock(&early_suspend_lock);
+	memory_log_func(PM_FUNC_ID_LATE_RESUME, 0);
 }
 
 void request_suspend_state(suspend_state_t new_state)

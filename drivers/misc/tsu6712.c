@@ -30,13 +30,19 @@
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
+#include <linux/usb/tusb1211.h>
 #include <linux/regulator/consumer.h>
 #include <linux/input.h>
 #include <linux/switch.h>
 #include <linux/power_supply.h>
 #include <linux/ctype.h>
-//#include <linux/spa_power.h>
-#include <linux/pmic/pmic-tps80032.h>
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+#include <linux/spa_power.h>
+#endif
+
+#include <mach/common.h>
+
+void send_usb_insert_event(int);
 
 static struct switch_dev switch_dock = {
 	.name = "dock",
@@ -48,9 +54,20 @@ static struct switch_dev switch_usb_uart = {
 
 
 static int usb_uart_switch_state;
-static int state;
-char at_isi_switch_buf[1000] = {0};
+char at_isi_switch_buf[400] = {0};
 int KERNEL_LOG;
+/*#define TSU_LOG*/
+#ifdef TSU_LOG
+#define tsu_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
+#else
+#define tsu_log(fmt, ...)
+#endif
+
+#define TSU6712_UART_AT_MODE           2
+#define TSU6712_UART_INVALID_MODE      -1
+#define TSU6712_UART_EMPTY_CR          3
+#define TSU6712_UART_EMPTY_CRLF        4
+#define TSU6712_UART_AT_MODE_MODECHAN  5
 
 /* TSU6712 I2C registers */
 #define TSU6712_REG_DEVID		0x01
@@ -108,7 +125,7 @@ int KERNEL_LOG;
 #define DEV_T2_USB_MASK		(DEV_JIG_USB_OFF | DEV_JIG_USB_ON)
 #define DEV_T2_UART_MASK	(DEV_JIG_UART_OFF)
 #define DEV_T2_JIG_MASK		(DEV_JIG_USB_OFF | DEV_JIG_USB_ON | DEV_JIG_UART_OFF)
-#define VBUS_VALID		(1 << 1)		
+#define VBUS_VALID		(1 << 1)
 
 /*
  * Manual Switch
@@ -144,6 +161,14 @@ int KERNEL_LOG;
 #define	ADC_CARDOCK		0x1d
 #define ADC_OPEN		0x1f
 
+#define TSU6712_UART_EMPTY_CR          3
+#define TSU6712_UART_EMPTY_CRLF        4
+
+#define TSU6712_INT_VBUSS_WKUP 17
+#define TSU6712_INT_VBUS 19
+#define TSU6712_INT_NR 30
+#define IRQPIN_IRQ_BASE		512
+
 int uart_connecting;
 EXPORT_SYMBOL(uart_connecting);
 
@@ -167,7 +192,13 @@ struct tsu6712_usbsw {
 	int				adc;
 	int				deskdock;
 	int				vbus;
-
+	/* JIRA ID 1362/1396
+	Wakelock introduced to avoid device getting
+	into deep sleep when UART JIG connected.*/
+	struct wake_lock uart_wakelock;
+#ifdef CONFIG_USB_OTG
+	struct wake_lock otg_wakelock;
+#endif
 	struct irq_chip irq_chip;
 	int             irq_base;
 };
@@ -203,7 +234,7 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw);
 static void tsu6712_init_usb_irq(struct tsu6712_usbsw *data);
 
 int get_cable_type(void)
-{    
+{
     return set_cable_status;
 }
 EXPORT_SYMBOL(get_cable_type);
@@ -222,14 +253,15 @@ static int tsu6712_write_reg(struct i2c_client *client,        u8 reg, u8 data)
        msg[0].len = 2;
        msg[0].buf = buf;
 
-	   printk("[tsu6712] tsu8111_write_reg   reg[0x%2x] data[0x%2x]\n",buf[0],buf[1]);
+	tsu_log("[tsu6712] tsu8111_write_reg   reg[0x%2x] data[0x%2x]\n",
+		buf[0], buf[1]);
 
        ret = i2c_transfer(client->adapter, msg, 1);
        if (ret != 1) {
-               printk("\n [tsu6712] i2c Write Failed (ret=%d) \n", ret);
+		pr_err("\n [tsu6712] i2c Write Failed (ret=%d)\n", ret);
                return -1;
        }
-       
+
        return ret;
 }
 
@@ -250,17 +282,17 @@ static int tsu6712_read_reg(struct i2c_client *client, u8 reg, u8 *data)
         msg[1].flags = I2C_M_RD;
         msg[1].len = 1;
         msg[1].buf = buf;
-		
-	printk("[tsu6712] tsu8111_read_reg reg[0x%2x] ", buf[0]);
+
+	tsu_log("[tsu6712] tsu8111_read_reg reg[0x%2x] ", buf[0]);
 
        ret = i2c_transfer(client->adapter, msg, 2);
        if (ret != 2) {
-               printk("\n [tsu6712] i2c Read Failed (ret=%d) \n", ret);
+		pr_err("\n [tsu6712] i2c Read Failed (ret=%d)\n", ret);
                return -1;
        }
        *data = buf[0];
 
-      printk(" data [0x%2x]   i2c Read success\n",buf[0]);
+	tsu_log("data [0x%2x]   i2c Read success\n", buf[0]);
        return 0;
 }
 
@@ -268,7 +300,7 @@ static int tsu6712_read_word_reg(struct i2c_client *client, u8 reg, int *data)
 {
        int ret = 0;
        u8 buf[1];
-	u8 data1,data2;   
+	u8 data1,data2;
        struct i2c_msg msg[2];
 
        buf[0] = reg;
@@ -282,12 +314,12 @@ static int tsu6712_read_word_reg(struct i2c_client *client, u8 reg, int *data)
         msg[1].flags = I2C_M_RD;
         msg[1].len = 1;
         msg[1].buf = buf;
-		
-	printk("[tsu6712] tsu8111_read_reg reg[0x%2x] ", buf[0]);
+
+	tsu_log("[tsu6712] tsu8111_read_reg reg[0x%2x]\n", buf[0]);
 
        ret = i2c_transfer(client->adapter, msg, 2);
        if (ret != 2) {
-               printk("\n [tsu6712] i2c Read Failed (ret=%d) \n", ret);
+		pr_err("\n [tsu6712] i2c Read Failed (ret=%d)\n", ret);
                return -1;
        }
 
@@ -304,19 +336,19 @@ static int tsu6712_read_word_reg(struct i2c_client *client, u8 reg, int *data)
         msg[1].flags = I2C_M_RD;
         msg[1].len = 1;
         msg[1].buf = buf;
-		
-	printk("[tsu6712] tsu8111_read_reg reg[0x%2x] ", buf[0]);
+
+	tsu_log("[tsu6712] tsu8111_read_reg reg[0x%2x]\n", buf[0]);
 
        ret = i2c_transfer(client->adapter, msg, 2);
        if (ret != 2) {
-               printk("\n [tsu6712] i2c Read Failed (ret=%d) \n", ret);
+		pr_err("\n [tsu6712] i2c Read Failed (ret=%d)\n", ret);
                return -1;
        }
 
 	data2 = buf[0];
 	*data = (int)((data2<<8) | data1);
 
-      printk(" data [%d]   i2c Read success\n",*data);
+	tsu_log("data [%d]   i2c Read success\n", *data);
        return 0;
 }
 
@@ -347,18 +379,24 @@ static int tsu6712_ex_init(void)
        return 0;
 }
 
+#ifdef CONFIG_USB_OTG
 static void tsu6712_otg_cb(bool attached)
 {
 	set_cable_status = attached ? CABLE_TYPE_USB : CABLE_TYPE_NONE;
 	switch (set_cable_status) {
 	case CABLE_TYPE_USB:
+		tsu_log("\n%s: USB Device Attached\n", __func__);
+		set_otg_mode(1);/*set the system to host mode*/
 		break;
 	case CABLE_TYPE_NONE:
+		tsu_log("\n%s: USB Device Dettached\n", __func__);
+		set_otg_mode(0);/*set the system to device mode*/
 		break;
-        default:
-            break;
+	default:
+		break;
 	}
 }
+#endif
 
 static void tsu6712_usb_cdp_cb(bool attached)
 {
@@ -378,8 +416,10 @@ static void tsu6712_dock_cb(int attached)
 
 static void tsu6712_ovp_cb(bool attached)
 {
-	pr_info("%s:%s\n",__func__,(attached?"TRUE":"FALSE")); 
-	//	spa_event_handler(SPA_EVT_OVP, (int)attached);
+	pr_info("%s:%s\n", __func__, (attached ? "TRUE" : "FALSE"));
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+		spa_event_handler(SPA_EVT_OVP, (void *)attached);
+#endif
 }
 
 static void tsu6712_usb_cb(bool attached)
@@ -388,35 +428,43 @@ static void tsu6712_usb_cb(bool attached)
 
    set_cable_status = attached ? CABLE_TYPE_USB : CABLE_TYPE_NONE;
    if(attached)
-   {	
-      printk("USB attached : MUIC send switch state 100");
+   {
+	tsu_log("USB attached : MUIC send switch state 100\n");
       usb_uart_switch_state = 100;
-      switch_set_state(&switch_usb_uart,100); 
+      switch_set_state(&switch_usb_uart,100);
    }
    else
    {
-      printk("USB detached : MUIC send switch state 101");
+	tsu_log("USB detached : MUIC send switch state 101\n");
       usb_uart_switch_state = 101;
       switch_set_state(&switch_usb_uart,101);
    }
 
-   printk("%s : %d", __func__,__LINE__);
+	tsu_log("%s : %d\n", __func__, __LINE__);
 
 
-#if 0
-   switch (set_cable_status) {
-   case CABLE_TYPE_USB:
-       spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB);
-       pr_info("%s USB attached\n",__func__);
-       break;
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+		switch (set_cable_status) {
+		case CABLE_TYPE_USB:
+#ifdef CONFIG_USB_OTG
+			set_otg_mode(0); /*set the system to device mode*/
+#endif
+			spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB);
+			send_usb_insert_event(1);
+			pr_info("%s USB attached\n", __func__);
+			break;
 
-   case CABLE_TYPE_NONE:
-       spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
-       pr_info("%s USB removed\n",__func__);
-       break;
-   default:
-       break;
-   }
+		case CABLE_TYPE_NONE:
+#ifdef CONFIG_USB_OTG
+			set_otg_mode(0); /*set the system to device mode*/
+#endif
+			spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
+			send_usb_insert_event(0);
+			pr_info("%s USB removed\n", __func__);
+			break;
+		default:
+			break;
+		}
 #endif
 }
 
@@ -425,59 +473,48 @@ static void tsu6712_charger_cb(bool attached)
    pr_info("tsu6712_charger_cb attached %d\n", attached);
 
    set_cable_status = attached ? CABLE_TYPE_AC : CABLE_TYPE_NONE;
-#if 0
-   switch (set_cable_status) {
-   case CABLE_TYPE_AC:
-       spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_USB_DCP);
-       pr_info("%s TA attached\n",__func__);
-       break;
-   case CABLE_TYPE_NONE:
-       spa_event_handler(SPA_EVT_CHARGER, POWER_SUPPLY_TYPE_BATTERY);
-       pr_info("%s TA removed\n",__func__);
-       break;
-   default:
-       break;       
-   }
+
+#ifdef CONFIG_SEC_CHARGING_FEATURE
+		switch (set_cable_status) {
+		case CABLE_TYPE_AC:
+			spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB_DCP);
+			pr_info("%s TA attached\n", __func__);
+			break;
+		case CABLE_TYPE_NONE:
+			spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
+			pr_info("%s TA removed\n", __func__);
+			break;
+		default:
+			break;
+		}
 #endif
 }
 
 static void tsu6712_jig_cb(bool attached)
-{    
+{
    pr_info("tsu6712_jig_cb attached %d\n", attached);
    set_cable_status = CABLE_TYPE_NONE;
 }
 
 static void tsu6712_uart_cb(bool attached)
 {
-  // SPA_ACC_INFO_T acc_info;
    pr_info("tsu6712_uart_cb attached %d\n", attached);
    set_cable_status = CABLE_TYPE_NONE;
-   printk("%s : %d", __func__,__LINE__);
+	tsu_log("%s : %d\n", __func__, __LINE__);
    if(attached)
-   {	
-      printk("UART attached : send switch state 200");
+   {
+	tsu_log("UART attached : send switch state 200\n");
       usb_uart_switch_state = 200;
       switch_set_state(&switch_usb_uart,200);
    }
    else
    {
-      printk("UART detached : send switch state 201");
+	tsu_log("UART detached : send switch state 201\n");
       usb_uart_switch_state = 201;
       switch_set_state(&switch_usb_uart,201);
    }
-   printk("%s : %d", __func__,__LINE__);
+	tsu_log("%s : %d\n", __func__, __LINE__);
 
-#if 0
-   if(attached==true)
-   {
-        acc_info=SPA_ACC_JIG_UART;    
-   }
-   else
-   {
-        acc_info=SPA_ACC_NONE;
-   }
-#endif
-   //  spa_event_handler(SPA_EVT_ACC_INFO, (void *)acc_info);
 }
 
 static struct tsu6712_platform_data tsu6712_pdata = {
@@ -485,7 +522,9 @@ static struct tsu6712_platform_data tsu6712_pdata = {
 	.charger_cb = tsu6712_charger_cb,
 	.jig_cb = tsu6712_jig_cb,
 	.uart_cb = tsu6712_uart_cb,
-	.otg_cb = tsu6712_otg_cb,	
+#ifdef CONFIG_USB_OTG
+	.otg_cb = tsu6712_otg_cb,
+#endif
 	.ovp_cb = tsu6712_ovp_cb,
 	.dock_cb = tsu6712_dock_cb,
 	.ex_init = tsu6712_ex_init,
@@ -493,16 +532,19 @@ static struct tsu6712_platform_data tsu6712_pdata = {
 	.smartdock_cb = tsu6712_smartdock_cb,
 };
 
+#if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
 static void DisableTSU6712Interrupts(void)
 {
 	struct i2c_client *client = local_usbsw->client;
-	int value, ret;
+	int ret;
+	u8 value = 0;
+	ret = tsu6712_read_reg(client, TSU6712_REG_CTRL,&value);
+	if (ret < 0)
+                dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
-	tsu6712_read_reg(client, TSU6712_REG_CTRL,&value);
 	value |= 0x01;
 
 	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, value);
-	
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
@@ -511,10 +553,16 @@ static void DisableTSU6712Interrupts(void)
 static void EnableTSU6712Interrupts(void)
 {
 	struct i2c_client *client = local_usbsw->client;
-	int value, ret;
+	int ret;
+	u8 value = 0;
+	ret = tsu6712_read_reg(client, TSU6712_REG_INT1,&value);
+	if (ret < 0)
+                dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
-	tsu6712_read_reg(client, TSU6712_REG_INT1,&value);
-    tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
+	ret = tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
+	if (ret < 0)
+                dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
 	value &= 0xFE;
 
 	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, value);
@@ -522,13 +570,14 @@ static void EnableTSU6712Interrupts(void)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 }
+#endif
 
 void TSU6712_CheckAndHookAudioDock(int value)
 {
 	struct i2c_client *client = local_usbsw->client;
 	struct tsu6712_platform_data *pdata = local_usbsw->pdata;
 	int ret = 0;
-
+	u8 regvalue = 0;
 	if (value) {
 		pr_info("TSU6712_CheckAndHookAudioDock ON\n");
 			if (pdata->dock_cb)
@@ -539,13 +588,13 @@ void TSU6712_CheckAndHookAudioDock(int value)
 
 			if (ret < 0)
 				dev_err(&client->dev, "%s: err %d\n",__func__, ret);
-			
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
+
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&regvalue);
 			if (ret < 0)
 				dev_err(&client->dev, "%s: err %d\n",__func__, ret);
 
 			ret = tsu6712_write_reg(client,	TSU6712_REG_CTRL,
-					ret & ~CON_MANUAL_SW & ~CON_RAW_DATA);
+					regvalue & ~CON_MANUAL_SW & ~CON_RAW_DATA);
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 		} else {
@@ -554,13 +603,13 @@ void TSU6712_CheckAndHookAudioDock(int value)
 			if (pdata->dock_cb)
 				pdata->dock_cb(TSU6712_DETACHED_DOCK);
 
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
-			
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&regvalue);
+
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
 			ret = tsu6712_write_reg(client,	TSU6712_REG_CTRL,
-					ret | CON_MANUAL_SW | CON_RAW_DATA);
+					regvalue | CON_MANUAL_SW | CON_RAW_DATA);
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 	}
@@ -570,14 +619,15 @@ static ssize_t tsu6712_show_control(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
 {
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
+	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct i2c_client *client = usbsw->client;
-	int value;
+	int ret;
+	u8 value = 0;
 
-	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
+	ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
 
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	return snprintf(buf, 13, "CONTROL: %02x\n", value);
 }
@@ -586,13 +636,14 @@ static ssize_t tsu6712_show_device_type(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
 {
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
+	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct i2c_client *client = usbsw->client;
-	int value;
+	int ret;
+	u8 value = 0;
 
-	tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+	ret = tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	return snprintf(buf, 11, "DEVICE_TYPE: %02x\n", value);
 }
@@ -600,13 +651,13 @@ static ssize_t tsu6712_show_device_type(struct device *dev,
 static ssize_t tsu6712_show_manualsw(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
+	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct i2c_client *client = usbsw->client;
-	unsigned int value;
-
-	tsu6712_read_reg(client,TSU6712_REG_MANSW1,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+	int ret;
+	u8 value = 0;
+	ret = tsu6712_read_reg(client,TSU6712_REG_MANSW1,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	if (value == SW_VAUDIO)
 		return snprintf(buf, 7, "VAUDIO\n");
@@ -626,15 +677,15 @@ static ssize_t tsu6712_set_manualsw(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
+	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct i2c_client *client = usbsw->client;
-	unsigned int value;
-	unsigned int path = 0;
+	u8 value = 0;
+	u8 path = 0;
 	int ret;
 
-	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+	ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	if ((value & ~CON_MANUAL_SW) !=	(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
 		return 0;
@@ -672,66 +723,6 @@ static ssize_t tsu6712_set_manualsw(struct device *dev,
 	return count;
 }
 
-static ssize_t tsu6712_show_usb_state(struct device *dev,
-				   struct device_attribute *attr,
-				   char *buf)
-{
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
-	struct i2c_client *client = usbsw->client;
-	unsigned char device_type1, device_type2;
-
-	tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&device_type1);
-	tsu6712_read_reg(client,TSU6712_REG_DEV_T2,&device_type2);
-	
-	if (device_type1 & DEV_T1_USB_MASK || device_type2 & DEV_T2_USB_MASK)
-		return snprintf(buf, 22, "USB_STATE_CONFIGURED\n");
-
-	return snprintf(buf, 25, "USB_STATE_NOTCONFIGURED\n");
-}
-
-static ssize_t tsu6712_show_adc(struct device *dev,
-				   struct device_attribute *attr,
-				   char *buf)
-{
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
-	struct i2c_client *client = usbsw->client;
-	int adc;
-
-	tsu6712_read_reg(client, TSU6712_REG_ADC,&adc);
-	if (adc < 0) {
-		dev_err(&client->dev,"%s: err at read adc %d\n", __func__, adc);
-		return snprintf(buf, 9, "UNKNOWN\n");
-	}
-
-	return snprintf(buf, 4, "%x\n", adc);
-}
-
-static ssize_t tsu6712_reset(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
-{
-	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
-	struct i2c_client *client = usbsw->client;
-	int ret;
-
-	if (!strncmp(buf, "1", 1)) {
-		dev_info(&client->dev, "fsa9480 reset after delay 1000 msec.\n");
-		mdelay(1000);
-		ret = tsu6712_write_reg(client,TSU6712_REG_MANUAL_OVERRIDES1, 0x01);
-		if (ret < 0)
-			dev_err(&client->dev,"cannot soft reset, err %d\n", ret);
-
-		dev_info(&client->dev, "fsa9480_reset_control done!\n");
-	} 
-	else {
-		dev_info(&client->dev,"fsa9480_reset_control, but not reset_value!\n");
-	}
-
-	tsu6712_reg_init(usbsw);
-
-	return count;
-}
-
 static ssize_t tsu6712_show_UUS_state(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
@@ -742,20 +733,6 @@ static ssize_t tsu6712_show_UUS_state(struct device *dev,
 #define	SWITCH_AT	103
 #define	SWITCH_ISI	104
 
-static ssize_t set_manualsw(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t count)
-{
-	if (0 == strncmp(buf, "switch at", 9))
-		switch_set_state(&switch_dock, SWITCH_AT);
-
-	if (0 == strncmp(buf, "switch isi", 9))
-		switch_set_state(&switch_dock, SWITCH_ISI);
-
-	return count;
-}
-
-
 /* AT-ISI Separation starts */
 extern int stop_isi;
 char at_isi_mode[100] = {0};
@@ -765,7 +742,7 @@ static ssize_t ld_show_mode(struct device *dev,
 				   char *buf)
 {
 	strcpy(buf, at_isi_mode);
-	printk("LD MODE from TSU %s\n", at_isi_mode);
+	tsu_log("LD MODE from TSU %s\n", at_isi_mode);
 	return 3;
 }
 
@@ -779,9 +756,9 @@ ssize_t ld_set_manualsw(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	printk(" ld_set_manualsw invoked\n");
+	pr_info(" ld_set_manualsw invoked\n");
 	if (0 == strncmp(buf, "switch at", 9)) {
-		printk(" ld_set_manualsw switch at\n");
+		pr_info(" ld_set_manualsw switch at\n");
 		memset((char *)at_isi_mode, 0, 100);
 		strcpy((char *)at_isi_mode, "at");
 		switch_set_state(&switch_usb_uart, SWITCH_AT);
@@ -789,7 +766,7 @@ ssize_t ld_set_manualsw(struct device *dev,
 		stop_isi = 1;
 	}
 	if (0 == strncmp(buf, "switch isi", 10)) {
-		printk(" ld_set_manualsw switch isi\n");
+		pr_info(" ld_set_manualsw switch isi\n");
 		memset((char *)at_isi_mode, 0, 100);
 		strcpy((char *)at_isi_mode, "isi");
 		switch_set_state(&switch_usb_uart, SWITCH_ISI);
@@ -802,7 +779,7 @@ static ssize_t ld_show_switch_buf(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	strcpy(buf, at_isi_switch_buf);
-	printk("BUF from TSU %s\n", at_isi_switch_buf);
+	tsu_log("BUF from TSU %s\n", at_isi_switch_buf);
 	return strlen(at_isi_switch_buf);
 }
 
@@ -811,11 +788,14 @@ ssize_t ld_set_switch_buf(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	int ret = 0;
-	int error = 0;
-	char *ptr = NULL;
-	int i = 0;
+	int i;
 	char temp[100];
+	char *ptr = NULL;
+	char *ptr2 = NULL;
+	char atbuf[] = "AT+ATSTART\r";
+	char atmodechanbuf[] = "AT+MODECHAN=0,2\r";
+	char isi_cmd_buf[] = "switch isi";
+	int error = 0;
 
 	/* If UART is not connected ignore this sysfs access*/
 	if (200 != usb_uart_switch_state)
@@ -827,54 +807,92 @@ ssize_t ld_set_switch_buf(struct device *dev,
 
 	strncat((char *)at_isi_switch_buf, temp, count);
 
-	if (at_isi_switch_buf) {
-		if (strstr(at_isi_switch_buf, "\r\n"))
-			printk("###WIPRO### r n\n");
-		else if (strstr(at_isi_switch_buf, "\t\n"))
-			printk("###WIPRO### t n\n");
-		else if (strstr(at_isi_switch_buf, "\n"))
-			printk("###WIPRO### n\n");
+	if ((strncmp((char *)at_isi_switch_buf, "\n", 1) == 0) || \
+	    (strncmp((char *)at_isi_switch_buf, "\r", 1) == 0) || \
+	    (strncmp((char *)at_isi_switch_buf, "\r\n", 2) == 0)) {
+		memset(at_isi_switch_buf, 0, 400);
+		KERNEL_LOG = 0;
+		return TSU6712_UART_EMPTY_CRLF;
 	}
 
-	ptr = strstr("AT+ATSTART" , at_isi_switch_buf);
-	if (NULL == ptr) {
-		ptr = strstr("AT+ISISTART", at_isi_switch_buf);
-		if (NULL == ptr)
+		if (strstr(at_isi_switch_buf, "\r\n"))
+			pr_info("###TEST0### r n\n");
+		else if (strstr(at_isi_switch_buf, "\t\n"))
+			pr_info("###TEST1### t n\n");
+		else if (strstr(at_isi_switch_buf, "\n"))
+			pr_info("###TEST2### n\n");
+
+	ptr = strstr(atbuf, at_isi_switch_buf);
+	ptr2 = strstr(atmodechanbuf, at_isi_switch_buf);
+	if ( ((NULL == ptr) || (ptr != atbuf)) &&
+	     ((NULL == ptr2) || (ptr2 != atmodechanbuf)) ) {
+		if (strstr("AT+ISISTART", at_isi_switch_buf) == NULL &&
+		    strstr("AT+MODECHAN=0,0", at_isi_switch_buf) == NULL)
 			error = 1;
 	}
 
-	ptr = strstr(at_isi_switch_buf, "AT+ATSTART");
-	if (NULL != ptr) {
-		printk("ld_set_switch_buf : switch at");
+	if (strstr(at_isi_switch_buf, atbuf) != NULL) {
 		KERNEL_LOG = 0;
-		ld_set_manualsw(NULL, NULL, "switch at", 9);
-		memset(at_isi_switch_buf, 0, 1000);
-		error = 0;
-	} else {
-		ptr = strstr(at_isi_switch_buf, "AT+ISISTART");
-		if (NULL != ptr) {
-			printk("ld_set_switch_buf : switch isi");
-			KERNEL_LOG = 0;
-			ld_set_manualsw(NULL, NULL, "switch isi", 10);
-			memset(at_isi_switch_buf, 0, 1000);
-			error = 0;
-		}
+		memset(at_isi_switch_buf, 0, 400);
+		return TSU6712_UART_AT_MODE;
+	} else if (strstr(at_isi_switch_buf, atmodechanbuf) != NULL) {
+		KERNEL_LOG = 0;
+		memset(at_isi_switch_buf, 0, 400);
+		return TSU6712_UART_AT_MODE_MODECHAN;
+	} else if (strstr(at_isi_switch_buf, "AT+ISISTART") != NULL ||
+		   strstr(at_isi_switch_buf, "AT+MODECHAN=0,0") != NULL) {
+		KERNEL_LOG = 0;
+		memset(at_isi_switch_buf, 0, 400);
+		ld_set_manualsw(NULL, NULL, isi_cmd_buf, strlen(isi_cmd_buf));
+		return count;
 	}
 
 	if (error != 0) {
-		count = -1;
-		memset(at_isi_switch_buf, 0, 1000);
+		count = TSU6712_UART_INVALID_MODE;
+		memset(at_isi_switch_buf, 0, 400);
 	}
+
 	return count;
 }
 
+/* JIRA ID 1362/1396
+Sysfs interface to release and acquire
+uart-wakelock from user space */
+ssize_t ld_uart_wakelock(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	int ret = 0;
+	struct tsu6712_usbsw *usbsw = local_usbsw;
+	int buf_val = 0;
+
+	if (usbsw != NULL) {
+		ret = sscanf(buf, "%d", &buf_val);
+		if (1 != ret) {
+			pr_err("ld_uart_wakelock - Failed to read value\n");
+			return -EINVAL;
+		}
+		if (buf_val == 1) {
+			/* Release wakelock
+			to allow device to get into deep sleep
+			when UART JIG is disconnected */
+			wake_unlock(&usbsw->uart_wakelock);
+			ret = count ;
+		} else if (buf_val == 0) {
+			/* Acquire wakelock
+			to avoid device getting into deep sleep
+			when UART JIG is connected*/
+			wake_lock(&usbsw->uart_wakelock);
+			ret = count ;
+		}
+	}
+	return ret ;
+}
 static DEVICE_ATTR(control, S_IRUGO, tsu6712_show_control, NULL);
 static DEVICE_ATTR(device_type, S_IRUGO, tsu6712_show_device_type, NULL);
 static DEVICE_ATTR(switch, S_IRUGO | S_IWUSR,
 		tsu6712_show_manualsw, tsu6712_set_manualsw);
-static DEVICE_ATTR(usb_state, S_IRUGO, tsu6712_show_usb_state, NULL);
-static DEVICE_ATTR(adc, S_IRUGO, tsu6712_show_adc, NULL);
-static DEVICE_ATTR(reset_switch, S_IWUSR | S_IWGRP, NULL, tsu6712_reset);
+
 /* AT-ISI Separation starts */
 static DEVICE_ATTR(at_isi_switch, S_IRUGO | S_IWUSR,
 		ld_show_manualsw, ld_set_manualsw);
@@ -886,21 +904,43 @@ static DEVICE_ATTR(at_isi_switch_buf, S_IRUGO | S_IWUSR,
 /* AT-ISI Separation Ends */
 
 static DEVICE_ATTR(UUS_state, S_IRUGO, tsu6712_show_UUS_state, NULL);
+/* JIRA ID 1362/1396
+Sysfs interface to release and acquire uart-wakelock from user space */
+static DEVICE_ATTR(uart_wakelock, S_IRUGO | S_IWUSR,
+		NULL, ld_uart_wakelock);
 
 static struct attribute *tsu6712_attributes[] = {
 	&dev_attr_control.attr,
 	&dev_attr_device_type.attr,
 	&dev_attr_switch.attr,
-	&dev_attr_at_isi_switch.attr,	/* AT-ISI Separation */
-	&dev_attr_at_isi_mode,		/* AT-ISI Separation */
-	&dev_attr_at_isi_switch_buf,	/* AT-ISI Separation */
+	&dev_attr_at_isi_switch.attr,		/* AT-ISI Separation */
+	&dev_attr_at_isi_mode.attr,		/* AT-ISI Separation */
+	&dev_attr_at_isi_switch_buf.attr,	/* AT-ISI Separation */
 	&dev_attr_UUS_state.attr,
+	/* JIRA ID 1362/1396
+	uart-wakelock release */
+	&dev_attr_uart_wakelock.attr,
 	NULL
 };
+
+static struct kobject *usb_kobj;
+#define USB_FS "usb_atparser"
 
 static const struct attribute_group tsu6712_group = {
 	.attrs = tsu6712_attributes,
 };
+
+static int usb_sysfs_init(void)
+{
+	int ret = 1;
+	usb_kobj = kobject_create_and_add(USB_FS, kernel_kobj);
+	if (!usb_kobj)
+		return ret;
+	ret = sysfs_create_group(usb_kobj, &tsu6712_group);
+	if (ret)
+		kobject_put(usb_kobj);
+	return ret;
+}
 
 void tsu6712_otg_detach(void)
 {
@@ -949,13 +989,13 @@ EXPORT_SYMBOL(tsu6712_otg_vbus_en);
 void tsu6712_manual_switching(int path)
 {
 	struct i2c_client *client = local_usbsw->client;
-	unsigned int value;
-	unsigned int data = 0;
+	u8 value = 0;
+	u8 data = 0;
 	int ret;
 
-	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+	ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	if ((value & ~CON_MANUAL_SW) !=	(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
 		return;
@@ -1021,26 +1061,26 @@ void tsu6712_vbus_check(bool vbus_status)
 {
 	struct tsu6712_usbsw *usbsw = local_usbsw;
 	struct tsu6712_platform_data *pdata = local_usbsw->pdata;
-		
+
 	usbsw->vbus = (int)vbus_status;
 
 	if(vbus_status)
 	{
 		if (pdata->charger_cb)
-			pdata->charger_cb(TSU6712_ATTACHED);			
+			pdata->charger_cb(TSU6712_ATTACHED);
 	}
 	else
 	{
 		if (pdata->charger_cb)
-			pdata->charger_cb(TSU6712_DETACHED);			
-	}	
+			pdata->charger_cb(TSU6712_DETACHED);
+	}
 }
 EXPORT_SYMBOL(tsu6712_vbus_check);
 
 static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 {
 	int device_type, ret;
-	unsigned char val1, val2, adc;
+	unsigned char val1, val2, adc, val3 = 0;
 	struct tsu6712_platform_data *pdata = usbsw->pdata;
 	struct i2c_client *client = usbsw->client;
 #if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
@@ -1048,10 +1088,9 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 #endif
 	tsu6712_read_word_reg(client, TSU6712_REG_DEV_T1,&device_type);
 	tsu6712_read_reg(client, TSU6712_REG_ADC,&adc);
-
 	if (device_type < 0) {
 		dev_err(&client->dev, "%s: err %d\n", __func__, device_type);
-		return;
+		return device_type;
 	}
 	val1 = device_type & 0xff;
 	val2 = device_type >> 8;
@@ -1079,7 +1118,7 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 				if (ret < 0)
 					dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 			}
-		}/* USB_CDP */ 
+		}/* USB_CDP */
 		else if (val1 & DEV_USB_CHG) {
 			dev_info(&client->dev, "usb_cdp connect\n");
 
@@ -1090,10 +1129,14 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 				if (ret < 0)
 					dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 			}
-		}/* UART */ 
+		}/* UART */
 		else if (val1 & DEV_T1_UART_MASK || val2 & DEV_T2_UART_MASK) {
 			uart_connecting = 1;
 			dev_info(&client->dev, "uart connect\n");
+			/* JIRA ID 1362/1396
+			Acquire wakelock to avoid device getting
+			into deep sleep when UART JIG is connected */
+			wake_lock(&usbsw->uart_wakelock);
 			tsu6712_write_reg(client,TSU6712_REG_CTRL, 0x1E);
 			if (pdata->uart_cb)
 				pdata->uart_cb(TSU6712_ATTACHED);
@@ -1110,20 +1153,18 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 
 			if (pdata->charger_cb)
 				pdata->charger_cb(TSU6712_ATTACHED);
-
+#ifdef CONFIG_USB_OTG
 		/* for SAMSUNG OTG */
 		} else if (val1 & DEV_USB_OTG) {
 			dev_info(&client->dev, "otg connect\n");
-//ENABLE_OTG
-			tsu6712_write_reg(client,TSU6712_REG_MANSW1, 0x27);
-			msleep(50);
-			tsu6712_write_reg(client,TSU6712_REG_MANSW1, 0x27);
-			tsu6712_write_reg(client,TSU6712_REG_CTRL, 0x1a);
-#if defined(CONFIG_MACH_CAPRI_SS_S2VE) //Enable OTG only if the model is S2VE
+/* ENABLE_OTG */
+/* OTG->device attached */
+			if (!wake_lock_active(&usbsw->otg_wakelock))
+				wake_lock(&usbsw->otg_wakelock);
 			otg_status = 1;
 			if (pdata->otg_cb)
 				pdata->otg_cb(TSU6712_ATTACHED);
-#endif	
+#endif
 		/* JIG */
 		} else if (val2 & DEV_T2_JIG_MASK) {
 			dev_info(&client->dev, "jig connect\n");
@@ -1142,8 +1183,8 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 				tsu6712_write_reg(client,TSU6712_REG_RESERVED_20, 0x08);
 				if(usbsw->vbus)
 					if (pdata->charger_cb)
-						pdata->charger_cb(TSU6712_ATTACHED);					
-			} 
+						pdata->charger_cb(TSU6712_ATTACHED);
+			}
 			else {
 				pr_info("TSU MHL Attach\n");
 				tsu6712_write_reg(client,TSU6712_REG_RESERVED_20, 0x08);
@@ -1161,7 +1202,7 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 				pr_info("FSA mhl attach, but not support MHL feature!\n");
 		#endif
 		}
-		}/* Car Dock */ 
+		}/* Car Dock */
 		else if (val2 & DEV_JIG_UART_ON) {
 			if (pdata->dock_cb)
 				pdata->dock_cb(TSU6712_ATTACHED_CAR_DOCK);
@@ -1170,11 +1211,14 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&val3);
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
-			tsu6712_write_reg(client,TSU6712_REG_CTRL, ret & ~CON_MANUAL_SW);
+			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL, val3 & ~CON_MANUAL_SW);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+			
 			usbsw->dock_attached = TSU6712_ATTACHED;
 		/* SmartDock */
 		} else if (val2 & DEV_SMARTDOCK) {
@@ -1187,11 +1231,13 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&val3);
 			if (ret < 0)
 				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
-			tsu6712_write_reg(client,TSU6712_REG_CTRL, ret & ~CON_MANUAL_SW);
-	
+			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL, val3 & ~CON_MANUAL_SW);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+
 			if (pdata->smartdock_cb)
 				pdata->smartdock_cb(TSU6712_ATTACHED);
 #if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
@@ -1217,20 +1263,28 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 				pdata->uart_cb(TSU6712_DETACHED);
 			uart_connecting = 0;
 			dev_info(&client->dev, "[TSU6712] uart disconnect\n");
+			/* JIRA ID 1362/1396
+			Release wakelock to allow device to get into deep sleep
+			when UART JIG is disconnected */
+			wake_unlock(&usbsw->uart_wakelock);
 
 		/* CHARGER */
 		} else if (usbsw->dev1 & DEV_T1_CHARGER_MASK) {
 			if (pdata->charger_cb)
 				pdata->charger_cb(TSU6712_DETACHED);
 		/* for SAMSUNG OTG */
+#ifdef CONFIG_USB_OTG
 		} else if (usbsw->dev1 & DEV_USB_OTG) {
-#if defined(CONFIG_MACH_CAPRI_SS_S2VE) //Enable OTG only if the model is S2VE
-//ENABLE_OTG
+			/*OTG->device detached*/
+			if (wake_lock_active(&usbsw->otg_wakelock))
+				wake_unlock(&usbsw->otg_wakelock);
 			otg_status = 0;
 			if (pdata->otg_cb)
-				pdata->otg_cb(TSU6712_DETACHED);	
-#endif						
-			tsu6712_write_reg(client,TSU6712_REG_CTRL, 0x1E);
+				pdata->otg_cb(TSU6712_DETACHED);
+			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL, 0x1E);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+#endif
 		/* JIG */
 		} else if (usbsw->dev2 & DEV_T2_JIG_MASK) {
 			if (pdata->jig_cb)
@@ -1238,14 +1292,13 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 		/* Desk Dock */
 		} else if (usbsw->dev2 & DEV_AV) {
 			pr_info("FSA MHL Detach\n");
-			tsu6712_write_reg(client,TSU6712_REG_RESERVED_20, 0x04);
+			ret = tsu6712_write_reg(client,TSU6712_REG_RESERVED_20, 0x04);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+
 #if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
 			if (isDeskdockconnected)
 				TSU6712_CheckAndHookAudioDock(0);
-#if 0//defined CONFIG_MHL_D3_SUPPORT
-			mhl_onoff_ex(false);
-			detached_status = 1;
-#endif
 			isDeskdockconnected = 0;
 #else
 			if (usbsw->deskdock) {
@@ -1259,15 +1312,25 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 		}else if (usbsw->dev2 & DEV_JIG_UART_ON) {
 			if (pdata->dock_cb)
 				pdata->dock_cb(TSU6712_DETACHED_DOCK);
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
-			tsu6712_write_reg(client,TSU6712_REG_CTRL,ret | CON_MANUAL_SW);
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&val3);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+
+			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL,val3 | CON_MANUAL_SW);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+
 			usbsw->dock_attached = TSU6712_DETACHED;
-			
+
 		} else if (usbsw->adc == 0x10) {
 			dev_info(&client->dev, "smart dock disconnect\n");
 
-			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
-			tsu6712_write_reg(client,TSU6712_REG_CTRL,ret | CON_MANUAL_SW);
+			ret = tsu6712_read_reg(client,TSU6712_REG_CTRL,&val3);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+			ret = tsu6712_write_reg(client,TSU6712_REG_CTRL,val3 | CON_MANUAL_SW);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
 
 			if (pdata->smartdock_cb)
 				pdata->smartdock_cb(TSU6712_DETACHED);
@@ -1277,7 +1340,7 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 #endif
 		}
 	}
-	
+
 	usbsw->dev1 = val1;
 	usbsw->dev2 = val2;
 
@@ -1287,21 +1350,31 @@ static int tsu6712_detect_dev(struct tsu6712_usbsw *usbsw)
 static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 {
 	struct i2c_client *client = usbsw->client;
-	unsigned int ctrl = CON_MASK;
+	u8 ctrl = CON_MASK;
+	u8 value = 0;
 	int ret;
 	pr_info("tsu6712_reg_init is called\n");
 
-	tsu6712_write_reg(client,TSU6712_REG_INT1_MASK,0x5c);
-	tsu6712_write_reg(client,TSU6712_REG_INT2_MASK,0x18);
-	
+	ret = tsu6712_write_reg(client, TSU6712_REG_INT1_MASK, 0x5c);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
+	ret  = tsu6712_write_reg(client, TSU6712_REG_INT2_MASK, 0x98);
+	if (ret < 0)
+               dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
 	/* ADC Detect Time: 500ms */
 	ret = tsu6712_write_reg(client, TSU6712_REG_TIMING1, 0x0);
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
-	tsu6712_read_reg(client,TSU6712_REG_MANSW1,&ret);
-	usbsw->mansw = ret;
-	
+	ret = tsu6712_read_reg(client,TSU6712_REG_MANSW1,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+
+	usbsw->mansw = value;
+ 
+
 	if (usbsw->mansw < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, usbsw->mansw);
 
@@ -1314,25 +1387,12 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
-	tsu6712_read_reg(client,TSU6712_REG_DEVID,&ret);
-	
+	ret = tsu6712_read_reg(client,TSU6712_REG_DEVID,&value);
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
-	dev_info(&client->dev, " tsu6712_reg_init dev ID: 0x%x\n", ret);
-}
-
-static int tsu6712_check_dev(struct tsu6712_usbsw *usbsw)
-{
-	struct i2c_client *client = usbsw->client;
-	int device_type;
-	tsu6712_read_word_reg(client, TSU6712_REG_DEV_T1,&device_type);
-	if (device_type < 0) {
-		dev_err(&client->dev, "%s: err %d\n", __func__, device_type);
-		return 0;
-	}
-	return device_type;
-}
+	dev_info(&client->dev, " tsu6712_reg_init dev ID: 0x%x\n", value);
+} 
 
 static int tsu6712_handle_dock_vol_key(struct tsu6712_usbsw *info, int adc)
 {
@@ -1434,7 +1494,7 @@ static int tsu6712_handle_dock_vol_key(struct tsu6712_usbsw *info, int adc)
 			return 0;
 		}
 		break;
-	default:		
+	default:
 		return 0;
 	}
 
@@ -1448,25 +1508,29 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 {
 	struct tsu6712_usbsw *usbsw = data;
 	struct i2c_client *client = usbsw->client;
-	int intr,  intr2, detect,temp;
+	int intr,  intr2, detect,temp, device_type;
 
 	/* TSU6712 : Read interrupt -> Read Device
 	 TSU6712 : Read Device -> Read interrupt */
 
-	pr_info("tsu6712_irq_thread is called\n");
+	tsu_log("tsu6712_irq_thread is called\n");
 	mutex_lock(&usbsw->mutex);
 	detect = tsu6712_detect_dev(usbsw);
 	mutex_unlock(&usbsw->mutex);
 
 	/* read and clear interrupt status bits */
 	tsu6712_read_word_reg(client, TSU6712_REG_INT1,&intr);
+	tsu6712_read_word_reg(client, TSU6712_REG_DEV_T1, &device_type);
 	intr2 = intr >> 8;
 
-	dev_info(&client->dev,"%s intr: 0x%x\n",__func__, intr);
-	if (intr) {
-		handle_nested_irq(IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUSS_WKUP);
-		handle_nested_irq(IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUS);
-	}
+	dev_info(&client->dev, "%s intr: 0x%x intr2: 0x%x\n",
+		__func__, intr, intr2);
+
+		if ((intr & 0x01) && (device_type & 0x04))
+			handle_nested_irq(usbsw->irq_base + TSU6712_INT_VBUS);
+		else if (intr & 0x02)
+			handle_nested_irq(usbsw->irq_base + TSU6712_INT_VBUS);
+
 	if (intr < 0) {
 		msleep(100);
 		dev_err(&client->dev, "%s: err %d\n", __func__, intr);
@@ -1489,7 +1553,7 @@ static irqreturn_t tsu6712_irq_thread(int irq, void *data)
 	else if(intr & 0x80 && usbsw->is_ovp == 1)
 	{
 		usbsw->is_ovp = false;
-		usbsw->pdata->ovp_cb(false);			
+		usbsw->pdata->ovp_cb(false);
 	}
 	/* ADC_value(key pressed) changed at AV_Dock.*/
 	if (intr2) {
@@ -1553,7 +1617,7 @@ static void tsu6712_init_detect(struct work_struct *work)
 	mutex_unlock(&usbsw->mutex);
 	msleep(100);
 }
-   
+
 static int __devinit tsu6712_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -1561,7 +1625,6 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 	struct tsu6712_usbsw *usbsw;
 	int ret = 0;
 	struct input_dev *input;
-	struct device *switch_dock;
 
 	pr_info("tsu6712_probe\n");
 
@@ -1604,8 +1667,7 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
       else
     	usbsw->pdata = &tsu6712_pdata;
 
-        usbsw->pdata = &tsu6712_pdata;
-   
+
 	if (!usbsw->pdata)
 		goto fail1;
 
@@ -1619,42 +1681,25 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 	tsu6712_reg_init(usbsw);
 
 
-	ret = sysfs_create_group(&client->dev.kobj, &tsu6712_group);
+#ifdef CONFIG_USB_OTG
+	wake_lock_init(&usbsw->otg_wakelock,
+			WAKE_LOCK_SUSPEND, "otg-wakelock");
+#endif
+	/* JIRA ID 1362/1396
+	Init wakelock to prevent device getting into deep sleep
+	when UART JIG is connected and allow device to get into
+	deep sleep When UART JIG is disconnected */
+	wake_lock_init(&usbsw->uart_wakelock,
+			WAKE_LOCK_SUSPEND, "uart-wakelock");
+	ret = usb_sysfs_init();
+
 	if (ret) {
 		dev_err(&client->dev,"failed to create tsu6712 attribute group\n");
  	}
 
-#if 0
-	/* make sysfs node /sys/class/sec/switch/usb_state */
-	switch_dock = device_create(sec_class, NULL, 0, NULL, "tsu6712");
-	if (IS_ERR(switch_dock)) {
-		pr_err("[TSU6712] Failed to create device (switch_dock)!\n");
-		ret = PTR_ERR(switch_dock);
-		goto fail2;
-	}
-
-	ret = device_create_file(switch_dock, &dev_attr_usb_state);
-	if (ret < 0) {
-		pr_err("[TSU6712] Failed to create file (usb_state)!\n");
-		goto err_create_file_state;
-	}
-
-	ret = device_create_file(switch_dock, &dev_attr_adc);
-	if (ret < 0) {
-		pr_err("[TSU6712] Failed to create file (adc)!\n");
-		goto err_create_file_adc;
-	}
-
-	ret = device_create_file(switch_dock, &dev_attr_reset_switch);
-	if (ret < 0) {
-		pr_err("[TSU6712] Failed to create file (reset_switch)!\n");
-		goto err_create_file_reset_switch;
-	}
-#endif
-
     if(usbsw->pdata->ex_init)
 		usbsw->pdata->ex_init();
-    
+
     usbsw->is_ovp = 0;
     usbsw->mansw = 0;
     set_cable_status = CABLE_TYPE_NONE;
@@ -1667,18 +1712,8 @@ static int __devinit tsu6712_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&usbsw->init_work, tsu6712_init_detect);
 	schedule_delayed_work(&usbsw->init_work, msecs_to_jiffies(2700));
 
-	tsu6712_init_usb_irq(usbsw);
-
+		tsu6712_init_usb_irq(usbsw);
 	return 0;
-
-#if 0
-err_create_file_reset_switch:
-	device_remove_file(switch_dock, &dev_attr_reset_switch);
-err_create_file_adc:
-	device_remove_file(switch_dock, &dev_attr_adc);
-err_create_file_state:
-	device_remove_file(switch_dock, &dev_attr_usb_state);
-#endif
 
 fail1:
 	mutex_destroy(&usbsw->mutex);
@@ -1698,9 +1733,17 @@ static int __devexit tsu6712_remove(struct i2c_client *client)
 		free_irq(client->irq, usbsw);
 	}
 	mutex_destroy(&usbsw->mutex);
+	/* JIRA ID 1362/1396
+	Destroy wakelock */
+	wake_lock_destroy(&usbsw->uart_wakelock);
+#ifdef CONFIG_USB_OTG
+	wake_lock_destroy(&usbsw->otg_wakelock);
+#endif
 	i2c_set_clientdata(client, NULL);
 
-	sysfs_remove_group(&client->dev.kobj, &tsu6712_group);
+	sysfs_remove_group(usb_kobj, &tsu6712_group);
+	kobject_put(usb_kobj);
+
 	kfree(usbsw);
 	return 0;
 }
@@ -1713,11 +1756,14 @@ static int tsu6712_suspend(struct i2c_client *client,
 
 static int tsu6712_resume(struct i2c_client *client)
 {
-	int value;
+	u8 value = 0;
 	struct tsu6712_usbsw *usbsw = i2c_get_clientdata(client);
-
+	int ret = 0;
 /* add for tsu6712_irq_thread i2c error during wakeup */
-	tsu6712_read_reg(client,TSU6712_REG_INT1,&value);
+	
+	ret = tsu6712_read_reg(client,TSU6712_REG_INT1,&value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 
 	/* device detection */
 	mutex_lock(&usbsw->mutex);
@@ -1755,27 +1801,33 @@ static void __exit tsu6712_exit(void)
 static void tsu6712_irq_enable(struct irq_data *data)
 {
 }
-
 static void tsu6712_irq_disable(struct irq_data *data)
 {
 }
-
 static void tsu6712_irq_lock(struct irq_data *data)
 {
 }
-
 static void tsu6712_irq_sync_unlock(struct irq_data *data)
 {
 }
 
-
 static void tsu6712_init_usb_irq(struct tsu6712_usbsw *data)
 {
-	int __irq[2] = { IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUSS_WKUP,
-					 IRQPIN_IRQ_BASE + 64 + TPS80032_INT_VBUS };
-	int i;
+	struct i2c_client *client = data->client;
+	int __irq[2] = { IRQPIN_IRQ_BASE + 64 + TSU6712_INT_VBUSS_WKUP,
+					 IRQPIN_IRQ_BASE + 64 + TSU6712_INT_VBUS };
+	int i, ret;
+	int irq_base = IRQPIN_IRQ_BASE + 64;
 
-	data->irq_base = IRQPIN_IRQ_BASE + 64;
+	ret = irq_alloc_descs(irq_base, irq_base, TSU6712_INT_NR, -1);
+	if (ret < 1) {
+		dev_err(&client->dev, "%s: unable to allocate %u irqs: %d\n",
+					__func__, TSU6712_INT_NR, ret);
+		if (ret == 0)
+			ret = -EINVAL;
+	}
+
+	data->irq_base = ret;
 	data->irq_chip.name = "tsu6712_irq_usb";
 	data->irq_chip.irq_enable = tsu6712_irq_enable;
 	data->irq_chip.irq_disable = tsu6712_irq_disable;
@@ -1791,8 +1843,7 @@ static void tsu6712_init_usb_irq(struct tsu6712_usbsw *data)
 #endif
 	}
 }
-
-module_init(tsu6712_init);
+late_initcall(tsu6712_init);
 module_exit(tsu6712_exit);
 
 MODULE_AUTHOR("SAMSUNG");

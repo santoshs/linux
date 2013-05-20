@@ -1,9 +1,9 @@
 #include <asm/system.h>
-#include <mach/board-u2evm.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <mach/gpio.h>
 #include <mach/irqs.h>
 #include <mach/setup-u2gpio_key.h>
+#include <mach/common.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/input.h>
@@ -11,16 +11,6 @@
 #include <linux/input/sh_keysc.h>
 #include <linux/platform_device.h>
 
-
-void gpio_pull(u32 addr, int type)
-{
-	u8 data = __raw_readb(addr);
-
-	data &= ~0xc0;
-	data |= type;
-
-	__raw_writeb(data, addr);
-}
 #ifdef CONFIG_KEYBOARD_SH_KEYSC
 static struct sh_keysc_info keysc_platdata = {
 	.mode		= SH_KEYSC_MODE_6,
@@ -69,47 +59,9 @@ struct platform_device keysc_device = {
 };
 #endif
 
-void gpio_direction_none_port(int gpio)
-{
-
-	__raw_writeb(__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0xcf,
-	GPIO_PORTCR_ES2(gpio));
-}
-EXPORT_SYMBOL_GPL(gpio_direction_none_port);
-
-void gpio_pull_off_port(int gpio)
-{
-	__raw_writeb(__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f,
-	GPIO_PORTCR_ES2(gpio));
-}
-EXPORT_SYMBOL_GPL(gpio_pull_off_port);
-
-void gpio_pull_up_port(int gpio)
-{
-	__raw_writeb((__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f) | 0xc0,
-	GPIO_PORTCR_ES2(gpio));
-}
-EXPORT_SYMBOL_GPL(gpio_pull_up_port);
-
-void gpio_pull_down_port(int gpio)
-{
-	__raw_writeb((__raw_readb(GPIO_PORTCR_ES2(gpio)) & 0x3f) | 0x80,
-	GPIO_PORTCR_ES2(gpio));
-}
-EXPORT_SYMBOL_GPL(gpio_pull_down_port);
-
 #define GPIO_KEY(c, g, d, w) \
 	{.code = c, .gpio = g, .desc = d, .wakeup = w, .active_low = 1,\
 	 .debounce_interval = 20}
-
-static struct gpio_keys_button gpio_buttons_polled[] = {
-#if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
-	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 0),
-#endif
-	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT45, "Home",  0),
-	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT46, "+",     0),
-	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT47, "-",     0),
-};
 
 static struct gpio_keys_button gpio_buttons[] = {
 #if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
@@ -122,36 +74,14 @@ static struct gpio_keys_button gpio_buttons[] = {
 
 static int gpio_key_enable(struct device *dev)
 {
-	if ((system_rev & 0xFFFF) == 0x3E00) {
 #if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
-		gpio_pull(GPIO_PORTCR_ES1(24), GPIO_PULL_UP);
+	gpio_pull_up_port(GPIO_PORT24);
 #endif
-		gpio_pull(GPIO_PORTCR_ES1(1), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(2), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
-	} else if (((system_rev & 0xFFFF)>>4) >= 0x3E1) {
-#if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
-		gpio_pull(GPIO_PORTCR_ES2(24), GPIO_PULL_UP);
-#endif
-		gpio_pull(GPIO_PORTCR_ES2(18), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES2(1), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES2(2), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(45), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(46), GPIO_PULL_UP);
-		gpio_pull(GPIO_PORTCR_ES1(47), GPIO_PULL_UP);
-	}
+	gpio_pull_up_port(GPIO_PORT18);
+	gpio_pull_up_port(GPIO_PORT1);
+	gpio_pull_up_port(GPIO_PORT2);
 	return 0;
 }
-
-static struct gpio_keys_platform_data gpio_key_polled_info = {
-	.buttons	= gpio_buttons_polled,
-	.nbuttons	= ARRAY_SIZE(gpio_buttons),
-	.rep		= 0,
-	.enable		= gpio_key_enable,
-	.poll_interval	= 50,
-};
 
 static struct gpio_keys_platform_data gpio_key_info = {
 	.buttons	= gpio_buttons,
@@ -168,16 +98,8 @@ struct platform_device gpio_key_device = {
 	},
 };
 
-static struct platform_device gpio_key_polled_device = {
-	.name	= "gpio-keys-polled",
-	.id	= -1,
-	.dev	= {
-		.platform_data	= &gpio_key_polled_info,
-	},
-};
 int gpio_key_init(int stm_select,
 		unsigned int u2_board_rev,
-		int sec_rlte_hw_rev,
 		struct platform_device **u2evm_devices_stm_sdhi0,
 		int u2evm_devices_stm_sdhi0_size,
 		struct platform_device **u2evm_devices_stm_sdhi1,
@@ -202,16 +124,7 @@ int gpio_key_init(int stm_select,
 			break;
 	}
 
-	if (u2_board_rev < 3) {
-		int i;
-		for (i = 0; i < p_dev_cnt; i++) {
-			if (strncmp(p_dev[i]->name, "gpio-keys", 9) == 0) {
-				printk(KERN_INFO "%s u2_board_rev < 3 \
-					gpio_key_polled_device  \n", __func__);
-				p_dev[i] = &gpio_key_polled_device;
-			break;
-			}
-		}
-	}
 	platform_add_devices(p_dev, p_dev_cnt);
+
+	return 0;
 }

@@ -11,7 +11,7 @@
 
 #include <linux/kernel.h>
 #include <linux/device.h>
-
+#include <linux/export.h>
 #include <linux/usb/otg.h>
 
 static struct otg_transceiver *xceiv;

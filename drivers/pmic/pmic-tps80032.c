@@ -35,7 +35,7 @@
 #include <linux/gpio.h>
 #include <linux/timer.h>
 #include <linux/atomic.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/io.h>
 #include <mach/common.h>
 #include <linux/jiffies.h>
@@ -96,6 +96,49 @@ static void tps80032_interrupt_work(void);
 static void tps80032_ext_work(void);
 static struct class *power_ctrl_class;
 static struct device_type power_ctrl_dev_type;
+
+#ifdef PMIC_NON_VOLATILE_ENABLE
+static struct tps80032_irq_data tps80032_irqs[30];
+#else
+static struct tps80032_irq_data tps80032_irqs[] = {
+	[TPS80032_INT_PWRON]            = TPS80032_IRQ(A, 0),
+	[TPS80032_INT_RPWRON]           = TPS80032_IRQ(A, 1),
+	[TPS80032_INT_SYS_VLOW]         = TPS80032_IRQ(A, 2),
+	[TPS80032_INT_RTC_ALARM]        = TPS80032_IRQ(A, 3),
+	[TPS80032_INT_RTC_PERIOD]       = TPS80032_IRQ(A, 4),
+	[TPS80032_INT_HOT_DIE]          = TPS80032_IRQ(A, 5),
+	[TPS80032_INT_VXX_SHORT]        = TPS80032_IRQ(A, 6),
+	[TPS80032_INT_SPDURATION]       = TPS80032_IRQ(A, 7),
+	[TPS80032_INT_WATCHDOG]         = TPS80032_IRQ(B, 0),
+	[TPS80032_INT_BAT]              = TPS80032_IRQ(B, 1),
+	[TPS80032_INT_SIM]              = TPS80032_IRQ(B, 2),
+	[TPS80032_INT_MMC]              = TPS80032_IRQ(B, 3),
+	[TPS80032_INT_RES]              = TPS80032_IRQ(B, 4),
+	[TPS80032_INT_GPADC_RT]         = TPS80032_IRQ(B, 5),
+	[TPS80032_INT_GPADC_SW2_EOC]    = TPS80032_IRQ(B, 6),
+	[TPS80032_INT_CC_AUTOCAL]       = TPS80032_IRQ(B, 7),
+	[TPS80032_INT_ID_WKUP]          = TPS80032_IRQ(C, 0),
+	[TPS80032_INT_VBUSS_WKUP]       = TPS80032_IRQ(C, 1),
+	[TPS80032_INT_ID]               = TPS80032_IRQ(C, 2),
+	[TPS80032_INT_VBUS]             = TPS80032_IRQ(C, 3),
+	[TPS80032_INT_CHRG_CTRL]        = TPS80032_IRQ(C, 4),
+	[TPS80032_INT_EXT_CHRG]         = TPS80032_IRQ(C, 5),
+	[TPS80032_INT_INT_CHRG]         = TPS80032_IRQ(C, 6),
+	[TPS80032_INT_RES2]             = TPS80032_IRQ(C, 7),
+	[TPS80032_INT_BAT_TEMP_OVRANGE] = TPS80032_IRQ_SEC(C, 4,
+				CHRG_CTRL, MBAT_TEMP, BAT_TEMP),
+	[TPS80032_INT_BAT_REMOVED]      = TPS80032_IRQ_SEC(C, 4,
+			CHRG_CTRL, MBAT_REMOVED, BAT_REMOVED),
+	[TPS80032_INT_VBUS_DET]         = TPS80032_IRQ_SEC(C, 4,
+				CHRG_CTRL, MVBUS_DET, VBUS_DET),
+	[TPS80032_INT_VAC_DET]          = TPS80032_IRQ_SEC(C, 4,
+				CHRG_CTRL, MVAC_DET, VAC_DET),
+	[TPS80032_INT_FAULT_WDG]        = TPS80032_IRQ_SEC(C, 4,
+				CHRG_CTRL, MFAULT_WDG, FAULT_WDG),
+	[TPS80032_INT_LINCH_GATED]      = TPS80032_IRQ_SEC(C, 4,
+			CHRG_CTRL, MLINCH_GATED, LINCH_GATED),
+};
+#endif
 
 struct tps80032_data {
 	struct device *dev;
@@ -729,6 +772,9 @@ static int tps80032_power_is_writeable(struct power_ctrl *pctl,
 static int tps80032_get_hwsem_timeout(struct hwspinlock *hwlock,
 		unsigned int time_out)
 {
+#if 1 /* temp W/A */
+	return 1;
+#else
 	int ret;
 	unsigned long expire;
 
@@ -753,6 +799,7 @@ static int tps80032_get_hwsem_timeout(struct hwspinlock *hwlock,
 	}
 
 	return ret;
+#endif
 }
 
 /*
@@ -909,7 +956,10 @@ static void tps80032_force_release_swsem(u8 swsem_id)
 
 	for (;;) {
 		/* Try to force to unlock SW sem*/
+#if 0 /* tmp W/A */
 		hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
+
 		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic);
 		if (lock_id == 0) {
 			PMIC_ERROR_MSG(
@@ -3401,7 +3451,9 @@ static int tps80032_gpadc_correct_temp(struct tps80032_data *data, int temp)
 	}
 
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	sign_trim1 = ret_trim1 & MSK_BIT_0;
 	sign_trim2 = ret_trim2 & MSK_BIT_0;
@@ -3439,7 +3491,9 @@ static int tps80032_gpadc_correct_temp(struct tps80032_data *data, int temp)
 
 exit:
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return result;
@@ -3556,7 +3610,9 @@ static int tps80032_gpadc_correct_voltage(struct tps80032_data *data, int volt)
 
 exit:
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return result;
@@ -3674,7 +3730,9 @@ disable:
 
 exit:
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return result;
@@ -3792,7 +3850,9 @@ disable:
 
 exit:
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 	return result;
@@ -3915,7 +3975,9 @@ disable:
 
 exit:
 	/*HPB unlock*/
+#if 0 /* temp W/A */
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic);
+#endif
 
 	PMIC_DEBUG_MSG("%s end <<<\n", __func__);
 
@@ -5740,9 +5802,9 @@ static int tps80032_init_power_hw(struct tps80032_data *data)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* Check board revision and setting for LDO5 voltage */
-	if (4 <= data->board_rev)
+	if (RLTE_BOARD_REV_0_4 <= u2_get_board_rev())
 		val = E_LDO_VOLTAGE_3_3000V;
-	else if (3 <= data->board_rev)
+	else if (RLTE_BOARD_REV_0_3 <= u2_get_board_rev())
 		val = E_LDO_VOLTAGE_3_0000V;
 	else
 		val = E_LDO_VOLTAGE_2_5000V;
@@ -6173,7 +6235,16 @@ static int tps80032_init_irq(struct tps80032_data *data, int irq, int irq_base)
 	if (0 > ret)
 		return ret;
 
-	data->irq_base = irq_base;
+	ret = irq_alloc_descs(irq_base, irq_base, TPS80032_INT_NR, -1);
+	if (ret < 1) {
+		PMIC_ERROR_MSG("%s: unable to allocate %u irqs: %d\n",
+					__func__, TPS80032_INT_NR, ret);
+		if (ret == 0)
+			ret = -EINVAL;
+		return ret;
+	}
+
+	data->irq_base = ret;
 
 	data->irq_chip.name = "tps80032-battery";
 	data->irq_chip.irq_enable = tps80032_irq_enable;
@@ -6391,8 +6462,6 @@ static int tps80032_power_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
-	/* Get board revision */
-	data->board_rev = u2_get_board_rev();
 	/* init initial value */
 	mutex_init(&data->smps1_lock);
 	mutex_init(&data->smps2_lock);

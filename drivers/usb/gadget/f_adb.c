@@ -42,8 +42,8 @@ struct adb_dev {
 	struct usb_ep *ep_in;
 	struct usb_ep *ep_out;
 
-	int online;
-	int error;
+	atomic_t online;
+	atomic_t error;
 
 	atomic_t read_excl;
 	atomic_t write_excl;
@@ -55,6 +55,8 @@ struct adb_dev {
 	wait_queue_head_t write_wq;
 	struct usb_request *rx_req;
 	int rx_done;
+	bool notify_close;
+	bool close_notified;
 };
 
 static struct usb_interface_descriptor adb_interface_desc = {
@@ -195,7 +197,7 @@ static void adb_complete_in(struct usb_ep *ep, struct usb_request *req)
 	struct adb_dev *dev = _adb_dev;
 
 	if (req->status != 0)
-		dev->error = 1;
+		atomic_set(&dev->error, 1);
 
 	adb_req_put(dev, &dev->tx_idle, req);
 
@@ -207,8 +209,8 @@ static void adb_complete_out(struct usb_ep *ep, struct usb_request *req)
 	struct adb_dev *dev = _adb_dev;
 
 	dev->rx_done = 1;
-	if (req->status != 0)
-		dev->error = 1;
+	if (req->status != 0 && req->status != -ECONNRESET)
+		atomic_set(&dev->error, 1);
 
 	wake_up(&dev->read_wq);
 }
@@ -283,16 +285,17 @@ static ssize_t adb_read(struct file *fp, char __user *buf,
 		return -EBUSY;
 
 	/* we will block until we're online */
-	while (!(dev->online || dev->error)) {
+	while (!(atomic_read(&dev->online) || atomic_read(&dev->error))) {
 		pr_debug("adb_read: waiting for online state\n");
 		ret = wait_event_interruptible(dev->read_wq,
-				(dev->online || dev->error));
+			(atomic_read(&dev->online) ||
+			atomic_read(&dev->error)));
 		if (ret < 0) {
 			adb_unlock(&dev->read_excl);
 			return ret;
 		}
 	}
-	if (dev->error) {
+	if (atomic_read(&dev->error)) {
 		r = -EIO;
 		goto done;
 	}
@@ -306,7 +309,7 @@ requeue_req:
 	if (ret < 0) {
 		pr_debug("adb_read: failed to queue req %p (%d)\n", req, ret);
 		r = -EIO;
-		dev->error = 1;
+		atomic_set(&dev->error, 1);
 		goto done;
 	} else {
 		pr_debug("rx %p queue\n", req);
@@ -315,12 +318,13 @@ requeue_req:
 	/* wait for a request to complete */
 	ret = wait_event_interruptible(dev->read_wq, dev->rx_done);
 	if (ret < 0) {
-		dev->error = 1;
+		if (ret != -ERESTARTSYS)
+			atomic_set(&dev->error, 1);
 		r = ret;
 		usb_ep_dequeue(dev->ep_out, req);
 		goto done;
 	}
-	if (!dev->error) {
+	if (!atomic_read(&dev->error)) {
 		/* If we got a 0-len packet, throw it back and try again. */
 		if (req->actual == 0)
 			goto requeue_req;
@@ -355,7 +359,7 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 		return -EBUSY;
 
 	while (count > 0) {
-		if (dev->error) {
+		if (atomic_read(&dev->error)) {
 			pr_debug("adb_write dev->error\n");
 			r = -EIO;
 			break;
@@ -364,7 +368,8 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 		/* get an idle tx request to use */
 		req = 0;
 		ret = wait_event_interruptible(dev->write_wq,
-			(req = adb_req_get(dev, &dev->tx_idle)) || dev->error);
+			((req = adb_req_get(dev, &dev->tx_idle)) ||
+			 atomic_read(&dev->error)));
 
 		if (ret < 0) {
 			r = ret;
@@ -385,7 +390,7 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 			ret = usb_ep_queue(dev->ep_in, req, GFP_ATOMIC);
 			if (ret < 0) {
 				pr_debug("adb_write: xfer error %d\n", ret);
-				dev->error = 1;
+				atomic_set(&dev->error, 1);
 				r = -EIO;
 				break;
 			}
@@ -418,10 +423,14 @@ static int adb_open(struct inode *ip, struct file *fp)
 	fp->private_data = _adb_dev;
 
 	/* clear the error latch */
-	_adb_dev->error = 0;
+	atomic_set(&_adb_dev->error, 0);
 
-	adb_ready_callback();
+	if (_adb_dev->close_notified) {
+		_adb_dev->close_notified = false;
+		adb_ready_callback();
+	}
 
+	_adb_dev->notify_close = true;
 	return 0;
 }
 
@@ -429,14 +438,25 @@ static int adb_release(struct inode *ip, struct file *fp)
 {
 	pr_info("adb_release\n");
 
-	adb_closed_callback();
+	/*
+	 * ADB daemon closes the device file after I/O error.  The
+	 * I/O error happen when Rx requests are flushed during
+	 * cable disconnect or bus reset in configured state.  Disabling
+	 * USB configuration and pull-up during these scenarios are
+	 * undesired.  We want to force bus reset only for certain
+	 * commands like "adb root" and "adb usb".
+	 */
+	if (_adb_dev->notify_close) {
+		adb_closed_callback();
+		_adb_dev->close_notified = true;
+	}
 
 	adb_unlock(&_adb_dev->open_excl);
 	return 0;
 }
 
 /* file operations for ADB device /dev/android_adb */
-static struct file_operations adb_fops = {
+static const struct file_operations adb_fops = {
 	.owner = THIS_MODULE,
 	.read = adb_read,
 	.write = adb_write,
@@ -497,8 +517,8 @@ adb_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_request *req;
 
 
-	dev->online = 0;
-	dev->error = 1;
+	atomic_set(&dev->online, 0);
+	atomic_set(&dev->error, 1);
 
 	wake_up(&dev->read_wq);
 
@@ -515,21 +535,25 @@ static int adb_function_set_alt(struct usb_function *f,
 	int ret;
 
 	DBG(cdev, "adb_function_set_alt intf: %d alt: %d\n", intf, alt);
-	ret = usb_ep_enable(dev->ep_in,
-			ep_choose(cdev->gadget,
-				&adb_highspeed_in_desc,
-				&adb_fullspeed_in_desc));
+
+	ret = config_ep_by_speed(cdev->gadget, f, dev->ep_in);
 	if (ret)
 		return ret;
-	ret = usb_ep_enable(dev->ep_out,
-			ep_choose(cdev->gadget,
-				&adb_highspeed_out_desc,
-				&adb_fullspeed_out_desc));
+
+	ret = usb_ep_enable(dev->ep_in);
+	if (ret)
+		return ret;
+
+	ret = config_ep_by_speed(cdev->gadget, f, dev->ep_out);
+	if (ret)
+		return ret;
+
+	ret = usb_ep_enable(dev->ep_out);
 	if (ret) {
 		usb_ep_disable(dev->ep_in);
 		return ret;
 	}
-	dev->online = 1;
+	atomic_set(&dev->online, 1);
 
 	/* readers may be blocked waiting for us to go online */
 	wake_up(&dev->read_wq);
@@ -542,8 +566,14 @@ static void adb_function_disable(struct usb_function *f)
 	struct usb_composite_dev	*cdev = dev->cdev;
 
 	DBG(cdev, "adb_function_disable cdev %p\n", cdev);
-	dev->online = 0;
-	dev->error = 1;
+	/*
+	 * Bus reset happened or cable disconnected.  No
+	 * need to disable the configuration now.  We will
+	 * set noify_close to true when device file is re-opened.
+	 */
+	dev->notify_close = false;
+	atomic_set(&dev->online, 0);
+	atomic_set(&dev->error, 1);
 	usb_ep_disable(dev->ep_in);
 	usb_ep_disable(dev->ep_out);
 
@@ -588,6 +618,9 @@ static int adb_setup(void)
 	atomic_set(&dev->open_excl, 0);
 	atomic_set(&dev->read_excl, 0);
 	atomic_set(&dev->write_excl, 0);
+
+	/* config is disabled by default if adb is present. */
+	dev->close_notified = true;
 
 	INIT_LIST_HEAD(&dev->tx_idle);
 

@@ -25,6 +25,7 @@
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/slab.h>
+#include <linux/export.h>
 
 #include "u_serial.h"
 
@@ -131,15 +132,6 @@ static unsigned	n_ports;
 
 #define GS_CLOSE_TIMEOUT		15		/* seconds */
 
-
-
-#ifdef VERBOSE_DEBUG
-#define pr_vdebug(fmt, arg...) \
-	pr_debug(fmt, ##arg)
-#else
-#define pr_vdebug(fmt, arg...) \
-	({ if (0) pr_debug(fmt, ##arg); })
-#endif
 
 /*-------------------------------------------------------------------------*/
 
@@ -552,9 +544,8 @@ recycle:
 	/* Push from tty to ldisc; without low_latency set this is handled by
 	 * a workqueue, so we won't get callbacks and can hold port_lock
 	 */
-	if (tty && do_push) {
+	if (tty && do_push)
 		tty_flip_buffer_push(tty);
-	}
 
 
 	/* We want our data queue to become empty ASAP, keeping data
@@ -611,6 +602,7 @@ static void gs_write_complete(struct usb_ep *ep, struct usb_request *req)
 		if (-ECONNRESET == req->status) {
 			/* Do not want transmission to start.
 			 Temp Fix for UE crash*/
+			gs_buf_clear(&port->port_write_buf);
 			break;
 		}
 	case 0:
@@ -730,9 +722,6 @@ static int gs_open(struct tty_struct *tty, struct file *file)
 	int		port_num = tty->index;
 	struct gs_port	*port;
 	int		status;
-
-	if (port_num < 0 || port_num >= n_ports)
-		return -ENXIO;
 
 	do {
 		mutex_lock(&ports[port_num].lock);
@@ -951,9 +940,19 @@ static void gs_flush_chars(struct tty_struct *tty)
 
 static int gs_write_room(struct tty_struct *tty)
 {
-	struct gs_port	*port = tty->driver_data;
+	struct gs_port	*port;
 	unsigned long	flags;
 	int		room = 0;
+
+	if (tty == NULL)
+	return room;
+
+	port = tty->driver_data; 
+        
+        if (NULL == port || NULL == &port->port_lock
+		|| NULL == &port->port_lock.rlock)
+		return room;
+
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	if (port->port_usb)
@@ -1093,7 +1092,6 @@ int gserial_setup(struct usb_gadget *g, unsigned count)
 	if (!gs_tty_driver)
 		return -ENOMEM;
 
-	gs_tty_driver->owner = THIS_MODULE;
 	gs_tty_driver->driver_name = "g_serial";
 	gs_tty_driver->name = PREFIX;
 	/* uses dynamically assigned dev_t values */
@@ -1253,12 +1251,12 @@ int gserial_connect(struct gserial *gser, u8 port_num)
 	port = ports[port_num].port;
 
 	/* activate the endpoints */
-	status = usb_ep_enable(gser->in, gser->in_desc);
+	status = usb_ep_enable(gser->in);
 	if (status < 0)
 		return status;
 	gser->in->driver_data = port;
 
-	status = usb_ep_enable(gser->out, gser->out_desc);
+	status = usb_ep_enable(gser->out);
 	if (status < 0)
 		goto fail_out;
 	gser->out->driver_data = port;

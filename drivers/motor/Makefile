@@ -8,5 +8,8 @@ obj-$(CONFIG_MOTOR_DRV_ISA1200)		+= isa1200_vibrator.o
 obj-$(CONFIG_VIBRATOR_ISA1000A)	+=isa1000a_haptic.o
 obj-$(CONFIG_BCM_CLS_D_VIBRATOR)	+=ss_brcm_cls_d_haptic.o
 #obj-$(CONFIG_VIBETONZ)				+= vibrator.o
+ifeq ($(CONFIG_VIBRATOR_ISA1000A),y)
 obj-y			+= vibrator.o
+endif
 vibrator-objs				+= tspdrv.o
+subdir-ccflags-y += -Werror

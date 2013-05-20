@@ -11,19 +11,17 @@ config FB_SH_MOBILE_LCDC
         ---help---
           Frame buffer driver for the on-chip SH-Mobile LCD controller.
 
-config FB_R_MOBILE_PANEL_KOTA
-        boolean "KOTA PANEL"
+choice
+        depends on FB_SH_MOBILE_LCDC
+        prompt "LCD panel select"
 
-config FB_R_MOBILE_S6E39A0X02
-        boolean "S6E39A0X02 PANEL"
+config FB_R_MOBILE_NT35510
+        boolean "NT35510 PANEL(COMMAND MODE)"
 
-config FB_R_MOBILE_HX8369_B
-        boolean "HX8369_B PANEL"
+config FB_R_MOBILE_VX5B3D
+        boolean "VX5B3D PANEL(VIDEO MODE)"
 
-config FB_R_MOBILE_PANEL_SWITCH
-        bool "dynamically switch the panel"
-        depends on FB_SH_MOBILE_LCDC && (FB_R_MOBILE_S6E39A0X02 || FB_R_MOBILE_HX8369_B)
-
+endchoice
 
 choice
         depends on FB_SH_MOBILE_LCDC
@@ -44,3 +42,9 @@ config FB_SH_MOBILE_DOUBLE_BUF
         help
           SuperH Mobile LCDC framebuffer support double buffer.
 
+config FB_SH_MOBILE_RGB888
+        bool "SuperH Mobile RGB888 support"
+        depends on FB_SH_MOBILE_LCDC
+        default n
+        help
+          SuperH Mobile LCDC framebuffer support RGB888.

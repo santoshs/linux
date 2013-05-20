@@ -2,7 +2,7 @@
  * system_rtload.c
  *     RT domain boot function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -18,8 +18,8 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <asm/io.h>
-#include <asm/types.h>
+#include <linux/io.h>
+#include <linux/types.h>
 #include <linux/fs.h>
 #include <linux/module.h>
 #include "iccom_drv.h"
@@ -43,7 +43,7 @@ int system_rt_load_level2task(void)
 	iccom_drv_cleanup_param			iccom_cleanup;
 	void							*rtload_handle;
 
-	MSG_HIGH("[RTAPIK]IN |[%s]\n", __func__);
+	MSG_MED("[RTAPIK]IN |[%s]\n", __func__);
 
 	ret_code = SMAP_LIB_LOAD_NG;
 	memset(&iccom_init, 0, sizeof(iccom_init));
@@ -89,7 +89,7 @@ int system_rt_load_level2task(void)
 	iccom_cleanup.handle = rtload_handle;
 	iccom_drv_cleanup(&iccom_cleanup);
 
-	MSG_HIGH("[RTAPIK]OUT|[%s] : Return[%d]\n", __func__, ret_code);
+	MSG_MED("[RTAPIK]OUT|[%s] : Return[%d]\n", __func__, ret_code);
 
 	return ret_code;
 }
@@ -99,13 +99,11 @@ EXPORT_SYMBOL(system_rt_load_level2task);
 /************************************/
 /*			internal function		*/
 /************************************/
-int sys_get_section_header(
-	get_section_header_param	*param
-)
+int sys_get_section_header(get_section_header_param *param)
 {
 	int ret_code;
 
-	MSG_HIGH("[RTAPIK]IN |[%s] :\n", __func__);
+	MSG_MED("[RTAPIK]IN |[%s] :\n", __func__);
 
 	/* param check */
 	if (NULL == param) {
@@ -129,7 +127,7 @@ int sys_get_section_header(
 					__func__);
 	}
 
-	MSG_HIGH("[RTAPIK]OUT|[%s] :\n", __func__);
+	MSG_MED("[RTAPIK]OUT|[%s] :\n", __func__);
 
 	return ret_code;
 }
@@ -149,7 +147,7 @@ int system_sub_load_rtimage(void)
 
 	int ret_code = SMAP_NG;
 
-	MSG_HIGH("[RTAPIK]IN |[%s] :\n", __func__);
+	MSG_MED("[RTAPIK]IN |[%s] :\n", __func__);
 	MSG_LOW("[RTAPIK]   |filename = %s", RT_FILENAME);
 
 	fp = filp_open(RT_FILENAME, O_RDONLY, 0);
@@ -218,7 +216,7 @@ int system_sub_load_rtimage(void)
 	memcpy_toio(addr, &sc_header, sizeof(sc_header));
 	iounmap(addr);
 
-	MSG_HIGH("[RTAPIK]OUT|[%s] :\n", __func__);
+	MSG_MED("[RTAPIK]OUT|[%s] :\n", __func__);
 
 	return SMAP_OK;
 }
@@ -228,7 +226,7 @@ int system_sub_get_section_header(system_rt_section_header *section_header)
 	struct	rt_boot_info rt_info;
 	int		ret;
 
-	MSG_HIGH("[RTAPIK]IN |[%s] :\n", __func__);
+	MSG_MED("[RTAPIK]IN |[%s] :\n", __func__);
 
 	if (NULL == section_header) {
 		MSG_ERROR("[RTAPIK]ERR|[%s] : param error section_header=0x%08x\n",
@@ -240,7 +238,7 @@ int system_sub_get_section_header(system_rt_section_header *section_header)
 
 	ret = rtboot_get_section_header(&rt_info);
 	if (ret != 0) {
-		MSG_ERROR("[RTAPIK]ERR|[%s] : rtboot_get_section_header ERROR \n", __func__);
+		MSG_ERROR("[RTAPIK]ERR|[%s] : rtboot_get_section_header ERROR\n", __func__);
 		return SMAP_NG;
 	}
 
@@ -271,7 +269,10 @@ int system_sub_get_section_header(system_rt_section_header *section_header)
 	MSG_LOW("[RTAPIK]   |img[RT_LEVEL_1].size  = %08d\n",	(int)section_header->img[RT_LEVEL_1].size);
 	MSG_LOW("[RTAPIK]   |img[RT_LEVEL_2].start = 0x%08x\n",	(unsigned int)section_header->img[RT_LEVEL_2].start);
 	MSG_LOW("[RTAPIK]   |img[RT_LEVEL_2].size  = %08d\n",	(int)section_header->img[RT_LEVEL_2].size);
+	MSG_LOW("[RTAPIK]   |sh_pmb_offset         = 0x%08x\n",	(int)section_header->sh_pmb_offset);
+	MSG_LOW("[RTAPIK]   |sh_pmb_nc_offset      = 0x%08x\n",	(int)section_header->sh_pmb_nc_offset);
+	MSG_LOW("[RTAPIK]   |mfi_pmb_offset        = 0x%08x\n",	(int)section_header->mfi_pmb_offset);
 
-	MSG_HIGH("[RTAPIK]OUT|[%s] :\n", __func__);
+	MSG_MED("[RTAPIK]OUT|[%s] :\n", __func__);
 	return SMAP_OK;
 }

@@ -5,78 +5,186 @@
 #include <linux/pmic/pmic.h>
 #include <linux/regulator/consumer.h>
 
-#include <mach/r8a73734.h>
-#include <mach/board-u2evm.h>
+#include <mach/common.h>
+#include <mach/r8a7373.h>
+#include <mach/irqs.h>
 
 #define WLAN_GPIO_EN	GPIO_PORT260
 #define WLAN_IRQ	GPIO_PORT98
+#define VSD_VDCORE_DELAY 50
+#define E3_3_V 3300000
+#define E1_8_V 1800000
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
-#if defined(CONFIG_MFD_D2153)
-	struct regulator *regulator;		
+	struct regulator *regulator;
+	int ret = 0;
 
-	if(state)
-	{
-		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
-
+	switch (state) {
+	case RENESAS_SDHI_POWER_ON:
+		printk(KERN_INFO"RENESAS_SDHI_POWER_ON:%s\n", __func__);
 		regulator = regulator_get(NULL, "vio_sd");
 		if (IS_ERR(regulator))
-			return -1;
+			return;
 
-		regulator_enable(regulator);
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
+						__func__ , ret);
 
 		regulator_put(regulator);
 
 		regulator = regulator_get(NULL, "vsd");
 		if (IS_ERR(regulator))
-			return ;
+			return;
 
-		regulator_enable(regulator);
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
+						__func__ , ret);
 
 		regulator_put(regulator);
 
 		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
+		break;
 
-	}
-	else
-	{
-		printk("\n EOS2_BSP_SDHI : %s\n",__func__);
-		__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);		
-
-		regulator = regulator_get(NULL, "vio_sd");
-		if (IS_ERR(regulator))
-			return -1;
-
-		regulator_disable(regulator);
-
-		regulator_put(regulator);
-
-		regulator = regulator_get(NULL, "vsd");
-		if (IS_ERR(regulator))
-			return ;
-
-		regulator_disable(regulator);
-
-		regulator_put(regulator);
-		
-	}
-#else
-#ifdef CONFIG_PMIC_INTERFACE
-	if (state) {
-		printk(KERN_INFO "\n EOS2_BSP_SDHI : %s\n", __func__);
-		pmic_set_power_on(E_POWER_VIO_SD);
-		pmic_set_power_on(E_POWER_VMMC);
-		__raw_writel(__raw_readl(MSEL3CR) | (1<<28), MSEL3CR);
-
-	} else {
-		printk(KERN_INFO "\n EOS2_BSP_SDHI : %s\n", __func__);
+	case RENESAS_SDHI_POWER_OFF:
+		printk(KERN_INFO"RENESAS_SDHI_POWER_OFF:%s\n", __func__);
 		__raw_writel(__raw_readl(MSEL3CR) & ~(1<<28), MSEL3CR);
-		pmic_set_power_off(E_POWER_VIO_SD);
-		pmic_set_power_off(E_POWER_VMMC);
+
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return;
+
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
+
+		regulator_put(regulator);
+
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
+			return;
+
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
+
+		regulator_put(regulator);
+
+		/* Delay of 50ms added between VSD off and VCORE
+		off as per SSG specification */
+		mdelay(VSD_VDCORE_DELAY);
+		break;
+
+		case RENESAS_SDHI_SIGNAL_V330:
+			printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V330:%s\n", __func__);
+
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return;
+
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
+
+		ret = regulator_set_voltage(regulator, E3_3_V, E3_3_V);
+		if (ret)
+			printk(KERN_INFO"%s: err vio_sd set voltage ret=%d\n",
+							__func__, ret);
+
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+							__func__, ret);
+
+		regulator_put(regulator);
+
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
+			return;
+
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
+
+		ret = regulator_set_voltage(regulator, E3_3_V, E3_3_V);
+		if (ret)
+			printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
+							__func__, ret);
+
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+							__func__, ret);
+
+		regulator_put(regulator);
+		break;
+		case RENESAS_SDHI_SIGNAL_V180:
+			printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V180:%s\n", __func__);
+
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return;
+
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
+
+		ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
+		if (ret)
+			printk(KERN_INFO "%s: err vio_sd set voltage ret=%d\n",
+							__func__, ret);
+
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+							__func__, ret);
+
+		regulator_put(regulator);
+
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
+			return;
+
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
+
+		ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
+		if (ret)
+			printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
+							__func__, ret);
+
+		ret = regulator_enable(regulator);
+		if (ret)
+			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+							__func__, ret);
+
+		regulator_put(regulator);
+		break;
+		default:
+			printk(KERN_INFO"default:%s\n", __func__);
+			break;
 	}
-#endif
-#endif
 }
 
 static int sdhi0_get_cd(struct platform_device *pdev)
@@ -84,30 +192,52 @@ static int sdhi0_get_cd(struct platform_device *pdev)
 	return gpio_get_value(GPIO_PORT327) ? 0 : 1;
 }
 
-static struct renesas_sdhi_dma sdhi0_dma = {
-	.chan_tx = {
-		.slave_id	= SHDMA_SLAVE_SDHI0_TX,
-	},
-	.chan_rx = {
-		.slave_id	= SHDMA_SLAVE_SDHI0_RX,
-	}
-};
+#define SDHI0_EXT_ACC	0xee1000e4
+#define SDHI0_DMACR	0xee108000
 
-static struct renesas_sdhi_gpio_setting_info sdhi0_gpio_setting_info[] = {
+static void sdhi0_set_dma(struct platform_device *pdev, int size)
+{
+	static void __iomem *dmacr, *ext_acc;
+	u32 val, val2;
+
+	if (!dmacr)
+		dmacr = ioremap_nocache(SDHI0_DMACR, 4);
+	if (!ext_acc)
+		ext_acc = ioremap_nocache(SDHI0_EXT_ACC, 4);
+
+	switch (size) {
+	case 32:
+		val = 0x30;
+		val2 = 1;
+		break;
+	case 16:
+		val = 0x03;
+		val2 = 1;
+		break;
+	default:
+		val = 0x00;
+		val2 = 0;
+		break;
+	}
+	__raw_writew(val, dmacr);
+	__raw_writew(val2, ext_acc);
+}
+
+static struct portn_gpio_setting_info sdhi0_gpio_setting_info[] = {
 	[0] = {
 		.flag = 1,
 		.port = GPIO_PORT327,
 		.active = {
-			.port_mux 	= GPIO_PORT327,
-			.pull 		= RENESAS_SDHI_PULL_OFF,
-			.direction	= RENESAS_SDHI_DIRECTION_INPUT,
-			.out_level	= RENESAS_SDHI_OUT_LEVEL_NOT_SET,
+			.port_fn	= GPIO_PORT327,
+			.pull		= PORTn_CR_PULL_NOT_SET,
+			.direction	= PORTn_CR_DIRECTION_INPUT,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
-		.deactive = {
-			.port_mux 	= GPIO_FN_SDHICD0,
-			.pull 		= RENESAS_SDHI_PULL_UP,
-			.direction	= RENESAS_SDHI_DIRECTION_NOT_SET,
-			.out_level	= RENESAS_SDHI_OUT_LEVEL_NOT_SET,
+		.inactive = {
+			.port_fn	= GPIO_FN_SDHICD0,
+			.pull		= PORTn_CR_PULL_NOT_SET,
+			.direction	= PORTn_CR_DIRECTION_NOT_SET,
+			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}
 	},
 };
@@ -115,14 +245,17 @@ static struct renesas_sdhi_gpio_setting_info sdhi0_gpio_setting_info[] = {
 struct renesas_sdhi_platdata sdhi0_info = {
 	.caps			= 0,
 	.flags			= RENESAS_SDHI_SDCLK_OFFEN |
-					RENESAS_SDHI_WP_DISABLE,
-	.dma			= &sdhi0_dma,
+					RENESAS_SDHI_WP_DISABLE |
+					RENESAS_SDHI_DMA_SLAVE_CONFIG,
+	.slave_id_tx		= SHDMA_SLAVE_SDHI0_TX,
+	.slave_id_rx		= SHDMA_SLAVE_SDHI0_RX,
 	.set_pwr		= sdhi0_set_pwr,
-	.detect_irq		= irqpin2irq(50),
+	.detect_irq		= R8A7373_IRQC_IRQ(50),
 	.detect_msec		= 0,
 	.get_cd			= sdhi0_get_cd,
+	.set_dma		= sdhi0_set_dma,
 	.port_cnt		= ARRAY_SIZE(sdhi0_gpio_setting_info),
-	.gpio_setting_info	= &sdhi0_gpio_setting_info,
+	.gpio_setting_info	= sdhi0_gpio_setting_info,
 };
 
 static struct resource sdhi0_resources[] = {
@@ -148,6 +281,11 @@ struct platform_device sdhi0_device = {
 	.resource	= sdhi0_resources,
 };
 
+static int sdhi1_get_pwr(struct platform_device *pdev)
+{
+	return gpio_get_value(GPIO_PORT260);
+}
+
 static void sdhi1_set_pwr(struct platform_device *pdev, int state)
 {
 	static int power_state;
@@ -170,21 +308,22 @@ static int sdhi1_get_cd(struct platform_device *pdev)
 	return 1;/*return gpio_get_value(GPIO_PORT327) ? 0 : 1;*/
 }
 
-static struct renesas_sdhi_dma sdhi1_dma = {
-	.chan_tx = {
-		.slave_id	= SHDMA_SLAVE_SDHI1_TX,
-	},
-	.chan_rx = {
-		.slave_id	= SHDMA_SLAVE_SDHI1_RX,
-	}
-};
+#define SDHI1_VOLTAGE (MMC_VDD_165_195 | MMC_VDD_20_21 | MMC_VDD_21_22 \
+			| MMC_VDD_22_23 | MMC_VDD_23_24 | MMC_VDD_24_25 \
+			| MMC_VDD_25_26 | MMC_VDD_26_27 | MMC_VDD_27_28 \
+			| MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 \
+			| MMC_VDD_31_32 | MMC_VDD_32_33 | MMC_VDD_33_34 \
+			| MMC_VDD_34_35 | MMC_VDD_35_36)
 
 static struct renesas_sdhi_platdata sdhi1_info = {
-	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_NONREMOVABLE | MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD | MMC_CAP_DISABLE,
+	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_NONREMOVABLE | MMC_CAP_4_BIT_DATA |
+			  MMC_CAP_POWER_OFF_CARD | MMC_CAP_DISABLE,
 	.pm_caps	= MMC_PM_KEEP_POWER | MMC_PM_IGNORE_PM_NOTIFY,
 	.flags		= RENESAS_SDHI_SDCLK_OFFEN,
-	.dma		= &sdhi1_dma,
+	.slave_id_tx	= SHDMA_SLAVE_SDHI1_TX,
+	.slave_id_rx	= SHDMA_SLAVE_SDHI1_RX,
 	.set_pwr	= sdhi1_set_pwr,
+	.get_pwr	= sdhi1_get_pwr,
 	.detect_irq	= 0,
 	.detect_msec	= 0,
 	.get_cd		= sdhi1_get_cd,
@@ -213,59 +352,3 @@ struct platform_device sdhi1_device = {
 	.num_resources	= ARRAY_SIZE(sdhi1_resources),
 	.resource	= sdhi1_resources,
 };
-
-#if 0
-static void sdhi2_set_pwr(struct platform_device *pdev, int state)
-{
-	;/* TODO*/
-}
-
-static int sdhi2_get_cd(struct platform_device *pdev)
-{
-	return 1;
-}
-
-static struct renesas_sdhi_dma sdhi2_dma = {
-	.chan_tx = {
-		.slave_id	= SHDMA_SLAVE_SDHI2_TX,
-	},
-	.chan_rx = {
-		.slave_id	= SHDMA_SLAVE_SDHI2_RX,
-	}
-};
-
-static struct renesas_sdhi_platdata sdhi2_info = {
-	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_POWER_OFF_CARD | MMC_CAP_NONREMOVABLE | MMC_PM_KEEP_POWER,
-	.flags		= RENESAS_SDHI_SDCLK_OFFEN | RENESAS_SDHI_WP_DISABLE,
-	.dma		= &sdhi2_dma,
-	.set_pwr	= sdhi2_set_pwr,
-	.detect_irq	= 0,
-	.detect_msec	= 0,
-	.get_cd		= sdhi2_get_cd,
-	.ocr		= MMC_VDD_165_195, /*SDHI2_VOLTAGE,In SSG we are using only SDHI0 and SDHI1 channel.As there is no external interface on Kota/SSG w.r.t SDHI2.
-									The present value is the default setting made this will alter according to the external interface mapped for the SDHI Bus.*/
-};
-
-static struct resource sdhi2_resources[] = {
-	[0] = {
-		.name	= "SDHI2",
-		.start	= 0xee140000,
-		.end	= 0xee1400ff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(120),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-static struct platform_device sdhi2_device = {
-	.name		= "renesas_sdhi",
-	.id		= 2,
-	.dev		= {
-		.platform_data	= &sdhi2_info,
-	},
-	.num_resources	= ARRAY_SIZE(sdhi2_resources),
-	.resource	= sdhi2_resources,
-};
-#endif

@@ -4,28 +4,40 @@
  */
 #include <linux/timex.h>
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
-#include <mach/board-u2evm.h>
+#include <mach/sh_cmt.h>
+#include <mach/r8a7373.h>
 #include <linux/spinlock_types.h>
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/delay.h>
+#include <linux/rmu2_rwdt.h>
 #include <asm/io.h>
 
-int read_current_timer(unsigned long *timer_val)
+struct delay_timer cmt_delay_timer __read_mostly;
+
+int cmt_read_current_timer(unsigned long *timer_val)
 {
-	*timer_val = __raw_readl(CMCNT3);
-	return 0;
+		*timer_val = __raw_readl(CMCNT3);
+		return 0;
 }
 
 int __init setup_current_timer(void)
 {
 	struct clk *clk = NULL;
-	unsigned long lpj, flags;
+	unsigned long lpj = 0, flags = 0;
+	int ret = 0;
 
-	clk = clk_get(NULL, "currtimer");
+	clk = clk_get_sys("currtimer", NULL);
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
-	clk_enable(clk);
+	ret = clk_enable(clk);
+	if (ret < 0)
+
+	{
+		pr_err("%s:couldn't enable current timer clock\n", __func__);
+		clk_put(clk);
+		return ret;
+	}
 
 	lpj = clk_get_rate(clk) + HZ/2;
 	do_div(lpj, HZ);
@@ -36,7 +48,7 @@ int __init setup_current_timer(void)
 	spin_unlock_irqrestore(&sh_cmt_lock, flags);
 
 	__raw_writel(0, CMSTR3);
-	__raw_writel(0x10b, CMCSR3); /* Free-running, DBGIVD, CKS=3 */
+	__raw_writel(0x103, CMCSR3); /* Free-running, DBGIVD, CKS=3 */
 	__raw_writel(0xffffffff, CMCOR3);
 	__raw_writel(0, CMCNT3);
 	while (__raw_readl(CMCNT3) != 0)
@@ -67,6 +79,9 @@ int __init setup_current_timer(void)
 	 *
 	 * and disable CMT1 MSTP clock here not to increment CMT1 usecount.
 	 */
+	cmt_delay_timer.read_current_timer = cmt_read_current_timer;
+	cmt_delay_timer.freq = clk_get_rate(clk);
+	register_current_timer_delay(&cmt_delay_timer);
 	clk_disable(clk);
 	clk_put(clk);
 	return 0;

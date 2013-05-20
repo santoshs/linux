@@ -2,7 +2,7 @@
  * drivers/char/rtapi/include/system_pwmng.h
  *     This file is power management function.
  *
- * Copyright (C) 2011-2012 Renesas Electronics Corporation
+ * Copyright (C) 2011-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -48,25 +48,10 @@ typedef struct {
 /****************************/
 /* Prototype Declaration	*/
 /****************************/
-extern void *system_pwmng_new
-(
-	void
-);
-
-extern int system_pwmng_powerarea_start_notify
-(
-	system_pmg_param* pwmng_param
-);
-
-extern int system_pwmng_powerarea_end_notify
-(
-	system_pmg_param* pwmng_param
-);
-
-extern void system_pwmng_delete
-(
-	system_pmg_delete* pwmng_delete
-);
+extern void *system_pwmng_new(void);
+extern int system_pwmng_powerarea_start_notify(system_pmg_param *pwmng_param);
+extern int system_pwmng_powerarea_end_notify(system_pmg_param *pwmng_param);
+extern void system_pwmng_delete(system_pmg_delete *pwmng_delete);
 
 #endif  /* __SYSTEM_PWMNG_H__ */
 

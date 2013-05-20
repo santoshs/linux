@@ -1,6 +1,6 @@
 /* vcd_ctrl_func.c
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -75,6 +75,18 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 	}
 
 	switch (command) {
+	case VCD_CTRL_FUNC_SET_BINARY_SPUV:
+		if (VCD_CTRL_FUNC_FEATURE_SET_BINARY_SPUV & feature)
+			ret = VCD_ERR_ALREADY_EXECUTION;
+		break;
+	case VCD_CTRL_FUNC_SET_BINARY_PCM:
+		if (VCD_CTRL_FUNC_FEATURE_SET_BINARY_PCM & feature)
+			ret = VCD_ERR_ALREADY_EXECUTION;
+		break;
+	case VCD_CTRL_FUNC_SET_BINARY_DIAMOND:
+		if (VCD_CTRL_FUNC_FEATURE_SET_BINARY_DIAMOND & feature)
+			ret = VCD_ERR_ALREADY_EXECUTION;
+		break;
 	case VCD_CTRL_FUNC_GET_MSG_BUFFER:
 		break;
 	case VCD_CTRL_FUNC_START_VCD:
@@ -113,7 +125,7 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 			ret = VCD_ERR_NOT_ACTIVE;
 		break;
 	case VCD_CTRL_FUNC_START_RECORD:
-		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature))
+		if (!(VCD_CTRL_FUNC_FEATURE_HW_PARAM & feature))
 			ret = VCD_ERR_NOT_ACTIVE;
 		else if (VCD_CTRL_FUNC_FEATURE_RECORD & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;
@@ -123,7 +135,7 @@ int vcd_ctrl_func_check_sequence(unsigned int command)
 			ret = VCD_ERR_ALREADY_EXECUTION;
 		break;
 	case VCD_CTRL_FUNC_START_PLAYBACK:
-		if (!(VCD_CTRL_FUNC_FEATURE_CALL & feature))
+		if (!(VCD_CTRL_FUNC_FEATURE_HW_PARAM & feature))
 			ret = VCD_ERR_NOT_ACTIVE;
 		else if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & feature)
 			ret = VCD_ERR_ALREADY_EXECUTION;

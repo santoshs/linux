@@ -19,6 +19,7 @@
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/rtc.h>
 #include <linux/d2153/hwmon.h>
+#include <linux/d2153/audio.h>
 #include <linux/power_supply.h>
 #include <linux/d2153/d2153_battery.h>
 
@@ -186,6 +187,8 @@ struct d2153_platform_data {
 	
 	//unsigned char regl_mapping[LEOPARD_IOCTL_REGL_MAPPING_NUM];	/* Regulator mapping for IOCTL */
 	struct d2153_regl_map regl_map[D2153_NUMBER_OF_REGULATORS];
+
+	struct d2153_audio audio;
 };
 
 struct d2153 {
@@ -199,6 +202,8 @@ struct d2153 {
 	int (*write_dev)(struct d2153 * const d2153, char reg, int size, u8 *src);
 
 	u8 *reg_cache;
+	u16 vbat_init_adc[3];
+	u16 average_vbat_init_adc;
 
 	/* Interrupt handling */
     struct work_struct irq_work;
@@ -213,7 +218,11 @@ struct d2153 {
 	struct d2153_hwmon hwmon;
 	struct d2153_battery batt;
 
-    struct d2153_platform_data *pdata;
+	struct d2153_platform_data *pdata;
+	struct mutex d2153_io_mutex;
+	struct mutex d2153_audio_ldo_mutex;
+
+	struct delayed_work     vdd_fault_work;
 };
 
 /*
@@ -243,6 +252,9 @@ int 	d2153_unmask_irq(struct d2153 *d2153, int irq);
 int 	d2153_irq_init(struct d2153 *d2153, int irq, struct d2153_platform_data *pdata);
 int 	d2153_irq_exit(struct d2153 *d2153);
 
+void	d2153_set_irq_disable(void);
+void	d2153_set_irq_enable(void);
+
 #if defined(CONFIG_MACH_RHEA_SS_IVORY) || defined(CONFIG_MACH_RHEA_SS_NEVIS)
 /* DLG IOCTL interface */
 extern int d2153_ioctl_regulator(struct d2153 *d2153, unsigned int cmd, unsigned long arg);
@@ -251,5 +263,7 @@ extern int d2153_ioctl_regulator(struct d2153 *d2153, unsigned int cmd, unsigned
 /* DLG new prototype */
 void 	d2153_system_poweroff(void);
 void 	d2153_set_mctl_enable(void);
+void d2153_clk32k_enable(int onoff);
+extern struct d2153_platform_data d2153_pdata;
 
 #endif /* __D2153_LEOPARD_CORE_H_ */

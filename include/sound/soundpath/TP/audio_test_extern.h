@@ -1,6 +1,6 @@
 /* audio_test_extern.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -57,6 +57,8 @@ struct audio_test_ioctl_cmd {
 	u_int *detect_key;	/**< Key detect */
 	u_int vqa_val;		/**< VQA Valid */
 	u_int delay_val;	/**< Delay Valid */
+	u_int pt_state;		/**< PT state */
+	u_int call_kind;	/**< Call kind */
 };
 
 /*---------------------------------------------------------------------------*/
@@ -80,7 +82,16 @@ struct audio_test_ioctl_cmd {
 					struct audio_test_ioctl_cmd)
 #define AUDIO_TEST_IOCTL_STOPSPUVLOOP	_IOW(AUDIO_TEST_IOC_MAGIC, 9, \
 					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_SETCALLMODE	_IOW(AUDIO_TEST_IOC_MAGIC, 10, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_GETLBSTATE	_IOR(AUDIO_TEST_IOC_MAGIC, 11, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_STARTSOUNDPLAY	_IOR(AUDIO_TEST_IOC_MAGIC, 12, \
+					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_STOPSOUNDPLAY	_IOR(AUDIO_TEST_IOC_MAGIC, 13, \
+					struct audio_test_ioctl_cmd)
 
+#ifndef __AUDIO_TEST_LIB_H__
 /*---------------------------------------------------------------------------*/
 /* enum declaration                                                          */
 /*---------------------------------------------------------------------------*/
@@ -98,8 +109,11 @@ enum audio_test_state_type {
 */
 enum audio_test_in_device_type {
 	AUDIO_TEST_DRV_IN_MIC,		/**< 0x00: Mic. */
-	AUDIO_TEST_DRV_IN_HEADSETMIC,	/**< 0x01: Headset mic. */
-	AUDIO_TEST_DRV_IN_MAX
+	AUDIO_TEST_DRV_IN_MAINMIC,	/**< 0x01: Main mic. */
+	AUDIO_TEST_DRV_IN_SUBMIC,	/**< 0x02: Sub mic. */
+	AUDIO_TEST_DRV_IN_HEADSETMIC,	/**< 0x03: Headset mic. */
+	AUDIO_TEST_DRV_IN_MAX,
+	AUDIO_TEST_DRV_IN_DEV_NONE = 0xFFFFFFFF
 };
 
 /*!
@@ -109,7 +123,8 @@ enum audio_test_out_device_type {
 	AUDIO_TEST_DRV_OUT_SPEAKER,	/**< 0x00: Speaker. */
 	AUDIO_TEST_DRV_OUT_HEADPHONE,	/**< 0x01: Headphone. */
 	AUDIO_TEST_DRV_OUT_EARPIECE,	/**< 0x02: Earpiece. */
-	AUDIO_TEST_DRV_OUT_MAX
+	AUDIO_TEST_DRV_OUT_MAX,
+	AUDIO_TEST_DRV_OUT_DEV_NONE = 0xFFFFFFFF
 };
 
 /*!
@@ -129,6 +144,17 @@ enum audio_test_fsi_port {
 	AUDIO_TEST_DRV_FSI_PORTA,	/**< 0x00: Port A. */
 	AUDIO_TEST_DRV_FSI_PORTB,	/**< 0x01: Port B. */
 	AUDIO_TEST_DRV_FSI_MAX
+};
+#endif
+
+/*!
+  @brief	VCD call kind.
+*/
+enum audio_test_vcd_call_kind {
+	AUDIO_TEST_DRV_KIND_CALL,	/**< 0x00: Call. */
+	AUDIO_TEST_DRV_KIND_KIND_PCM_LB,/**< 0x01: PCM Loopback. */
+	AUDIO_TEST_DRV_KIND_1KHZ,	/**< 0x02: 1kHzTone. */
+	AUDIO_TEST_DRV_KIND_MAX
 };
 
 /*---------------------------------------------------------------------------*/

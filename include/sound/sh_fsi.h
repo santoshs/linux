@@ -30,10 +30,11 @@
 /*
  * flags format
  *
- * 0x000000BA
+ * 0x00000CBA
  *
  * A:  inversion
  * B:  format mode
+ * C:  chip specific
  */
 
 /* TDM channel */
@@ -85,6 +86,9 @@
 	(SH_FSI_OFMT(TDM)	| SH_FSI_SET_CH_O(x))
 #define SH_FSI_OFMT_TDM_DELAY_CH(x) \
 	(SH_FSI_OFMT(TDM_DELAY)	| SH_FSI_SET_CH_O(x))
+/* C: chip specific */
+#define SH_FSI_OPTION_MASK	0x00000F00
+#define SH_FSI_ENABLE_STREAM_MODE	(1 << 8) /* for 16bit data */
 
 /*
  * set_rate return value
@@ -118,12 +122,21 @@
 #define SH_FSI_BPFMD_32		(5 << 4)
 #define SH_FSI_BPFMD_16		(6 << 4)
 
+struct sh_fsi_port_info {
+	unsigned long flags;
+	int tx_id;
+	int rx_id;
+	int (*set_rate)(struct device *dev, int rate, int enable);
+};
+
 typedef int (*set_rate_func)(int is_porta, int rate);
 
 struct sh_fsi_platform_info {
 	unsigned long port_flags;
 	set_rate_func set_rate;
 	unsigned int always_slave:1;
+	struct sh_fsi_port_info port_a;
+	struct sh_fsi_port_info port_b;
 };
 
 extern struct snd_soc_dai_driver fsi_soc_dai[2];

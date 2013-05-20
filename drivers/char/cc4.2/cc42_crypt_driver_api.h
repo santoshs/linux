@@ -146,9 +146,9 @@ struct device_context {
 	atomic_t openable;
 
 	/* this parameter indicates resource status */
-    	/* 0: power-off now, and it's going to power-up. */
-    	/* 1: power-on now, and it's going to power-down. */
-    	atomic_t resource;
+	/* 0: power-off now, and it's going to power-up. */
+	/* 1: power-on now, and it's going to power-down. */
+	atomic_t resource;
 
 
 };
@@ -216,5 +216,8 @@ do { \
 
 #define SEP_HW_INIT      \
 	_IO(SEP_IOC_MAGIC_NUMBER , 70)
+
+#define SEP_CHECK_RKEK_VALUE	\
+	_IOR(SEP_IOC_MAGIC_NUMBER , 90, int)
 
 #endif

@@ -1,10 +1,10 @@
 /*
  * d2153-i2c.c: I2C (Serial Communication) driver for D2153
- *   
+ *
  * Copyright(c) 2012 Dialog Semiconductor Ltd.
- *  
+ *
  * Author: Dialog Semiconductor Ltd. D. Chen, D. Patel
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -21,12 +21,13 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 
-#include <linux/d2153/pmic.h> 
-#include <linux/d2153/d2153_reg.h> 
+#include <linux/d2153/pmic.h>
+#include <linux/d2153/d2153_reg.h>
 #include <linux/d2153/hwmon.h>
 #include <linux/d2153/rtc.h>
 #include <linux/d2153/core.h>
 
+#include <mach/common.h>
 
 static int d2153_i2c_read_device(struct d2153 *d2153, char reg,
 					int bytes, void *dest)
@@ -66,7 +67,7 @@ static int d2153_i2c_write_device(struct d2153 *d2153, char reg,
 	struct i2c_msg msgs[1];
 	u8 data[12];
 	u8 *buf = data;
-	
+
 	struct i2c_adapter *adap = d2153->pmic_i2c_client->adapter;
 
 	if (bytes == 0)
@@ -113,7 +114,7 @@ static int d2153_i2c_probe(struct i2c_client *i2c,
 	i2c_set_clientdata(i2c, d2153);
 	d2153->dev = &i2c->dev;
 	d2153->pmic_i2c_client = i2c;
-	
+
 	mutex_init(&d2153->i2c_mutex);
 
 	d2153->read_dev = d2153_i2c_read_device;
@@ -167,7 +168,6 @@ static int __init d2153_i2c_init(void)
 
 /* Initialised very early during bootup (in parallel with Subsystem init) */
 subsys_initcall(d2153_i2c_init);
-//module_init(d2153_i2c_init);
 
 static void __exit d2153_i2c_exit(void)
 {

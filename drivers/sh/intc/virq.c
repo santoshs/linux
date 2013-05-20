@@ -14,9 +14,10 @@
 #include <linux/list.h>
 #include <linux/radix-tree.h>
 #include <linux/spinlock.h>
+#include <linux/export.h>
 #include "internals.h"
 
-static struct intc_map_entry intc_irq_xlate[NR_IRQS];
+static struct intc_map_entry intc_irq_xlate[INTC_NR_IRQS];
 
 struct intc_virq_list {
 	unsigned int irq;
@@ -121,7 +122,7 @@ static void intc_virq_handler(unsigned int irq, struct irq_desc *desc)
 		handle = (unsigned long)irq_get_handler_data(entry->irq);
 		addr = INTC_REG(d, _INTC_ADDR_E(handle), 0);
 
-		if (intc_reg_fns[_INTC_FN(handle)](addr, handle, 0))
+		if (intc_reg_fns[_INTC_FN(handle)](addr, handle, 0, &d->lock))
 			generic_handle_irq(entry->irq);
 	}
 

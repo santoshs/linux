@@ -23,6 +23,7 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/err.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/driver.h>
@@ -65,6 +66,11 @@ struct tps80031_charger {
 };
 
 static struct tps80031_charger *charger_data;
+static uint8_t charging_current_val_code[] = {
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0xA, 0xB, 0xC, 0xD, 0xE, 0x27,
+	0x37, 0x28, 0x38, 0x29, 0x39, 0x2A, 0x3A, 0x2B, 0x3B, 0x2C,
+	0x3C, 0x2D, 0x3D, 0x2E,
+};
 
 static int set_charge_current_limit(struct regulator_dev *rdev,
 		int min_uA, int max_uA)
@@ -101,8 +107,8 @@ static int set_charge_current_limit(struct regulator_dev *rdev,
 	if (max_vbus_current)
 		max_vbus_current--;
 	ret = tps80031_update(charger->dev->parent, SLAVE_ID2,
-				CHARGERUSB_CINLIMIT,
-				(uint8_t)max_vbus_current, 0x3F);
+			CHARGERUSB_CINLIMIT,
+			charging_current_val_code[max_vbus_current], 0x3F);
 	if (ret < 0) {
 		dev_err(charger->dev, "%s(): Failed in writing register 0x%02x\n",
 				__func__, CHARGERUSB_CINLIMIT);
@@ -393,7 +399,7 @@ static int tps80031_charger_probe(struct platform_device *pdev)
 	charger->state = charging_state_idle;
 
 	charger->rdev = regulator_register(&charger->reg_desc, &pdev->dev,
-					&charger->reg_init_data, charger);
+					&charger->reg_init_data, charger, NULL);
 	if (IS_ERR(charger->rdev)) {
 		dev_err(&pdev->dev, "failed to register %s\n",
 						charger->reg_desc.name);

@@ -13,21 +13,22 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/smp.h>
+#include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <asm/cacheflush.h>
 #include <mach/common.h>
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 #ifdef CONFIG_SUSPEND
 #include <linux/suspend.h>
-#include <mach/pm.h>
 #endif /* CONFIG_SUSPEND */
-#endif /* CONFIG_ARCH_R8A73734 */
-
+#endif /* CONFIG_ARCH_R8A7373 */
+#include <mach/pm.h>
+#include <memlog/memlog.h>
 static cpumask_t dead_cpus;
 int platform_cpu_kill(unsigned int cpu)
 {
-#ifndef CONFIG_ARCH_R8A73734
-	int cnt = 0;
+#ifndef CONFIG_ARCH_R8A7373
+	int cnt;
 	/* this will be executed on alive cpu,
 	 * and it must be executed after the victim has been finished
 	 */
@@ -44,22 +45,22 @@ int platform_cpu_kill(unsigned int cpu)
 
 void platform_cpu_die(unsigned int cpu)
 {
-#ifdef CONFIG_ARM_TZ
-	int ret = 0;
-#endif
+	/* hardware shutdown code running on the CPU that is being offlined */
 	flush_cache_all();
 	dsb();
 
 	/* notify platform_cpu_kill() that hardware shutdown is finished */
 	cpumask_set_cpu(cpu, &dead_cpus);
-#ifdef CONFIG_ARCH_R8A73734
+#ifdef CONFIG_ARCH_R8A7373
 	if (!shmobile_platform_cpu_die(cpu))
 		return;
-#ifdef CONFIG_SUSPEND
+/* #ifdef CONFIG_SUSPEND */
+	memory_log_func(PM_FUNC_ID_JUMP_SYSTEMSUSPEND, 1);
 	jump_systemsuspend();
+	memory_log_func(PM_FUNC_ID_JUMP_SYSTEMSUSPEND, 0);
 	return;
-#endif /* CONFIG_SUSPEND */
-#endif /* CONFIG_ARCH_R8A73734 */
+/* #endif *//* CONFIG_SUSPEND */
+#else  /* CONFIG_ARCH_R8A7373 */
 	while (1) {
 		/*
 		 * here's the WFI
@@ -69,6 +70,7 @@ void platform_cpu_die(unsigned int cpu)
 		    :
 		    : "memory", "cc");
 	}
+#endif /* CONFIG_ARCH_R8A7373 */
 }
 
 int platform_cpu_disable(unsigned int cpu)

@@ -17,7 +17,7 @@
 #include <linux/uaccess.h>
 #include <linux/scatterlist.h>
 #include <mach/common.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 static dev_t rmc_loader_dev;
 

@@ -9,15 +9,6 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef __U_ETHER_H
@@ -52,10 +43,6 @@ struct gether {
 	struct usb_ep			*in_ep;
 	struct usb_ep			*out_ep;
 
-	/* descriptors match device speed at gether_connect() time */
-	struct usb_endpoint_descriptor	*in;
-	struct usb_endpoint_descriptor	*out;
-
 	bool				is_zlp_ok;
 
 	u16				cdc_filter;
@@ -75,6 +62,38 @@ struct gether {
 	/* called on network open/close */
 	void				(*open)(struct gether *);
 	void				(*close)(struct gether *);
+};
+
+struct eth_dev {
+	/* lock is held while accessing port_usb
+	 * or updating its backlink port_usb->ioport
+	 */
+	spinlock_t		lock;
+	struct gether		*port_usb;
+
+	struct net_device	*net;
+	struct usb_gadget	*gadget;
+
+	spinlock_t		req_lock;	/* guard {rx,tx}_reqs */
+	struct list_head	tx_reqs, rx_reqs;
+	atomic_t		tx_qlen;
+
+	struct sk_buff_head	rx_frames;
+
+	unsigned		header_len;
+	struct sk_buff		*(*wrap)(struct gether *, struct sk_buff *skb);
+	int			(*unwrap)(struct gether *,
+						struct sk_buff *skb,
+						struct sk_buff_head *list);
+
+	struct work_struct	work;
+
+	unsigned long		todo;
+#define	WORK_RX_MEMORY		0
+
+	bool			zlp;
+	u8			host_mac[ETH_ALEN];
+	int			max_host_transfer_size;
 };
 
 #define	DEFAULT_FILTER	(USB_CDC_PACKET_TYPE_BROADCAST \
@@ -115,13 +134,20 @@ int eem_bind_config(struct usb_configuration *c);
 
 #ifdef USB_ETH_RNDIS
 
-int rndis_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+int rndis_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN]);
+int rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 				u32 vendorID, const char *manufacturer);
 
 #else
 
 static inline int
-rndis_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
+rndis_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN])
+{
+	return 0;
+}
+
+static inline int
+rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 				u32 vendorID, const char *manufacturer)
 {
 	return 0;

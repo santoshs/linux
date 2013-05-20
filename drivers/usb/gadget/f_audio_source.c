@@ -523,9 +523,16 @@ audio_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 static int audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct audio_dev *audio = func_to_audio(f);
+	struct usb_composite_dev *cdev = f->config->cdev;
+	int ret;
 
 	pr_debug("audio_set_alt intf %d, alt %d\n", intf, alt);
-	usb_ep_enable(audio->in_ep, &fs_as_in_ep_desc);
+
+	ret = config_ep_by_speed(cdev->gadget, f, audio->in_ep);
+	if (ret)
+		return ret;
+
+	usb_ep_enable(audio->in_ep);
 	return 0;
 }
 

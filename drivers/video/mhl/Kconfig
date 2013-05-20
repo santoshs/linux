@@ -7,7 +7,7 @@ menu "Mhl(sii9244) device support"
 
 config SAMSUNG_MHL
         bool "Enable Sii9244 MHL Chip Driver"
-        default y
+        default n
         ---help---
           support Sii9244 MHL Chip Driver
 

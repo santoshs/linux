@@ -10,13 +10,14 @@
 
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/hwspinlock.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/rmobile_hwsem.h>
-
+#include <linux/lockdep.h>
 #include "hwspinlock_internal.h"
 
 /*
@@ -76,35 +77,38 @@ static int hwsem_trylock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
 	u32 smsrc;
-	
+
 	/*Check if the semaphore is open*/
 	smsrc = __raw_readl(p->sm_base + SMxxSRC) >> 24;
-	
-	if(smsrc == 0 ) {
+
+	if (smsrc == 0) {
 		__raw_writel(1, p->sm_base + SMxxSRC); /* SMGET */
 
-		/*
-		 * Get upper 8 bits and compare to master ID.
-		 * If equal, we have the semaphore, otherwise someone else has it.
-		 *
-		 * For ARM MPcore systems after R-Mobile U2, each CPU core may be
-		 * given a distinct SrcID of the SHwy bus, so master ID matching
-		 * condition needs to be relaxed; ignore lower 2 bits of SMSRC.
-		 */
-		smsrc = (__raw_readl(p->sm_base + SMxxSRC) >> 24) & 0xfc;
-		return smsrc == HWSEM_MASTER_ID;
-	} else {
-		printk(">>>>>>%s: Cannot get HW semaphore\n", __func__);
+	/*
+	 * Get upper 8 bits and compare to master ID.
+	 * If equal, we have the semaphore, otherwise someone else has it.
+	 *
+	 * For ARM MPcore systems after R-Mobile U2, each CPU core may be
+	 * given a distinct SrcID of the SHwy bus, so master ID matching
+	 * condition needs to be relaxed; ignore lower 2 bits of SMSRC.
+	 */
+	smsrc = (__raw_readl(p->sm_base + SMxxSRC) >> 24) & 0xfc;
+
+	mb();
+	return smsrc == HWSEM_MASTER_ID;
+	} else
 		return 0;
-	}
 }
 
 static void hwsem_unlock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
 
+	mb();
 	__raw_writel(0, p->sm_base + SMxxSRC);
+	__raw_readl(p->sm_base + SMxxSRC);
 }
+
 /*
  *  hwsem_get_lock_id: Get HW semaphore ID
  *  return:
@@ -116,7 +120,6 @@ static void hwsem_unlock(struct hwspinlock *lock)
 static u32 hwsem_get_lock_id(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
-	
 	return (__raw_readl(p->sm_base + SMxxSRC) >> 24);
 }
 
@@ -134,22 +137,28 @@ static int hwsem_ext_trylock(struct hwspinlock *lock)
 	unsigned long value;
 	int ret = 0;
 
+	/* check to see if software semaphore bit is already set to be done
+	BEFORE getting the HW semaphore */
+	value = __raw_readl(p->ext_base);
+	if (value & 0xff)
+		return 0; /* no need to get HW sem, failure case */
+
 	if (!hwsem_trylock(lock))
 		return 0;
 
 	/* check to see if software semaphore bit is already set */
 	value = __raw_readl(p->ext_base);
-	
+
 	if (value & 0xff)
 		goto out;
-		
+
 	value |= HWSEM_MASTER_ID;
-	
+
 	__raw_writel(value, p->ext_base);
 	__raw_readl(p->ext_base); /* defeat write posting */
 	ret = 1;
-	
- out:
+
+out:
 	hwsem_unlock(lock);
 	return ret;
 }
@@ -165,7 +174,7 @@ static void hwsem_ext_unlock(struct hwspinlock *lock)
 		if (hwsem_trylock(lock))
 			break;
 
-		if (time_is_before_eq_jiffies(expire)){
+		if (time_is_before_eq_jiffies(expire)) {
 			dev_err(lock->bank->dev, "Timeout to lock hwspinlock\n");
 			return;
 		}
@@ -174,7 +183,7 @@ static void hwsem_ext_unlock(struct hwspinlock *lock)
 	}
 
 	mask = 0xff;
-	
+
 	value = __raw_readl(p->ext_base);
 	if (unlikely((value & mask) == 0)) {
 		dev_warn(lock->bank->dev,
@@ -182,7 +191,7 @@ static void hwsem_ext_unlock(struct hwspinlock *lock)
 			 hwlock_to_id(lock));
 		goto out;
 	}
-	
+
 	if (unlikely((value & mask) != HWSEM_MASTER_ID)) {
 		dev_err(lock->bank->dev,
 			 "Trying to unlock hwspinlock %d not for ARM (%08lx)\n",
@@ -255,7 +264,7 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	num_locks = pdata->nr_descs;
-	
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
@@ -305,9 +314,14 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 				   pdata->base_id, num_locks);
 	if (ret)
 		goto reg_fail;
-		
+
 	platform_set_drvdata(pdev, bank);
 
+	/* set lockdep class */
+	for (i = 0; i < num_locks; i++) {
+		hwlock = &bank->lock[i];
+		lockdep_set_class(&hwlock->lock, pdata->key);
+	}
 	return 0;
 
 reg_fail:

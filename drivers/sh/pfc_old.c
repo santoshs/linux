@@ -22,7 +22,7 @@
 #include <linux/hwspinlock.h>
 #include <linux/slab.h>
 #include <linux/ioport.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <mach/common.h>
 
 static void pfc_iounmap(struct pinmux_info *pip)

@@ -526,21 +526,21 @@ typedef struct
 } EDID_Descriptors;
 
 typedef struct{
-  //bool cmd_on;
-  u8 command;
-  u8 offset;
-  u8 lenght;
-  u8 buff[16];
+	/*bool cmd_on;*/
+	u8 command;
+	u8 offset;
+	u8 lenght;
+	u8 buff[16];
 }cbus_pkt;
 
 typedef enum
 {
-  AVI_CMD_NONE = 0x00,
-  HPD_HIGH_EVENT = 0x01,
-  HPD_LOW_EVENT,
-  MIPI_INPUT_EVENT,
+	AVI_CMD_NONE = 0x00,
+	HPD_HIGH_EVENT = 0x01,
+	HPD_LOW_EVENT,
+	MIPI_INPUT_EVENT,
   
-  AVI_CMD_MAX
+	AVI_CMD_MAX
 }avi_cmd_type;
 
 
@@ -560,56 +560,51 @@ struct tx_page3 {
 	struct mhl_platform_data	*pdata;  
 };
 
-struct tx_0x60 {
-	struct mhl_platform_data	*pdata;  
-};
-
-struct tx_0xA0 {
-	struct mhl_platform_data	*pdata;  
-};
 
 struct mhl_tx {
-  u8 cmd_rx_cnt;
-  u8 cmd_tx_cnt;
-  u8 msc_cmd_done_intr;
-  u8 intr5_mask;
-  u8 intr4_mask;
-  u8 intr_tpi_mask;
-  u8 mipi_input_colorspace;
-  u8 mhl_output_colorspace;
-  u8 colorimetryAspectRatio;
-  u8 interlaced;
-  u8 inputVideoCode;
-  
-  bool msc_cmd_abord;
-  bool avi_work;
-  bool edid_access_done;
-  bool aksv_available;
-  bool video_out_setting;
-  bool hdcp_started;
-  bool hdcp_on_ready;
-  cbus_pkt msc_cmd_q[10];
-  avi_cmd_type avi_cmd; 
-  bool hdmi_sink;
-  EDID_Descriptors EDID_Data;
-  u8 edid_block1[EDID_SIZE];
-  u8 edid_block2[EDID_SIZE];
-  u8 edid_block3[EDID_SIZE];
-  u8 edid_block0[EDID_SIZE];   
-  
-  struct mhl_platform_data	*pdata;  
-  struct mutex			i2c_lock;
-  struct mutex  cbus_cmd_lock;
-  
-  struct work_struct mhl_power_on;   
-  struct work_struct cbus_cmd_work;  
-  struct workqueue_struct *cbus_cmd_wqs;
-  struct work_struct avi_control_work;  
-  struct workqueue_struct *avi_control_wqs;  
-  struct early_suspend early_suspend;
-  struct i2c_client *client;
-  wait_queue_head_t		cbus_hanler_wq; 
-  wait_queue_head_t		avi_control_wq; 
+	u8 cmd_rx_cnt;
+	u8 cmd_tx_cnt;
+	u8 msc_cmd_done_intr;
+	u8 intr5_mask;
+	u8 intr4_mask;
+	u8 intr_tpi_mask;
+	u8 mipi_input_colorspace;
+	u8 mhl_output_colorspace;
+	u8 colorimetryAspectRatio;
+	u8 interlaced;
+	u8 inputVideoCode;
+
+	bool mhl_onoff;
+	bool msc_cmd_abord;
+	bool avi_work;
+	bool edid_access_done;
+	bool aksv_available;
+	bool video_out_setting;
+	bool hdcp_started;
+	bool hdcp_on_ready;
+	cbus_pkt msc_cmd_q[10];
+	avi_cmd_type avi_cmd; 
+	bool hdmi_sink;
+	EDID_Descriptors EDID_Data;
+	u8 edid_block1[EDID_SIZE];
+	u8 edid_block2[EDID_SIZE];
+	u8 edid_block3[EDID_SIZE];
+	u8 edid_block0[EDID_SIZE];   
+
+
+	struct mhl_platform_data	*pdata;  
+	struct mutex			i2c_lock;
+	struct mutex  cbus_cmd_lock;
+
+	struct work_struct mhl_power_on;   
+	struct work_struct cbus_cmd_work;  
+	struct workqueue_struct *cbus_cmd_wqs;
+	struct work_struct avi_control_work;  
+	struct workqueue_struct *avi_control_wqs;  
+	struct early_suspend early_suspend;
+	struct i2c_client *client;
+	wait_queue_head_t		cbus_hanler_wq; 
+	wait_queue_head_t		avi_control_wq; 
 
 };
 
@@ -621,12 +616,12 @@ enum
 };
 
 typedef struct {
-  u16 hRes;
-  u16 vRes;
-  u8 colorimetryAspectRatio;
-  u8 inputVideoCode;
-  u8 interlaced;
-  u8 flags;
+	u16 hRes;
+	u16 vRes;
+	u8 colorimetryAspectRatio;
+	u8 inputVideoCode;
+	u8 interlaced;
+	u8 flags;
 }video_mode_h;
 
 typedef struct{
@@ -718,18 +713,15 @@ static int set_audio_infoframe(struct mhl_tx *mhl);
 static int set_ouptput_timings(struct mhl_tx *mhl, bool *input_check);
 static int color_format_set(struct mhl_tx *mhl);
 static int set_avi_infoframe(struct mhl_tx *mhl);
-static int set_output_format(void);
+
 static int MipiIsr(struct mhl_tx *mhl);
 
 static ssize_t show_state_hdmi(struct device *dev,
 		struct device_attribute *attr, char *buf);
 static int show_info(struct device *dev,struct device_attribute *attr,char *buf); 
-static ssize_t store_info(struct device *dev,struct device_attribute *attr,char *buf,size_t count);
 int hdmi_get_hpd_state(void);
-static int mhl_suspend_pm(struct device *dev, pm_message_t message);
-static int mhl_resume_pm(struct device *dev);
-static int mhl_suspend(struct mhl_tx *mhl);
-static int mhl_resume(struct mhl_tx *mhl);
+static int mhl_suspend(struct device *dev);
+static int mhl_resume(struct device *dev);
 static irqreturn_t mhl_irq_thread(int irq, void *data);
 static void irq_status(struct mhl_tx *mhl);
 #endif /* __SII8332__H__ */

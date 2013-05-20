@@ -4,21 +4,11 @@
  * Copyright (C) 2006-2009 Renesas Solutions Corp.
  * Copyright (C) 2012 Renesas Mobile Corporation
  *
- * Author : Yoshihiro Shimoda <shimoda.yoshihiro@renesas.com>
+ * Author : Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2 of the License.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
  */
 
 #include <linux/module.h>
@@ -33,28 +23,38 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_runtime.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <linux/usb/otg.h>
 
 #include <asm/dma.h>
 #include <mach/hardware.h>
 #include <mach/pm.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <mach/gpio.h>
 #include <linux/pm.h>
 
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/otg.h>
+#include <linux/usb/tusb1211.h>
 #define USB_OTG_STATUS_SELECTOR  0xF000
 #define USB_OTG_HOST_REQ_FLAG  0x0000
 #endif
 
+#define USB_DRVSTR_DBG 1
+
 #include "r8a66597-udc.h"
 
-#define DRIVER_VERSION	"2009-08-18"
+#define DRIVER_VERSION	"2011-09-26"
 
 #define DMA_ADDR_INVALID  (~(dma_addr_t)0)
+
+/* Port Number taken from r8a66597_gpio_setting_info structure for PORT130 */
+#define IDX_PORT130 13
+
+#define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 
 /* #define UDC_LOG */
 
@@ -63,6 +63,10 @@
 #else
 #define udc_log(fmt, ...) 
 #endif 
+
+#define VBUS_HANDLE_IRQ_BASED
+
+int gIsConnected;
 
 static const char udc_name[] = "r8a66597_udc";
 static const char usbhs_dma_name[] = "USBHS-DMA1";
@@ -77,7 +81,36 @@ static const char *r8a66597_ep_name[] = {
 #endif
 };
 
-static int powerup = 0;
+#if USB_DRVSTR_DBG
+#define U2_USB_BASE_REG				0xE6890000 
+#define TUSB_VENDOR_SPECIFIC1		0x80
+#define USB_SPWDAT					((volatile ushort *)(U2_USB_BASE_REG + 0x013A)) /* H'E689 013A */
+#define USB_SPCTRL					((volatile ushort *)(U2_USB_BASE_REG + 0x013C)) /* H'E689 013C */
+#define USB_SPRDAT					((volatile ushort *)(U2_USB_BASE_REG + 0x013E)) /* H'E689 013E */
+#define USB_SPEXADDR				((volatile ushort *)(U2_USB_BASE_REG + 0x0140)) /* H'E689 0140 */
+#define USB_SPWR					0x0001
+#define USB_SPRD					0x0002
+#define USB_SPADDR					((volatile ushort *)(U2_USB_BASE_REG + 0x0138)) /*H'E689 0138*/
+
+void usb_drv_str_read(unsigned char *val)
+{
+	__raw_writew(0x0000, USB_SPADDR);		/* set HSUSB.SPADDR */
+	__raw_writew(0x0020, USB_SPEXADDR);    /* set HSUSB.SPEXADDR */
+	__raw_writew(USB_SPRD, USB_SPCTRL);		/* set HSUSB.SPCTRL */
+	mdelay(1);
+	*val=__raw_readw(IO_ADDRESS(USB_SPRDAT));               
+}
+
+void usb_drv_str_write(unsigned char *val)
+{
+	u8 value= *val;
+	__raw_writew(0x0000, USB_SPADDR);		/* set HSUSB.SPADDR */
+	__raw_writew(0x0020, USB_SPEXADDR);		/* set HSUSB.SPEXADDR */
+	__raw_writew(value, USB_SPWDAT);       /* set HSUSB.SPWDAT */
+	__raw_writew(USB_SPWR, USB_SPCTRL);		/* set HSUSB.SPCTRL */
+	mdelay(1);
+}
+#endif //USB_DRVSTR_DBG
 
 static void disable_controller(struct r8a66597 *r8a66597);
 static void irq_ep0_write(struct r8a66597_ep *ep, struct r8a66597_request *req);
@@ -89,15 +122,6 @@ static int r8a66597_queue(struct usb_ep *_ep, struct usb_request *_req,
 static void transfer_complete(struct r8a66597_ep *ep,
 		struct r8a66597_request *req, int status);
 
-static int usb_dma_alloc_channel(struct r8a66597 *r8a66597,
-				 struct r8a66597_ep *ep,
-				 struct r8a66597_request *req);
-static void usb_dma_free_channel(struct r8a66597 *r8a66597,
-				 struct r8a66597_dma *dma);
-static void start_dma(struct r8a66597 *r8a66597,
-			struct r8a66597_ep *ep, struct r8a66597_request *req);
-static void cancel_dma(struct r8a66597_ep *r8a66597_ep,
-		struct r8a66597_request *req);
 static inline u16 control_reg_get(struct r8a66597 *r8a66597, u16 pipenum);
 
 /*-------------------------------------------------------------------------*/
@@ -140,6 +164,7 @@ static void r8a66597_inform_vbus_power(struct r8a66597 *r8a66597, int ma)
 static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
 	struct clk *uclk;
+	int ret = 0;
 	if (r8a66597->pdata->clk_enable)
 		r8a66597->pdata->clk_enable(1);
 	if (!r8a66597->phy_active) {
@@ -150,20 +175,26 @@ static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 		}
 		if (!uclk->usecount)
 			clk_enable(uclk);
-		gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);
+		ret = gpio_direction_output(r8a66597->pdata->
+			usb_gpio_setting_info[IDX_PORT130].port, 1);
+		if (ret < 0)
+			error_log("PORT130 direction output(1) failed!\n");
 		r8a66597->phy_active = 1;
 	}
 	clk_enable(r8a66597->clk_dmac);
 	clk_enable(r8a66597->clk);
 }
-
 static void r8a66597_clk_disable(struct r8a66597 *r8a66597)
 {
 	struct clk *uclk;
+	int ret = 0;
 	clk_disable(r8a66597->clk);
 	clk_disable(r8a66597->clk_dmac);
 	if (r8a66597->phy_active) {
-		gpio_direction_output(r8a66597->pdata->pin_gpio_1, 0);
+		ret = gpio_direction_output(r8a66597->pdata->
+				usb_gpio_setting_info[IDX_PORT130].port, 0);
+		if (ret < 0)
+			error_log("PORT130 direction output(0) failed!\n");
 		uclk = clk_get(NULL, "vclk3_clk");
 		if (IS_ERR(uclk)) {
 			udc_log("%s() cannot get vclk3_clk\n", __func__);
@@ -206,6 +237,16 @@ static void r8a66597_clk_put(struct r8a66597 *r8a66597)
 	clk_put(r8a66597->clk_dmac);
 	clk_put(r8a66597->clk);
 }
+
+#else
+static int r8a66597_clk_get(struct r8a66597 *r8a66597,
+			    struct platform_device *pdev)
+{
+	return 0;
+}
+#define r8a66597_clk_put(x)
+#define r8a66597_clk_enable(x)
+#define r8a66597_clk_disable(x)
 #endif
 
 static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
@@ -218,6 +259,20 @@ static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
 	r8a66597_dma_bset(r8a66597, SWR_RST, SWR);
 	udelay(100);
 	r8a66597_dma_bclr(r8a66597, SWR_RST, SWR);
+
+}
+
+static int can_pullup(struct r8a66597 *r8a66597)
+{
+	return r8a66597->driver && r8a66597->softconnect;
+}
+
+static void r8a66597_set_pullup(struct r8a66597 *r8a66597)
+{
+	if (can_pullup(r8a66597))
+		r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
+	else
+		r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
 }
 
 static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
@@ -226,13 +281,8 @@ static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
 	r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
 	r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
 
-	if (r8a66597->pullup_requested)
-		r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
-	else
-		r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
-
+	r8a66597_set_pullup(r8a66597);
 	r8a66597_dma_reset(r8a66597);
-
 	r8a66597_inform_vbus_power(r8a66597, 2);
 }
 
@@ -255,62 +305,62 @@ __acquires(r8a66597->lock)
 	disable_controller(r8a66597);
 	INIT_LIST_HEAD(&r8a66597->ep[0].queue);
 }
+
 #ifdef CONFIG_USB_OTG
 #define USB_PORT_STAT_CONNECTION 0x0001
-static void r8a66597_hnp_work(struct work_struct *work) 
+static void r8a66597_hnp_work(struct work_struct *work)
 {
 	struct r8a66597 *r8a66597 =
 			container_of(work, struct r8a66597, hnp_work.work);
 	struct otg_transceiver *otg = otg_get_transceiver();
-	if (otg->state == OTG_STATE_B_PERIPHERAL || 
-			otg->state == OTG_STATE_A_PERIPHERAL) {
-			r8a66597_bset(r8a66597, HNPBTOA, DVSTCTR0);
-			/* disable interrupts */
-			r8a66597_write(r8a66597, 0, INTENB0);
-			r8a66597_write(r8a66597, 0, INTENB1);
-			r8a66597_write(r8a66597, 0, BRDYENB);
-			r8a66597_write(r8a66597, 0, BEMPENB);
-			r8a66597_write(r8a66597, 0, NRDYENB);
+	udc_log("%s (%d): IN\n", __func__, __LINE__);
+	if (otg->state == OTG_STATE_B_PERIPHERAL ||
+		otg->state == OTG_STATE_A_PERIPHERAL) {
+		r8a66597_bset(r8a66597, HNPBTOA, DVSTCTR0);
+		/* disable interrupts */
+		r8a66597_write(r8a66597, 0, INTENB0);
+		r8a66597_write(r8a66597, 0, INTENB1);
+		r8a66597_write(r8a66597, 0, BRDYENB);
+		r8a66597_write(r8a66597, 0, BEMPENB);
+		r8a66597_write(r8a66597, 0, NRDYENB);
+		/* clear status */
+		r8a66597_write(r8a66597, 0, BRDYSTS);
+		r8a66597_write(r8a66597, 0, NRDYSTS);
+		r8a66597_write(r8a66597, 0, BEMPSTS);
 
-			/* clear status */
-			r8a66597_write(r8a66597, 0, BRDYSTS);
-			r8a66597_write(r8a66597, 0, NRDYSTS);
-			r8a66597_write(r8a66597, 0, BEMPSTS);
+		r8a66597_bset(r8a66597, BEMPE | NRDYE | BRDYE, INTENB0);
+		r8a66597_bset(r8a66597, BRDY0, BRDYENB);
+		r8a66597_bset(r8a66597, BEMP0, BEMPENB);
+		r8a66597_bset(r8a66597, TRNENSEL, SOFCFG);
+		r8a66597_bset(r8a66597, SIGNE | SACKE, INTENB1);
+		r8a66597_bset(r8a66597, OVRCRE, INTENB1);
 
-			r8a66597_bset(r8a66597, BEMPE | NRDYE | BRDYE, INTENB0);
-			r8a66597_bset(r8a66597, BRDY0, BRDYENB);
-			r8a66597_bset(r8a66597, BEMP0, BEMPENB);
-			r8a66597_bset(r8a66597, TRNENSEL, SOFCFG);
-			r8a66597_bset(r8a66597, SIGNE | SACKE, INTENB1);
-			r8a66597_bset(r8a66597, OVRCRE, INTENB1);
+		r8a66597_bset(r8a66597, DCFM, SYSCFG0);
+		r8a66597_bset(r8a66597, DRPD, SYSCFG0);
+		r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
+		r8a66597_bset(r8a66597, HSE, SYSCFG0);
 
-			r8a66597_bset(r8a66597, DCFM, SYSCFG0);
-			r8a66597_bset(r8a66597, DRPD, SYSCFG0);
-			r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
-			r8a66597_bset(r8a66597, HSE, SYSCFG0);
-
-			if (otg->state == OTG_STATE_B_PERIPHERAL) {
-				otg->state = OTG_STATE_B_WAIT_ACON;
-				mod_timer(&r8a66597->hnp_timer_fail,
-					jiffies + msecs_to_jiffies(155));
-			} else if (otg->state == OTG_STATE_A_PERIPHERAL) {
-				otg->state = OTG_STATE_A_WAIT_BCON;
-			}
-
-			otg->port_status |= USB_PORT_STAT_CONNECTION;
-			r8a66597_bclr(r8a66597, DTCHE, INTENB1);
-			r8a66597_bset(r8a66597, ATTCHE, INTENB1);
-			udc_log("%s\n", otg_state_string(otg->state));
-	
+		if (otg->state == OTG_STATE_B_PERIPHERAL) {
+			otg->state = OTG_STATE_B_WAIT_ACON;
+			mod_timer(&r8a66597->hnp_timer_fail,
+						jiffies + msecs_to_jiffies(155));
+		} else if (otg->state == OTG_STATE_A_PERIPHERAL) {
+			otg->state = OTG_STATE_A_WAIT_BCON;
 		}
+		otg->port_status |= USB_PORT_STAT_CONNECTION;
+		r8a66597_bclr(r8a66597, DTCHE, INTENB1);
+		r8a66597_bset(r8a66597, ATTCHE, INTENB1);
+		udc_log("%s\n", otg_state_string(otg->state));
+
+	}
 	otg_put_transceiver(otg);
 }
+
 static void r8a66597_hnp_timer_fail(unsigned long _r8a66597)
 {
 	struct r8a66597 *r8a66597 = (struct r8a66597 *)_r8a66597;
 	struct otg_transceiver *otg = otg_get_transceiver();
 	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
-
 
 	if (otg->state == OTG_STATE_B_WAIT_ACON) {
 
@@ -338,160 +388,32 @@ static void r8a66597_hnp_timer_fail(unsigned long _r8a66597)
 	otg_put_transceiver(otg);
 }
 #endif
-static void r8a66597_charger_work(struct work_struct *work)
+
+static int usb_core_clk_ctrl(struct r8a66597 *r8a66597, bool clk_enable)
 {
-	struct r8a66597 *r8a66597 =
-			container_of(work, struct r8a66597, charger_work.work);
-	u16 syssts0;
-	udc_log("%s: IN\n", __func__);
-	syssts0 = r8a66597_read(r8a66597, SYSSTS0);
-	dev_info(r8a66597_to_dev(r8a66597),
-		 "Charging port detected (%04x)\n", syssts0);
-
-	r8a66597_inform_vbus_power(r8a66597, 1500);
-	r8a66597->charger_detected = 1;
-	schedule_delayed_work(&r8a66597->vbus_work, 0);
-}
-
-#define CHARGER_DETECT_TIMEOUT	(30 * 1000) /* 30s */
-
-static void r8a66597_vbus_work(struct work_struct *work)
-{
-	struct r8a66597 *r8a66597 =
-			container_of(work, struct r8a66597, vbus_work.work);
-	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
-	int is_vbus_powered, ret;
-	unsigned long flags;
-#ifdef CONFIG_USB_OTG
-	struct otg_transceiver *otg = otg_get_transceiver();
-	if (r8a66597_read(r8a66597, INTSTS0) & VBSTS)
-		otg->state = OTG_STATE_B_PERIPHERAL;
-	else if (otg->state ==  OTG_STATE_B_PERIPHERAL) {
-		otg->state = OTG_STATE_B_IDLE;
-		r8a66597->gadget.b_hnp_enable = 0;
-	}
-	udc_log ("%s\n", otg_state_string(otg->state));
-	otg_put_transceiver(otg);
-#endif
-	if(!r8a66597->old_vbus)
-	{
-		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
-		r8a66597_clk_enable(r8a66597);
-	}
-	udc_log("%s: IN\n", __func__);
-	if (!powerup){	
-		powerup = 1; 
-		if (r8a66597->pdata->module_start)
-			r8a66597->pdata->module_start();
-
-		/* start clock */
-		r8a66597_write(r8a66597, bwait, SYSCFG1);
-		r8a66597_bset(r8a66597, HSE, SYSCFG0);
-		r8a66597_bset(r8a66597, USBE, SYSCFG0);
-		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
-
-		r8a66597_bset(r8a66597, CTRE, INTENB0);
-		r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
-		r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
-	}
-	
-	is_vbus_powered = r8a66597->pdata->is_vbus_powered();
-	if ((is_vbus_powered ^ r8a66597->old_vbus) == 0) {
-		if (is_vbus_powered && r8a66597->charger_detected) {
-			r8a66597->old_vbus = 0;
-			goto vbus_disconnect;
-		}
-		if (!is_vbus_powered)
-			wake_unlock(&r8a66597->wake_lock);
-			
-		if(!r8a66597->old_vbus) {
-			r8a66597_clk_disable(r8a66597);
+	   static int usb_clk_status;
+	   if (clk_enable) {
+		if (!usb_clk_status) {
+			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
+			r8a66597_clk_enable(r8a66597);
+			udc_log("%s, After clock enable - USB usage count:%d\n",
+			__func__, r8a66597_to_dev(r8a66597)->power.usage_count);
+			usb_clk_status = 1;
+		   }
+		else
+			return 0;
+	  } else {
+		if (usb_clk_status) {
+		   	r8a66597_clk_disable(r8a66597);
 			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
-		}
-		udc_log("%s: return\n", __func__);
-		return;
-	}
-	r8a66597->old_vbus = is_vbus_powered;
-
-	if (is_vbus_powered) {
-		if (!powerup){ 
-			powerup = 1; 
-			if (r8a66597->pdata->module_start)
-				r8a66597->pdata->module_start();
-
-			/* start clock */
-			r8a66597_write(r8a66597, bwait, SYSCFG1);
-			r8a66597_bset(r8a66597, HSE, SYSCFG0);
-			r8a66597_bset(r8a66597, USBE, SYSCFG0);
-			r8a66597_bset(r8a66597, SCKE, SYSCFG0);
-
-			r8a66597_bset(r8a66597, CTRE, INTENB0);
-			r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
-			r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
-		}
-		r8a66597_usb_connect(r8a66597);
-		r8a66597->vbus_active = 1;
-		
-		//pm_runtime_put(r8a66597_to_dev(r8a66597)); 
-		schedule_delayed_work(&r8a66597->charger_work,
-				      msecs_to_jiffies(CHARGER_DETECT_TIMEOUT));
-		
-		ret = stop_cpufreq ();
-		if (ret) {
-			printk ("%s()[%d]: error<%d>! stop_cpufreq\n",
-				__func__, __LINE__, ret);
-			return;
-		}
-	} else {
-vbus_disconnect:
-		if (delayed_work_pending(&r8a66597->charger_work))
-			cancel_delayed_work_sync(&r8a66597->charger_work);
-		//pm_runtime_get_sync(r8a66597_to_dev(r8a66597)); 
-		if (!powerup){ 
-			powerup = 1;
-		}
-
-		start_cpufreq ();		
-		printk ("%s()[%d]: start_cpufreq\n", __func__, __LINE__);
-
-		spin_lock_irqsave(&r8a66597->lock, flags);
-		r8a66597_usb_disconnect(r8a66597);
-		spin_unlock_irqrestore(&r8a66597->lock, flags);
-
-		r8a66597->vbus_active = 0;
-
-		/* stop clock */
-		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
-		r8a66597_bclr(r8a66597, SCKE, SYSCFG0);
-		r8a66597_bclr(r8a66597, USBE, SYSCFG0);
-
-		if (r8a66597->pdata->module_stop)
-			r8a66597->pdata->module_stop();
-		if (powerup){ 
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
-			powerup = 0;
-			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
-
-		}
-
-		wake_unlock(&r8a66597->wake_lock);
-	}
-}
-
-static irqreturn_t r8a66597_vbus_irq(int irq, void *_r8a66597)
-{
-	struct r8a66597 *r8a66597 = _r8a66597;
-
-	if (!wake_lock_active(&r8a66597->wake_lock))
-		wake_lock(&r8a66597->wake_lock);
-	r8a66597->charger_detected = 0;
-#ifdef CONFIG_USB_OTG
-	schedule_delayed_work(&r8a66597->vbus_work, msecs_to_jiffies(200));
-#else
-	schedule_delayed_work(&r8a66597->vbus_work, msecs_to_jiffies(100));
-#endif
-	return IRQ_HANDLED;
+			udc_log("%s, After clock disable - USB usage count:%d\n",
+			__func__, r8a66597_to_dev(r8a66597)->power.usage_count);
+			usb_clk_status = 0;
+		   }
+		else
+			return 0;
+	  }
+	return 0;
 }
 
 static inline u16 control_reg_get_pid(struct r8a66597 *r8a66597, u16 pipenum)
@@ -532,11 +454,6 @@ static void r8a66597_wait_pbusy(struct r8a66597 *r8a66597, u16 pipenum)
 {
 	u16 tmp;
 	int i = 0;
-
-	tmp = control_reg_get(r8a66597, pipenum);
-	if ((tmp & PBUSY) == 0) {
-		return;
-	}
 
 	do {
 		tmp = control_reg_get(r8a66597, pipenum);
@@ -601,34 +518,36 @@ static inline void control_reg_sqclr(struct r8a66597 *r8a66597, u16 pipenum)
 	}
 }
 
-static inline void control_reg_sqset(struct r8a66597 *r8a66597, u16 pipenum)
+static void control_reg_sqset(struct r8a66597 *r8a66597, u16 pipenum)
 {
 	unsigned long offset;
 
 	pipe_stop(r8a66597, pipenum);
 
-	if (pipenum == 0)
+	if (pipenum == 0) {
 		r8a66597_bset(r8a66597, SQSET, DCPCTR);
-	else if (pipenum < R8A66597_MAX_NUM_PIPE) {
+	} else if (pipenum < R8A66597_MAX_NUM_PIPE) {
 		offset = get_pipectr_addr(pipenum);
 		r8a66597_bset(r8a66597, SQSET, offset);
-	} else
-		dev_err(r8a66597_to_dev(r8a66597), "unexpect pipe num(%d)\n",
-			pipenum);
+	} else {
+		dev_err(r8a66597_to_dev(r8a66597),
+			"unexpect pipe num(%d)\n", pipenum);
+	}
 }
 
-static inline u16 control_reg_sqmon(struct r8a66597 *r8a66597, u16 pipenum)
+static u16 control_reg_sqmon(struct r8a66597 *r8a66597, u16 pipenum)
 {
 	unsigned long offset;
 
-	if (pipenum == 0)
+	if (pipenum == 0) {
 		return r8a66597_read(r8a66597, DCPCTR) & SQMON;
-	else if (pipenum < R8A66597_MAX_NUM_PIPE) {
+	} else if (pipenum < R8A66597_MAX_NUM_PIPE) {
 		offset = get_pipectr_addr(pipenum);
 		return r8a66597_read(r8a66597, offset) & SQMON;
-	} else
-		dev_err(r8a66597_to_dev(r8a66597), "unexpect pipe num(%d)\n",
-			pipenum);
+	} else {
+		dev_err(r8a66597_to_dev(r8a66597),
+			"unexpect pipe num(%d)\n", pipenum);
+	}
 
 	return 0;
 }
@@ -639,7 +558,7 @@ static u16 save_usb_toggle(struct r8a66597 *r8a66597, u16 pipenum)
 }
 
 static void restore_usb_toggle(struct r8a66597 *r8a66597, u16 pipenum,
-			       u16 toggle)
+				u16 toggle)
 {
 	if (toggle)
 		control_reg_sqset(r8a66597, pipenum);
@@ -698,18 +617,12 @@ static void r8a66597_change_curpipe(struct r8a66597 *r8a66597, u16 pipenum,
 	}
 	r8a66597_mdfy(r8a66597, loop, mask, fifosel);
 
-	tmp = r8a66597_read(r8a66597, fifosel);
-	if ((tmp & mask) == loop) {
-		return;
-	}
-	/* end JB added */
-
 	do {
 		tmp = r8a66597_read(r8a66597, fifosel);
 		if (i++ > 1000000) {
 			dev_err(r8a66597_to_dev(r8a66597),
-				"r8a66597: register%x, loop %x is timeout\n",
-				fifosel, loop);
+				"r8a66597: register%x, loop %x "
+				"is timeout\n", fifosel, loop);
 			break;
 		}
 		ndelay(1);
@@ -832,7 +745,7 @@ static int pipe_buffer_setting(struct r8a66597 *r8a66597,
 	max_bufnum = r8a66597->pdata->max_bufnum ? : R8A66597_MAX_BUFNUM;
 	if (buf_bsize && ((bufnum + 16) >= max_bufnum)) {
 		dev_err(r8a66597_to_dev(r8a66597),
-			"r8a66597 pipe memory is insufficient (%d,%x,%x)\n",
+			"r8a66597 pipe memory is insufficient (%d,0x%x,0x%x)\n",
 			info->pipe, bufnum, max_bufnum);
 		return -ENOMEM;
 	}
@@ -850,6 +763,7 @@ static int pipe_buffer_setting(struct r8a66597 *r8a66597,
 static void pipe_initialize(struct r8a66597_ep *ep)
 {
 	struct r8a66597 *r8a66597 = ep->r8a66597;
+
 	r8a66597_change_curpipe(r8a66597, 0, 0, ep->fifosel);
 
 	r8a66597_write(r8a66597, ACLRM, ep->pipectr);
@@ -862,49 +776,6 @@ static void pipe_initialize(struct r8a66597_ep *ep)
 	}
 }
 
-static void disable_fifosel(struct r8a66597 *r8a66597, u16 pipenum,
-			    u16 fifosel)
-{
-	u16 tmp;
-
-	tmp = r8a66597_read(r8a66597, fifosel) & CURPIPE;
-	if (tmp == pipenum)
-		r8a66597_change_curpipe(r8a66597, 0, 0, fifosel);
-}
-
-static void change_bfre_mode(struct r8a66597 *r8a66597, u16 pipenum,
-			     int enable)
-{
-	struct r8a66597_ep *ep = r8a66597->pipenum2ep[pipenum];
-	u16 tmp, toggle;
-
-	/* check current BFRE bit */
-	r8a66597_write(r8a66597, pipenum, PIPESEL);
-	tmp = r8a66597_read(r8a66597, PIPECFG) & R8A66597_BFRE;
-	if ((enable && tmp) || (!enable && !tmp))
-		return;
-
-	/* change BFRE bit */
-	pipe_stop(r8a66597, pipenum);
-	disable_fifosel(r8a66597, pipenum, CFIFOSEL);
-	disable_fifosel(r8a66597, pipenum, D0FIFOSEL);
-	disable_fifosel(r8a66597, pipenum, D1FIFOSEL);
-
-	toggle = save_usb_toggle(r8a66597, pipenum);
-
-	r8a66597_write(r8a66597, pipenum, PIPESEL);
-	if (enable)
-		r8a66597_bset(r8a66597, R8A66597_BFRE, PIPECFG);
-	else
-		r8a66597_bclr(r8a66597, R8A66597_BFRE, PIPECFG);
-
-	/* initialize for internal BFRE flag */
-	r8a66597_bset(r8a66597, ACLRM, ep->pipectr);
-	r8a66597_bclr(r8a66597, ACLRM, ep->pipectr);
-
-	restore_usb_toggle(r8a66597, pipenum, toggle);
-}
-
 static void r8a66597_ep_setting(struct r8a66597 *r8a66597,
 				struct r8a66597_ep *ep,
 				const struct usb_endpoint_descriptor *desc,
@@ -914,13 +785,8 @@ static void r8a66597_ep_setting(struct r8a66597 *r8a66597,
 	ep->fifoaddr = CFIFO;
 	ep->fifosel = CFIFOSEL;
 	ep->fifoctr = CFIFOCTR;
-	ep->fifotrn = 0;
 
-	if (pipenum == 0)
-		ep->pipectr = DCPCTR;
-	else
-		ep->pipectr = get_pipectr_addr(pipenum);
-
+	ep->pipectr = get_pipectr_addr(pipenum);
 	if (usb_endpoint_xfer_bulk(desc) || usb_endpoint_xfer_isoc(desc)) {
 		ep->pipetre = get_pipetre_addr(pipenum);
 		ep->pipetrn = get_pipetrn_addr(pipenum);
@@ -929,7 +795,7 @@ static void r8a66597_ep_setting(struct r8a66597 *r8a66597,
 		ep->pipetrn = 0;
 	}
 	ep->pipenum = pipenum;
-	ep->ep.maxpacket = le16_to_cpu(desc->wMaxPacketSize);
+	ep->ep.maxpacket = usb_endpoint_maxp(desc);
 	r8a66597->pipenum2ep[pipenum] = ep;
 	r8a66597->epaddr2ep[usb_endpoint_num(desc)]
 		= ep;
@@ -942,6 +808,9 @@ static void r8a66597_ep_release(struct r8a66597_ep *ep)
 		return;
 	ep->pipenum = 0;
 	ep->busy = 0;
+	/* Re-initialize ep.maxpacket in endpoint descriptor to
+	   R8A66597_MAX_PACKET_SIZE */
+	ep->ep.maxpacket = R8A66597_MAX_PACKET_SIZE;
 }
 
 static int alloc_pipe_config(struct r8a66597_ep *ep,
@@ -953,7 +822,7 @@ static int alloc_pipe_config(struct r8a66597_ep *ep,
 	int ret = 0;
 	unsigned long flags;
 
-	ep->desc = desc;
+	ep->ep.desc = desc;
 
 	if (ep->pipenum)	/* already allocated pipe  */
 		return 0;
@@ -980,7 +849,7 @@ static int alloc_pipe_config(struct r8a66597_ep *ep,
 	ep->type = info.type;
 
 	info.epnum = usb_endpoint_num(desc);
-	info.maxpacket = le16_to_cpu(desc->wMaxPacketSize);
+	info.maxpacket = usb_endpoint_maxp(desc);
 	info.interval = desc->bInterval;
 	if (desc->bEndpointAddress & USB_ENDPOINT_DIR_MASK)
 		info.dir_in = 1;
@@ -1048,104 +917,244 @@ static void start_ep0_write(struct r8a66597_ep *ep,
 	}
 }
 
+static void disable_fifosel(struct r8a66597 *r8a66597, u16 pipenum,
+			    u16 fifosel)
+{
+	u16 tmp;
+
+	tmp = r8a66597_read(r8a66597, fifosel) & CURPIPE;
+	if (tmp == pipenum)
+		r8a66597_change_curpipe(r8a66597, 0, 0, fifosel);
+}
+
+static void change_bfre_mode(struct r8a66597 *r8a66597, u16 pipenum,
+			     int enable)
+{
+	struct r8a66597_ep *ep = r8a66597->pipenum2ep[pipenum];
+	u16 tmp, toggle;
+
+	/* check current BFRE bit */
+	r8a66597_write(r8a66597, pipenum, PIPESEL);
+	tmp = r8a66597_read(r8a66597, PIPECFG) & R8A66597_BFRE;
+	if ((enable && tmp) || (!enable && !tmp))
+		return;
+
+	/* change BFRE bit */
+	pipe_stop(r8a66597, pipenum);
+	disable_fifosel(r8a66597, pipenum, CFIFOSEL);
+	disable_fifosel(r8a66597, pipenum, D0FIFOSEL);
+	disable_fifosel(r8a66597, pipenum, D1FIFOSEL);
+
+	toggle = save_usb_toggle(r8a66597, pipenum);
+
+	r8a66597_write(r8a66597, pipenum, PIPESEL);
+	if (enable)
+		r8a66597_bset(r8a66597, R8A66597_BFRE, PIPECFG);
+	else
+		r8a66597_bclr(r8a66597, R8A66597_BFRE, PIPECFG);
+
+	/* initialize for internal BFRE flag */
+	r8a66597_bset(r8a66597, ACLRM, ep->pipectr);
+	r8a66597_bclr(r8a66597, ACLRM, ep->pipectr);
+
+	restore_usb_toggle(r8a66597, pipenum, toggle);
+}
+
+static int usb_dma_check_alignment(void *buf, int size)
+{
+	return !((unsigned long)buf & (size - 1));
+}
+
+static int dmac_alloc_channel(struct r8a66597 *r8a66597,
+				   struct r8a66597_ep *ep,
+				   struct r8a66597_request *req)
+{
+	struct r8a66597_dma *dma;
+	int ch, ret;
+
+	if (!r8a66597_has_dmac(r8a66597))
+		 return -ENODEV;
+
+	/* Check transfer length */
+	if (!req->req.length)
+		return -EINVAL;
+
+	/* Check transfer type */
+	if (!usb_endpoint_xfer_bulk(ep->ep.desc))
+		 return -EIO;
+
+	/* Check buffer alignment */
+	if (!usb_dma_check_alignment(req->req.buf, 8))
+		 return -EINVAL;
+
+	/* Find available DMA channels */
+	if (ep->ep.desc->bEndpointAddress & USB_DIR_IN)
+		 ch = USBHS_DMAC_IN_CHANNEL;
+	else
+		 ch = USBHS_DMAC_OUT_CHANNEL;
+
+	if (r8a66597->dma[ch].used)
+		 return -EBUSY;
+	dma = &r8a66597->dma[ch];
+
+	/* set USBHS-DMAC parameters */
+	dma->channel = ch;
+	dma->ep = ep;
+	dma->used = 1;
+	if (usb_dma_check_alignment(req->req.buf, 32)) {
+		 dma->tx_size = 32;
+		 dma->chcr_ts = TS_32;
+	} else if (usb_dma_check_alignment(req->req.buf, 16)) {
+		 dma->tx_size = 16;
+		 dma->chcr_ts = TS_16;
+	} else {
+		 dma->tx_size = 8;
+		 dma->chcr_ts = TS_8;
+	}
+
+	if (ep->ep.desc->bEndpointAddress & USB_DIR_IN) {
+		 dma->dir = 1;
+		 dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch);
+	} else {
+		 dma->dir = 0;
+		 dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch) |
+					USBHS_DMAC_DMICR_SP(ch) |
+					USBHS_DMAC_DMICR_NULL(ch);
+		 change_bfre_mode(r8a66597, ep->pipenum, 1);
+	}
+
+	/* set r8a66597_ep paramters */
+	ep->use_dma = 1;
+	ep->dma = dma;
+	if (dma->channel == 0) {
+		 ep->fifoaddr = D0FIFO;
+		 ep->fifosel = D0FIFOSEL;
+		 ep->fifoctr = D0FIFOCTR;
+	} else {
+		 ep->fifoaddr = D1FIFO;
+		 ep->fifosel = D1FIFOSEL;
+		 ep->fifoctr = D1FIFOCTR;
+	}
+
+	/* dma mapping */
+	ret = usb_gadget_map_request(&r8a66597->gadget, &req->req, dma->dir);
+
+	/* Initialize pipe, if needed */
+	if (!dma->initialized) {
+		 pipe_initialize(ep);
+		 dma->initialized = 1;
+	}
+
+	return ret;
+}
+
+static void dmac_free_channel(struct r8a66597 *r8a66597,
+				struct r8a66597_ep *ep,
+				struct r8a66597_request *req)
+{
+	if (!r8a66597_has_dmac(r8a66597))
+		return;
+
+	usb_gadget_unmap_request(&r8a66597->gadget, &req->req, ep->dma->dir);
+
+	r8a66597_bclr(r8a66597, DREQE, ep->fifosel);
+	r8a66597_change_curpipe(r8a66597, 0, 0, ep->fifosel);
+
+	ep->dma->used = 0;
+	ep->use_dma = 0;
+	ep->fifoaddr = CFIFO;
+	ep->fifosel = CFIFOSEL;
+	ep->fifoctr = CFIFOCTR;
+}
+
+static void dmac_start(struct r8a66597 *r8a66597, struct r8a66597_ep *ep,
+			 struct r8a66597_request *req)
+{
+	int ch = ep->dma->channel;
+
+	if (req->req.length == 0)
+		return;
+
+	r8a66597_dma_bclr(r8a66597, DE, USBHS_DMAC_CHCR(ch));
+
+	r8a66597_dma_write(r8a66597, (u32)req->req.dma, USBHS_DMAC_SAR(ch));
+	r8a66597_dma_write(r8a66597, (u32)req->req.dma, USBHS_DMAC_DAR(ch));
+
+	r8a66597_dma_write(r8a66597,
+			DIV_ROUND_UP(req->req.length, ep->dma->tx_size),
+			USBHS_DMAC_TCR(ch));
+	r8a66597_dma_write(r8a66597, 0, USBHS_DMAC_CHCR(ch));
+	r8a66597_dma_write(r8a66597, 0x0027AC40, USBHS_DMAC_TOCSTR(ch));
+
+	if (ep->dma->dir) {
+		if ((req->req.length % ep->dma->tx_size) == 0)
+			r8a66597_dma_write(r8a66597, 0xFFFFFFFF,
+						USBHS_DMAC_TEND(ch));
+		else
+			r8a66597_dma_write(r8a66597,
+					~(0xFFFFFFFF >>
+					(req->req.length &
+					 (ep->dma->tx_size - 1))),
+					USBHS_DMAC_TEND(ch));
+	} else {
+		r8a66597_dma_write(r8a66597, 0,  USBHS_DMAC_TEND(ch));
+	}
+
+	r8a66597_dma_bset(r8a66597, DME, DMAOR);
+
+	if (!ep->dma->dir)
+		r8a66597_dma_bset(r8a66597, NULLE, USBHS_DMAC_CHCR(ch));
+
+	r8a66597_dma_bset(r8a66597, IE | ep->dma->chcr_ts, USBHS_DMAC_CHCR(ch));
+	r8a66597_dma_bset(r8a66597, DE, USBHS_DMAC_CHCR(ch));
+}
+
+static void dmac_cancel(struct r8a66597_ep *ep, struct r8a66597_request *req)
+{
+	struct r8a66597 *r8a66597 = ep->r8a66597;
+	u32 chcr0, chcr1;
+
+	if (!ep->use_dma)
+		return;
+
+	r8a66597_dma_bclr(r8a66597, DE | IE, USBHS_DMAC_CHCR(ep->dma->channel));
+	if (!ep->dma->dir)
+		r8a66597_bset(r8a66597, BCLR, ep->fifoctr);
+
+	chcr0 = r8a66597_dma_read(r8a66597, USBHS_DMAC_CHCR(0));
+	chcr1 = r8a66597_dma_read(r8a66597, USBHS_DMAC_CHCR(1));
+	if (!(chcr0 & DE) && !(chcr1 & DE))
+		r8a66597_dma_reset(r8a66597);
+}
+
 static void start_packet_write(struct r8a66597_ep *ep,
 				struct r8a66597_request *req)
 {
 	struct r8a66597 *r8a66597 = ep->r8a66597;
-	u16 tmp, intenb0, nrdyenb, fifosel, mask, loop;
-	u16 pipenum = ep->pipenum;
-	int i = 0;
+	u16 tmp;
 
 	if (!req->req.buf)
 		dev_warn(r8a66597_to_dev(r8a66597),
 			 "%s: buffer pointer is NULL\n", __func__);
 
-	/* prepare parameters */
-	if (req->req.length == 0) {
-		transfer_complete(ep, req, 0);
+	r8a66597_write(r8a66597, ~(1 << ep->pipenum), BRDYSTS);
+	if (dmac_alloc_channel(r8a66597, ep, req) < 0) {
+		/* PIO mode */
+		pipe_change(r8a66597, ep->pipenum);
+		disable_irq_empty(r8a66597, ep->pipenum);
+		pipe_start(r8a66597, ep->pipenum);
+		tmp = r8a66597_read(r8a66597, ep->fifoctr);
+		if (unlikely((tmp & FRDY) == 0))
+			pipe_irq_enable(r8a66597, ep->pipenum);
+		else
+			irq_packet_write(ep, req);
 	} else {
-		r8a66597_write(r8a66597, ~(1 << pipenum), BRDYSTS);
-		if (usb_dma_alloc_channel(r8a66597, ep, req) < 0) {
-			/* PIO mode */
-			pipe_change(r8a66597, ep->pipenum);
-			disable_irq_empty(r8a66597, ep->pipenum);
-			pipe_start(r8a66597, ep->pipenum);
-			tmp = r8a66597_read(r8a66597, ep->fifoctr);
-			if (unlikely((tmp & FRDY) == 0))
-				pipe_irq_enable(r8a66597, ep->pipenum);
-			else
-				irq_packet_write(ep, req);
-		} else {
-#if 0
-			pipe_change(r8a66597, pipenum);
-			disable_irq_nrdy(r8a66597, pipenum);
-			pipe_start(r8a66597, ep->pipenum);
-			enable_irq_nrdy(r8a66597, pipenum);
-			start_dma(r8a66597, ep, req);
-#endif
-
-			/*pipe_change(r8a66597, pipenum);*/
-
-		      fifosel = r8a66597_read(r8a66597, ep->fifosel);
-
-		      if (ep->use_dma)
-				r8a66597_write(r8a66597,
-				fifosel & ~DREQE, ep->fifosel);
-
-		      if (!pipenum) {
-				mask = ISEL | CURPIPE;
-				loop = 0;
-		      } else {
-				mask = CURPIPE;
-				loop = pipenum;
-		      }
-
-		      fifosel &= (~mask);
-		      fifosel |= loop;
-
-		      fifosel |= mbw_value(r8a66597);
-
-		      if (ep->use_dma)
-				fifosel |= DREQE;
-
-		      r8a66597_write(r8a66597, fifosel, ep->fifosel);
-
-		      tmp = r8a66597_read(r8a66597, ep->fifosel);
-		      if ((tmp & mask) != loop) {
-				do {
-					tmp = r8a66597_read(r8a66597,
-						ep->fifosel);
-					if (i++ > 1000000) {
-						dev_err(
-						r8a66597_to_dev(r8a66597),
-				"r8a66597: register%x,loop %x is timeout\n",
-					fifosel, loop);
-					break;
-				}
-			    ndelay(1);
-			} while ((tmp & mask) != loop);
-		      }
-
-		      intenb0 = r8a66597_read(r8a66597, INTENB0);
-		      r8a66597_write(r8a66597,
-				intenb0 & ~(BEMPE | NRDYE | BRDYE),
-				INTENB0);
-		      nrdyenb = r8a66597_read(r8a66597, NRDYENB);
-		      r8a66597_write(r8a66597,
-			nrdyenb & ~(1 << pipenum), NRDYENB);
-		      r8a66597_write(r8a66597, intenb0, INTENB0);
-
-		      pipe_start(r8a66597, ep->pipenum);
-
-		      r8a66597_write(r8a66597,
-					intenb0 & ~(BEMPE | NRDYE | BRDYE),
-					INTENB0);
-		      r8a66597_write(r8a66597,
-			nrdyenb | (1 << pipenum), NRDYENB);
-		      r8a66597_write(r8a66597, intenb0, INTENB0);
-		      start_dma(r8a66597, ep, req);
-		      /* JB end register accesses */
-		}
+		/* DMA mode */
+		pipe_change(r8a66597, ep->pipenum);
+		disable_irq_nrdy(r8a66597, ep->pipenum);
+		pipe_start(r8a66597, ep->pipenum);
+		enable_irq_nrdy(r8a66597, ep->pipenum);
+		dmac_start(r8a66597, ep, req);
 	}
 }
 
@@ -1172,14 +1181,14 @@ static void start_packet_read(struct r8a66597_ep *ep,
 		}
 
 		r8a66597_write(r8a66597, ~(1 << pipenum), BRDYSTS);
-		if (usb_dma_alloc_channel(r8a66597, ep, req) < 0) {
+		if (dmac_alloc_channel(r8a66597, ep, req) < 0) {
 			/* PIO mode */
 			change_bfre_mode(r8a66597, ep->pipenum, 0);
 			pipe_start(r8a66597, pipenum);	/* trigger once */
 			pipe_irq_enable(r8a66597, pipenum);
 		} else {
 			pipe_change(r8a66597, pipenum);
-			start_dma(r8a66597, ep, req);
+			dmac_start(r8a66597, ep, req);
 			pipe_start(r8a66597, pipenum);	/* trigger once */
 		}
 	}
@@ -1187,7 +1196,7 @@ static void start_packet_read(struct r8a66597_ep *ep,
 
 static void start_packet(struct r8a66597_ep *ep, struct r8a66597_request *req)
 {
-	if (ep->desc->bEndpointAddress & USB_DIR_IN)
+	if (ep->ep.desc->bEndpointAddress & USB_DIR_IN)
 		start_packet_write(ep, req);
 	else
 		start_packet_read(ep, req);
@@ -1219,7 +1228,7 @@ static void start_ep0(struct r8a66597_ep *ep, struct r8a66597_request *req)
 
 static void init_controller(struct r8a66597 *r8a66597)
 {
-	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
+	u16 bwait = r8a66597->pdata->buswait ? : 0xf;
 	u16 vif = r8a66597->pdata->vif ? LDRV : 0;
 	u16 irq_sense = r8a66597->irq_sense_low ? INTL : 0;
 	u16 endian = r8a66597->pdata->endian ? BIGEND : 0;
@@ -1331,16 +1340,8 @@ __acquires(r8a66597->lock)
 	if (!list_empty(&ep->queue))
 		restart = 1;
 
-	if (req->mapped) {
-		dma_unmap_single(ep->r8a66597->gadget.dev.parent,
-			req->req.dma, req->req.length,
-			(ep->desc->bEndpointAddress & USB_DIR_IN)
-			? DMA_TO_DEVICE
-			: DMA_FROM_DEVICE);
-		req->req.dma = DMA_ADDR_INVALID;
-		req->mapped = 0;
-		usb_dma_free_channel(ep->r8a66597, ep->dma);
-	}
+	if (ep->use_dma)
+		dmac_free_channel(ep->r8a66597, ep, req);
 
 	spin_unlock(&ep->r8a66597->lock);
 	req->req.complete(&ep->ep, &req->req);
@@ -1348,7 +1349,7 @@ __acquires(r8a66597->lock)
 
 	if (restart) {
 		req = get_request_from_ep(ep);
-		if (ep->desc)
+		if (ep->ep.desc)
 			start_packet(ep, req);
 	}
 }
@@ -1414,24 +1415,17 @@ static void irq_packet_write(struct r8a66597_ep *ep,
 	unsigned bufsize;
 	size_t size;
 	void *buf;
-	int time = 0;
 	u16 pipenum = ep->pipenum;
 	struct r8a66597 *r8a66597 = ep->r8a66597;
 
 	pipe_change(r8a66597, pipenum);
 	tmp = r8a66597_read(r8a66597, ep->fifoctr);
 	if (unlikely((tmp & FRDY) == 0)) {
-		do {
-		    tmp = r8a66597_read(r8a66597, ep->fifoctr);
-		}while ((tmp & FRDY) == 0 && time++ < 10000);
-
-		if (unlikely((tmp & FRDY) == 0)) {
-			pipe_stop(r8a66597, pipenum);
-			pipe_irq_disable(r8a66597, pipenum);
-			dev_err(r8a66597_to_dev(r8a66597),
-			  "write fifo not ready. pipnum=%d\n", pipenum);
-			return;
-		}
+		pipe_stop(r8a66597, pipenum);
+		pipe_irq_disable(r8a66597, pipenum);
+		dev_err(r8a66597_to_dev(r8a66597),
+			"write fifo not ready. pipnum=%d\n", pipenum);
+		return;
 	}
 
 	/* prepare parameters */
@@ -1463,167 +1457,6 @@ static void irq_packet_write(struct r8a66597_ep *ep,
 		pipe_irq_enable(r8a66597, pipenum);
 	}
 }
-
-static int usb_dma_check_alignment(void *buf, int size)
-{
-	return !((unsigned long)buf & (size - 1));
-}
-
-static int usb_dma_alloc_channel(struct r8a66597 *r8a66597,
-				 struct r8a66597_ep *ep,
-				 struct r8a66597_request *req)
-{
-	struct r8a66597_dma *dma = NULL;
-	int ch;
-
-	/* Check transfer type */
-	if (!usb_endpoint_xfer_bulk(ep->desc))
-		return -EIO;
-
-	/* Check buffer alignment */
-	if (!usb_dma_check_alignment(req->req.buf, 8))
-		return -EINVAL;
-
-	/* Find available DMA channels */
-	if (ep->desc->bEndpointAddress & USB_DIR_IN)
-		ch = USBHS_DMAC_IN_CHANNEL;
-	else
-		ch = USBHS_DMAC_OUT_CHANNEL;
-
-	if (!r8a66597->dma[ch].used)
-		dma = &r8a66597->dma[ch];
-	else
-		return -EBUSY;
-
-	/* Set parameters */
-	dma->channel = ch;
-	dma->ep = ep;
-	dma->used = 1;
-	if (usb_dma_check_alignment(req->req.buf, 32)) {
-		dma->tx_size = 32;
-		dma->chcr_ts = TS_32;
-	} else if (usb_dma_check_alignment(req->req.buf, 16)) {
-		dma->tx_size = 16;
-		dma->chcr_ts = TS_16;
-	} else {
-		dma->tx_size = 8;
-		dma->chcr_ts = TS_8;
-	}
-
-	if (ep->desc->bEndpointAddress & USB_DIR_IN) {
-		dma->dir = 1;
-		dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch);
-	} else {
-		dma->dir = 0;
-		dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch) |
-				    USBHS_DMAC_DMICR_SP(ch) |
-				    USBHS_DMAC_DMICR_NULL(ch);
-		change_bfre_mode(r8a66597, ep->pipenum, 1);
-	}
-
-	ep->use_dma = 1;
-	ep->dma = dma;
-	if (dma->channel == 0) {
-		ep->fifoaddr = D0FIFO;
-		ep->fifosel = D0FIFOSEL;
-		ep->fifoctr = D0FIFOCTR;
-	} else {
-		ep->fifoaddr = D1FIFO;
-		ep->fifosel = D1FIFOSEL;
-		ep->fifoctr = D1FIFOCTR;
-	}
-
-	/* dma mapping */
-	req->req.dma = dma_map_single(ep->r8a66597->gadget.dev.parent,
-				req->req.buf, req->req.length,
-				(ep->desc->bEndpointAddress & USB_DIR_IN)
-					? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-	req->mapped = 1;
-
-	/* Initialize pipe, if needed */
-	if (!dma->initialized) {
-		pipe_initialize(ep);
-		dma->initialized = 1;
-	}
-
-	return ch;
-}
-
-static void usb_dma_free_channel(struct r8a66597 *r8a66597,
-				 struct r8a66597_dma *dma)
-{
-	r8a66597_bclr(r8a66597, DREQE, dma->ep->fifosel);
-	r8a66597_change_curpipe(r8a66597, 0, 0, dma->ep->fifosel);
-
-	dma->used = 0;
-	dma->ep->use_dma = 0;
-	dma->ep->fifoaddr = CFIFO;
-	dma->ep->fifosel = CFIFOSEL;
-	dma->ep->fifoctr = CFIFOCTR;
-}
-
-static void start_dma(struct r8a66597 *r8a66597,
-			struct r8a66597_ep *ep, struct r8a66597_request *req)
-{
-	int ch = ep->dma->channel;
-
-	if (req->req.length == 0)
-		return;
-
-
-	r8a66597_dma_bclr(r8a66597, DE, USBHS_DMAC_CHCR(ch));
-
-	r8a66597_dma_write(r8a66597, (u32)req->req.dma, USBHS_DMAC_SAR(ch));
-	r8a66597_dma_write(r8a66597, (u32)req->req.dma, USBHS_DMAC_DAR(ch));
-
-	r8a66597_dma_write(r8a66597,
-			DIV_ROUND_UP(req->req.length, ep->dma->tx_size),
-			USBHS_DMAC_TCR(ch));
-	r8a66597_dma_write(r8a66597, 0, USBHS_DMAC_CHCR(ch));
-	r8a66597_dma_write(r8a66597, 0x0027AC40, USBHS_DMAC_TOCSTR(ch));
-
-	if (ep->dma->dir) {
-		if ((req->req.length % ep->dma->tx_size) == 0)
-			r8a66597_dma_write(r8a66597, 0xFFFFFFFF,
-						USBHS_DMAC_TEND(ch));
-		else
-			r8a66597_dma_write(r8a66597,
-					~(0xFFFFFFFF >>
-					(req->req.length &
-					 (ep->dma->tx_size - 1))),
-					USBHS_DMAC_TEND(ch));
-	} else {
-		r8a66597_dma_write(r8a66597, 0,  USBHS_DMAC_TEND(ch));
-	}
-
-	r8a66597_dma_bset(r8a66597, DME, DMAOR);
-
-	if (!ep->dma->dir)
-		r8a66597_dma_bset(r8a66597, NULLE, USBHS_DMAC_CHCR(ch));
-
-	r8a66597_dma_bset(r8a66597, IE | ep->dma->chcr_ts, USBHS_DMAC_CHCR(ch));
-	r8a66597_dma_bset(r8a66597, DE, USBHS_DMAC_CHCR(ch));
-}
-
-static void cancel_dma(struct r8a66597_ep *ep,
-				struct r8a66597_request *req)
-{
-	struct r8a66597 *r8a66597 = ep->r8a66597;
-	u32 chcr0, chcr1;
-
-	if (!ep->use_dma)
-		return;
-
-	r8a66597_dma_bclr(r8a66597, DE | IE, USBHS_DMAC_CHCR(ep->dma->channel));
-	if (!ep->dma->dir)
-		r8a66597_bset(r8a66597, BCLR, ep->fifoctr);
-
-	chcr0 = r8a66597_dma_read(r8a66597, USBHS_DMAC_CHCR(0));
-	chcr1 = r8a66597_dma_read(r8a66597, USBHS_DMAC_CHCR(1));
-	if (!(chcr0 & DE) && !(chcr1 & DE))
-		r8a66597_dma_reset(r8a66597);
-}
-
 static void irq_packet_read(struct r8a66597_ep *ep,
 				struct r8a66597_request *req)
 {
@@ -1701,7 +1534,7 @@ static void irq_pipe_ready(struct r8a66597 *r8a66597, u16 status, u16 enb)
 				r8a66597_write(r8a66597, ~check, BRDYSTS);
 				ep = r8a66597->pipenum2ep[pipenum];
 				req = get_request_from_ep(ep);
-				if (ep->desc->bEndpointAddress & USB_DIR_IN)
+				if (ep->ep.desc->bEndpointAddress & USB_DIR_IN)
 					irq_packet_write(ep, req);
 				else
 					irq_packet_read(ep, req);
@@ -1780,7 +1613,7 @@ __acquires(r8a66597->lock)
 #endif
 	switch (ctrl->bRequestType & USB_RECIP_MASK) {
 	case USB_RECIP_DEVICE:
-		status = 1 << USB_DEVICE_SELF_POWERED;
+		status = r8a66597->device_status;
 		break;
 	case USB_RECIP_INTERFACE:
 		status = 0;
@@ -1832,6 +1665,7 @@ static void clear_feature(struct r8a66597 *r8a66597,
 				struct usb_ctrlrequest *ctrl)
 {
 	u16 w_value = le16_to_cpu(ctrl->wValue);
+
 	switch (ctrl->bRequestType & USB_RECIP_MASK) {
 	case USB_RECIP_DEVICE:
 		switch (w_value) {
@@ -1856,8 +1690,7 @@ static void clear_feature(struct r8a66597 *r8a66597,
 			struct r8a66597_request *req;
 			u16 w_index = le16_to_cpu(ctrl->wIndex);
 
-			ep = r8a66597->epaddr2ep[w_index &
-				USB_ENDPOINT_NUMBER_MASK];
+			ep = r8a66597->epaddr2ep[w_index & USB_ENDPOINT_NUMBER_MASK];
 			if (!ep->wedge) {
 				pipe_stop(r8a66597, ep->pipenum);
 				control_reg_sqclr(r8a66597, ep->pipenum);
@@ -1911,8 +1744,8 @@ static void set_feature(struct r8a66597 *r8a66597, struct usb_ctrlrequest *ctrl)
 
 			if (tmp == CS_IDST)
 				r8a66597_bset(r8a66597,
-					      le16_to_cpu(ctrl->wIndex >> 8),
-					      TESTMODE);
+						le16_to_cpu(ctrl->wIndex >> 8),
+						TESTMODE);
 			break;
 #ifdef CONFIG_USB_OTG
 		case USB_DEVICE_B_HNP_ENABLE: {
@@ -1935,8 +1768,7 @@ static void set_feature(struct r8a66597 *r8a66597, struct usb_ctrlrequest *ctrl)
 			struct r8a66597_ep *ep;
 			u16 w_index = le16_to_cpu(ctrl->wIndex);
 
-			ep = r8a66597->epaddr2ep[w_index &
-				USB_ENDPOINT_NUMBER_MASK];
+			ep = r8a66597->epaddr2ep[w_index & USB_ENDPOINT_NUMBER_MASK];
 			pipe_stall(r8a66597, ep->pipenum);
 
 			control_end(r8a66597, 1);
@@ -1987,6 +1819,15 @@ static int setup_packet(struct r8a66597 *r8a66597, struct usb_ctrlrequest *ctrl)
 	return ret;
 }
 
+static int r8a66597_set_vbus_draw(struct r8a66597 *r8a66597, int mA)
+{
+#if 0
+	if (r8a66597->transceiver)
+		return usb_phy_set_power(r8a66597->transceiver, mA);
+#endif
+	return -EOPNOTSUPP;
+}
+
 static void r8a66597_update_usb_speed(struct r8a66597 *r8a66597)
 {
 	u16 speed = get_usb_speed(r8a66597);
@@ -2006,6 +1847,7 @@ static void r8a66597_update_usb_speed(struct r8a66597 *r8a66597)
 
 static void irq_device_state(struct r8a66597 *r8a66597)
 {
+
 	u16 dvsq;
 #ifdef CONFIG_USB_OTG
 	struct otg_transceiver *otg;
@@ -2022,10 +1864,9 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 		r8a66597_update_usb_speed(r8a66597);
 		r8a66597_inform_vbus_power(r8a66597, 100);
 #ifdef CONFIG_USB_OTG
-		if (otg->state == OTG_STATE_A_SUSPEND) {
-			otg->state = OTG_STATE_A_PERIPHERAL;
-		}
-		udc_log ("%s\n", otg_state_string(otg->state));
+	if (otg->state == OTG_STATE_A_SUSPEND)
+		otg->state = OTG_STATE_A_PERIPHERAL;
+	udc_log("%s\n", otg_state_string(otg->state));
 #endif
 	}
 	if (r8a66597->old_dvsq == DS_CNFG && dvsq != DS_CNFG)
@@ -2033,10 +1874,8 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 	if ((dvsq == DS_CNFG || dvsq == DS_ADDS)
 			&& r8a66597->gadget.speed == USB_SPEED_UNKNOWN)
 		r8a66597_update_usb_speed(r8a66597);
-	if (dvsq & DS_SUSP)
-		r8a66597_inform_vbus_power(r8a66597, 2);
 #ifdef CONFIG_USB_OTG
-	if ((r8a66597->old_dvsq == DS_CNFG) && (dvsq & DS_SPD_CNFG) 
+	if ((r8a66597->old_dvsq == DS_CNFG) && (dvsq & DS_SPD_CNFG)
 							&& r8a66597->gadget.b_hnp_enable
 							&& r8a66597->host_request_flag) {
 		schedule_delayed_work(&r8a66597->hnp_work, 0);
@@ -2044,14 +1883,8 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 	}
 	otg_put_transceiver(otg);
 #endif
-	r8a66597->old_dvsq = dvsq;
 
-	/* Cancel a pending charger work only if configured properly */
-	if ((delayed_work_pending(&r8a66597->charger_work)) &&
-	    (r8a66597->gadget.speed != USB_SPEED_UNKNOWN)) {
-		__cancel_delayed_work(&r8a66597->charger_work);
-		r8a66597->charger_detected = 0;
-	}
+	r8a66597->old_dvsq = dvsq;
 }
 
 static void irq_control_stage(struct r8a66597 *r8a66597)
@@ -2071,8 +1904,8 @@ __acquires(r8a66597->lock)
 		ep = &r8a66597->ep[0];
 		req = get_request_from_ep(ep);
 		transfer_complete(ep, req, 0);
-		}
 		break;
+	}
 
 	case CS_RDDS:
 	case CS_WRDS:
@@ -2101,17 +1934,16 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 	struct r8a66597 *r8a66597 = _r8a66597;
 	u16 intsts0;
 	u16 intenb0;
-	u16 brdysts, nrdysts, bempsts;
-	u16 brdyenb, nrdyenb, bempenb;
+	u16 brdysts, bempsts;
+	u16 brdyenb, bempenb;
 	u16 mask0;
 #ifdef CONFIG_USB_OTG
 	u16 syscfg;
-	u16 role;
 #endif
 	spin_lock(&r8a66597->lock);
 #ifdef CONFIG_USB_OTG
 	syscfg = r8a66597_read(r8a66597, SYSCFG0);
-	role = syscfg & DCFM;
+	r8a66597->role = syscfg & DCFM;
 #endif
 	intsts0 = r8a66597_read(r8a66597, INTSTS0);
 	intenb0 = r8a66597_read(r8a66597, INTENB0);
@@ -2160,12 +1992,12 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 #endif
 
 #ifdef CONFIG_USB_OTG
-		if ((intsts0 & BRDY) && (intenb0 & BRDYE) && (!role)) {
+		if ((intsts0 & BRDY) && (intenb0 & BRDYE) && (!r8a66597->role)) {
 			brdysts = r8a66597_read(r8a66597, BRDYSTS);
 			brdyenb = r8a66597_read(r8a66597, BRDYENB);
 			irq_pipe_ready(r8a66597, brdysts, brdyenb);
 		}
-		if ((intsts0 & BEMP) && (intenb0 & BEMPE) && (!role)) {
+		if ((intsts0 & BEMP) && (intenb0 & BEMPE) && (!r8a66597->role)) {
 			bempenb = r8a66597_read(r8a66597, BEMPENB);
 			bempsts = r8a66597_read(r8a66597, BEMPSTS);
 			irq_pipe_empty(r8a66597, bempsts, bempenb, intenb0);
@@ -2189,7 +2021,6 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 			r8a66597_bclr(r8a66597,  RESM, INTSTS0);
 			r8a66597_dma_reset(r8a66597);
 		}
-
 	}
 
 	spin_unlock(&r8a66597->lock);
@@ -2213,9 +2044,9 @@ static void dma_write_complete(struct r8a66597 *r8a66597,
 	if (req->req.zero && !(req->req.actual % ep->ep.maxpacket)) {
 		/* Send zero-packet by irq_packet_write(). */
 		tmp = control_reg_get(r8a66597, ep->pipenum);
-		if (tmp & BSTS) {
+		if (tmp & BSTS)
 			irq_packet_write(ep, req);
-		} else
+		else
 			enable_irq_ready(r8a66597, ep->pipenum);
 	} else {
 		/* To confirm the end of transmit */
@@ -2235,19 +2066,26 @@ static unsigned long usb_dma_calc_received_size(struct r8a66597 *r8a66597,
 	/*
 	 * DAR will increment the value every transfer-unit-size,
 	 * but the "size" (DTLN) will be set within MaxPacketSize.
-	 * So the calucuation is "(DAR - SAR) & ~MaxPacketSize" + DTLN".
+	 *
+	 * The calucuation would be:
+	 *   (((DAR-SAR) - TransferUnitSize) & ~MaxPacketSize) + DTLN.
+	 *
+	 * Be careful that if the "size" is zero, no correction is needed.
+	 * Just return (DAR-SAR) as-is.
 	 */
 	received_size = r8a66597_dma_read(r8a66597, USBHS_DMAC_DAR(ch)) -
 			r8a66597_dma_read(r8a66597, USBHS_DMAC_SAR(ch));
-	received_size &= ~(ep->ep.maxpacket - 1);
-	received_size += size;
+	if (size) {
+		received_size -= dma->tx_size;
+		received_size &= ~(ep->ep.maxpacket - 1);
+		received_size += size; /* DTLN */
+	}
 
 	return received_size;
 }
 
 static void dma_read_complete(struct r8a66597 *r8a66597,
-			      struct r8a66597_dma *dma,
-			      int short_packet)
+			      struct r8a66597_dma *dma)
 {
 	struct r8a66597_ep *ep = dma->ep;
 	struct r8a66597_request *req = get_request_from_ep(ep);
@@ -2262,11 +2100,7 @@ static void dma_read_complete(struct r8a66597 *r8a66597,
 	r8a66597_bset(r8a66597, BCLR, ep->fifoctr);
 	req = get_request_from_ep(ep);
 
-	if (!short_packet)
-		req->req.actual += req->req.length;
-	else
-		req->req.actual += usb_dma_calc_received_size(r8a66597, dma,
-							      size);
+	req->req.actual += usb_dma_calc_received_size(r8a66597, dma, size);
 
 	if (r8a66597_dma_read(r8a66597, USBHS_DMAC_CHCR(ch)) & NULLF) {
 		/*
@@ -2292,27 +2126,12 @@ static void dma_read_complete(struct r8a66597 *r8a66597,
 	transfer_complete(ep, req, 0);
 }
 
-static int usb_dma_is_received_short_packet(struct r8a66597 *r8a66597, int ch,
-					    unsigned long dmicrsts)
-{
-	unsigned long expect_dmicr = r8a66597->dma[ch].expect_dmicr;
-
-	if (dmicrsts & expect_dmicr & USBHS_DMAC_DMICR_TE(ch))
-		return 0;
-	if (dmicrsts & expect_dmicr & USBHS_DMAC_DMICR_SP(ch))
-		return 1;
-	if (dmicrsts & expect_dmicr & USBHS_DMAC_DMICR_NULL(ch))
-		return 1;
-	return 0;
-}
-
 static irqreturn_t r8a66597_dma_irq(int irq, void *_r8a66597)
 {
 	struct r8a66597 *r8a66597 = _r8a66597;
 	u32 dmicrsts;
 	int ch;
 	irqreturn_t ret = IRQ_NONE;
-	int short_packet;
 
 	spin_lock(&r8a66597->lock);
 
@@ -2325,15 +2144,8 @@ static irqreturn_t r8a66597_dma_irq(int irq, void *_r8a66597)
 
 		if (r8a66597->dma[ch].dir)
 			dma_write_complete(r8a66597, &r8a66597->dma[ch]);
-		else {
-			if (usb_dma_is_received_short_packet(r8a66597, ch,
-							     dmicrsts))
-				short_packet = 1;
-			else
-				short_packet = 0;
-			dma_read_complete(r8a66597, &r8a66597->dma[ch],
-					  short_packet);
-		}
+		else
+			dma_read_complete(r8a66597, &r8a66597->dma[ch]);
 	}
 
 	spin_unlock(&r8a66597->lock);
@@ -2406,7 +2218,7 @@ static int r8a66597_disable(struct usb_ep *_ep)
 		req = get_request_from_ep(ep);
 		spin_lock_irqsave(&ep->r8a66597->lock, flags);
 		pipe_stop(ep->r8a66597, ep->pipenum);
-		cancel_dma(ep, req);
+		dmac_cancel(ep, req);
 		pipe_irq_disable(ep->r8a66597, ep->pipenum);
 		r8a66597_write(ep->r8a66597, ~(1 << ep->pipenum), BRDYSTS);
 		r8a66597_write(ep->r8a66597, ~(1 << ep->pipenum), BEMPSTS);
@@ -2462,7 +2274,7 @@ static int r8a66597_queue(struct usb_ep *_ep, struct usb_request *_req,
 	req->req.actual = 0;
 	req->req.status = -EINPROGRESS;
 
-	if (ep->desc == NULL)	/* control */
+	if (ep->ep.desc == NULL)	/* control */
 		start_ep0(ep, req);
 	else {
 		if (request && !ep->busy)
@@ -2488,7 +2300,7 @@ static int r8a66597_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 		pipe_stop(ep->r8a66597, ep->pipenum);
 		if (ep->pipetrn)
 			r8a66597_write(ep->r8a66597, TRCLR, ep->pipetre);
-		cancel_dma(ep, req);
+		dmac_cancel(ep, req);
 		pipe_irq_disable(ep->r8a66597, ep->pipenum);
 		r8a66597_write(ep->r8a66597, ~(1 << ep->pipenum), BRDYSTS);
 		r8a66597_write(ep->r8a66597, ~(1 << ep->pipenum), BEMPSTS);
@@ -2535,7 +2347,7 @@ static int r8a66597_set_wedge(struct usb_ep *_ep)
 
 	ep = container_of(_ep, struct r8a66597_ep, ep);
 
-	if (!ep || !ep->desc)
+	if (!ep || !ep->ep.desc)
 		return -EINVAL;
 
 	spin_lock_irqsave(&ep->r8a66597->lock, flags);
@@ -2579,154 +2391,119 @@ static struct usb_ep_ops r8a66597_ep_ops = {
 /*-------------------------------------------------------------------------*/
 static struct r8a66597 *the_controller;
 
-int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
-		int (*bind)(struct usb_gadget *))
+static int r8a66597_start(struct usb_gadget *gadget,
+		struct usb_gadget_driver *driver)
 {
-	struct r8a66597 *r8a66597 = the_controller;
-	int retval;
+	struct r8a66597 *r8a66597 = gadget_to_r8a66597(gadget);
+	int ret = 0;
 	u16 bwait = 0;
 
 	if (!driver
-			|| driver->speed != USB_SPEED_HIGH
-			|| !bind
+			|| driver->max_speed < USB_SPEED_HIGH
 			|| !driver->setup)
 		return -EINVAL;
-	if (!r8a66597)
-		return -ENODEV;
-	if (r8a66597->driver)
-		return -EBUSY;
 
 	/* hook up the driver */
-	driver->driver.bus = NULL;
 	r8a66597->driver = driver;
-	r8a66597->gadget.dev.driver = &driver->driver;
-
-	retval = device_add(&r8a66597->gadget.dev);
-	if (retval) {
-		dev_err(r8a66597_to_dev(r8a66597), "device_add error (%d)\n",
-			retval);
-		goto error;
-	}
-
-	retval = bind(&r8a66597->gadget);
-	if (retval) {
-		dev_err(r8a66597_to_dev(r8a66597),
-			"bind to driver error (%d)\n", retval);
-		device_del(&r8a66597->gadget.dev);
-		goto error;
-	}
 
 	wake_lock_init(&r8a66597->wake_lock, WAKE_LOCK_SUSPEND, udc_name);
 
-	if (r8a66597->pdata->vbus_irq) {
-		int ret;
-		ret = request_threaded_irq(r8a66597->pdata->vbus_irq,
-					   NULL, r8a66597_vbus_irq,
-					   IRQF_ONESHOT, "vbus_detect", r8a66597);
-		if (ret < 0) {
-			dev_err(r8a66597_to_dev(r8a66597),
-				"request_irq error (%d, %d)\n",
-				r8a66597->pdata->vbus_irq, ret);
-			return -EINVAL;
-		}
-		r8a66597->old_vbus = 0; /* start with disconnected */
-		r8a66597->charger_detected = 0;
-		/* do not pull up D+ line, unless explicitly requested so */
-		r8a66597->pullup_requested = 0;
-		if (powerup){
-			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
-			r8a66597_clk_enable(r8a66597);
-			bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
-			if (r8a66597->pdata->module_start)
-				r8a66597->pdata->module_start();
+		if (r8a66597->pdata->vbus_irq) {
+#if !(defined VBUS_HANDLE_IRQ_BASED)
+			ret = request_threaded_irq(r8a66597->pdata->vbus_irq,
+					NULL, r8a66597_vbus_irq,
+					IRQF_ONESHOT, "vbus_detect", r8a66597);
+			if (ret < 0) {
+				dev_err(r8a66597_to_dev(r8a66597),
+					"request_irq error (%d, %d)\n",
+					r8a66597->pdata->vbus_irq, ret);
+				return -EINVAL;
+			}
+#endif
+			if (r8a66597->is_active) {
+				udc_log("%s: IN, no powerup\n", __func__);
+				udc_log("%s: USB clock enable called by\n", __func__);
+				usb_core_clk_ctrl(r8a66597, 1);
+				bwait = r8a66597->pdata->buswait ?
+				r8a66597->pdata->buswait : 15;
+				if (r8a66597->pdata->module_start)
+					r8a66597->pdata->module_start();
 
-			/* start clock */
-			r8a66597_write(r8a66597, bwait, SYSCFG1);
-			r8a66597_bset(r8a66597, HSE, SYSCFG0);
-			r8a66597_bset(r8a66597, USBE, SYSCFG0);
-			r8a66597_bset(r8a66597, SCKE, SYSCFG0);
-
-			r8a66597_bset(r8a66597, CTRE, INTENB0);
-			r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
-			r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
-			if (r8a66597->pdata->is_vbus_powered()) {
-				if (!wake_lock_active(&r8a66597->wake_lock))
-					wake_lock(&r8a66597->wake_lock);
-				schedule_delayed_work(&r8a66597->vbus_work, 0);
-			}else {
-			powerup=0;//added 0 for powerup
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
+				/* start clock */
+				r8a66597_write(r8a66597, bwait, SYSCFG1);
+				r8a66597_bset(r8a66597, HSE, SYSCFG0);
+				r8a66597_bset(r8a66597, USBE, SYSCFG0);
+				r8a66597_bset(r8a66597, SCKE, SYSCFG0);
+				r8a66597_bset(r8a66597, CTRE, INTENB0);
+				r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
+				r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
+				if (r8a66597->pdata->is_vbus_powered()) {
+					udc_log("%s: IN, vbuspowered\n",
+					__func__);
+					gIsConnected = 1;
+					if (!wake_lock_active(&r8a66597->
+								wake_lock))
+						wake_lock(&r8a66597->wake_lock);
+					schedule_delayed_work(&r8a66597->
+								vbus_work, 0);
+				} else {
+					udc_log("%s: IN, no vbuspowered\n",
+						 __func__);
+					r8a66597->is_active = 0;
+					udc_log("%s: USB clock disable called by\n", __func__);
+					usb_core_clk_ctrl(r8a66597, 0);
+				}
+			}
+		} else {
+			init_controller(r8a66597);
+			r8a66597_bset(r8a66597, VBSE, INTENB0);
+			if (r8a66597_read(r8a66597, INTSTS0) & VBSTS) {
+				r8a66597_start_xclock(r8a66597);
+				/* start vbus sampling */
+				r8a66597->old_vbus =
+					r8a66597_read(r8a66597,
+					INTSTS0) & VBSTS;
+				r8a66597->scount = R8A66597_MAX_SAMPLING;
+				mod_timer(&r8a66597->timer,
+				jiffies + msecs_to_jiffies(50));
 			}
 		}
-		
-	} else {
-		init_controller(r8a66597);
-		r8a66597_bset(r8a66597, VBSE, INTENB0);
-		if (r8a66597_read(r8a66597, INTSTS0) & VBSTS) {
-			r8a66597_start_xclock(r8a66597);
-			/* start vbus sampling */
-			r8a66597->old_vbus = VBSTS;
-			r8a66597->scount = R8A66597_MAX_SAMPLING;
-			mod_timer(&r8a66597->timer, jiffies +
-							msecs_to_jiffies(50));
-		}
-	}
-
-	return 0;
-
-error:
-	r8a66597->driver = NULL;
-	r8a66597->gadget.dev.driver = NULL;
-
-	return retval;
+	return ret;
 }
-EXPORT_SYMBOL(usb_gadget_probe_driver);
 
-int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
+static int r8a66597_stop(struct usb_gadget *gadget,
+		struct usb_gadget_driver *driver)
 {
-	struct r8a66597 *r8a66597 = the_controller;
+	struct r8a66597 *r8a66597 = gadget_to_r8a66597(gadget);
 	unsigned long flags;
-
-	if (driver != r8a66597->driver || !driver->unbind)
-		return -EINVAL;
 
 	if (r8a66597->pdata->vbus_irq)
 		free_irq(r8a66597->pdata->vbus_irq, r8a66597);
 
-	cancel_delayed_work_sync(&r8a66597->charger_work);
-	r8a66597->charger_detected = 0;
 	cancel_delayed_work_sync(&r8a66597->vbus_work);
 
 	spin_lock_irqsave(&r8a66597->lock, flags);
-
-	if (r8a66597->gadget.speed != USB_SPEED_UNKNOWN)
-		r8a66597_usb_disconnect(r8a66597);
 	r8a66597_bclr(r8a66597, VBSE, INTENB0);
 	disable_controller(r8a66597);
 	spin_unlock_irqrestore(&r8a66597->lock, flags);
 
 	wake_lock_destroy(&r8a66597->wake_lock);
 
-	driver->unbind(&r8a66597->gadget);
-
 #ifdef CONFIG_HAVE_CLK
-	if (r8a66597->pdata->vbus_irq && r8a66597->old_vbus) {
-		if (powerup){ 
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
-			powerup = 0;
-			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
+	if (r8a66597->pdata->vbus_irq) {
+		if (r8a66597->is_active) {
+			udc_log("%s: USB clock disable called by\n", __func__);
+			usb_core_clk_ctrl(r8a66597, 0);
+			r8a66597->is_active = 0;
+			udc_log("%s: power %s\n"
+			, __func__, r8a66597->is_active ? "up" : "down");
 		}
 	}
 #endif
 
-
-	device_del(&r8a66597->gadget.dev);
 	r8a66597->driver = NULL;
 	return 0;
 }
-EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
 /*-------------------------------------------------------------------------*/
 static int r8a66597_get_frame(struct usb_gadget *_gadget)
@@ -2735,18 +2512,21 @@ static int r8a66597_get_frame(struct usb_gadget *_gadget)
 	return r8a66597_read(r8a66597, FRMNUM) & 0x03FF;
 }
 
-static int can_pullup(struct r8a66597 *r8a66597)
+static int r8a66597_set_selfpowered(struct usb_gadget *gadget, int is_self)
 {
-	return r8a66597->driver && r8a66597->pullup_requested;
-}
+	struct r8a66597 *r8a66597 = gadget_to_r8a66597(gadget);
 
-static int r8a66597_vbus_draw(struct usb_gadget *_gadget, unsigned mA)
-{
-	struct r8a66597 *r8a66597 = gadget_to_r8a66597(_gadget);
-
-	r8a66597_inform_vbus_power(r8a66597, mA);
+	if (is_self)
+		r8a66597->device_status |= 1 << USB_DEVICE_SELF_POWERED;
+	else
+		r8a66597->device_status &= ~(1 << USB_DEVICE_SELF_POWERED);
 
 	return 0;
+}
+
+static int r8a66597_vbus_draw(struct usb_gadget *gadget, unsigned mA)
+{
+	return r8a66597_set_vbus_draw(gadget_to_r8a66597(gadget), mA);
 }
 
 static int r8a66597_pullup(struct usb_gadget *gadget, int is_on)
@@ -2755,49 +2535,168 @@ static int r8a66597_pullup(struct usb_gadget *gadget, int is_on)
 	unsigned long flags;
 
 	spin_lock_irqsave(&r8a66597->lock, flags);
-	r8a66597->pullup_requested = (is_on != 0);
-	if (r8a66597->vbus_active) {
-		if (can_pullup(r8a66597))
-			r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
-		else
-			r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
-	}
+	r8a66597->softconnect = (is_on != 0);
+	if (r8a66597->vbus_active)
+		r8a66597_set_pullup(r8a66597);
 	spin_unlock_irqrestore(&r8a66597->lock, flags);
 
 	return 0;
 }
 
+static int r8a66597_vbus_session(struct usb_gadget *gadget , int is_active)
+{
+	return 0;
+}
+
+static void r8a66597_vbus_work(struct work_struct *work)
+{
+	struct r8a66597 *r8a66597 =
+			container_of(work, struct r8a66597, vbus_work.work);
+#ifdef CONFIG_USB_OTG
+	struct otg_transceiver *otg = otg_get_transceiver();
+	u16 syscfg = 0;
+#endif
+	u16 bwait = r8a66597->pdata->buswait ? : 0xf;
+	unsigned long flags;
+	int vbus_state = 0;
+	udc_log("%s: IN\n", __func__);
+	if (!r8a66597->is_active && !r8a66597->vbus_active) {
+		udc_log("%s: IN,powering up and phyreset\n", __func__);
+		udc_log("%s: USB clock enable called by\n", __func__);
+		usb_core_clk_ctrl(r8a66597, 1);
+		if (r8a66597->pdata->module_start)
+			r8a66597->pdata->module_start();
+	}
+
+	udc_log("\n>>> HSUSB:UDC: %s(%d): INTSTS0:=%#x, Role:= %d<<<<<<\n",\
+					__func__, __LINE__, r8a66597_read(r8a66597, INTSTS0), r8a66597->role);
+#ifdef CONFIG_USB_OTG
+	syscfg = r8a66597_read(r8a66597, SYSCFG0);
+	r8a66597->role = syscfg & DCFM;
+	if (r8a66597->role) { /*If the controller is in Host mode, return without
+				  doing anything */
+		wake_unlock(&r8a66597->wake_lock);
+		return;
+	}
+	otg = otg_get_transceiver();
+	udc_log("\n>>> HSUSB:UDC: %s(%d): INTSTS0:=%#x, Role:= %d<<<<<<\n",\
+				__func__, __LINE__, r8a66597_read(r8a66597, INTSTS0), r8a66597->role);
+	if ((r8a66597_read(r8a66597, INTSTS0) & VBSTS) && (!r8a66597->role)) {
+		udc_log("\n>>> HSUSB:UDC: %s(%d): OTG_STATE= %s -> %s <<<<<<\n"\
+					, __func__, __LINE__, otg_state_string(otg->state),\
+					otg_state_string(OTG_STATE_B_PERIPHERAL));
+		otg->state = OTG_STATE_B_PERIPHERAL;
+	} else if (otg->state ==  OTG_STATE_B_PERIPHERAL) {
+			udc_log("\n>>> HSUSB:UDC: %s(%d): OTG_STATE= %s -> %s<<<<<<\n",\
+						__func__, __LINE__, otg_state_string(otg->state),\
+						otg_state_string(OTG_STATE_B_IDLE));
+			otg->state = OTG_STATE_B_IDLE;
+			r8a66597->gadget.b_hnp_enable = 0;
+		}
+	udc_log("%s\n", otg_state_string(otg->state));
+	otg_put_transceiver(otg);
+#endif
+#if defined VBUS_HANDLE_IRQ_BASED
+	vbus_state = gIsConnected;
+#else
+	vbus_state = r8a66597->pdata->is_vbus_powered();
+#endif
+	/* Clear VBUS Interrupt after reading */
+	if (r8a66597_read(r8a66597, INTSTS0) & VBINT)
+		r8a66597_bclr(r8a66597, VBINT, INTSTS0);
+	udc_log("%s: IN\n", __func__);
+	dev_dbg(r8a66597_to_dev(r8a66597), "VBUS %s => %s\n",
+	r8a66597->vbus_active ? "on" : "off",
+		r8a66597->is_active ? "on" : "off");
+
+	if ((r8a66597->vbus_active ^ vbus_state) == 0) {
+		udc_log("%s: IN xor,r8a-isactive=%d\n",
+			__func__, r8a66597->is_active);
+		if (!vbus_state) {
+			usb_core_clk_ctrl(r8a66597, 0);
+			if (wake_lock_active(&r8a66597->wake_lock))
+				wake_unlock(&r8a66597->wake_lock);
+		}
+		return;
+	}
+
+	if (vbus_state) {
+		udc_log("%s: IN,r8a-isactive=%d\n",
+			__func__, r8a66597->is_active);
+		/* start clock */
+		r8a66597_write(r8a66597, bwait, SYSCFG1);
+		r8a66597_bset(r8a66597, HSE, SYSCFG0);
+		r8a66597_bset(r8a66597, USBE, SYSCFG0);
+		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
+
+		r8a66597_usb_connect(r8a66597);
+	} else {
+		udc_log("%s: IN,r8a-isactive=%d\n",
+			__func__, r8a66597->is_active);
+		spin_lock_irqsave(&r8a66597->lock, flags);
+		r8a66597_usb_disconnect(r8a66597);
+		spin_unlock_irqrestore(&r8a66597->lock, flags);
+
+		/* stop clock */
+		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
+		r8a66597_bclr(r8a66597, SCKE, SYSCFG0);
+		r8a66597_bclr(r8a66597, USBE, SYSCFG0);
+		/* Module reset */
+		if (r8a66597->pdata->module_stop)
+			r8a66597->pdata->module_stop();
+		udelay(10);
+		udc_log("%s: USB clock disable called by\n", __func__);
+		usb_core_clk_ctrl(r8a66597, 0);
+
+		wake_unlock(&r8a66597->wake_lock);
+	}
+
+	r8a66597->vbus_active = vbus_state;
+	r8a66597->is_active = vbus_state;
+}
+
 static struct usb_gadget_ops r8a66597_gadget_ops = {
 	.get_frame		= r8a66597_get_frame,
+	.set_selfpowered	= r8a66597_set_selfpowered,
+	.vbus_session		= r8a66597_vbus_session,
 	.vbus_draw		= r8a66597_vbus_draw,
 	.pullup			= r8a66597_pullup,
+	.udc_start		= r8a66597_start,
+	.udc_stop		= r8a66597_stop,
 };
 
 static int __exit r8a66597_remove(struct platform_device *pdev)
 {
 	struct r8a66597		*r8a66597 = dev_get_drvdata(&pdev->dev);
 
+	usb_del_gadget_udc(&r8a66597->gadget);
 	del_timer_sync(&r8a66597->timer);
 	iounmap(r8a66597->reg);
-	iounmap(r8a66597->dma_reg);
+	if (r8a66597_has_dmac(r8a66597))
+		iounmap(r8a66597->dmac_reg);
 	free_irq(platform_get_irq(pdev, 0), r8a66597);
 	free_irq(platform_get_irq(pdev, 1), r8a66597);
-	gpio_free(r8a66597->pdata->pin_gpio_1_fn);
 	r8a66597_free_request(&r8a66597->ep[0].ep, r8a66597->ep0_req);
-#ifdef CONFIG_HAVE_CLK
+
+	if (r8a66597->is_active) {
+		udc_log("%s: USB clock disable called by\n", __func__);
+		usb_core_clk_ctrl(r8a66597, 0);
+	}
+
 	if (r8a66597->pdata->on_chip) {
 		if (!r8a66597->pdata->vbus_irq) {
-			if (powerup){ 
-				r8a66597_clk_disable(r8a66597);
-				pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
-				powerup = 0; 
-				udc_log("%s: power %s\n", __func__, powerup?"up":"down");
+			if (r8a66597->is_active) {
+				udc_log("%s: USB clock disable called by\n",
+					__func__);
+				usb_core_clk_ctrl(r8a66597, 0);
+				r8a66597->is_active = 0;
 			}
 		}
 		r8a66597_clk_put(r8a66597);
 		pm_runtime_disable(r8a66597_to_dev(r8a66597));
 	}
-#endif
+
+	device_unregister(&r8a66597->gadget.dev);
 	dev_set_drvdata(&pdev->dev, NULL);
 	kfree(r8a66597);
 	return 0;
@@ -2807,9 +2706,29 @@ static void nop_completion(struct usb_ep *ep, struct usb_request *r)
 {
 }
 
+static int __init r8a66597_dmac_ioremap(struct r8a66597 *r8a66597,
+					  struct platform_device *pdev)
+{
+	struct resource *res;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "USBHS-DMA");
+	if (!res) {
+		dev_err(&pdev->dev, "platform_get_resource error(dmac).\n");
+		return -ENODEV;
+	}
+
+	r8a66597->dmac_reg = ioremap(res->start, resource_size(res));
+	if (r8a66597->dmac_reg == NULL) {
+		dev_err(&pdev->dev, "ioremap error(dmac).\n");
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
 static int __init r8a66597_probe(struct platform_device *pdev)
 {
-	struct resource *res, *ires, *res1, *ires1;
+	struct resource *res, *ires, *ires1;
 	int irq, irq1;
 	void __iomem *reg = NULL;
 	void __iomem *dma_reg = NULL;
@@ -2820,13 +2739,6 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		ret = -ENODEV;
-		dev_err(&pdev->dev, "platform_get_resource error.\n");
-		goto clean_up;
-	}
-
-	res1 = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (!res1) {
 		ret = -ENODEV;
 		dev_err(&pdev->dev, "platform_get_resource error.\n");
 		goto clean_up;
@@ -2858,13 +2770,6 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		goto clean_up;
 	}
 
-	dma_reg = ioremap(res1->start, resource_size(res1));
-	if (dma_reg == NULL) {
-		ret = -ENOMEM;
-		dev_err(&pdev->dev, "ioremap error.\n");
-		goto clean_up;
-	}
-
 	/* initialize ucd */
 	r8a66597 = kzalloc(sizeof(struct r8a66597), GFP_KERNEL);
 	if (r8a66597 == NULL) {
@@ -2872,57 +2777,62 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "kzalloc error\n");
 		goto clean_up;
 	}
+	r8a66597->is_active = 0;
 
 	spin_lock_init(&r8a66597->lock);
 	dev_set_drvdata(&pdev->dev, r8a66597);
 	r8a66597->pdata = pdev->dev.platform_data;
 	r8a66597->irq_sense_low = irq_trigger == IRQF_TRIGGER_LOW;
-
-	r8a66597->gadget.ops = &r8a66597_gadget_ops;
 #ifdef CONFIG_USB_OTG
 	r8a66597->gadget.is_otg = 1;
 #endif
-	device_initialize(&r8a66597->gadget.dev);
+
+	r8a66597->gadget.ops = &r8a66597_gadget_ops;
 	dev_set_name(&r8a66597->gadget.dev, "gadget");
-	r8a66597->gadget.is_dualspeed = 1;
+	r8a66597->gadget.max_speed = USB_SPEED_HIGH;
 	r8a66597->gadget.dev.parent = &pdev->dev;
 	r8a66597->gadget.dev.dma_mask = pdev->dev.dma_mask;
 	r8a66597->gadget.dev.release = pdev->dev.release;
 	r8a66597->gadget.name = udc_name;
+	ret = device_register(&r8a66597->gadget.dev);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "device_register failed\n");
+		goto clean_up;
+	}
 
 	INIT_DELAYED_WORK(&r8a66597->vbus_work, r8a66597_vbus_work);
-	INIT_DELAYED_WORK(&r8a66597->charger_work, r8a66597_charger_work);
 #ifdef CONFIG_USB_OTG
 	INIT_DELAYED_WORK(&r8a66597->hnp_work, r8a66597_hnp_work);
 	init_timer(&r8a66597->hnp_timer_fail);
 	r8a66597->hnp_timer_fail.function = r8a66597_hnp_timer_fail;
 	r8a66597->hnp_timer_fail.data = (unsigned long)r8a66597;
 #endif
+
 	init_timer(&r8a66597->timer);
 	r8a66597->timer.function = r8a66597_timer;
 	r8a66597->timer.data = (unsigned long)r8a66597;
 	r8a66597->reg = reg;
-	r8a66597->dma_reg = dma_reg;
 	r8a66597->phy_active = 1;
+	udc_log("%s: IN\n", __func__);
 
-#ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
 		pm_runtime_enable(&pdev->dev);
 		ret = r8a66597_clk_get(r8a66597, pdev);
 		if (ret < 0)
-			goto clean_up;
-		if (!powerup){
-			pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
-			r8a66597_clk_enable(r8a66597);
-			powerup = 1;
-			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
+			goto clean_up_dev;
+		if (!r8a66597->is_active) {
+			udc_log("%s: USB clock enable called by\n", __func__);
+			usb_core_clk_ctrl(r8a66597, 1);
+			r8a66597->is_active = 1;
+			udc_log("%s: IN, no trnscr\n", __func__);
 		}
-				
 	}
-#endif
 
-	disable_controller(r8a66597); /* make sure controller is disabled */
-
+	if (r8a66597->pdata->dmac) {
+		ret = r8a66597_dmac_ioremap(r8a66597, pdev);
+		if (ret < 0)
+			goto clean_up2;
+	}
 #ifdef CONFIG_USB_OTG
 	ret = request_irq(irq, r8a66597_irq, IRQF_SHARED, udc_name, r8a66597);
 #else
@@ -2938,10 +2848,6 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "request_irq error (%d)\n", ret);
 		goto clean_up3;
 	}
-	
-	/*TUSB1211 CS*/
-	gpio_request(r8a66597->pdata->pin_gpio_1_fn, NULL);
-	gpio_direction_output(r8a66597->pdata->pin_gpio_1, 1);
 
 	INIT_LIST_HEAD(&r8a66597->gadget.ep_list);
 	r8a66597->gadget.ep0 = &r8a66597->ep[0].ep;
@@ -2965,7 +2871,6 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	r8a66597->ep[0].fifoaddr = CFIFO;
 	r8a66597->ep[0].fifosel = CFIFOSEL;
 	r8a66597->ep[0].fifoctr = CFIFOCTR;
-	r8a66597->ep[0].fifotrn = 0;
 	r8a66597->ep[0].pipectr = get_pipectr_addr(0);
 	r8a66597->pipenum2ep[0] = &r8a66597->ep[0];
 	r8a66597->epaddr2ep[0] = &r8a66597->ep[0];
@@ -2978,36 +2883,39 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 		goto clean_up4;
 	r8a66597->ep0_req->complete = nop_completion;
 
-	r8a66597_write(r8a66597, TRCLR, PIPE2TRE);
-	r8a66597_bset(r8a66597, TRENB, PIPE2TRE);
+	ret = usb_add_gadget_udc(&pdev->dev, &r8a66597->gadget);
+	if (ret)
+		goto err_add_udc;
 
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
-	pm_runtime_put(r8a66597_to_dev(r8a66597)); 
-	r8a66597_clk_disable(r8a66597);
+	udc_log("%s: USB clock disable called by\n", __func__);
+	usb_core_clk_ctrl(r8a66597, 0);
 	return 0;
 
+err_add_udc:
+	r8a66597_free_request(&r8a66597->ep[0].ep, r8a66597->ep0_req);
 clean_up4:
 	free_irq(irq1, r8a66597);
 clean_up3:
 	free_irq(irq, r8a66597);
 clean_up2:
-#ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->on_chip) {
-		if (powerup){ 
-			r8a66597_clk_disable(r8a66597);
-			pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
-			powerup = 0; 
-			udc_log("%s: power %s\n", __func__, powerup?"up":"down");
-
+			if (r8a66597->is_active) {
+				udc_log("%s: USB clock disable called by\n",
+					__func__);
+				usb_core_clk_ctrl(r8a66597, 0);
+				r8a66597->is_active = 0;
 		}
-		
 		r8a66597_clk_put(r8a66597);
 		pm_runtime_disable(r8a66597_to_dev(r8a66597));
 	}
-#endif
+clean_up_dev:
+	device_unregister(&r8a66597->gadget.dev);
 clean_up:
 	dev_set_drvdata(&pdev->dev, NULL);
 	if (r8a66597) {
+		if (r8a66597->dmac_reg)
+			iounmap(r8a66597->dmac_reg);
 		if (r8a66597->ep0_req)
 			r8a66597_free_request(&r8a66597->ep[0].ep,
 						r8a66597->ep0_req);
@@ -3018,133 +2926,82 @@ clean_up:
 
 	if (dma_reg)
 		iounmap(dma_reg);
-
 	return ret;
 }
 
+#if defined VBUS_HANDLE_IRQ_BASED
+void send_usb_insert_event(int isConnected)
+{
+	struct r8a66597 *r8a66597 = the_controller;
+	if (r8a66597 == NULL) {
+		printk(KERN_ERR"r8a66597 is Null\n");
+		return;
+	}
+	if (!wake_lock_active(&r8a66597->wake_lock))
+		wake_lock(&r8a66597->wake_lock);
+
+	printk(KERN_INFO "USBD][send_usb_insert_event] isConnected=%d\n",\
+							isConnected);
+	gIsConnected = isConnected;
+	schedule_delayed_work(&r8a66597->vbus_work, msecs_to_jiffies(200));
+}
+EXPORT_SYMBOL_GPL(send_usb_insert_event);
+#endif
+
+#if USB_DRVSTR_DBG
+void tusb_drive_event(int event, unsigned char *val)
+{
+      printk(KERN_INFO "USBD][tusb_drive_event] event=%d\n",\
+                                                        event);
+if (event)	 //read event
+usb_drv_str_read(val);
+else		//write event
+usb_drv_str_write(val); 
+}
+EXPORT_SYMBOL_GPL(tusb_drive_event);
+#endif	//USB_DRVSTR_DBG 
 
 #ifdef CONFIG_PM
-static void r8a66597_udc_gpio_setting(struct r8a66597_platdata *pdata, int mode)
-{
-	int i;
-	int port;
-	struct r8a66597_gpio_setting *gpio_before, *gpio_after;
 
-	for (i = 0; i < pdata->port_cnt; i++) {
-		port = pdata->gpio_setting_info[i].port;
-		if (mode == 1) {
-			gpio_after  = &pdata->gpio_setting_info[i].active;
-			gpio_before = &pdata->gpio_setting_info[i].deactive;
-		} else {
-			gpio_after = &pdata->gpio_setting_info[i].deactive;
-			gpio_before  = &pdata->gpio_setting_info[i].active;
-		}
-
-		if (pdata->gpio_setting_info[i].flag == 1) {
-			gpio_free(gpio_before->port_mux);
-
-			switch (gpio_after->direction) {
-			case R8A66597_DIRECTION_NOT_SET:
-					break;
-			case R8A66597_DIRECTION_NONE:
-					gpio_request(port, NULL);
-					gpio_direction_input(port);
-					gpio_direction_none_port(port);
-					if (gpio_after->port_mux != port)
-						gpio_free(port);
-					break;
-			case R8A66597_DIRECTION_OUTPUT:
-					gpio_request(port, NULL);
-					gpio_direction_output(port,
-							gpio_after->out_level);
-					if (gpio_after->port_mux != port)
-						gpio_free(port);
-					break;
-			case R8A66597_DIRECTION_INPUT:
-					gpio_request(port, NULL);
-					gpio_direction_input(port);
-					if (gpio_after->port_mux != port)
-						gpio_free(port);
-					break;
-			default:
-					break;
-			}
-			switch (gpio_after->pull) {
-			case R8A66597_PULL_OFF:
-					gpio_pull_off_port(port);
-					break;
-			case R8A66597_PULL_DOWN:
-					gpio_pull_down_port(port);
-					break;
-			case R8A66597_PULL_UP:
-					gpio_pull_up_port(port);
-					break;
-			default:
-					break;
-			}
-
-			if (gpio_after->port_mux != port)
-				gpio_request(gpio_after->port_mux, NULL);
-		}
-	}
-	return;
-}
 static int r8a66597_udc_suspend(struct device *dev)
 {
 	struct r8a66597 *r8a66597 = the_controller;
-	unsigned long flags = 0;
 	udc_log("%s: IN\n", __func__);
-	if (delayed_work_pending(&r8a66597->charger_work))
-			cancel_delayed_work_sync(&r8a66597->charger_work);
 	if (delayed_work_pending(&r8a66597->vbus_work))
 			cancel_delayed_work_sync(&r8a66597->vbus_work);
 
-	gpio_direction_output(r8a66597->pdata->pin_gpio_2, 0);
-	gpio_pull_down_port(r8a66597->pdata->pin_gpio_1);
-	gpio_pull_down_port(r8a66597->pdata->pin_gpio_2);
-	r8a66597_udc_gpio_setting(r8a66597->pdata, 0);
-	
+	gpio_set_portncr_value(r8a66597->pdata->port_cnt,
+	r8a66597->pdata->usb_gpio_setting_info, 1);
 	/*save the state of the phy before suspend*/
 	r8a66597->phy_active_sav = r8a66597->phy_active;
-
-	if(!powerup) 
+#ifdef CONFIG_USB_OTG
+	if (!r8a66597->is_active || r8a66597->role) {
+#else
+	if (!r8a66597->is_active) {
+#endif
+		udc_log("%s, USB device usage count: %d\n",
+		__func__, atomic_read(&r8a66597_to_dev
+		(r8a66597)->power.usage_count));
 		return 0;
-
-	if (r8a66597->vbus_active){
-		spin_lock_irqsave(&r8a66597->lock, flags);
-		r8a66597_usb_disconnect(r8a66597);
-		spin_unlock_irqrestore(&r8a66597->lock, flags);
-		r8a66597->vbus_active = 0;
-		/* stop clock */
-		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
-		r8a66597_bclr(r8a66597, SCKE, SYSCFG0);
-		r8a66597_bclr(r8a66597, USBE, SYSCFG0);
-
-		if (r8a66597->pdata->module_stop)
-			r8a66597->pdata->module_stop();
 	}
-	r8a66597_clk_disable(r8a66597);
-	pm_runtime_put_sync(r8a66597_to_dev(r8a66597));
-	powerup = 0;
-	udc_log("%s: power %s\n", __func__, powerup?"up":"down");
-	
+	r8a66597->is_active = 0;
+	printk(KERN_INFO "%s, USB device usage count: %d\n",
+	 __func__, atomic_read(&r8a66597_to_dev
+		(r8a66597)->power.usage_count));
+
 	return 0;
 }
 
 static int r8a66597_udc_resume(struct device *dev)
 {
 	struct r8a66597 *r8a66597 = the_controller;
+	udc_log("%s: IN\n", __func__);
 	/*restore the state of the phy before resume*/
 	r8a66597->phy_active = r8a66597->phy_active_sav;
-	gpio_direction_output(r8a66597->pdata->pin_gpio_2, 1);
-	gpio_pull_off_port(r8a66597->pdata->pin_gpio_1);
-	gpio_pull_off_port(r8a66597->pdata->pin_gpio_2);
-	r8a66597_udc_gpio_setting(r8a66597->pdata, 1);
-	if(r8a66597->old_vbus) {
-		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
-		r8a66597_clk_enable(r8a66597);
-	}
-	schedule_delayed_work(&r8a66597->vbus_work,0);
+	gpio_set_portncr_value(r8a66597->pdata->port_cnt,
+	r8a66597->pdata->usb_gpio_setting_info, 0);
+	gpio_set_value(r8a66597->pdata->usb_gpio_setting_info[IDX_PORT130].port, 0);
+
 	return 0;
 }
 #else
@@ -3152,9 +3009,9 @@ static int r8a66597_udc_resume(struct device *dev)
 #define r8a66597_udc_resume		NULL
 #endif	/* CONFIG_PM */
 
-static struct dev_pm_ops r8a66597_udc_pm_ops = {
+static const struct dev_pm_ops r8a66597_udc_pm_ops = {
 	.suspend	= &r8a66597_udc_suspend,
-	.resume		= &r8a66597_udc_resume
+	.resume		= &r8a66597_udc_resume,
 };
 
 /*-------------------------------------------------------------------------*/
@@ -3169,6 +3026,7 @@ MODULE_ALIAS("platform:r8a66597_udc");
 
 static int __init r8a66597_udc_init(void)
 {
+
 	return platform_driver_probe(&r8a66597_driver, r8a66597_probe);
 }
 module_init(r8a66597_udc_init);

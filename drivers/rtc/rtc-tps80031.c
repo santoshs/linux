@@ -29,6 +29,7 @@
 #include <linux/kernel.h>
 #include <linux/mfd/tps80031.h>
 #include <linux/platform_device.h>
+#include <linux/module.h>
 #include <linux/rtc.h>
 #include <linux/slab.h>
 
@@ -64,7 +65,7 @@ struct tps80031_rtc {
 	unsigned long		epoch_start;
 	int			irq;
 	struct rtc_device	*rtc;
-	bool			irq_en;
+	u8 			alarm_irq_enabled;
 };
 
 static int tps80031_read_regs(struct device *dev, int reg, int len,
@@ -141,7 +142,7 @@ static int tps80031_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	tm->tm_min = buff[1];
 	tm->tm_hour = buff[2];
 	tm->tm_mday = buff[3];
-	tm->tm_mon = buff[4];
+	tm->tm_mon = buff[4] - 1;
 	tm->tm_year = buff[5] + RTC_YEAR_OFFSET;
 	tm->tm_wday = buff[6];
 	return 0;
@@ -175,7 +176,7 @@ static int tps80031_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	buff[1] = tm->tm_min;
 	buff[2] = tm->tm_hour;
 	buff[3] = tm->tm_mday;
-	buff[4] = tm->tm_mon;
+	buff[4] = tm->tm_mon + 1;
 	buff[5] = tm->tm_year % RTC_YEAR_OFFSET;
 	buff[6] = tm->tm_wday;
 
@@ -214,16 +215,11 @@ static int tps80031_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 		return -EINVAL;
 	}
 
-	if (alrm->enabled && !rtc->irq_en)
-		rtc->irq_en = true;
-	else if (!alrm->enabled && rtc->irq_en)
-		rtc->irq_en = false;
-
 	buff[0] = alrm->time.tm_sec;
 	buff[1] = alrm->time.tm_min;
 	buff[2] = alrm->time.tm_hour;
 	buff[3] = alrm->time.tm_mday;
-	buff[4] = alrm->time.tm_mon;
+	buff[4] = alrm->time.tm_mon + 1;
 	buff[5] = alrm->time.tm_year % RTC_YEAR_OFFSET;
 	convert_decimal_to_bcd(buff, sizeof(buff));
 	err = tps80031_write_regs(dev, RTC_ALARM, sizeof(buff), buff);
@@ -247,7 +243,7 @@ static int tps80031_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	alrm->time.tm_min = buff[1];
 	alrm->time.tm_hour = buff[2];
 	alrm->time.tm_mday = buff[3];
-	alrm->time.tm_mon = buff[4];
+	alrm->time.tm_mon = buff[4] - 1;
 	alrm->time.tm_year = buff[5] + RTC_YEAR_OFFSET;
 
 	return 0;
@@ -264,22 +260,24 @@ static int tps80031_rtc_alarm_irq_enable(struct device *dev,
 		return -EIO;
 
 	if (enable) {
-		if (rtc->irq_en == true)
+		if (rtc->alarm_irq_enabled)
 			return 0;
 
 		err = tps80031_set_bits(p, 1, RTC_INT, ENABLE_ALARM_INT);
-		if (err < 0)
+		if (err < 0) {
 			dev_err(p, "failed to set ALRM int. err: %d\n", err);
-		return err;
-		rtc->irq_en = true;
+			return err;
+		} else
+			rtc->alarm_irq_enabled = 1;
 	} else {
-		if (rtc->irq_en == false)
+		if(!rtc->alarm_irq_enabled)
 			return 0;
 		err = tps80031_clr_bits(p, 1, RTC_INT, ENABLE_ALARM_INT);
-		if (err < 0)
+		if (err < 0) {
 			dev_err(p, "failed to clear ALRM int. err: %d\n", err);
-		return err;
-		rtc->irq_en = false;
+			return err;
+		} else
+			rtc->alarm_irq_enabled = 0;
 	}
 	return 0;
 }
@@ -363,7 +361,7 @@ static int __devinit tps80031_rtc_probe(struct platform_device *pdev)
 	/* If RTC have POR values, set time using platform data*/
 	tps80031_rtc_read_time(&pdev->dev, &tm);
 	if ((tm.tm_year == RTC_YEAR_OFFSET + RTC_POR_YEAR) &&
-		(tm.tm_mon == RTC_POR_MONTH) &&
+		(tm.tm_mon == (RTC_POR_MONTH - 1)) &&
 		(tm.tm_mday == RTC_POR_DAY)) {
 		if (pdata->time.tm_year < 2000 ||
 			pdata->time.tm_year > 2100) {
@@ -386,8 +384,10 @@ static int __devinit tps80031_rtc_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(&pdev->dev, "unable to program Interrupt Mask reg\n");
 		err = -EBUSY;
+		rtc->alarm_irq_enabled = 0;
 		goto fail;
-	}
+	} else
+		rtc->alarm_irq_enabled = 1;
 
 	dev_set_drvdata(&pdev->dev, rtc);
 	if (pdata && (pdata->irq >= 0)) {

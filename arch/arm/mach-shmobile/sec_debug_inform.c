@@ -13,7 +13,7 @@
 
 static struct sec_debug_inform sec_debug_inform = {
 	.phys = SEC_DEBUG_INFORM_PHYS,
-	.virt = SEC_DEBUG_INFORM_VIRT,
+	.virt = (void __iomem*)SEC_DEBUG_INFORM_VIRT,
 	.size = SZ_32,
 };
 

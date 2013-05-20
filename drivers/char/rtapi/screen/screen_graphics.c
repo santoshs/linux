@@ -2,7 +2,7 @@
  * screen_graphics.c
  *  screen graphics function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -64,7 +64,8 @@ static void screen_graphics_request(void *handle_data, int result,
 			drv_result);
 		}
 
-		if ((resp_data == NULL) || (resp_size < sizeof(unsigned long))) {
+		if ((resp_data == NULL) ||
+			(resp_size < (int)sizeof(unsigned long))) {
 			MSG_ERROR(
 			"[RTAPIK] ERR|[%s] resp_data [0x%08X] or resp_size[%d] error\n",
 			__func__,
@@ -90,7 +91,8 @@ static void screen_graphics_request(void *handle_data, int result,
 			drv_result);
 		}
 
-		if ((resp_data == NULL) || (resp_size < sizeof(unsigned long))) {
+		if ((resp_data == NULL) ||
+			(resp_size < (int)sizeof(unsigned long))) {
 			MSG_ERROR(
 			"[RTAPIK] ERR|[%s] resp_data [0x%08X] or resp_size[%d] error\n",
 			__func__,
@@ -116,7 +118,8 @@ static void screen_graphics_request(void *handle_data, int result,
 			drv_result);
 		}
 
-		if ((resp_data == NULL) || (resp_size < sizeof(unsigned long))) {
+		if ((resp_data == NULL) ||
+			(resp_size < (int)sizeof(unsigned long))) {
 			MSG_ERROR(
 			"[RTAPIK] ERR|[%s] resp_data [0x%08X] or resp_size[%d] error\n",
 			__func__,
@@ -143,7 +146,8 @@ static void screen_graphics_request(void *handle_data, int result,
 			drv_result);
 		}
 
-		if ((resp_data == NULL) || (resp_size < sizeof(unsigned long))) {
+		if ((resp_data == NULL) ||
+			(resp_size < (int)sizeof(unsigned long))) {
 			MSG_ERROR(
 			"[RTAPIK] ERR|[%s] resp_data [0x%08X] or resp_size[%d] error\n",
 			__func__,
@@ -180,29 +184,26 @@ static int screen_graphics_change_rtaddr(
 	void			**change_apmem_handle)
 {
 	int result;
-	system_mem_ap_get_apmem_id  	ap_get_apmem_id;
-	system_mem_ap_change_rtaddr 	ap_change_rtaddr;
+	system_mem_ap_get_apmem_id		ap_get_apmem_id;
+	system_mem_ap_change_rtaddr		ap_change_rtaddr;
 
 	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
 
-	if (NULL == handle)
-	{
+	if (NULL == handle) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
-	if ((NULL == address) || (NULL == apmem_handle))
-	{
+	if ((NULL == address) || (NULL == apmem_handle)) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
-	if ((NULL == change_address) || (NULL == change_apmem_handle))
-	{
+	if ((NULL == change_address) || (NULL == change_apmem_handle)) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
@@ -210,9 +211,9 @@ static int screen_graphics_change_rtaddr(
 	ap_get_apmem_id.apmem_handle = apmem_handle;
 
 	*change_apmem_handle = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
-	if ( 0 == *change_apmem_handle ) {
+	if (0 == *change_apmem_handle) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
@@ -224,7 +225,7 @@ static int screen_graphics_change_rtaddr(
 	result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 	if (result != SMAP_LIB_MEMORY_OK) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 	*change_address = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -291,7 +292,7 @@ void *screen_graphics_new(screen_grap_new *grap_new)
 	MSG_MED("[RTAPIK]    |notify_graphics_image_edit[0x%08X]\n",
 	(unsigned int)grap_new->notify_graphics_image_edit);
 
-	grap_handle = (screen_grap_handle *)kmalloc(
+	grap_handle = kmalloc(
 			sizeof(screen_grap_handle), GFP_KERNEL);
 	if (grap_handle == NULL) {
 		MSG_ERROR(
@@ -346,6 +347,52 @@ void *screen_graphics_new(screen_grap_new *grap_new)
 }
 EXPORT_SYMBOL(screen_graphics_new);
 
+
+int screen_graphics_set_blend_size(
+		screen_grap_set_blend_size *grap_set_blend_size)
+{
+	int result;
+	iccom_drv_send_cmd_param        iccom_send_cmd;
+
+	MSG_HIGH("[RTAPIK] IN |[%s]\n", __func__);
+
+	if (NULL == grap_set_blend_size) {
+		return SMAP_LIB_GRAPHICS_PARAERR;
+	}
+
+	MSG_MED("[RTAPIK]    |handle       [0x%08X]\n",
+	(unsigned int)grap_set_blend_size->handle);
+
+	if (NULL == grap_set_blend_size->handle) {
+		MSG_ERROR(
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
+		return SMAP_LIB_GRAPHICS_PARAERR;
+	}
+
+	iccom_send_cmd.handle      =
+		((screen_grap_handle *)grap_set_blend_size->handle)->handle;
+	iccom_send_cmd.task_id     = TASK_GRAPHICS;
+	iccom_send_cmd.function_id = EVENT_GRAPHICS_SETBLENDSIZE;
+	iccom_send_cmd.send_mode   = ICCOM_DRV_SYNC;
+	iccom_send_cmd.send_size   = sizeof(screen_grap_set_blend_size);
+	iccom_send_cmd.send_data   = (unsigned char *)grap_set_blend_size;
+	iccom_send_cmd.recv_size   = 0;
+	iccom_send_cmd.recv_data   = NULL;
+
+	result = iccom_drv_send_command(&iccom_send_cmd);
+	if (result != SMAP_LIB_GRAPHICS_OK) {
+		MSG_ERROR("[RTAPIK] OUT|%s ret = %d(line = %d)\n",
+		__func__, result, __LINE__);
+		return result;
+	}
+
+	MSG_HIGH("[RTAPIK] OUT|[%s][%d] ret = [%d]\n",
+	__func__, __LINE__, SMAP_LIB_GRAPHICS_OK);
+	return SMAP_LIB_GRAPHICS_OK;
+}
+EXPORT_SYMBOL(screen_graphics_set_blend_size);
+
+
 int screen_graphics_initialize(screen_grap_initialize *grap_initialize)
 {
 	int result;
@@ -361,7 +408,7 @@ int screen_graphics_initialize(screen_grap_initialize *grap_initialize)
 
 	if (NULL == grap_initialize->handle) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
@@ -407,7 +454,7 @@ int screen_graphics_quit(screen_grap_quit	*grap_quit)
 
 	if (NULL == grap_quit->handle) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
@@ -460,7 +507,7 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 
 	if (NULL == grap_image_conv->handle) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
@@ -472,7 +519,7 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 		image_conv.input_image.apmem_handle = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 		if (image_conv.input_image.apmem_handle == 0) {
 			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
+			"[RTAPIK] ERR|[%d]\n", __LINE__);
 			return SMAP_LIB_GRAPHICS_PARAERR;
 		}
 
@@ -484,7 +531,7 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 		result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 		if (result != SMAP_LIB_MEMORY_OK) {
 			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
+			"[RTAPIK] ERR|[%d]\n", __LINE__);
 			return SMAP_LIB_GRAPHICS_PARAERR;
 		}
 		image_conv.input_image.address = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -493,30 +540,32 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 	}
 
 	/* Input(C0) */
-	if (NULL != grap_image_conv->input_image.apmem_handle_c0) {
-		ap_get_apmem_id.handle       = grap_image_conv->handle;
-		ap_get_apmem_id.apmem_handle = grap_image_conv->input_image.apmem_handle_c0;
-		image_conv.input_image.apmem_handle_c0 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
-		if (image_conv.input_image.apmem_handle_c0 == 0) {
-			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
-			return SMAP_LIB_GRAPHICS_PARAERR;
-		}
+	if (NULL != grap_image_conv->input_image.address_c0) {
+		if (NULL != grap_image_conv->input_image.apmem_handle_c0) {
+			ap_get_apmem_id.handle       = grap_image_conv->handle;
+			ap_get_apmem_id.apmem_handle = grap_image_conv->input_image.apmem_handle_c0;
+			image_conv.input_image.apmem_handle_c0 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
+			if (image_conv.input_image.apmem_handle_c0 == 0) {
+				MSG_ERROR(
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
+				return SMAP_LIB_GRAPHICS_PARAERR;
+			}
 
-		ap_change_rtaddr.handle         = grap_image_conv->handle;
-		ap_change_rtaddr.cache_kind     = RT_MEMORY_NONCACHE;
-		ap_change_rtaddr.apmem_handle   = grap_image_conv->input_image.apmem_handle_c0;
-		ap_change_rtaddr.apmem_apaddr   = (unsigned int)(grap_image_conv->input_image.address_c0);
+			ap_change_rtaddr.handle         = grap_image_conv->handle;
+			ap_change_rtaddr.cache_kind     = RT_MEMORY_NONCACHE;
+			ap_change_rtaddr.apmem_handle   = grap_image_conv->input_image.apmem_handle_c0;
+			ap_change_rtaddr.apmem_apaddr   = (unsigned int)(grap_image_conv->input_image.address_c0);
 
-		result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
-		if (result != SMAP_LIB_MEMORY_OK) {
-			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
-			return SMAP_LIB_GRAPHICS_PARAERR;
+			result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
+			if (result != SMAP_LIB_MEMORY_OK) {
+				MSG_ERROR(
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
+				return SMAP_LIB_GRAPHICS_PARAERR;
+			}
+			image_conv.input_image.address_c0 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
+		} else {
+			image_conv.input_image.address_c0 = GET_RT_CACHE_ADDRESS(grap_image_conv->input_image.address_c0);
 		}
-		image_conv.input_image.address_c0 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
-	} else {
-		image_conv.input_image.address_c0 = GET_RT_CACHE_ADDRESS(grap_image_conv->input_image.address_c0);
 	}
 
 	/* Output(Y) */
@@ -526,7 +575,7 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 		image_conv.output_image.apmem_handle = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 		if (image_conv.output_image.apmem_handle == 0) {
 			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
+			"[RTAPIK] ERR|[%d]\n", __LINE__);
 			return SMAP_LIB_GRAPHICS_PARAERR;
 		}
 
@@ -538,7 +587,7 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 		result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 		if (result != SMAP_LIB_MEMORY_OK) {
 			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
+			"[RTAPIK] ERR|[%d]\n", __LINE__);
 			return SMAP_LIB_GRAPHICS_PARAERR;
 		}
 		image_conv.output_image.address = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -555,7 +604,7 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 			image_conv.output_image.apmem_handle_c0 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 			if (image_conv.output_image.apmem_handle_c0 == 0) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 
@@ -567,7 +616,7 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 			result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 			if (result != SMAP_LIB_MEMORY_OK) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 			image_conv.output_image.address_c0 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -584,7 +633,7 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 			image_conv.output_image.apmem_handle_c1 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 			if (image_conv.output_image.apmem_handle_c1 == 0) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 
@@ -596,7 +645,7 @@ int screen_graphics_image_conversion(screen_grap_image_conv *grap_image_conv)
 			result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 			if (result != SMAP_LIB_MEMORY_OK) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 			image_conv.output_image.address_c1 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -652,7 +701,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 
 	struct {
 		screen_grap_image_blend		t_grap_blend;
-		screen_grap_layer			t_grap_layer[RT_GRAPHICS_BLEND_LAYER];
+		screen_grap_layer_local		t_grap_layer[RT_GRAPHICS_BLEND_LAYER];
 	} send_data;
 
 	iccom_drv_send_cmd_param      iccom_send_cmd;
@@ -671,7 +720,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 
 	if (NULL == grap_blend->handle) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
@@ -682,7 +731,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 			break;
 		}
 
-		memcpy(&send_data.t_grap_layer[layer], grap_blend->input_layer[layer], sizeof(screen_grap_layer));
+		memcpy(&send_data.t_grap_layer[layer], grap_blend->input_layer[layer], sizeof(screen_grap_layer_local));
 
 		/* Input(Y/RGB) */
 		if (NULL != grap_blend->input_layer[layer]->image.apmem_handle) {
@@ -692,7 +741,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 			send_data.t_grap_layer[layer].image.apmem_handle = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 			if (send_data.t_grap_layer[layer].image.apmem_handle == 0) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 
@@ -704,7 +753,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 			result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 			if (result != SMAP_LIB_MEMORY_OK) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 			send_data.t_grap_layer[layer].image.address = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -723,7 +772,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 				send_data.t_grap_layer[layer].image.apmem_handle_c0 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 				if (send_data.t_grap_layer[layer].image.apmem_handle_c0 == 0) {
 					MSG_ERROR(
-					"[RTAPIK] ERR|[%d] \n", __LINE__);
+					"[RTAPIK] ERR|[%d]\n", __LINE__);
 					return SMAP_LIB_GRAPHICS_PARAERR;
 				}
 
@@ -735,7 +784,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 				result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 				if (result != SMAP_LIB_MEMORY_OK) {
 					MSG_ERROR(
-					"[RTAPIK] ERR|[%d] \n", __LINE__);
+					"[RTAPIK] ERR|[%d]\n", __LINE__);
 					return SMAP_LIB_GRAPHICS_PARAERR;
 				}
 				send_data.t_grap_layer[layer].image.address_c0 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -754,7 +803,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 				send_data.t_grap_layer[layer].image.apmem_handle_c1 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 				if (send_data.t_grap_layer[layer].image.apmem_handle_c1 == 0) {
 					MSG_ERROR(
-					"[RTAPIK] ERR|[%d] \n", __LINE__);
+					"[RTAPIK] ERR|[%d]\n", __LINE__);
 					return SMAP_LIB_GRAPHICS_PARAERR;
 				}
 
@@ -766,7 +815,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 				result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 				if (result != SMAP_LIB_MEMORY_OK) {
 					MSG_ERROR(
-					"[RTAPIK] ERR|[%d] \n", __LINE__);
+					"[RTAPIK] ERR|[%d]\n", __LINE__);
 					return SMAP_LIB_GRAPHICS_PARAERR;
 				}
 				send_data.t_grap_layer[layer].image.address_c1 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -786,7 +835,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 		send_data.t_grap_blend.output_image.apmem_handle = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 		if (send_data.t_grap_blend.output_image.apmem_handle == 0) {
 			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
+			"[RTAPIK] ERR|[%d]\n", __LINE__);
 			return SMAP_LIB_GRAPHICS_PARAERR;
 		}
 
@@ -798,7 +847,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 		result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 		if (result != SMAP_LIB_MEMORY_OK) {
 			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
+			"[RTAPIK] ERR|[%d]\n", __LINE__);
 			return SMAP_LIB_GRAPHICS_PARAERR;
 		}
 		send_data.t_grap_blend.output_image.address = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -816,7 +865,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 			send_data.t_grap_blend.output_image.apmem_handle_c0 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 			if (send_data.t_grap_blend.output_image.apmem_handle_c0 == 0) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 
@@ -828,7 +877,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 			result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 			if (result != SMAP_LIB_MEMORY_OK) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 			send_data.t_grap_blend.output_image.address_c0 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -847,7 +896,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 			send_data.t_grap_blend.output_image.apmem_handle_c1 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 			if (send_data.t_grap_blend.output_image.apmem_handle_c1 == 0) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 
@@ -860,7 +909,7 @@ int screen_graphics_image_blend(screen_grap_image_blend *grap_blend)
 			result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 			if (result != SMAP_LIB_MEMORY_OK) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 			send_data.t_grap_blend.output_image.address_c1 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -932,7 +981,7 @@ int screen_graphics_image_output(screen_grap_image_output *grap_output)
 
 	if (NULL == grap_output->handle) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
@@ -946,7 +995,7 @@ int screen_graphics_image_output(screen_grap_image_output *grap_output)
 		send_data.output_image.apmem_handle = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 		if (send_data.output_image.apmem_handle == 0) {
 			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
+			"[RTAPIK] ERR|[%d]\n", __LINE__);
 			return SMAP_LIB_GRAPHICS_PARAERR;
 		}
 
@@ -958,7 +1007,7 @@ int screen_graphics_image_output(screen_grap_image_output *grap_output)
 		result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 		if (SMAP_OK != result) {
 			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
+			"[RTAPIK] ERR|[%d]\n", __LINE__);
 			return SMAP_LIB_GRAPHICS_PARAERR;
 		}
 		send_data.output_image.address = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -977,7 +1026,7 @@ int screen_graphics_image_output(screen_grap_image_output *grap_output)
 			send_data.output_image.apmem_handle_c0 = (void *)system_memory_ap_get_apmem_id(&ap_get_apmem_id);
 			if (send_data.output_image.apmem_handle_c0 == 0) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 
@@ -989,7 +1038,7 @@ int screen_graphics_image_output(screen_grap_image_output *grap_output)
 			result = system_memory_ap_change_rtaddr(&ap_change_rtaddr);
 			if (SMAP_OK != result) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 			send_data.output_image.address_c0 = (unsigned char *)ap_change_rtaddr.apmem_rtaddr;
@@ -1043,7 +1092,7 @@ int screen_graphics_image_edit(screen_grap_image_edit *grap_edit)
 {
 	int result;
 	screen_grap_image_edit			send_data;
-	iccom_drv_send_cmd_param    	iccom_send_cmd;
+	iccom_drv_send_cmd_param		iccom_send_cmd;
 	iccom_drv_disable_standby_param	dis_standby;
 	iccom_drv_enable_standby_param  ena_standby;
 
@@ -1057,7 +1106,7 @@ int screen_graphics_image_edit(screen_grap_image_edit *grap_edit)
 
 	if (NULL == grap_edit->handle) {
 		MSG_ERROR(
-		"[RTAPIK] ERR|[%d] \n", __LINE__);
+		"[RTAPIK] ERR|[%d]\n", __LINE__);
 		return SMAP_LIB_GRAPHICS_PARAERR;
 	}
 
@@ -1075,10 +1124,10 @@ int screen_graphics_image_edit(screen_grap_image_edit *grap_edit)
 
 		if (SMAP_LIB_GRAPHICS_OK != result) {
 			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
+			"[RTAPIK] ERR|[%d]\n", __LINE__);
 			return SMAP_LIB_GRAPHICS_PARAERR;
 		}
-		MSG_HIGH("[RTAPIK] input_image.address use ap_change_rtaddr \n");
+		MSG_HIGH("[RTAPIK] input_image.address use ap_change_rtaddr\n");
 	} else {
 		send_data.input_param.input_image.address = GET_RT_CACHE_ADDRESS(grap_edit->input_param.input_image.address);
 	}
@@ -1096,7 +1145,7 @@ int screen_graphics_image_edit(screen_grap_image_edit *grap_edit)
 
 			if (SMAP_LIB_GRAPHICS_OK != result) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 			MSG_HIGH("[RTAPIK] input_image.address_c0 use ap_change_rtaddr\n");
@@ -1118,7 +1167,7 @@ int screen_graphics_image_edit(screen_grap_image_edit *grap_edit)
 
 		if (SMAP_LIB_GRAPHICS_OK != result) {
 			MSG_ERROR(
-			"[RTAPIK] ERR|[%d] \n", __LINE__);
+			"[RTAPIK] ERR|[%d]\n", __LINE__);
 			return SMAP_LIB_GRAPHICS_PARAERR;
 		}
 		MSG_HIGH("[RTAPIK] output_image.address use ap_change_rtaddr\n");
@@ -1139,7 +1188,7 @@ int screen_graphics_image_edit(screen_grap_image_edit *grap_edit)
 
 			if (SMAP_LIB_GRAPHICS_OK != result) {
 				MSG_ERROR(
-				"[RTAPIK] ERR|[%d] \n", __LINE__);
+				"[RTAPIK] ERR|[%d]\n", __LINE__);
 				return SMAP_LIB_GRAPHICS_PARAERR;
 			}
 			MSG_HIGH("[RTAPIK] output_image.address_c0 use ap_change_rtaddr\n");

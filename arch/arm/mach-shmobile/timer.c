@@ -23,13 +23,9 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <asm/mach/time.h>
-#include <mach/common.h>
 
 static void __init shmobile_late_time_init(void)
 {
-	struct clk *clkp;
-	unsigned long lpj;
-
 	/*
 	 * Make sure all compiled-in early timers register themselves.
 	 *
@@ -41,13 +37,17 @@ static void __init shmobile_late_time_init(void)
 	 */
 	early_platform_driver_register_all("earlytimer");
 	early_platform_driver_probe("earlytimer", 2, 0);
+}
 
-#ifdef CONFIG_SH_TIMER_CMT_ARM
-	shmobile_clockevent_init();
-#endif
+void __init shmobile_earlytimer_init(void)
+{
+	late_time_init = shmobile_late_time_init;
+}
 
-	if (lpj_fine)
-		return; /* seems to be set up for the current timer */
+void __init shmobile_calibrate_delay_early(void)
+{
+	struct clk *clkp;
+	unsigned long lpj;
 
 	/*
 	 * Calculate loops_per_jiffy using System-CPU frequency if it's
@@ -57,19 +57,15 @@ static void __init shmobile_late_time_init(void)
 	if (!IS_ERR(clkp)) {
 		lpj = clk_get_rate(clkp) + HZ/2;
 		do_div(lpj, HZ);
-		lpj_fine = lpj;
+		loops_per_jiffy = lpj_fine = lpj;
 		clk_put(clkp);
+		pr_info("Calibrating delay loop using CPU frequency "
+			"(lpj=%lu)\n", lpj);
 	}
 }
 
-void (*shmobile_clocksource_init)(void);
-
 static void __init shmobile_timer_init(void)
 {
-	if (shmobile_clocksource_init)
-		shmobile_clocksource_init();
-
-	late_time_init = shmobile_late_time_init;
 }
 
 struct sys_timer shmobile_timer = {

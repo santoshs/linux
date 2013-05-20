@@ -2,7 +2,7 @@
  * drivers/char/rtapi/include/screen_graphics.h
  *     This file is screen graphics function.
  *
- * Copyright (C) 2011-2012 Renesas Electronics Corporation
+ * Copyright (C) 2011-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -42,7 +42,8 @@
 #define RT_GRAPHICS_COLOR_ABGR8888			(8)		/* aBGR8888 */
 #define RT_GRAPHICS_COLOR_YUV420PL			(12)	/* YUV420 Planar */
 #define RT_GRAPHICS_COLOR_XRGB8888			(13)	/* xRGB8888 */
-#define RT_GRAPHICS_COLOR_XBGR8888			(14)		/* xBGR8888 */
+#define RT_GRAPHICS_COLOR_XBGR8888			(14)	/* xBGR8888 */
+#define RT_GRAPHICS_COLOR_YUV422UYVY		(15)	/* YUV422UYVY */
 
 /* yuv_format */
 #define RT_GRAPHICS_COLOR_BT601				(1)	/* ITU-R BT.601 */
@@ -119,6 +120,14 @@ typedef struct {
 		);
 } screen_grap_new;
 
+/* screen_graphics_set_blend_size API parameter */
+typedef struct {
+	void					*handle;		/* graphics interface handle */
+	unsigned short			lcd_width;		/* lcd width */
+	unsigned short			lcd_height;		/* lcd height */
+	unsigned short			hdmi_width;		/* hdmi width */
+	unsigned short			hdmi_height;	/* hdmi height */
+} screen_grap_set_blend_size;
 
 /* screen_graphics_initialize API parameter */
 typedef struct {
@@ -152,20 +161,26 @@ typedef struct {
 
 /* screen_graphics_image_blend API parameter */
 typedef struct {
-	screen_grap_image_param		image;			/* input image parameters */
-	screen_rect					rect;			/* rect */
-	unsigned short				alpha;			/* alpha */
-	unsigned short				rotate;			/* rotation type */
-	unsigned short				mirror;			/* mirror type */
-	unsigned short				dummy;			/* dummy */
-	long						key_color;		/* key color */
-	unsigned short				premultiplied;	/* premultiplied */
-	unsigned short				alpha_coef;		/* alpha coefficient */
+	screen_grap_image_param		image;						/* input image parameters */
+	screen_rect					rect;						/* rect */
+	unsigned short				alpha;						/* alpha */
+	unsigned short				rotate;						/* rotation type */
+	unsigned short				mirror;						/* mirror type */
+	unsigned short				dummy;						/* dummy */
+	long						key_color;					/* key color */
+	unsigned short				premultiplied;				/* premultiplied */
+	unsigned short				alpha_coef;					/* alpha coefficient */
+	unsigned char				*palette;					/* palette data address */
+	void						*palette_apmem_handle;		/* palette data app-shared memory handle */
+	unsigned long				palette_size;				/* palette data size */
+	unsigned char				*alpha_plane;				/* alpha plane address */
+	void						*alpha_plane_apmem_handle;	/* alpha plane app-shared memory handle */
 } screen_grap_layer;
 
+/* screen_graphics_image_blend API parameter */
 typedef struct {
 	void					*handle;			/* graphics interface handle */
-	screen_grap_layer*		input_layer[4];		/* input image information */
+	screen_grap_layer		*input_layer[4];	/* input image information */
 	screen_grap_image_param	output_image;		/* output image parameters */
 	unsigned long			background_color;	/* background_color */
 	unsigned long			user_data;			/* user data */
@@ -216,6 +231,11 @@ extern void *screen_graphics_new
 	screen_grap_new	*grap_new
 );
 
+extern int screen_graphics_set_blend_size
+(
+	screen_grap_set_blend_size	*grap_set_blend_size
+);
+
 extern int screen_graphics_initialize
 (
 	screen_grap_initialize	*grap_initialize
@@ -235,6 +255,7 @@ extern int screen_graphics_image_output
 (
 	screen_grap_image_output	*grap_output
 );
+
 extern int screen_graphics_quit
 (
 	screen_grap_quit	*grap_quit

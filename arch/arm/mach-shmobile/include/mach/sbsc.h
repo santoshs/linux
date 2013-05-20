@@ -33,7 +33,7 @@
 #define SBSC_SDWCR01A		0x4C
 #define SBSC_SDWCR10A		0x50
 #define SBSC_SDWCR11A		0x54
-#define SBSC_SDMRACR1A		0x88
+#define SBSC_SDMRACR1A_OFFSET	0x88
 
 void __init shmobile_sbsc_init(void);
 u32 shmobile_sbsc_read_reg32(u32 offset);
@@ -44,6 +44,7 @@ void shmobile_sbsc_update_param(struct sbsc_param *param);
 void shmobile_set_ape_req_freq(unsigned int freq);
 unsigned int shmobile_get_ape_req_freq(void);
 unsigned int shmobile_get_modem_req_freq(void);
+unsigned int shmobile_get_pll_reprogram(void);
 
 extern void cpg_init_bbfrqcrd(void);
 extern struct sbsc_param zb3_lut[];
@@ -52,6 +53,9 @@ extern int shmobile_acquire_cpg_lock(unsigned long *flags);
 extern int shmobile_release_cpg_lock(unsigned long *flags);
 #define SBSC_BASE		(0xFE400000U)
 #define SBSC_SIZE		0x1200
+
+#define SBSC_SDMRA_DONE     (0x00000000)
+#define SBSC_SDMRACR1A_ZQ   (0x0000560A)
 
 #endif /* __ASM_ARCH_SBSC_H */
 

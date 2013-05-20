@@ -18,21 +18,26 @@
  * MA  02110-1301, USA.
  */
 
+#ifndef __ARCH_SHMOBILE_CRASHLOG_H__
+#define __ARCH_SHMOBILE_CRASHLOG_H__
+
+#include <mach/memory-r8a7373.h>
+
 #define RMC_LOCAL_VERSION "150612"              /* ddmmyy (release time)*/
 
-#ifndef CONFIG_IRQ_TRACE
-#define TMPLOG_ADDRESS 0x44801200
-#define TMPLOG_SIZE    0x00040000
-#endif
+#define TMPLOG_ADDRESS	(SDRAM_CRASHLOG_START_ADDR + 0x200)
+#define TMPLOG_END_ADDRESS     (TMPLOG_ADDRESS + 0x40000)
+#define TMPLOG_TOTAL_SIZE      (TMPLOG_END_ADDRESS - TMPLOG_ADDRESS)
 
-#define CRASHLOG_R_LOCAL_VER_LOCATE             0x44801000
+
+#define CRASHLOG_R_LOCAL_VER_LOCATE             (SDRAM_CRASHLOG_START_ADDR + 0)
 #define CRASHLOG_R_LOCAL_VER_LENGTH             32
 
-#define CRASHLOG_KMSG_LOCATE                    0x44801020
-#define CRASHLOG_LOGCAT_MAIN_LOCATE             0x44801030
-#define CRASHLOG_LOGCAT_EVENT_LOCATE		0x44801040
-#define CRASHLOG_LOGCAT_RADIO_LOCATE		0x44801050
-#define CRASHLOG_LOGCAT_SYSTEM_LOCATE		0x44801060
+#define CRASHLOG_KMSG_LOCATE		(SDRAM_CRASHLOG_START_ADDR + 0x20)
+#define CRASHLOG_LOGCAT_MAIN_LOCATE	(SDRAM_CRASHLOG_START_ADDR + 0x30)
+#define CRASHLOG_LOGCAT_EVENT_LOCATE	(SDRAM_CRASHLOG_START_ADDR + 0x40)
+#define CRASHLOG_LOGCAT_RADIO_LOCATE	(SDRAM_CRASHLOG_START_ADDR + 0x50)
+#define CRASHLOG_LOGCAT_SYSTEM_LOCATE	(SDRAM_CRASHLOG_START_ADDR + 0x60)
 
 extern unsigned long log_buf_address;
 extern unsigned long log_buf_len_address;
@@ -59,6 +64,10 @@ extern unsigned long log_system_size_address;
 extern unsigned long log_system_w_off_address;
 extern unsigned long log_system_head_address;
 
+extern void crashlog_kmsg_init(void);
+extern void crashlog_logcat_init(void);
+
 void crashlog_r_local_ver_write(char *soft_version);
 void crashlog_reset_log_write(void);
 void crashlog_init_tmplog(void);
+#endif /* __ARCH_SHMOBILE_CRASHLOG_H__ */

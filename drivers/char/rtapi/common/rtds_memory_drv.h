@@ -202,4 +202,19 @@ int rtds_memory_drv_phy_change_address(
 	rtds_memory_drv_change_addr_param *rtds_change_addr
 );
 
+int rtds_memory_drv_rtpmb_to_phy_address(
+	rtds_memory_drv_change_addr_param *rtds_change_addr
+);
+
+int rtds_memory_drv_phy_to_rtpmb_address(
+	rtds_memory_drv_change_addr_param *rtds_change_addr
+);
+
+int rtds_memory_drv_rtpmb_cache_address(
+	rtds_memory_drv_change_addr_param *rtds_change_addr
+);
+
+void rtds_memory_drv_dump_mpro(
+	void
+);
 #endif /* __RTDS_MEMORY_DRV_H__ */

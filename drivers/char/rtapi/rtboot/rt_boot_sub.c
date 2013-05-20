@@ -2,7 +2,7 @@
  * rt_boot_sub.c
  *		booting rt_cpu.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -23,7 +23,7 @@
 #include <linux/fs.h>
 #include <linux/delay.h>
 #include <mach/common.h>
-#include <asm/io.h>
+#include <linux/io.h>
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
 #include "log_kernel.h"
@@ -94,7 +94,6 @@ static unsigned long intcrt_base5;
 
 static char *kernel_rt_boot_path = "/boot/RTFM_SH4AL_DSP_MU200.bin";
 static char *kernel_rt_cert_path = "/boot/mediafw.cert";
-extern struct rt_boot_info g_rtboot_info;
 
 /* prototype */
 static int set_screen_data(unsigned int disp_addr);
@@ -131,7 +130,9 @@ int read_rt_image(unsigned int *addr)
 	unsigned char *data_addr = 0;
 	struct file *fp = NULL;
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
+
+	memset(&info, 0, sizeof(info));
 
 	if (addr == NULL) {
 		MSG_ERROR("[RTBOOTK]   |addr is NULL\n");
@@ -169,14 +170,19 @@ int read_rt_image(unsigned int *addr)
 		MSG_LOW("boot_addr                     = 0x%08x\n",	info.boot_addr);
 		MSG_LOW("image_size                    = %08d\n",	info.image_size);
 		MSG_LOW("load_flg                      = %08d\n",	info.load_flg);
-		MSG_LOW("img[RT_LVL_1].section_start = 0x%08x\n",	info.img[RT_LVL_1].section_start);
-		MSG_LOW("img[RT_LVL_1].section_size  = %08d\n",	info.img[RT_LVL_1].section_size);
-		MSG_LOW("img[RT_LVL_2].section_start = 0x%08x\n",	info.img[RT_LVL_2].section_start);
-		MSG_LOW("img[RT_LVL_2].section_size  = %08d\n",	info.img[RT_LVL_2].section_size);
-		MSG_LOW("displaybuff_addr              = 0x%08x\n",	info.displaybuff_address);
-		MSG_LOW("displaybuff_size              = %08d\n",	info.displaybuff_size);
+		MSG_LOW("img[RT_LVL_1].section_start = 0x%08x\n",
+				info.img[RT_LVL_1].section_start);
+		MSG_LOW("img[RT_LVL_1].section_size  = %08d\n",
+				info.img[RT_LVL_1].section_size);
+		MSG_LOW("img[RT_LVL_2].section_start = 0x%08x\n",
+				info.img[RT_LVL_2].section_start);
+		MSG_LOW("img[RT_LVL_2].section_size  = %08d\n",
+				info.img[RT_LVL_2].section_size);
+		MSG_LOW("sh_pmb_offset              = 0x%08x\n", info.sh_pmb_offset);
+		MSG_LOW("sh_pmb_nc_offset           = 0x%08x\n", info.sh_pmb_nc_offset);
+		MSG_LOW("mfi_pmb_offset             = 0x%08x\n", info.mfi_pmb_offset);
 
-#if SECURE_BOOT_RT
+#ifdef SECURE_BOOT_ENABLE
 		data_addr = ioremap(PRIMARY_COPY_ADDR, info.image_size);
 #else
 		data_addr = ioremap(info.boot_addr, info.image_size);
@@ -199,19 +205,15 @@ int read_rt_image(unsigned int *addr)
 		/* Init load_flg */
 		bootaddr_info = (struct rt_boot_info *)(data_addr + RT_BOOT_SIZE);
 		bootaddr_info->load_flg = 0;
-#if !SECURE_BOOT_RT
+
 		/* Set screen data */
-#if !(SUPPORT_DRM)
-		retval = set_screen_data(info.displaybuff_address);
-#else
-		retval = set_screen_data( (info.command_area_address + info.command_area_size - 32) );
-#endif
+		retval = set_screen_data(info.command_area_address + info.command_area_size - 32);
 		if (0 != retval) {
 			MSG_ERROR("[RTBOOTK]   |Error setting screen info\n");
 			ret = 1;
 			break;
 		}
-#endif
+
 	} while (0);
 
 	if (data_addr) {
@@ -226,8 +228,7 @@ int read_rt_image(unsigned int *addr)
 		g_rtboot_info = info;
 	}
 
-	MSG_HIGH("[RTBOOTK]g_rtboot_info|[%x] ret = %x\n", g_rtboot_info, info);
-	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret);
+	MSG_MED("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret);
 	return ret;
 }
 
@@ -329,19 +330,12 @@ void write_req_comp(void)
 	writel(GSR_REQ_COMP, REG_GSR);
 }
 
-#define RT_BOOT_HW_ID_REV_0_2_1 1
-#define RT_BOOT_HW_ID_REV_0_2_2 2
-#define RT_BOOT_HW_ID_REV_0_3_X 3
-#define RT_BOOT_HW_ID_REV_0_4_1 4
-#define RT_BOOT_HW_ID_REV_0_5_X 5
-
 static int set_screen_data(unsigned int disp_addr)
 {
 	void *addr = NULL;
 	struct screen_info screen[2];
-	unsigned int hw_id;
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	addr = ioremap(disp_addr, sizeof(screen));
 	if (!addr) {
@@ -350,38 +344,27 @@ static int set_screen_data(unsigned int disp_addr)
 		return 1;
 	}
 
-	hw_id = u2_get_board_rev();
+	/* LCD default setting */
+	screen[0].height = SCREEN0_HEIGHT;
+	screen[0].width  = SCREEN0_WIDTH;
+	screen[0].stride = SCREEN0_STRIDE;
+	screen[0].mode   = SCREEN0_MODE;
 
-	switch (hw_id) {
-	case RT_BOOT_HW_ID_REV_0_2_1:
-	case RT_BOOT_HW_ID_REV_0_2_2:
-	case RT_BOOT_HW_ID_REV_0_3_X:
-		/* qHD */
-		MSG_LOW("qHD setting.(HWID=%d)\n", hw_id);
-		screen[0].height = 960;
-		screen[0].width  = 540;
-		screen[0].stride = 544;
-		screen[0].mode   = 1; /* COMMAND MODE */
+#ifdef CONFIG_FB_R_MOBILE_NT35510
+	MSG_LOW("WVGA(NT35510) command mode setting.\n");
+	screen[0].height = 800;
+	screen[0].width  = 480;
+	screen[0].stride = 480;
+	screen[0].mode   = 1; /* COMMAND MODE */
+#endif /* CONFIG_FB_R_MOBILE_NT35510 */
 
-		break;
-	case RT_BOOT_HW_ID_REV_0_4_1:
-	case RT_BOOT_HW_ID_REV_0_5_X:
-		/* WVGA */
-		MSG_LOW("WVGA setting.(HWID=%d)\n", hw_id);
-		screen[0].height = 800;
-		screen[0].width  = 480;
-		screen[0].stride = 480;
-		screen[0].mode   = 0; /* VIDEO MODE */
-
-		break;
-	default:
-		MSG_ERROR("[RTBOOTK]   |Error u2_get_board_rev\n",
-					"Unknown HWID(=%d)\n", hw_id);
-		screen[0].height = 0;
-		screen[0].width  = 0;
-		screen[0].stride = 0;
-		screen[0].mode   = 0;
-	}
+#ifdef CONFIG_FB_R_MOBILE_VX5B3D
+	MSG_LOW("WSVGA(VX5B3D) video mode setting.\n");
+	screen[0].height = 600;
+	screen[0].width  = 1024;
+	screen[0].stride = 1024;
+	screen[0].mode   = 0; /* VIDEO MODE */
+#endif /* CONFIG_FB_R_MOBILE_VX5B3D */
 
 	screen[1].height = SCREEN1_HEIGHT;
 	screen[1].width  = SCREEN1_WIDTH;
@@ -392,7 +375,7 @@ static int set_screen_data(unsigned int disp_addr)
 
 	iounmap(addr);
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = 0\n", __func__);
+	MSG_MED("[RTBOOTK]OUT|[%s] ret = 0\n", __func__);
 
 	return 0;
 }
@@ -405,7 +388,7 @@ int read_rt_cert(unsigned int addr)
 	int ret;
 	int ret_size;
 
-	MSG_HIGH("[RTBOOTK]IN |[%s]\n", __func__);
+	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
 
 	do {
 		ret = vfs_stat(kernel_rt_cert_path, &stbuf);
@@ -442,10 +425,11 @@ int read_rt_cert(unsigned int addr)
 	}
 
 	if (!IS_ERR(fp)) {
-		(void)filp_close(fp, NULL);
+		if (fp)
+			(void)filp_close(fp, NULL);
 	}
 
-	MSG_HIGH("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret_size);
+	MSG_MED("[RTBOOTK]OUT|[%s] ret = %d\n", __func__, ret_size);
 
 	return ret_size;
 }

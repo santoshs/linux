@@ -20,30 +20,37 @@
 
 #include <linux/device.h>
 #include <linux/string.h>
-#include <linux/io.h>
 #include <asm/cacheflush.h>
+#include <mach/poweroff.h>
 #include <mach/pm.h>
 
 #include <linux/hwspinlock.h>
-#include <mach/r8a73734.h>
-/* PLL2CR */
-#define PLL2CR		IO_ADDRESS(0xE615002C)
-#define PLL2CE_XOE	0x1
+#include <mach/common.h>
+#include <mach/r8a7373.h>
+#include <mach/memory-r8a7373.h>
 
-/* Restart Mode Setting*/
-#define SBAR2		IO_ADDRESS(0xe6180060)
-#define RESCNT2		IO_ADDRESS(0xE6188020)
+/* CPG_PLL2CR */
+#define PLL2CE_XOE	0x1
 
 /* Power Off Mode Setting */
 #define POFFFLAG	0x80
-#define STBCHRB2	IO_ADDRESS(0xE6180042)
 
 /* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
 /* SDRAM address for NVM */
-#define NVM_BOOTFLAG_ADDRESS		0x47FBFF80
-#define NVM_BOOTFLAG_SIZE			0x00000080	/* 128Bytes */
+#define NVM_BOOTFLAG_SIZE    ((SDRAM_NON_VOLATILE_FLAG_AREA_END_ADDR \
+	- SDRAM_NON_VOLATILE_FLAG_AREA_START_ADDR) + 1)    /* 128Bytes */
 #define BOOTFLAG_SIZE				0x00000040	/* 64Bytes */
 /* END: CR1040: Clean up source code which accesses the eMMC directly */
+
+/* W/A for RMU2-E059 start */
+#define	A4SFST	(1 << 4)	/* A4SF Status */
+#define	A4SFWU	(1 << 4)	/* A4SF Wake Up */
+#define	A4SFBL	(1 << 4)	/* A4SF Power area mask bit */
+/* W/A for RMU2-E059 end */
+
+#if defined(CONFIG_MFD_D2153)
+#include <linux/regulator/consumer.h>
+#endif
 
 #ifdef CONFIG_PMIC_INTERFACE
 #include <linux/pmic/pmic.h>
@@ -52,7 +59,7 @@
 #endif
 
 /* #define DEBUG_POWEROFF */
-
+/* #define SHMOBILE_PM_RESTART */
 #ifdef DEBUG_POWEROFF
 	#define POWEROFF_PRINTK(fmt, arg...)  printk(fmt, ##arg)
 #else
@@ -60,93 +67,76 @@
 #endif
 
 static char dummy_access_for_sync;
-
-#if 0
-/*
- *  shmobile_pm_set_recovery_mode: Set Recovery Mode
- *	@cmd: Special boot mode
- */
-void shmobile_pm_set_recovery_mode(const char *cmd)
-{
-	POWEROFF_PRINTK("%s\n", __func__);
-	local_irq_disable();
-	if (cmd == NULL) {
-		/* copy cmd to Inter Connect RAM0 */
-		strncpy((void *)INTERNAL_RAM0, "", SIZE);
-	} else {
-		/* copy cmd to Inter Connect RAM0 */
-		strncpy((void *)INTERNAL_RAM0, cmd, SIZE);
-	}
-	/* set boot flag */
-	__raw_writeb(__raw_readb(STBCHRB2) | BOOTFLAG, STBCHRB2);
-	local_irq_enable();
-}
-#endif
+static char *bootflag_address;
 
 /*
  *  Stop peripheral devices
  */
 void shmobile_pm_stop_peripheral_devices(void)
 {
+	struct regulator *regulator;
+
 	POWEROFF_PRINTK("%s\n", __func__);
 	POWEROFF_PRINTK("Turn off SIM Reader\n");
-	pmic_force_power_off(E_POWER_VUSIM1);
+	regulator = regulator_get(NULL, "vusim1");
+	if (!IS_ERR(regulator)) {
+		regulator_force_disable(regulator);
+		regulator_put(regulator);
+	}
 	POWEROFF_PRINTK("Turn off SD Host Interface\n");
-	pmic_force_power_off(E_POWER_VIO_SD);
+	regulator = regulator_get(NULL, "vio_sd");
+	if (!IS_ERR(regulator)) {
+		regulator_force_disable(regulator);
+		regulator_put(regulator);
+	}
 	POWEROFF_PRINTK("Turn off Sensors, Display and Touch module\n");
-	pmic_force_power_off(E_POWER_VANA_MM);
 }
 
 /*
- *  U2EVM Restart
+ *  U2EVM Prepare Restart
  */
-static void shmobile_pm_restart(char mode, const char *cmd)
+void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode)
 {
 	u8 reg = 0;
 	int hwlock;
-	POWEROFF_PRINTK("%s\n", __func__);
-	/* BEGIN: CR1040: Clean up source code which accesses the eMMC directly */
-    char* bootflag_address = NULL;
+
 	unsigned char flag = 0xA5;
 
-	if(cmd == NULL) {
-	 /* copy cmd = NULL to SDRAM */
-		bootflag_address = (char *)ioremap_nocache(NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
-		strncpy((void *)bootflag_address, &flag, 0x01);
-		strncpy((void *)bootflag_address + 0x01, "" , BOOTFLAG_SIZE - 0x01);	    
+	POWEROFF_PRINTK("%s\n", __func__);
+	if (cmd == NULL) {
+		/* Copy cmd = NULL to SDRAM */
+		if (bootflag_address != NULL) {
+			strncpy((void *)bootflag_address, &flag, 0x01);
+			strncpy((void *)bootflag_address + 0x01, "",\
+					BOOTFLAG_SIZE - 0x01);
+		}
+	} else {
+		/* Copy cmd to SDRAM */
+		if (bootflag_address != NULL) {
+			strncpy((void *)bootflag_address, &flag, 0x01);
+			strncpy((void *)bootflag_address + 0x01, cmd,\
+					BOOTFLAG_SIZE - 0x01);
+		}
 	}
-	else {
-	   	/* copy cmd to SDRAM */
-		bootflag_address = (char *)ioremap_nocache(NVM_BOOTFLAG_ADDRESS, NVM_BOOTFLAG_SIZE);
-		strncpy((void *)bootflag_address, &flag, 0x01);
-		strncpy((void *)bootflag_address + 0x01, cmd , BOOTFLAG_SIZE - 0x01);
-	}
-	/* END: CR1040: Clean up source code which accesses the eMMC directly */
-    /* Check to make sure that SYSC hwspinlock has been requested successfully */
-	if(NULL == r8a73734_hwlock_sysc) {
-		r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
-	}
+
+	/* Check to make sure that SYSC hwspinlock
+	 * has been requested successfully */
+	if (NULL == r8a7373_hwlock_sysc)
+		r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 	/* Lock SMSYSC hwspinlock with 1ms timeout */
-	hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
-	/* Flush the console to make sure all the relevant messages make it
-	 * out to the console drivers */
-	arm_machine_flush_console();
-	/* Disable interrupts first */
-	local_irq_disable();
-	local_fiq_disable();
+	hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
+	if (0 != hwlock)
+		printk(KERN_ERR "Cannot take hwlock, but system must be reset now.\n");
 	/* Clear Power off flag */
 	__raw_writeb(__raw_readb(STBCHRB2) & (~POFFFLAG), STBCHRB2);
-	/*
-	 * Tell the mm system that we are going to reboot -
-	 * we may need it to insert some 1:1 mappings so that
-	 * soft boot works.
-	 */
-	setup_mm_for_reboot();
+
 	/* Clean and invalidate caches */
 	flush_cache_all();
 
-	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
-	__raw_writeb((reg | APE_RESETLOG_PM_RESTART), STBCHR2); /* write STBCHR2 for debug */
+	/* Read STBCHR2 for debug */
+	reg = __raw_readb(STBCHR2);
+	/* Write STBCHR2 for debug */
+	__raw_writeb((reg | debug_mode), STBCHR2);
 
 	/* Push out any further dirty data, and ensure L2 cache is empty */
 	outer_flush_all();
@@ -156,11 +146,44 @@ static void shmobile_pm_restart(char mode, const char *cmd)
 	memcpy(&dummy_access_for_sync, &flag, sizeof(flag));
 
 	/* The architecture specific reboot */
-	#ifndef CONFIG_PM_HAS_SECURE
+#ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel(0, SBAR2);
-	#endif
+#endif /* CONFIG_PM_HAS_SECURE */
+
+	/* W/A for RMU2-E059 start */
+	POWEROFF_PRINTK(" PSTR (A4SF) value 0x%x\n", __raw_readl(PSTR));
+	/* If A4SF area is off now */
+	if (0x0 == (A4SFST & (__raw_readl(PSTR)))) {
+		POWEROFF_PRINTK("A4SF area is off, need Errata059 W/A\n");
+		/* A4SF area is controlled by SPDCR/SWUCR */
+		if (0x0 == (A4SFBL & (__raw_readl(SWBCR)))) {
+			/* Power On A4SF area */
+			__raw_writel(__raw_readl(SWUCR) | A4SFWU, SWUCR);
+			while (0x0 == (A4SFST & (__raw_readl(PSTR))))
+				;
+		} else
+			POWEROFF_PRINTK(
+				"A4SF area is NOT controlled by  SPDCR/SWUCR\n");
+	}
+	/* W/A for RMU2-E059 end */
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
 }
+
+#ifdef SHMOBILE_PM_RESTART
+/*
+ *  U2EVM Restart
+ */
+static void shmobile_pm_restart(char mode, const char *cmd)
+{
+	/* Flush the console to make sure all the relevant messages make it
+	 * out to the console drivers */
+	arm_machine_flush_console();
+	/* Disable interrupts first */
+	local_irq_disable();
+	local_fiq_disable();
+	shmobile_do_restart(mode, cmd, APE_RESETLOG_PM_RESTART);
+}
+#endif /* SHMOBILE_PM_RESTART */
 
 /*
  * Power off
@@ -170,18 +193,19 @@ static void shmobile_pm_poweroff(void)
 	u8 reg;
 	int hwlock;
 	POWEROFF_PRINTK("%s\n", __func__);
-	/* Check to make sure that SYSC hwspinlock has been requested successfully */
-	if(NULL == r8a73734_hwlock_sysc) {
-		r8a73734_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
-	}
-#if 1
+	/* Check to make sure that SYSC hwspinlock
+	 * has been requested successfully */
+	if (NULL == r8a7373_hwlock_sysc)
+		r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
     /* Lock SMSYSC hwspinlock with 1ms timeout */
-	hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
+	hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
+	if (0 != hwlock)
+		printk(KERN_ERR "Fail to take hwlock, but system must be turned off now!\n");
 	/* Disable interrupts first */
 	local_irq_disable();
 	local_fiq_disable();
 	/* Disable XTAL2 */
-	__raw_writel(__raw_readl(PLL2CR) | PLL2CE_XOE, PLL2CR);
+	__raw_writel(__raw_readl(CPG_PLL2CR) | PLL2CE_XOE, CPG_PLL2CR);
 	/* Set Power off flag */
 	__raw_writeb(__raw_readb(STBCHRB2) | POFFFLAG, STBCHRB2);
 	/* Clean and invalidate caches */
@@ -190,22 +214,18 @@ static void shmobile_pm_poweroff(void)
 	cpu_proc_fin();
 	/* Push out any further dirty data, and ensure cache is empty */
 	flush_cache_all();
-
+	/* Read STBCHR2 for debug */
+	reg = __raw_readb(STBCHR2);
 	/* Write STBCHR2 for debug */
-	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
-	__raw_writeb((reg | APE_RESETLOG_PM_POWEROFF), STBCHR2); /* write STBCHR2 for debug */
-
+	__raw_writeb((reg | APE_RESETLOG_PM_POWEROFF), STBCHR2);
 	/* The architecture specific reboot */
-	#ifndef CONFIG_PM_HAS_SECURE
+#ifndef CONFIG_PM_HAS_SECURE
 	__raw_writel(0, SBAR2);
-	#endif
+#endif /* CONFIG_PM_HAS_SECURE */
 	__raw_writel(__raw_readl(RESCNT2) | (1 << 31), RESCNT2);
-#else
-	/* Turn off power of whole system */
-	pmic_force_power_off(E_POWER_ALL);
-#endif	
 	/* Wait for power off */
-	while (1);
+	while (1)
+		;
 }
 
 /*
@@ -213,10 +233,18 @@ static void shmobile_pm_poweroff(void)
  */
 static int __init shmobile_init_poweroff(void)
 {
+	bootflag_address = NULL;
+
 	POWEROFF_PRINTK("%s\n", __func__);
 	/* Register globally exported PM poweroff and restart */
 	pm_power_off = shmobile_pm_poweroff;
+#ifdef SHMOBILE_PM_RESTART
 	arm_pm_restart = shmobile_pm_restart;
+#endif /* SHMOBILE_PM_RESTART */
+
+	bootflag_address = (char *)ioremap_nocache(
+		SDRAM_NON_VOLATILE_FLAG_AREA_START_ADDR, NVM_BOOTFLAG_SIZE);
+
 	return 0;
 }
 

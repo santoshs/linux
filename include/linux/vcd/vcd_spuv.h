@@ -1,6 +1,6 @@
 /* vcd_spuv.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -50,6 +50,10 @@ extern void vcd_spuv_init_register(void);
 extern void vcd_spuv_ipc_semaphore_init(void);
 extern int vcd_spuv_get_fw_buffer(void);
 extern void vcd_spuv_free_fw_buffer(void);
+extern int vcd_spuv_get_binary_buffer(void);
+extern int vcd_spuv_set_binary_preprocessing(char *file_path);
+extern int vcd_spuv_set_binary_main(unsigned int write_size);
+extern int vcd_spuv_set_binary_postprocessing(void);
 extern int vcd_spuv_get_msg_buffer(void);
 extern int vcd_spuv_get_async_area(void);
 extern int vcd_spuv_free_async_area(unsigned int adr);
@@ -61,10 +65,12 @@ extern int vcd_spuv_stop_call(void);
 extern int vcd_spuv_set_udata(void);
 extern int vcd_spuv_start_record(struct vcd_record_option *option);
 extern int vcd_spuv_stop_record(void);
-extern int vcd_spuv_start_playback(struct vcd_playback_option *option);
+extern int vcd_spuv_start_playback(struct vcd_playback_option *option,
+						unsigned int call_kind);
 extern int vcd_spuv_stop_playback(void);
 extern void vcd_spuv_get_record_buffer(struct vcd_record_buffer_info *info);
-extern void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info);
+extern void vcd_spuv_get_playback_buffer(struct vcd_playback_buffer_info *info,
+						unsigned int call_kind);
 extern void vcd_spuv_get_voip_ul_buffer(struct vcd_voip_ul_buffer_info *info);
 extern void vcd_spuv_get_voip_dl_buffer(struct vcd_voip_dl_buffer_info *info);
 extern void vcd_spuv_init_record_buffer_id(void);
@@ -76,6 +82,9 @@ extern void vcd_spuv_voip_ul_playback(unsigned int mode);
 extern void vcd_spuv_voip_dl_playback(unsigned int mode);
 extern void vcd_spuv_update_voip_ul_buffer_id(void);
 extern void vcd_spuv_update_voip_dl_buffer_id(void);
+extern int vcd_spuv_resampler_init(void);
+extern int vcd_spuv_resampler_close(void);
+extern void vcd_spuv_pt_playback(void);
 
 extern int vcd_spuv_start_1khz_tone(void);
 extern int vcd_spuv_stop_1khz_tone(void);
@@ -105,5 +114,11 @@ extern void vcd_spuv_dump_yram0_memory(void);
 extern void vcd_spuv_dump_dspio_memory(void);
 extern void vcd_spuv_dump_sdram_static_area_memory(void);
 extern void vcd_spuv_dump_fw_static_buffer_memory(void);
+extern void vcd_spuv_dump_spuv_crashlog(void);
+extern void vcd_spuv_dump_diamond_memory(void);
+
+extern void vcd_spuv_calc_trigger_start(void);
+extern void vcd_spuv_calc_trigger_stop(void);
+extern void vcd_spuv_trigger_count_log(unsigned int type);
 
 #endif /* __VCD_SPUV_H__ */

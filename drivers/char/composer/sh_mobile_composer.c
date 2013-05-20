@@ -143,6 +143,11 @@ static void process_composer_queue_callback(struct composer_rh *rh);
 static void callback_composer_queue(int result, void *user_data);
 #endif
 
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void increment_useable_framebuffer(void);
+static int  decrement_useable_framebuffer(void);
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void pm_early_suspend(struct early_suspend *h);
 static void pm_late_resume(struct early_suspend *h);
@@ -349,6 +354,16 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define FB_SCREEN_BUFFERID1      1
 #endif
 
+/* define for busylock */
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+
+#define BUSYLOCK_WAITTIME            300
+/* only one frame available to avoid problem */
+#define DEFAULT_USEABLE_FRAMEBUFFER  1
+#define NUM_OF_FRAMEBUFFER_MAXIMUM   1
+
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #define NUM_OF_COMPOSER_PROHIBITE_AT_START    0
 #define NUM_OF_COMPOSER_PROHIBITE_AT_RESUME   0
@@ -422,6 +437,10 @@ static void tracelog_record(int logclass, int line, int ID, int val);
 #define DBGENTER(fmt, arg...) printk_dbg2(2, "in  "  fmt, ## arg)
 #define DBGLEAVE(fmt, arg...) printk_dbg2(2, "out "  fmt, ## arg)
 
+#if !defined(CONFIG_FB_SH_MOBILE_DOUBLE_BUF)
+#error	operation not guranteed, if remove this line.
+#endif
+
 /******************************************************/
 /* define local variables                             */
 /******************************************************/
@@ -482,6 +501,10 @@ static spinlock_t             irqlock_timer;
 static DEFINE_TIMER(kernel_queue_timer, \
 	timeout_queue_process, 0, 0);
 static struct localwork       expire_kernel_request;
+
+/* confirm framebuffer is available. */
+static int                      available_num_framebuffer;
+static DECLARE_WAIT_QUEUE_HEAD(wait_framebuffer_available);
 
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 static void                   *graphic_handle_hdmi;
@@ -3530,6 +3553,26 @@ static int  ioc_setfbaddr(struct composer_fh *fh, unsigned long *addr)
 	DBGLEAVE("%d\n", rc);
 	return rc;
 }
+static int  ioc_busylock(struct composer_fh *fh, unsigned long *data)
+{
+	int rc = -EINVAL;
+	DBGENTER("fh:%p addr:%p\n", fh, addr);
+	printk_dbg2(3, "arg data:0x%lx\n", *data);
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+
+	if (*data & CMP_BUSYLOCK_SET) {
+		/* acquire busy lock for framebuffer access control. */
+		rc = decrement_useable_framebuffer();
+	}
+	if (*data & CMP_BUSYLOCK_CLEAR) {
+		/* release busy lock for framebuffer access control. */
+		increment_useable_framebuffer();
+		rc = 0;
+	}
+#endif
+	DBGLEAVE("%d\n", rc);
+	return rc;
+}
 
 static int  chk_ioc_supportpixfmt(struct composer_fh *fh, \
 	struct cmp_lay_supportpixfmt *arg)
@@ -4973,6 +5016,60 @@ err_exit:
 	return rc;
 }
 
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+static void increment_useable_framebuffer(void)
+{
+	unsigned long flags;
+
+	printk_dbg2(3, "spinlock\n");
+	spin_lock_irqsave(&irqlock_timer, flags);
+
+	if (available_num_framebuffer < NUM_OF_FRAMEBUFFER_MAXIMUM)
+		available_num_framebuffer++;
+	else
+		printk_err("busylock control not work correctly\n");
+
+	spin_unlock_irqrestore(&irqlock_timer, flags);
+
+	wake_up(&wait_framebuffer_available);
+}
+static int decrement_useable_framebuffer(void)
+{
+	unsigned long flags;
+	int      rc;
+
+	rc = wait_event_timeout(
+			wait_framebuffer_available,
+			available_num_framebuffer != 0,
+			msecs_to_jiffies(BUSYLOCK_WAITTIME));
+
+	printk_dbg2(3, "spinlock\n");
+	spin_lock_irqsave(&irqlock_timer, flags);
+
+	if (rc == 0) {
+		/* report information */
+		printk_dbg2(3, "detect timeout.\n");
+		rc = -EBUSY;
+	} else if (rc > 0) {
+		/* set default code */
+		rc = 0;
+	} else {
+		/* report error */
+		printk_err2("error in wait_event_timeout\n");
+		rc = -EINVAL;
+	}
+
+	if (available_num_framebuffer > 0)
+		available_num_framebuffer--;
+	else
+		printk_err("busylock control not work correctly\n");
+
+	spin_unlock_irqrestore(&irqlock_timer, flags);
+
+	return rc;
+}
+#endif
+
 #if _LOG_DBG >= 1
 static const char *get_RTAPImsg_memory(int rc)
 {
@@ -5361,7 +5458,7 @@ static void dump_screen_disp_set_address(screen_disp_set_address *arg)
 }
 
 static void dump_system_mem_phy_change_rtaddr(
-	system_mem_phy_change_rtaddr *arg)
+	system_mem_phy_change_rtaddr * arg)
 {
 	printk_lowdbg("system_memory_phy_change_rtaddr"
 		" handle:%p phys_addr:0x%x\n",
@@ -5828,6 +5925,18 @@ static void work_dispdraw(struct localwork *work)
 		printk_dbg2(3, "need_blend:%d\n", blend_req->need_blend);
 
 		if (blend_req->need_blend == false) {
+			if (blend_req->data.layer[0].image.format !=
+				blend_req->data.blend.output_image.format) {
+				printk_dbg2(3, "detect format mismatch.\n");
+				blend_req->need_blend = true;
+			} else if (blend_req->data.layer[0].image.stride !=
+				blend_req->data.blend.output_image.stride) {
+				printk_dbg2(3, "detect stride mismatch.\n");
+				blend_req->need_blend = true;
+			}
+		}
+
+		if (blend_req->need_blend == false) {
 			unsigned long phys_addr;
 
 			/* no need blending, but layer[0] has updated image. */
@@ -5837,10 +5946,13 @@ static void work_dispdraw(struct localwork *work)
 
 			phys_addr = sh_mobile_rtmem_conv_rt2physmem(rt_addr);
 
-			printk_dbg2(3, "queue_fb_map_handle2:%p phys_addr:0x%lx "
-				"queue_fb_map_address2:0x%lx queue_fb_map_endaddress2:0x%lx\n",
+			printk_dbg2(3, "queue_fb_map_handle2:%p "
+				"phys_addr:0x%lx "
+				"queue_fb_map_address2:0x%lx "
+				"queue_fb_map_endaddress2:0x%lx\n",
 					queue_fb_map_handle2, phys_addr,
-					queue_fb_map_address2, queue_fb_map_endaddress2);
+					queue_fb_map_address2,
+					queue_fb_map_endaddress2);
 
 			if (queue_fb_map_handle2 != NULL &&
 				queue_fb_map_address2 <= phys_addr &&
@@ -5848,8 +5960,11 @@ static void work_dispdraw(struct localwork *work)
 				/* set output_image address is not necessary. */
 
 				offset = phys_addr - queue_fb_map_address2;
-				if (offset < fb_offset_info[1]\
-[FB_OFFSET_INFO_OFFSET]) {
+#if !defined(CONFIG_FB_SH_MOBILE_DOUBLE_BUF)
+				lane = 0;
+#else
+				if (offset < ((queue_fb_map_endaddress2 - \
+					 queue_fb_map_address2) / 2)) {
 					/* select lane 0 of
 					   second frame buffer */
 					lane = 0;
@@ -5858,6 +5973,7 @@ static void work_dispdraw(struct localwork *work)
 					   second frame buffer */
 					lane = 1;
 				}
+#endif
 				y_offset = fb_offset_info[lane]\
 [FB_OFFSET_INFO_YLINE];
 				bufferid = FB_SCREEN_BUFFERID1;
@@ -5874,6 +5990,9 @@ static void work_dispdraw(struct localwork *work)
 			/* set output_image address. */
 
 			lane = fb_count_display & 1;
+#if !defined(CONFIG_FB_SH_MOBILE_DOUBLE_BUF)
+			lane = 0;
+#endif
 			offset = fb_offset_info[lane][FB_OFFSET_INFO_OFFSET];
 
 			/* get RT address of queue_fb_map_address. */
@@ -5923,8 +6042,10 @@ static void work_dispdraw(struct localwork *work)
 
 #ifdef RT_DISPLAY_BUFFER_B
 		if (bufferid == FB_SCREEN_BUFFERID0) {
+			/* display FB's buffer*/
 			vInfo.reserved[FB_RESERVE_BUFFERID] = BUFFERID_A;
 		} else {
+			/* display gpu buffer */
 			vInfo.reserved[FB_RESERVE_BUFFERID] = BUFFERID_B;
 		}
 #endif
@@ -5942,6 +6063,8 @@ static void work_dispdraw(struct localwork *work)
 		}
 	}
 	fb_count_display++;
+
+	increment_useable_framebuffer();
 
 	TRACE_LEAVE(FUNC_DRAWDISP);
 	DBGLEAVE("\n");
@@ -5974,8 +6097,9 @@ static void work_runblend(struct localwork *work)
 	common->status  = RTAPI_NOTIFY_RESULT_UNDEFINED;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	if (in_early_suspend) {
-		printk_dbg2(1, "suspend state.\n");
-		rc = CMP_NG;
+		printk_dbg2(1, "composition was skipped because " \
+			"already in early suspend state.\n");
+		rc = CMP_OK;
 		goto finish;
 	}
 #endif
@@ -6305,11 +6429,7 @@ static void get_fb_info(void)
 
 			/* set page 1 offset */
 			offset = fb_info->var.reserved[FB_RESERVE_OFFSET];
-			if (offset * 2 != fb_info->fix.smem_len) {
-				/* error report */
-				printk_err("FB memory size "
-					"should be double.\n");
-			}
+
 			fb_offset_info[1][FB_OFFSET_INFO_OFFSET] = offset;
 			fb_offset_info[1][FB_OFFSET_INFO_YLINE] = \
 				offset / linelength;
@@ -6317,8 +6437,8 @@ static void get_fb_info(void)
 			quotient  = offset / linelength;
 			remainder = offset % linelength;
 
-			if (offset & 0xFFF)
-				printk_err("framebuffer not aligned 4K.\n");
+			if (offset & 0xF)
+				printk_err("framebuffer not aligned 16.\n");
 
 			if (remainder)
 				printk_err("xoffset is not 0.\n");
@@ -6451,7 +6571,7 @@ static int second_fb_register_rtmemory(unsigned long *args)
 			"map success.\n",                 \
 			fb_addr, fb_addr + fb_size - 1);
 	} else {
-		/* there is no API to unregister the address of 
+		/* there is no API to unregister the address of
 		   screen_display_set_address. */
 		printk_err("can not map framebuffer 0x%lx-0x%lx.\n",\
 			fb_addr, fb_addr + fb_size - 1);
@@ -6567,7 +6687,7 @@ err_exit:
 
 static int fb_unregister_rtmemory(unsigned long *args)
 {
-	switch(args[0]) {
+	switch (args[0]) {
 	case FB_SCREEN_BUFFERID0:
 		if (queue_fb_map_handle) {
 			sh_mobile_rtmem_physarea_unregister(
@@ -6600,8 +6720,7 @@ static int composer_unset_address(unsigned int id)
 	/* because core_release already acqurie it. */
 
 	/* confirm already configured. */
-	switch (id)
-	{
+	switch (id) {
 	case FB_SCREEN_BUFFERID0:
 	case FB_SCREEN_BUFFERID1:
 		break;
@@ -6942,7 +7061,10 @@ int sh_mobile_composer_blendoverlay(unsigned long fb_physical)
 #endif
 
 	if (blend_req == NULL) {
-		printk_err("not found blend request.\n");
+		/* This is an error in a normal Android mode,
+		   but not an error in a recovery mode.
+		   Suppress this message. */
+		printk_dbg1(2, "not found blend request.\n");
 		goto pass_exit;
 	}
 
@@ -7246,7 +7368,9 @@ err_exit:
 		/* set draw complete flag to wakeup tasks. */
 		overlay_draw_complete = true;
 #endif
-		printk_err("request failed.\n");
+		printk_err2("request failed.\n");
+
+		increment_useable_framebuffer();
 
 		/* wake-up waiting thread */
 		wake_up(&kernel_waitqueue_comp);
@@ -8065,6 +8189,9 @@ static long core_ioctl(struct file *filep, \
 	case CMP_IOCS_FBADDR:
 		rc = ioc_setfbaddr(fh, parg);
 		break;
+	case CMP_IOCS_BUSYLOCK:
+		rc = ioc_busylock(fh, parg);
+		break;
 	default:
 		printk_err2("invalid cmd 0x%x\n", cmd);
 	}
@@ -8450,6 +8577,9 @@ static int __init sh_mobile_composer_init(void)
 
 	spin_lock_init(&irqlock_timer);
 	localwork_init(&expire_kernel_request, work_expirequeue);
+
+	available_num_framebuffer = DEFAULT_USEABLE_FRAMEBUFFER;
+	init_waitqueue_head(&wait_framebuffer_available);
 
 	/* initialize mapping information */
 	queue_fb_map_address    = 0;

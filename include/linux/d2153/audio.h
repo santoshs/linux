@@ -223,6 +223,9 @@ struct d2153_audio {
 	struct timer_list timer;
 	struct work_struct work;
 	u8 AudioStart; //0=not started, 1=hs starting, 2=ihf starting, 3=started
+	u8 micbias1_level;
+	u8 micbias2_level;
+	u8 micbias3_level;
 };
 
 int d2153_audio_hs_poweron(bool on);

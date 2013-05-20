@@ -1,7 +1,7 @@
 /*
  * arch/arm/mach-shmobile/powerdomain.c
  *
- * Copyright (C) 2012 Renesas Mobile Corporation
+ * Copyright (C) 2012-2013 Renesas Mobile Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,6 @@
 #define POWER_DOMAIN_H
 
 #include <linux/init.h>
-#include <linux/io.h>
 #include <linux/compiler.h>
 #include <linux/string.h>
 #include <linux/delay.h>
@@ -35,14 +34,14 @@
 #include <linux/pm_runtime.h>
 #include <mach/pm.h>
 #include <mach/common.h>
+#include <linux/io.h>
 #include <linux/notifier.h>
 #include <linux/cpufreq.h>
 #include <linux/atomic.h>
+#include <linux/export.h>
 
 #endif /*POWER_DOMAIN_H*/
 
-#undef __io
-#define __io	IO_ADDRESS
 /* #define __DEBUG_PDC */
 /* #define __DEBUG_PDWAIT */
 
@@ -58,12 +57,9 @@
 #define CPU0_ID				0
 struct workqueue_struct *pdwait_wq;
 static DECLARE_DEFERRED_WORK(pdwait_work, NULL);
-static struct mutex pdwait_mutex;
 static atomic_t	pdwait_judge_count;
 static bool a2ri_status_old ;
-static bool a2rv_status_old;
 static bool a2ri_status_new;
-static bool a2rv_status_new;
 static bool suspend_state;
 static void __iomem *sbsc_sdpdcr0a_reg;
 static DEFINE_SPINLOCK(pdwait_lock);
@@ -77,81 +73,32 @@ struct drv_pd_mapping_table {
 		unsigned int area;	/* Power area id*/
 };
 
+struct pdi_mapping_table {
+	char *name;			/* Driver name  */
+	struct power_domain_info pdi;
+};
+
 static DEFINE_MUTEX(power_status_mutex);
 static u64 a3sp_power_down_count;
 static unsigned int default_c4_pdsel;
 #ifdef CONFIG_PM_RUNTIME_A4RM
 static int power_a4rm_mask;
 #endif
-static int chip_rev = ES_REV_1_0;
-#ifdef CONFIG_PM_DEBUG
+static int chip_rev = ES_REV_2_0;
+
 static DEFINE_SPINLOCK(pdc_lock);
+#ifdef CONFIG_PM_DEBUG
 static int pdc_enable = 1;
 static int old_pdc_enable = 1;
 static int power_areas_status;
 #endif
 
-static struct drv_pd_mapping_table tbl1[] = {
-	/* MFIS		 */	{ "mfis.0",			ID_C4	},
-	/* SGX544MP1 */	{ "pvrsrvkm",			ID_A3SG },
-	/* SY-DMA0	*/	{ "sh-dma-engine.0",	ID_A3SP },
-	/* CC4.2 0	*/	{ "sep_sec_driver.0",	ID_A3SP },
-	/* MMCIF.0	*/	{ "sh_mmcif.0",		ID_A3SP },
-	/* MMCIF.0	*/	{ "renesas_mmcif.0",		ID_A3SP },
-	/* MSIOF0	*/	{ "spi_sh_msiof.0",	ID_A3SP },
-	/* MSIOF1	*/	{ "spi_sh_msiof.1",	ID_A3SP },
-	/* MSIOF2	*/	{ "spi_sh_msiof.2",	ID_A3SP },
-	/* MSIOF3	*/	{ "spi_sh_msiof.3",	ID_A3SP },
-	/* USB		*/	{ "r8a66597_hcd.0",	ID_A3SP },
-	/* USB		*/	{ "r8a66597_udc.0",	ID_A3SP },
-	/* USB		*/	{ "usb_mass_storage",	ID_A3SP },
-	/* USB		*/	{ "android_usb",		ID_A3SP },
-	/* USB_OTG	*/	{ "tusb1211_driver.0",	ID_A3SP },
-	/* SCIFA0	*/	{ "sh-sci.0",			ID_C4 },
-	/* SCIFA1	*/	{ "sh-sci.1",			ID_A3SP },
-	/* SCIFA2	*/	{ "sh-sci.2",			ID_A3SP },
-	/* SCIFA3	*/	{ "sh-sci.3",			ID_A3SP },
-	/* SCIFB0	*/	{ "sh-sci.4",			ID_A3SP },
-	/* SCIFB1	*/	{ "sh-sci.5",			ID_A3SP },
-	/* SCIFB2	*/	{ "sh-sci.6",			ID_A3SP },
-	/* SCIFB3	*/	{ "sh-sci.7",			ID_C4	},
-	/* I2C0		*/	{ "i2c-sh_mobile.0",	ID_A3SP },
-	/* I2C1		*/	{ "i2c-sh_mobile.1",	ID_A3SP },
-	/* I2C2		*/	{ "i2c-sh_mobile.2",	ID_A3SP },
-	/* I2C3		*/	{ "i2c-sh_mobile.3",	ID_A3SP },
-	/* I2C0H	*/	{ "i2c-sh_mobile.4",	ID_A3SP },
-	/* I2C1H	*/	{ "i2c-sh_mobile.5",	ID_A3SP },
-	/* I2CM		*/	{ "i2c-sh7730.6",		ID_A3SP },
-	/* I2C2H	*/	{ "i2c-sh_mobile.7",	ID_A3SP },
-	/* I2C3H	*/	{ "i2c-sh_mobile.8",	ID_A3SP },
-	/* SDHI0	*/	{ "renesas_sdhi.0",	ID_A3SP },
-	/* SDHI1	*/	{ "renesas_sdhi.1",	ID_A3SP },
-	/* SDHI2	*/	{ "renesas_sdhi.2",	ID_A3SP },
-	/* TPU		*/	{ "tpu-renesas-sh_mobile.0",	ID_A3SP },
-	/* HSI		*/	{ "sh_hsi.0",			ID_A3SP },
-	/* MFI		*/	{ "av-domain",		ID_A3R	},
-	/* FSI2/ALSA */	{ "snd-soc-fsi",		ID_A4MP },
-	/* SHX(rtapi) */{ "meram-domain",	ID_A4RM },
-	/* AudioPT	*/	{ "snd-soc-audio-test",	ID_A4MP },
-
-#if 0
-	/* The following device is used for test purpose only */
-	/*	C4 dummy device	*/	  {"dummy_test_c4.0", ID_C4},
-	/*	A3SG dummy device	*/{"dummy_test_a3sg.0", ID_A3SG},
-	/*	A3SP dummy device	*/{"dummy_test_a3sp.0", ID_A3SP},
-	/*	A3R dummy device	*/{"dummy_test_a3r.0",  ID_A3R},
-	/*	A4RM dummy device	*/{"dummy_test_a4rm.0", ID_A4RM},
-	/*	A4MP dummy device	*/{"dummy_test_a4mp.0", ID_A4MP},
-#endif
-
-};
 
 static struct drv_pd_mapping_table tbl2[] = {
 	/* MFIS		 */	{ "mfis.0",			ID_C4	},
 	/* SGX544MP1 */	{ "pvrsrvkm",			ID_A3SG },
 	/* SY-DMA0	*/	{ "sh-dma-engine.0",	ID_A3SP },
 	/* CC4.2 0	*/	{ "sep_sec_driver.0",	ID_A3SP },
-	/* MMCIF.0	*/	{ "sh_mmcif.0",		ID_A3SP },
 	/* MMCIF.0	*/	{ "renesas_mmcif.0",		ID_A3SP },
 	/* MSIOF0	*/	{ "spi_sh_msiof.0",	ID_A3SP },
 	/* MSIOF1	*/	{ "spi_sh_msiof.1",	ID_A3SP },
@@ -177,9 +124,9 @@ static struct drv_pd_mapping_table tbl2[] = {
 	/* I2C3		*/	{ "i2c-sh_mobile.3",	ID_A3SP },
 	/* I2C0H	*/	{ "i2c-sh_mobile.4",	ID_A3SP },
 	/* I2C1H	*/	{ "i2c-sh_mobile.5",	ID_A3SP },
-    /* I2CM		*/	{ "i2c-sh7730.6",		ID_A3SP },
-	/* I2C2H	*/	{ "i2c-sh_mobile.7",	ID_A3SP },
-	/* I2C3H	*/	{ "i2c-sh_mobile.8",	ID_A3SP },
+    /* I2CM		*/	{ "i2c-sh7730.8",		ID_A3SP },
+	/* I2C2H	*/	{ "i2c-sh_mobile.6",	ID_A3SP },
+	/* I2C3H	*/	{ "i2c-sh_mobile.7",	ID_A3SP },
 	/* SDHI0	*/	{ "renesas_sdhi.0",	ID_A3SP },
 	/* SDHI1	*/	{ "renesas_sdhi.1",	ID_A3SP },
 	/* SDHI2	*/	{ "renesas_sdhi.2",	ID_A3SP },
@@ -204,12 +151,82 @@ static struct drv_pd_mapping_table tbl2[] = {
 
 };
 
+#define pdi_init_val {{NULL, NULL, NULL}, 0}
+static struct pdi_mapping_table pdi_tb2[] = {
+	/* MFIS		*/ { "mfis.0", pdi_init_val},
+	/* SGX544MP1*/ { "pvrsrvkm", pdi_init_val},
+	/* SY-DMA0	*/ { "sh-dma-engine.0", pdi_init_val},
+	/* CC4.2 0	*/ { "sep_sec_driver.0", pdi_init_val},
+	/* MMCIF.0	*/ { "renesas_mmcif.0", pdi_init_val},
+	/* MSIOF0	*/ { "spi_sh_msiof.0", pdi_init_val},
+	/* MSIOF1	*/ { "spi_sh_msiof.1", pdi_init_val},
+	/* MSIOF2	*/ { "spi_sh_msiof.2", pdi_init_val},
+	/* MSIOF3	*/ { "spi_sh_msiof.3", pdi_init_val},
+	/* MSIOF4	*/ { "spi_sh_msiof.4", pdi_init_val},
+	/* USB		*/ { "r8a66597_hcd.0", pdi_init_val},
+	/* USB		*/ { "r8a66597_udc.0", pdi_init_val},
+	/* USB		*/ { "usb_mass_storage", pdi_init_val},
+	/* USB		*/ { "android_usb", pdi_init_val},
+	/* USB_OTG	*/ { "tusb1211_driver.0", pdi_init_val},
+	/* SCIFA0	*/ { "sh-sci.0", pdi_init_val},
+	/* SCIFA1	*/ { "sh-sci.1", pdi_init_val},
+	/* SCIFA2	*/ { "sh-sci.2", pdi_init_val},
+	/* SCIFA3	*/ { "sh-sci.3", pdi_init_val},
+	/* SCIFB0	*/ { "sh-sci.4", pdi_init_val},
+	/* SCIFB1	*/ { "sh-sci.5", pdi_init_val},
+	/* SCIFB2	*/ { "sh-sci.6", pdi_init_val},
+	/* SCIFB3	*/ { "sh-sci.7", pdi_init_val},
+	/* I2C0		*/ { "i2c-sh_mobile.0", pdi_init_val},
+	/* I2C1		*/ { "i2c-sh_mobile.1", pdi_init_val},
+	/* I2C2		*/ { "i2c-sh_mobile.2", pdi_init_val},
+	/* I2C3		*/ { "i2c-sh_mobile.3", pdi_init_val},
+	/* I2C0H	*/ { "i2c-sh_mobile.4", pdi_init_val},
+	/* I2C1H	*/ { "i2c-sh_mobile.5", pdi_init_val},
+    /* I2CM		*/ { "i2c-sh7730.8", pdi_init_val},
+	/* I2C2H	*/ { "i2c-sh_mobile.6", pdi_init_val},
+	/* I2C3H	*/ { "i2c-sh_mobile.7", pdi_init_val},
+	/* SDHI0	*/ { "renesas_sdhi.0", pdi_init_val},
+	/* SDHI1	*/ { "renesas_sdhi.1", pdi_init_val},
+	/* SDHI2	*/ { "renesas_sdhi.2", pdi_init_val},
+	/* TPU		*/ { "tpu-renesas-sh_mobile.0", pdi_init_val},
+	/* HSI		*/ { "sh_hsi.0", pdi_init_val},
+	/* MFI		*/ { "av-domain", pdi_init_val},
+	/* FSI2/ALSA*/ { "snd-soc-fsi", pdi_init_val},
+	/* SPUV/VOCODER*/ { "vcd", pdi_init_val},
+	/* PCM2PWM	*/ { "pcm2pwm-renesas-sh_mobile.1", pdi_init_val},
+	/* SHX(rtapi) */ { "meram-domain", pdi_init_val},
+	/* AudioPT */ { "snd-soc-audio-test", pdi_init_val },
+
+
+#if 0
+	/* The following device is used for test purpose only */
+	/*	C4 dummy device */ { "dummy_test_c4.0", pdi_init_val},
+	/*	A3SG dummy device */ { "dummy_test_a3sg.0", pdi_init_val},
+	/*	A3SP dummy device */ { "dummy_test_a3sp.0", pdi_init_val},
+	/*	A3R dummy device */ { "dummy_test_a3r.0", pdi_init_val},
+	/*	A4RM dummy device */ { "dummy_test_a4rm.0", pdi_init_val},
+	/*	A4MP dummy device */ { "dummy_test_a4mp.0", pdi_init_val},
+#endif
+
+};
+
+struct power_domain_info *get_pdi(const char *name)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(pdi_tb2); i++) {
+		if (0 == strcmp(name, pdi_tb2[i].name))
+			return &(pdi_tb2[i].pdi);
+	}
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(get_pdi);
+
 #define POWER_DOMAIN_DEVICE(_pd_dev, _pwr_id, _parent_dev) \
 	static struct platform_device _pd_dev = { \
 		.name = "power-domain", \
 		.id = _pwr_id, \
 		.dev.parent = _parent_dev, \
-		.dev.power.subsys_data = NULL, \
+		.dev.power.pdi = NULL, \
 	}
 
 /* Define power domain(area) devices (pointer) */
@@ -239,7 +256,6 @@ static int c4_power_domain_driver_probe(struct device *dev);
 static int power_domain_driver_init(void);
 static void set_c4_power_down_sel(unsigned int);
 static bool is_power_status_on(unsigned int);
-static void pdwait_judge(void);
 #ifdef __DEBUG_PDC
 static void power_areas_info(void);
 #endif /* __DEBUG_PDC */
@@ -251,7 +267,7 @@ static void power_areas_info(void);
 static void power_areas_info(void)
 {
 	u32 reg_val;
-	reg_val = __raw_readl(__io(SYSC_PSTR));
+	reg_val = __raw_readl(PSTR);
 	printk(KERN_INFO "[PDC] PSTR(0x%08x) = 0x%08x\n",
 			SYSC_PSTR, reg_val);
 	printk(KERN_INFO "[PDC] A3SG = %s\n",
@@ -349,17 +365,17 @@ static bool is_power_status_on(unsigned int area)
 {
 	if (0 != (area & ~POWER_ALL))
 		panic("power status invalid argument: 0%08x", area);
-	return ((__raw_readl(__io(SYSC_PSTR)) & area) == area);
+	return ((__raw_readl(PSTR) & area) == area);
 }
 
 /*
  * __to_pdi: get the power domain information of a certain device
  * @dev: certain device
- * return: address of power.subsys_data
+ * return: address of power.pdi
  */
 struct power_domain_info *__to_pdi(const struct device *dev)
 {
-	return dev ? dev->power.subsys_data : NULL;
+	return dev ? dev->power.pdi : NULL;
 }
 
 /*
@@ -373,43 +389,38 @@ struct power_domain_info *__to_pdi(const struct device *dev)
 static void power_status_set(unsigned int area, bool on)
 {
 	int i = 0;
-	u32 reg = (on ? SYSC_SWUCR : SYSC_SPDCR);
+	u32 reg = (on ? SWUCR : SPDCR);
 	int reg_val = 0;
 
 	if (0 != (area & ~POWER_ALL))
 		panic("power status invalid argument: 0%08x", area);
 
-	mutex_lock(&power_status_mutex);
 
-	if (!is_power_status_on(area) == !on) {
-		mutex_unlock(&power_status_mutex);
+	if (!is_power_status_on(area) == !on)
 		return;
-	}
 
-	/* Dummy read register (SYSC_SWUCR, SYSC_SPDCR) to wait all bits is 0 */
-	reg_val = __raw_readl(__io(reg));
+	/* Dummy read register (SWUCR, SPDCR) to wait all bits is 0 */
+	reg_val = __raw_readl(reg);
 	while (0 != reg_val)
-		reg_val = __raw_readl(__io(reg));
+		reg_val = __raw_readl(reg);
 
-	__raw_writel(area, __io(reg));
+	__raw_writel(area, reg);
 
 	for (i = 0; i < PSTR_POLLING_COUNT_MAX; i++) {
 		udelay(PSTR_POLLING_INTERVAL_US);
 		if (!is_power_status_on(area) == !on) {
-			mutex_unlock(&power_status_mutex);
 			return;
-		} else if (false == on) { /* Set SYSC_SPDCR each time repeat */
-			reg_val = __raw_readl(__io(reg));
+		} else if (false == on) { /* Set SPDCR each time repeat */
+			reg_val = __raw_readl(reg);
 			while (0 != reg_val)
-				reg_val = __raw_readl(__io(reg));
+				reg_val = __raw_readl(reg);
 
-			__raw_writel(area, __io(reg));
+			__raw_writel(area, reg);
 		}
 	}
 
-	mutex_unlock(&power_status_mutex);
 	panic("power status error (area:0x%08x on:%d PSTR:0x%08x)",
-					area, on, __raw_readl(__io(SYSC_PSTR)));
+					area, on, __raw_readl(PSTR));
 
 }
 
@@ -499,8 +510,8 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 		return 0;
 	}
 
-#ifdef CONFIG_PM_DEBUG
 	spin_lock(&pdc_lock);
+#ifdef CONFIG_PM_DEBUG
 	power_areas_status &= (~area);
 	if (0 == pdc_enable) {
 #ifdef __DEBUG_PDC
@@ -532,6 +543,12 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 		a3sp_power_down_count++;
 #endif /* CONFIG_PM_HAS_SECURE */
 
+#ifdef __DEBUG_PDC
+	power_areas_info();
+#endif /* __DEBUG_PDC */
+
+	spin_unlock(&pdc_lock);
+
 	if (POWER_A3SG == area) {
 		atomic_dec(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
@@ -542,16 +559,10 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 		pdwait_judge();
 	}
 
-#ifdef __DEBUG_PDC
-	power_areas_info();
-#endif /* __DEBUG_PDC */
-
-#ifdef CONFIG_PM_DEBUG
-	spin_unlock(&pdc_lock);
-#endif
-
-	if (POWER_A3R == area)
-		pm_runtime_put_sync(&a4rm_device.dev);
+	if (POWER_A3R == area) {
+		pm_runtime_put_noidle(&a4rm_device.dev);
+		pm_runtime_suspend(&a4rm_device.dev);
+	}
 
 	return 0;
 }
@@ -568,8 +579,8 @@ static int power_domain_driver_runtime_resume(struct device *dev)
 	if (POWER_A3R == area)
 		pm_runtime_get_sync(&a4rm_device.dev);
 
-#ifdef CONFIG_PM_DEBUG
 	spin_lock(&pdc_lock);
+#ifdef CONFIG_PM_DEBUG
 	power_areas_status |= area;
 	if (0 == pdc_enable) {
 #ifdef __DEBUG_PDC
@@ -597,6 +608,12 @@ static int power_domain_driver_runtime_resume(struct device *dev)
 	power_status_set(area, true);
 #endif /* CONFIG_PM_HAS_SECURE */
 
+#ifdef __DEBUG_PDC
+	power_areas_info();
+#endif /* __DEBUG_PDC */
+
+	spin_unlock(&pdc_lock);
+
 	if (POWER_A3SG == area) {
 		atomic_inc(&pdwait_judge_count);
 #ifdef __DEBUG_PDWAIT
@@ -606,13 +623,6 @@ static int power_domain_driver_runtime_resume(struct device *dev)
 #endif
 		pdwait_judge();
 	}
-#ifdef __DEBUG_PDC
-	power_areas_info();
-#endif /* __DEBUG_PDC */
-
-#ifdef CONFIG_PM_DEBUG
-	spin_unlock(&pdc_lock);
-#endif
 
 	return 0;
 }
@@ -629,6 +639,7 @@ static int power_domain_driver_probe(struct device *dev)
 		(void)pm_runtime_set_active(dev);
 
 	pm_runtime_enable(dev);
+	pm_runtime_irq_safe(dev);
 	return 0;
 }
 
@@ -683,16 +694,16 @@ static struct platform_driver pwr_driver = {
 /* C4 area driver */
 /*
  * c4_power_down_sel: get value of C4PD[4:0] bits
- * (Power down selection bits) in SYSC_PDNSEL register
+ * (Power down selection bits) in PDNSEL register
  */
 static unsigned int c4_power_down_sel(void)
 {
-	return __raw_readl(__io(SYSC_PDNSEL));
+	return __raw_readl(PDNSEL);
 }
 
 /*
  * set_c4_power_down_sel: set new value into C4PD[4:0] bits
- * (Power down selection bits) in SYSC_PDNSEL register
+ * (Power down selection bits) in PDNSEL register
  * @condition: value to set
  */
 static void set_c4_power_down_sel(unsigned int condition)
@@ -700,7 +711,7 @@ static void set_c4_power_down_sel(unsigned int condition)
 	if (0 != (condition & ~C4_POWER_DOWN_SEL_ALL))
 		panic("C4 power down condition invalid argument: 0%08x",
 				condition);
-	__raw_writel(condition, __io(SYSC_PDNSEL));
+	__raw_writel(condition, PDNSEL);
 }
 
 /*
@@ -738,6 +749,7 @@ static int c4_power_domain_driver_probe(struct device *dev)
 	default_c4_pdsel = c4_power_down_sel();
 	(void)c4_power_driver_runtime_suspend(dev);
 	pm_runtime_enable(dev);
+	pm_runtime_irq_safe(dev);
 	return 0;
 }
 
@@ -800,7 +812,7 @@ static struct platform_device *pd[] = {
 	&a3sg_device	/* bit 18 (ID_A3SG)*/
 };
 
-static void pdwait_judge()
+void pdwait_judge()
 {
 
 	u32 reg_val = 0;
@@ -808,14 +820,18 @@ static void pdwait_judge()
 	u32 pdwait = 0x08000000;
 	unsigned long flags;
 
+	int current_pdwait_flag = 0;
 #ifdef __DEBUG_PDWAIT
 printk(KERN_INFO "[PDC] pdwait_judge()\n");
 #endif
 
 	if (NULL != sbsc_sdpdcr0a_reg) {
 		spin_lock_irqsave(&pdwait_lock, flags);
+
+		current_pdwait_flag = atomic_read(&pdwait_flag);
 		reg_val = __raw_readl(sbsc_sdpdcr0a_reg);
-		if (atomic_read(&pdwait_judge_count) > 0)
+		if ((atomic_read(&pdwait_judge_count) > 0)
+				|| (current_pdwait_flag > 0))
 			pdwait = 0xFF000000;
 
 		if (pdwait != (reg_val & ~mask))
@@ -825,6 +841,8 @@ printk(KERN_INFO "[PDC] pdwait_judge()\n");
 		spin_unlock_irqrestore(&pdwait_lock, flags);
 	}
 #ifdef __DEBUG_PDWAIT
+	printk(KERN_INFO "[pdc] pdwait_flag = %d\n", current_pdwait_flag);
+
 	printk(KERN_INFO "[PDC] SDPDCR0A current pdwait = 0x%08x\n", \
 			reg_val);
 	if (pdwait != (reg_val & ~mask))
@@ -832,6 +850,7 @@ printk(KERN_INFO "[PDC] pdwait_judge()\n");
 	printk(KERN_INFO "\n");
 #endif
 }
+EXPORT_SYMBOL_GPL(pdwait_judge);
 
 int pdc_cpufreq_transition(struct notifier_block *block, unsigned long state,
 								void *data)
@@ -879,11 +898,9 @@ static void pdwait_work_fnc(struct work_struct *work)
 #ifdef __DEBUG_PDWAIT
 printk(KERN_INFO "[PDC] workqueue function\n");
 #endif
-	mutex_lock(&pdwait_mutex);
 
 	a2ri_status_old = a2ri_status_new;
-	a2rv_status_old = a2rv_status_new;
-	pstr_val = __raw_readl(__io(SYSC_PSTR));
+	pstr_val = __raw_readl(PSTR);
 
 	a2ri_status_new = ((pstr_val & POWER_A2RI) == POWER_A2RI);
 	if (a2ri_status_new && (a2ri_status_new != a2ri_status_old)) {
@@ -908,35 +925,12 @@ printk(KERN_INFO "[PDC] workqueue function\n");
 #endif
 	}
 
-	a2rv_status_new = ((pstr_val & POWER_A2RV) == POWER_A2RV);
-	if (a2rv_status_new && (a2rv_status_new != a2rv_status_old)) {
-		/* A2RV change OFF -> ON */
-		atomic_inc(&pdwait_judge_count);
-#ifdef __DEBUG_PDWAIT
-		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
-				atomic_read(&pdwait_judge_count));
-		printk(KERN_INFO "[PDC] A2RV change from %s -> %s\n",
-				a2rv_status_old ? "ON" : "OFF",
-				a2rv_status_new ? "ON" : "OFF");
-#endif
-	} else if (!a2rv_status_new && (a2rv_status_new != a2rv_status_old)) {
-		/* A2RV change ON -> OFF */
-		atomic_dec(&pdwait_judge_count);
-#ifdef __DEBUG_PDWAIT
-		printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
-				atomic_read(&pdwait_judge_count));
-		printk(KERN_INFO "[PDC] A2RV change from %s -> %s\n",
-				a2rv_status_old ? "ON" : "OFF",
-				a2rv_status_new ? "ON" : "OFF");
-#endif
-	}
 #ifdef __DEBUG_PDWAIT
 	printk(KERN_INFO "[PDC] pdwait_judge_count = %d\n",
 			atomic_read(&pdwait_judge_count));
 #endif
 	pdwait_judge();
 	queue_delayed_work_on(CPU0_ID, pdwait_wq, &pdwait_work, delay);
-	mutex_unlock(&pdwait_mutex);
 }
 
 static struct notifier_block pdc_cpufreq_nb = {
@@ -976,14 +970,11 @@ power_a4rm_mask = POWER_A4RM;
 		return ret;
 
 	/* Z clock > 1GHz, A3SG, A2RI, A2RV ON at boot time */
-	atomic_set(&pdwait_judge_count, 4);
-	mutex_init(&pdwait_mutex);
+	atomic_set(&pdwait_judge_count, 3);
 	a2ri_status_old = 1;
 	a2ri_status_new = 1;
-	a2rv_status_old = 1;
-	a2rv_status_new = 1;
 	suspend_state	= 0;
-	sbsc_sdpdcr0a_reg = ioremap(SBSC_SDPDCR0A, PAGE_SIZE);
+	sbsc_sdpdcr0a_reg = ioremap(SBSC_SDPDCR0APhys, PAGE_SIZE);
 	if (NULL == sbsc_sdpdcr0a_reg)
 		printk(KERN_INFO "[PDC] error can't map SBSC_SDPDCR0A\n");
 
@@ -1018,10 +1009,7 @@ power_a4rm_mask = POWER_A4RM;
 		}
 	}
 
-	if (ES_REV_1_0 == chip_rev)
-		sort_mapping_table(tbl1, ARRAY_SIZE(tbl1));
-	else
-		sort_mapping_table(tbl2, ARRAY_SIZE(tbl2));
+	sort_mapping_table(tbl2, ARRAY_SIZE(tbl2));
 
 	return 0;
 }
@@ -1051,70 +1039,35 @@ int power_domain_devices(const char *drv_name,
 		return -EINVAL;
 
 	*dev_cnt = 0;
-	if (ES_REV_1_0 == chip_rev) {
-		index = get_power_area_index(tbl1,
-						ARRAY_SIZE(tbl1), drv_name);
 
-		if (0 <= index) {
-			*(dev++) = &(pd[tbl1[index].area]->dev);
-			(*dev_cnt)++;
+	index = get_power_area_index(tbl2,ARRAY_SIZE(tbl2), drv_name);
 
-			/* Check for upper successive elements
-			of 1st mapped element */
-			for (n = index + 1; n < ARRAY_SIZE(tbl1); n++) {
-				if (0 != strcmp(tbl1[n].name, drv_name)) {
-					break;
-				} else {
-					*(dev++) = &(pd[tbl1[n].area]->dev);
-					(*dev_cnt)++;
-				}
+	if (0 <= index) {
+		*(dev++) = &(pd[tbl2[index].area]->dev);
+		(*dev_cnt)++;
+
+		/* Check for upper successive elements
+		of 1st mapped element */
+		for (n = index + 1; n < ARRAY_SIZE(tbl2); n++) {
+			if (0 != strcmp(tbl2[n].name, drv_name)) {
+				break;
+			} else {
+				*(dev++) = &(pd[tbl2[n].area]->dev);
+				(*dev_cnt)++;
 			}
-			/* Check for lower successive elements
-			of 1st mapped element */
-			for (n = index - 1; n >= 0; n--) {
-				if (0 != strcmp(tbl1[n].name, drv_name)) {
-					break;
-				} else {
-					*(dev++) = &(pd[tbl1[n].area]->dev);
-					(*dev_cnt)++;
-				}
+		}
+		/* Check for lower successive elements
+		of 1st mapped element */
+		for (n = index - 1; n >= 0; n--) {
+		if (0 != strcmp(tbl2[n].name, drv_name)) {
+				break;
+			} else {
+				*(dev++) = &(pd[tbl2[n].area]->dev);
+				(*dev_cnt)++;
 			}
-
-		return 0;
 		}
 
-	} else {
-		index = get_power_area_index(tbl2,
-			ARRAY_SIZE(tbl2), drv_name);
-
-		if (0 <= index) {
-			*(dev++) = &(pd[tbl2[index].area]->dev);
-			(*dev_cnt)++;
-
-			/* Check for upper successive elements
-			of 1st mapped element */
-			for (n = index + 1; n < ARRAY_SIZE(tbl2); n++) {
-				if (0 != strcmp(tbl2[n].name, drv_name)) {
-					break;
-				} else {
-					*(dev++) = &(pd[tbl2[n].area]->dev);
-					(*dev_cnt)++;
-				}
-			}
-			/* Check for lower successive elements
-			of 1st mapped element */
-			for (n = index - 1; n >= 0; n--) {
-				if (0 != strcmp(tbl2[n].name, drv_name)) {
-					break;
-				} else {
-					*(dev++) = &(pd[tbl2[n].area]->dev);
-					(*dev_cnt)++;
-				}
-			}
-
-		return 0;
-		}
-
+	return 0;
 	}
 
 	return -EINVAL;

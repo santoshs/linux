@@ -22,6 +22,7 @@
 
 #include <sound/soundpath/soundpath.h>
 #include <sound/soundpath/d2153_extern.h>
+#include <linux/delay.h>
 
 //#define CONFIG_SND_SOC_USE_DA9055_HW
 
@@ -31,8 +32,15 @@
 #else
 #include <linux/d2153/d2153_codec.h>
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
+#ifdef CONFIG_SND_SOC_D2153_AAD
+#include <linux/d2153/d2153_aad.h>
+#endif /* CONFIG_SND_SOC_D2153_AAD */
 
-#define D2153_SNDP_MCLK_RATE	26000000
+//#define D2153_SNDP_MCLK_RATE	26000000
+#define D2153_SNDP_MCLK_RATE	13000000
+
+//d2153_amp_on_delay
+//struct delayed_work	amp_set_work;
 
 /*
  * Codec controls
@@ -257,9 +265,7 @@ static int d2153_sndp_set_dapm_kcontrol_single(struct snd_soc_codec *codec,
 	 * Have to call this method because kcontrol 'put' method
 	 * requires DAPM paths to have any impact on registers.
 	 */
-    kctl->private_data = (void *)codec;
-	
-	return snd_soc_put_volsw(kctl, &ucontrol);
+	return kctl->put(kctl, &ucontrol);
 }
 
 /* Set widget single enum Kcontrol */
@@ -307,9 +313,7 @@ static int d2153_sndp_set_dapm_kcontrol_enum(struct snd_soc_codec *codec,
 	 * Have to call this method because kcontrol 'put' method
 	 * requires DAPM paths to have any impact on registers.
 	 */
-	kctl->private_data = (void *)codec;
-	
-	return snd_soc_put_enum_double(kctl, &ucontrol);
+	return kctl->put(kctl, &ucontrol);
 }
 
 /*
@@ -528,6 +532,47 @@ int d2153_sndp_restore_volume(struct snd_soc_codec *codec, const u_long device)
 	return ret;
 }
 
+static int d2153_sndp_set_sub_mic_device(struct snd_soc_codec *codec,
+				     const u_int cur_dev, const u_int new_dev)
+{
+	int ret = 0;
+
+	if (cur_dev != new_dev) { //MIC_L(MIC2)
+		
+		dlg_info("%s() Start cur_dev=%d new_dev=%d \n",__FUNCTION__, cur_dev,new_dev);
+		if(D2153_ENABLE == new_dev) {
+			d2153_sndp_set_dapm_widget(codec, "In Mixer Left PGA", 1);
+			d2153_sndp_set_dapm_widget(codec, "Mic Left PGA", 1);
+			d2153_sndp_set_dapm_widget(codec, "Mic Bias 2", 1);
+
+			d2153_sndp_set_dapm_kcontrol_enum(codec,"AIF Left Source MUX",0);//left->left
+			
+			d2153_sndp_set_dapm_widget(codec, "ADC Left", 1);
+				
+			d2153_sndp_set_dapm_kcontrol_single(codec,
+								    "In Mixer Left Mic Left Switch",
+								    1);
+
+			d2153_sndp_set_kcontrol_double(codec, "In Mixer PGA Volume", 9, 9);
+			d2153_sndp_set_kcontrol_double(codec, "In Mixer PGA Switch", 1, 1);
+			d2153_sndp_set_kcontrol_single(codec, "ADC Left Switch", 1);
+			d2153_sndp_set_kcontrol_double(codec, "Mic Switch", 1,1);	
+
+		}
+		else
+		{
+			d2153_sndp_set_kcontrol_single(codec, "ADC Left Switch", 0);
+			d2153_sndp_set_dapm_widget(codec, "Mic Left PGA", 0);
+			d2153_sndp_set_dapm_widget(codec, "Mic Bias 2", 0);
+			d2153_sndp_set_kcontrol_double(codec, "Mic Switch", 0,1);	    	
+		}
+	} else {
+		/* nothing to do. */
+	}
+
+	return ret;
+}
+
 static int d2153_sndp_set_speaker_device(struct snd_soc_codec * codec,
 					 const u_int cur_dev,
 					 const u_int new_dev)
@@ -554,11 +599,11 @@ static int d2153_sndp_set_speaker_device(struct snd_soc_codec * codec,
 
 			d2153_sndp_set_kcontrol_double(codec, "DAC Volume", 0x6F, 0x6F);
 			
-			d2153_sndp_set_kcontrol_single(codec, "Speaker Switch", 1);
+			d2153_sndp_set_kcontrol_single(codec, "SP Switch", 1);
 		}
 		else
 		{			
-			d2153_sndp_set_kcontrol_single(codec, "Speaker Switch", 0);
+			d2153_sndp_set_kcontrol_single(codec, "SP Switch", 0);
 			d2153_sndp_set_dapm_widget(codec, "Speaker PGA", 0);
 		}
 	} else {
@@ -570,11 +615,13 @@ static int d2153_sndp_set_speaker_device(struct snd_soc_codec * codec,
 
 static int d2153_sndp_set_earpiece_device(struct snd_soc_codec *codec,
 					  const u_int cur_dev,
-					  const u_int new_dev)
+					  const u_int new_dev,
+					  const u_int pcm_mode)
 {
 	int ret = 0;
 	struct snd_soc_dai *codec_dai = codec->card->rtd->codec_dai;
 	const struct snd_soc_dai_ops *ops = codec_dai->driver->ops;
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 
 	dlg_info("%s() Start cur_dev=%d new_dev=%d \n",__FUNCTION__,cur_dev,new_dev);
 	if (cur_dev != new_dev) {
@@ -589,18 +636,29 @@ static int d2153_sndp_set_earpiece_device(struct snd_soc_codec *codec,
 			d2153_sndp_set_dapm_widget(codec, "DAC Right", 1);
 			
 			d2153_sndp_set_dapm_kcontrol_single(codec,
-							    "Out Mixer Right DAC Right Switch",
+							    "Out Mixer Earpiece DAC Right Switch",
 							    1);
 			ops->digital_mute(codec_dai,0);
 
 			d2153_sndp_set_kcontrol_double(codec, "DAC Volume", 0x6F, 0x6F);
 			
-			d2153_sndp_set_kcontrol_single(codec, "Earpiece Switch", 1);
+			d2153_sndp_set_kcontrol_single(codec, "EP Switch", 1);
+			
+			if (SNDP_MODE_INCALL == pcm_mode)
+				d2153_sndp_set_sub_mic_device(codec, cur_dev, new_dev);
+
+			d2153_codec->earpiece_enable=1;
 		}
 		else {
-			d2153_sndp_set_kcontrol_single(codec, "Earpiece Switch", 0);
+		
+			d2153_sndp_set_kcontrol_single(codec, "EP Switch", 0);
 			d2153_sndp_set_dapm_widget(codec, "Earpiece PGA", 0);
-			d2153_sndp_set_dapm_widget(codec, "Charge Pump", 0);
+			
+			if(d2153_codec->headset_enable==0)
+				d2153_sndp_set_dapm_widget(codec, "Charge Pump", 0);
+
+			d2153_sndp_set_sub_mic_device(codec, cur_dev, new_dev);
+			d2153_codec->earpiece_enable=0;
 		}
 	} else {
 		/* nothing to do. */
@@ -616,15 +674,14 @@ static int d2153_sndp_set_headphone_device(struct snd_soc_codec *codec,
 	int ret = 0;
 	struct snd_soc_dai *codec_dai = codec->card->rtd->codec_dai;
 	const struct snd_soc_dai_ops *ops = codec_dai->driver->ops;
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 
 	dlg_info("%s() Start cur_dev=%d new_dev=%d \n",__FUNCTION__,cur_dev,new_dev);
 	if (cur_dev != new_dev) {
 		if(D2153_ENABLE == new_dev) { // headphone on
+			d2153_sndp_set_dapm_widget(codec, "Charge Pump", 1);
 			d2153_sndp_set_dapm_widget(codec, "Out Mixer Left PGA", 1);
 			d2153_sndp_set_dapm_widget(codec, "Out Mixer Right PGA", 1);
-			d2153_sndp_set_dapm_widget(codec, "Headphone Left PGA", 1);
-			d2153_sndp_set_dapm_widget(codec, "Headphone Right PGA", 1);
-			d2153_sndp_set_dapm_widget(codec, "Charge Pump", 1);
 
 			d2153_sndp_set_dapm_kcontrol_enum(codec,"DAC Left Source MUX",2);
 			d2153_sndp_set_dapm_kcontrol_enum(codec,"DAC Right Source MUX",3);
@@ -639,14 +696,25 @@ static int d2153_sndp_set_headphone_device(struct snd_soc_codec *codec,
 			ops->digital_mute(codec_dai,0);
 
 			d2153_sndp_set_kcontrol_double(codec, "DAC Volume", 0x6F, 0x6F);
-			d2153_sndp_set_kcontrol_double(codec, "Headphone Switch", 1, 1);
-			//d2153_sndp_set_kcontrol_double(codec, "Playback Headphone Volume", 34, 34);
+
+			d2153_sndp_set_dapm_widget(codec, "Headphone Left PGA", 1);
+			d2153_sndp_set_dapm_widget(codec, "Headphone Right PGA", 1);
+			d2153_sndp_set_kcontrol_double(codec, "HP Switch", 1,1);
+			msleep(50);
+
+			d2153_codec->headset_enable=1;
 		}
 		else { //headphone off
-			d2153_sndp_set_kcontrol_double(codec, "Headphone Switch", 0, 0);
+		
+			d2153_sndp_set_kcontrol_double(codec, "HP Switch", 0,0);
 			d2153_sndp_set_dapm_widget(codec, "Headphone Left PGA", 0);
 			d2153_sndp_set_dapm_widget(codec, "Headphone Right PGA", 0);
-			d2153_sndp_set_dapm_widget(codec, "Charge Pump", 0);
+			msleep(50);
+			
+			if(d2153_codec->earpiece_enable == 0)
+				d2153_sndp_set_dapm_widget(codec, "Charge Pump", 0);
+
+			d2153_codec->headset_enable=0;
 		}
 			
 
@@ -664,28 +732,31 @@ static int d2153_sndp_set_mic_device(struct snd_soc_codec *codec,
 
 	if (cur_dev != new_dev) { //MIC_R(MIC3)
 		
-		dlg_info("%s() Start \n",__FUNCTION__);
+		dlg_info("%s() Start cur_dev=%d new_dev=%d \n",__FUNCTION__, new_dev);
 		if(D2153_ENABLE == new_dev) {
-	    	d2153_sndp_set_dapm_widget(codec, "In Mixer Right PGA", 1);
-	    	d2153_sndp_set_dapm_widget(codec, "Mic Right PGA", 1);
-	    	d2153_sndp_set_dapm_widget(codec, "Mic Bias 3", 1);
-	    
-	    	d2153_sndp_set_dapm_widget(codec, "ADC Right", 1);
-	    		
-	    	d2153_sndp_set_dapm_kcontrol_single(codec,
-	    						    "In Mixer Right Mic Right Switch",
-	    						    1);
+			d2153_sndp_set_dapm_widget(codec, "In Mixer Right PGA", 1);
+			d2153_sndp_set_dapm_widget(codec, "Mic Right PGA", 1);
+			d2153_sndp_set_dapm_widget(codec, "Mic Bias 3", 1);
+
+			d2153_sndp_set_dapm_kcontrol_enum(codec,"AIF Right Source MUX",1);
+
+			d2153_sndp_set_dapm_widget(codec, "ADC Right", 1);
+				
+			d2153_sndp_set_dapm_kcontrol_single(codec,
+								    "In Mixer Right Mic Right Switch",
+								    1);
 
 			d2153_sndp_set_kcontrol_double(codec, "In Mixer PGA Volume", 9, 9);
-	    	d2153_sndp_set_kcontrol_double(codec, "In Mixer PGA Switch", 0, 1);
-	    	d2153_sndp_set_kcontrol_double(codec, "ADC Switch", 0,1);
-			d2153_sndp_set_kcontrol_double(codec, "Mic Switch", 0,1);	
+			d2153_sndp_set_kcontrol_double(codec, "In Mixer PGA Switch", 1, 1);
+			d2153_sndp_set_kcontrol_single(codec, "ADC Right Switch", 1); //right->right
+			d2153_sndp_set_kcontrol_double(codec, "Mic Switch", 1,1);	
 
 		}
 		else
 		{
-	    	d2153_sndp_set_dapm_widget(codec, "Mic Right PGA", 0);
-	    	d2153_sndp_set_dapm_widget(codec, "Mic Bias 3", 0);
+			d2153_sndp_set_kcontrol_single(codec, "ADC Right Switch", 0);
+			d2153_sndp_set_dapm_widget(codec, "Mic Right PGA", 0);
+			d2153_sndp_set_dapm_widget(codec, "Mic Bias 3", 0);
 			d2153_sndp_set_kcontrol_double(codec, "Mic Switch", 0,0);	    	
 		}
 	} else {
@@ -700,14 +771,20 @@ static int d2153_sndp_set_headset_mic_device(struct snd_soc_codec *codec,
 					     const u_int new_dev)
 {
 	int ret = 0;
-
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	
 	if (cur_dev != new_dev) { //EXT(MIC1)
-		dlg_info("%s() Start \n",__FUNCTION__);
+		dlg_info("%s() Start cur_dev=%d new_dev=%d \n",__FUNCTION__, cur_dev, new_dev);
 		if(D2153_ENABLE == new_dev) {
+			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
+					  D2153_ACCDET_BTN_EN,
+					  0);
 			d2153_sndp_set_dapm_widget(codec, "In Mixer Left PGA", 1);
 			d2153_sndp_set_dapm_widget(codec, "Mic Ext PGA", 1);
-			//d2153_sndp_set_dapm_widget(codec, "Mic Bias 1", 1); 
+			d2153_sndp_set_dapm_widget(codec, "Mic Bias 1", 1); 
 
+			d2153_sndp_set_dapm_kcontrol_enum(codec,"AIF Right Source MUX",0); //left->right
+			
 			d2153_sndp_set_dapm_widget(codec, "ADC Left", 1);
 			
 			d2153_sndp_set_dapm_kcontrol_single(codec,
@@ -716,13 +793,23 @@ static int d2153_sndp_set_headset_mic_device(struct snd_soc_codec *codec,
 			
 			d2153_sndp_set_kcontrol_double(codec, "In Mixer PGA Volume", 9, 9);
 			d2153_sndp_set_kcontrol_double(codec, "In Mixer PGA Switch", 1, 0);
-			d2153_sndp_set_kcontrol_double(codec, "ADC Switch", 1, 0);
+			d2153_sndp_set_kcontrol_single(codec, "ADC Left Switch", 1);
 			d2153_sndp_set_kcontrol_single(codec, "Mic Ext Switch", 1);
 		}
 		else {
+			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
+					  D2153_ACCDET_BTN_EN, D2153_ACCDET_BTN_EN);
+
+			if(d2153_codec->earpiece_enable == 0)
+				d2153_sndp_set_kcontrol_single(codec, "ADC Left Switch", 0);
+			
 			d2153_sndp_set_dapm_widget(codec, "Mic Ext PGA", 0);
-			//d2153_sndp_set_dapm_widget(codec, "Mic Bias 1", 0); 
+			d2153_sndp_set_dapm_widget(codec, "Mic Bias 1", 0); 
 			d2153_sndp_set_kcontrol_single(codec, "Mic Ext Switch", 0);
+			
+			if(d2153_codec->switch_state ==D2153_HEADSET)
+				snd_soc_update_bits(codec,
+						D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);
 
 		}
 	} else {
@@ -735,8 +822,10 @@ static int d2153_sndp_set_headset_mic_device(struct snd_soc_codec *codec,
 static int d2153_sndp_resume(struct snd_soc_codec *codec, const u_long device)
 {
 	int ret = 0;
-
-	d2153_codec_power(codec,1);
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	
+	d2153_codec->sndp_power_mode=1;
+	//d2153_codec_power(codec,1);
 	ret = d2153_sndp_restore_volume(codec, device);
 	
 	return ret;
@@ -745,8 +834,10 @@ static int d2153_sndp_resume(struct snd_soc_codec *codec, const u_long device)
 static int d2153_sndp_suspend(struct snd_soc_codec *codec)
 {
 	int ret = 0;
-
-	d2153_codec_power(codec,0);
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	
+	d2153_codec->sndp_power_mode=0;
+	//d2153_codec_power(codec,0);
 	
 	return ret;
 }
@@ -823,8 +914,8 @@ static void d2153_sndp_setup(struct snd_soc_codec *codec)
 
 	/* Default IO settings */
 	snd_soc_update_bits(codec, D2153_IO_CTRL,
-			    D2153_IO_VOLTAGE_LEVEL_1_2V_2_8V,
-			    D2153_IO_VOLTAGE_LEVEL_MASK);
+			    D2153_IO_VOLTAGE_LEVEL_MASK,
+			    D2153_IO_VOLTAGE_LEVEL_1_2V_2_8V);
 	
 	/* Default LDO settings */
 	snd_soc_update_bits(codec, D2153_LDO_CTRL, D2153_LDO_LEVEL_SELECT_MASK,
@@ -884,8 +975,10 @@ static void d2153_sndp_setup(struct snd_soc_codec *codec)
 			    D2153_MIXOUT_MIX_EN, D2153_MIXOUT_MIX_EN);
 
 	/* Set charge pump mode */
-	snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_ANA,
-			    D2153_CP_MCHANGE_ANA);
+	//snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_MASK,
+			    //D2153_CP_MCHANGE_SM_SIZE);
+	snd_soc_update_bits(codec, D2153_CP_CTRL, D2153_CP_MCHANGE_MASK,
+			    D2153_CP_MCHANGE_LARGEST_VOL);
 
 	/* Enable AIF output */
 	snd_soc_update_bits(codec, D2153_AIF_CTRL, D2153_AIF_OE, D2153_AIF_OE);
@@ -951,19 +1044,22 @@ int d2153_sndp_set_device(struct snd_soc_codec * codec, const u_long device,
 	static int audio_on = D2153_DISABLE;
 	u_int pcm_mode = 0;
 	struct clk *vclk4_clk = NULL;
+	int i;
 
 	dlg_info("%s() device=%d pcm_value=%d power=%d \n",__FUNCTION__,device,pcm_value,power);
 	
 	if (D2153_DEV_NONE != device) {
 		//clk enable
 		/* vclk4 enable */
+		#if 1
 		vclk4_clk = clk_get(NULL, "vclk4_clk");
 		clk_enable(vclk4_clk);
 		clk_put(vclk4_clk);
-		
+		#endif
 		if ((D2153_POWER_ON == power))
 		{
-			d2153_codec_power(codec,1);
+			d2153_codec->sndp_power_mode=1;
+			//d2153_codec_power(codec,1);
 		}
 	}
 
@@ -990,19 +1086,37 @@ int d2153_sndp_set_device(struct snd_soc_codec * codec, const u_long device,
 
 	if (D2153_DISABLE == audio_on) {
 
-			d2153_codec_power(codec,1);
+			d2153_codec->sndp_power_mode=1;
+			//d2153_codec_power(codec,1);
 			
 			d2153_sndp_setup(codec);
 
 			snd_soc_update_bits(codec, D2153_REFERENCES,
-					    D2153_VMID_EN | D2153_BIAS_EN,
-					    D2153_VMID_EN | D2153_BIAS_EN);
+					    D2153_VMID_EN | D2153_BIAS_EN | D2153_VMID_FAST_CHARGE,
+					    D2153_VMID_EN | D2153_BIAS_EN | D2153_VMID_FAST_CHARGE);
+			msleep(100);
+			snd_soc_update_bits(codec, D2153_REFERENCES,
+					    D2153_VMID_FAST_CHARGE,
+					    0);
+			msleep(10);
+			snd_soc_update_bits(codec, D2153_REFERENCES,
+					    D2153_VMID_FAST_CHARGE | D2153_VMID_FAST_DISCHARGE,
+					    D2153_VMID_FAST_CHARGE | D2153_VMID_FAST_DISCHARGE);
 			
 	}
 
 	/* get pcm mode type */
 	pcm_mode = SNDP_GET_MODE_VAL(pcm_value);
 
+	if(pcm_mode == SNDP_MODE_INCALL) {
+		for(i=0; i<codec->card->num_rtd ; i++)
+			codec->card->rtd[i].dai_link->ignore_suspend =1;
+	}
+	else {
+		for(i=0; i<codec->card->num_rtd ; i++)
+			codec->card->rtd[i].dai_link->ignore_suspend =0;
+	}	
+		
 	if (d2153_codec->pcm_mode != pcm_mode) {
 		d2153_codec->pcm_mode = pcm_mode;
 
@@ -1024,7 +1138,7 @@ int d2153_sndp_set_device(struct snd_soc_codec * codec, const u_long device,
 		goto err_set_device;
 
 	ret = d2153_sndp_set_earpiece_device(codec, d2153_codec->info.earpiece,
-					     new_device.earpiece);
+					     new_device.earpiece, pcm_mode);
 
 	if (0 != ret)
 		goto err_set_device;

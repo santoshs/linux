@@ -1,5 +1,9 @@
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/module.h>
+
+/* changed for Ramdump feature addtion :
+   this will be modified futhur */
 
 struct class *sec_class;
 EXPORT_SYMBOL(sec_class);

@@ -40,10 +40,11 @@
 #include <linux/pm_runtime.h>
 #include <mach/pm.h>
 #include <linux/clk.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/wakelock.h>
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
+#include <linux/semaphore.h>
 #if defined(DX_DEBUG_RAR_SUPPORT) || defined(DX_RAR_SUPPORT)
 #include <linux/rar/memrar.h>
 #include <linux/rar/rar_register.h>
@@ -60,16 +61,15 @@
 #include "cc42_crypt_driver_api.h"
 
 /* To Enable debug print */
-//#define ENABLE_CC42_DEBUG_PRINT
+/* #define ENABLE_CC42_DEBUG_PRINT */
 
 #ifdef ENABLE_CC42_DEBUG_PRINT
-#define CC42_DEBUG_PRINT(...) printk(__VA_ARGS__ )
+#define CC42_DEBUG_PRINT(...) printk(__VA_ARGS__)
 #else
 #define CC42_DEBUG_PRINT(...)
 #endif
 
-/*1000ms is given to ensure success in 
-acquiring HPB Semaphore*/
+/*1000ms is given to ensure success in acquiring HPB Semaphore*/
 #define LOCK_TIME_OUT_MS 1000
 
 #define CC42_DRIVER__NAME          "cc42_crypt_driver"
@@ -88,6 +88,9 @@ MODULE_PARM_DESC(sep_fatal, \
 	"Flag which indicates that fatal error has occured");
 
 
+/* Store the RKEK return value */
+static int sep_rkek_return_value;
+
 /* platform device object */
 static struct platform_device sep_device;
 
@@ -95,12 +98,12 @@ static struct platform_driver sep_driver;
 
 static const struct file_operations sep_file_operarions;
 
-/* 
- sep power down counter 
- power_down_count() is the initial value 0, 
+/*
+ sep power down counter
+ power_down_count() is the initial value 0,
  sep power down counter initialized to 0.
 */
-static unsigned long long sep_power_down_counter = 0;
+static unsigned long long sep_power_down_counter;
 
 /* context of the device */
 struct device_context   sep_context;
@@ -108,10 +111,13 @@ struct device_context   sep_context;
 struct ioctl_params_dma ioctl_params_dma;
 
 /* clock object */
-static struct clk* sep_clk;
+static struct clk *sep_clk;
 
 /* wakelock object */
 static struct wake_lock sep_wakelock;
+
+/* semaphore - to acquire lock */
+static struct semaphore sep_sem;
 
 /* create cc42 device*/
 static struct class *cc42_class;
@@ -138,13 +144,15 @@ int sep_register_driver_to_device(void)
 	-----------------------------*/
 	error = platform_device_register(&sep_device);
 	sep_context.dev_ptr = &sep_device.dev;
-CC42_DEBUG_PRINT(KERN_INFO "CC4.2_Driver:platform_device_register error is %x\n", error);
+	CC42_DEBUG_PRINT(KERN_INFO "CC4.2_Driver:platform_device_register" \
+					"error is %x\n", error);
 
 	if (error)
 		return error;
 
 	error = platform_driver_register(&sep_driver);
-CC42_DEBUG_PRINT(KERN_INFO "CC4.2_Driver:platform_driver_register error is %x\n", error);
+	CC42_DEBUG_PRINT(KERN_INFO "CC4.2_Driver:platform_driver_register" \
+					"error is %x\n", error);
 
 	if (error) {
 		/* Note: Upper layer is responsible for unregistering device*/
@@ -182,8 +190,8 @@ static int  sep_register_driver_to_fs(void)
 					DRIVER_NAME);
 #endif
 	if (ret_val) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:major number \
-			allocation failed,retval is %d\n", ret_val);
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:major number" \
+			"allocation failed,retval is %d\n", ret_val);
 		goto end_function;
 	}
 
@@ -198,8 +206,8 @@ static int  sep_register_driver_to_fs(void)
 	ret_val = cdev_add(&sep_context.cdev, sep_context.device_number, 1);
 
 	if (ret_val) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:cdev_add \
-			failed,retval is %d\n", ret_val);
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:cdev_add" \
+			"failed,retval is %d\n", ret_val);
 		goto end_function_unregister_devnum;
 	}
 
@@ -272,15 +280,16 @@ int sep_unregister_driver_from_device(void)
 	CODE
 	-----------------------------*/
 
-CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_unregister_driver_from_device start\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:" \
+			"sep_unregister_driver_from_device start\n");
 
 	/* register driver */
 	platform_driver_unregister(&sep_driver);
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: platform_driver_unregister\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:platform_driver_unregister\n");
 
 	platform_device_unregister(&sep_device);
 
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: platform_device_unregister\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:platform_device_unregister\n");
 
 
 	return error;
@@ -364,7 +373,8 @@ int sep_lock_user_pages(u32		app_virt_addr,
 	CODE
 	--------------------------*/
 
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> sep_lock_user_pages start\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> "\
+					"sep_lock_user_pages start\n");
 
 	error = 0;
 
@@ -373,18 +383,23 @@ int sep_lock_user_pages(u32		app_virt_addr,
 	start_page = app_virt_addr >> PAGE_SHIFT;
 	num_pages = end_page - start_page + 1;
 
-CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: app_virt_addr is %08x\n", app_virt_addr);
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: data_size is %x\n", data_size);
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: start_page is %x\n", start_page);
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: app_virt_addr is %08x\n", \
+							app_virt_addr);
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: data_size is %x\n", \
+							data_size);
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: start_page is %x\n", \
+							start_page);
 	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: end_page is %x\n", end_page);
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: num_pages is %x\n", num_pages);
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: num_pages is %x\n", \
+							num_pages);
 
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: starting page_array malloc\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:starting page_array malloc\n");
 
 	/* allocate array of pages structure pointers */
 	page_array = kmalloc(sizeof(struct page *) * num_pages, GFP_ATOMIC);
 	if (!page_array) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: kmalloc for page_array failed\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: kmalloc for" \
+							 "page_array failed\n");
 
 		error = -ENOMEM;
 		goto end_function;
@@ -392,7 +407,8 @@ CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: app_virt_addr is %08x\n", app_virt_add
 
 	map_array = kmalloc(sizeof(struct sep_dma_map)*num_pages, GFP_ATOMIC);
 	if (!map_array) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: kmalloc for map_array failed\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:" \
+					"kmalloc for map_array failed\n");
 		error = -ENOMEM;
 		goto end_function_with_error1;
 	}
@@ -427,13 +443,13 @@ CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: app_virt_addr is %08x\n", app_virt_add
 
 	/*check the number of pages locked - if not all then exit with error*/
 	if (result != num_pages) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:not all pages \
-		locked by get_user_pages\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:not all pages" \
+						"locked by get_user_pages\n");
 		error = -ENOMEM;
 		goto end_function_with_error3;
 	}
 
-CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: get_user_pages succeeded\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: get_user_pages succeeded\n");
 
 	/* set direction */
 	if (in_out_flag == 1002)
@@ -486,12 +502,14 @@ CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: get_user_pages succeeded\n");
 
 	/* set output params acording to the in_out flag */
 	if (in_out_flag == 1002) {
-		CC42_DEBUG_PRINT(KERN_INFO "sep_lock_user_pages :CC4.2_DRIVER_IN_FLAG\n");
+		CC42_DEBUG_PRINT(KERN_INFO "sep_lock_user_pages :"\
+						"CC4.2_DRIVER_IN_FLAG\n");
 		sep_context.in_num_pages = num_pages;
 		sep_context.in_page_array = page_array;
 		sep_context.in_map_array = map_array;
 	} else {
-		CC42_DEBUG_PRINT(KERN_INFO "sep_lock_user_pages :DMA_FROM_DEVICE\n");
+		CC42_DEBUG_PRINT(KERN_INFO "sep_lock_user_pages :"\
+						"DMA_FROM_DEVICE\n");
 		sep_context.out_num_pages = num_pages;
 		sep_context.out_page_array = page_array;
 		sep_context.out_map_array = map_array;
@@ -499,19 +517,19 @@ CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: get_user_pages succeeded\n");
 
 	/*for test Apps */
 
-ioctl_params_dma.Multiple_LLIs.nValidLLIs = num_pages;
-	CC42_DEBUG_PRINT(KERN_INFO "sep_lock_user_pages :  \
-			Total pages = %d \n", num_pages);
+	ioctl_params_dma.Multiple_LLIs.nValidLLIs = num_pages;
+	CC42_DEBUG_PRINT(KERN_INFO "sep_lock_user_pages :"\
+				"Total pages = %d\n", num_pages);
 
 	for (i = 0; i < num_pages; i++) {
-	ioctl_params_dma.Multiple_LLIs.LLI_workPlans[i].dmaAddress_LLI_WORD0
+		ioctl_params_dma.Multiple_LLIs.LLI_workPlans[i].dmaAddress_LLI_WORD0
 						= lli_array[i].bus_address;
-	ioctl_params_dma.Multiple_LLIs.LLI_workPlans[i].size_LLI_WORD1
+		ioctl_params_dma.Multiple_LLIs.LLI_workPlans[i].size_LLI_WORD1
 						= lli_array[i].block_size;
-	CC42_DEBUG_PRINT(KERN_INFO "sep_lock_user_pages :dma page address \
-			 %d = %p \n", i, (void *)map_array[i].dma_addr);
-	CC42_DEBUG_PRINT(KERN_INFO "sep_lock_user_pages :dma page size \
-				%d = %d \n", i, map_array[i].size);
+		CC42_DEBUG_PRINT(KERN_INFO "sep_lock_user_pages :dma page "\
+			"address %d = %p\n", i, (void *)map_array[i].dma_addr);
+		CC42_DEBUG_PRINT(KERN_INFO "sep_lock_user_pages :dma page size"\
+			"%d = %d\n", i, map_array[i].size);
 
 	}
 
@@ -525,7 +543,7 @@ end_function_with_error3:
 
 end_function_with_error2:
 
-  kfree(map_array);
+	kfree(map_array);
 
 end_function_with_error1:
 
@@ -534,7 +552,8 @@ end_function_with_error1:
 
 end_function:
 
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_lock_user_pages end\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- "\
+					"sep_lock_user_pages end\n");
 	return error;
 }
 
@@ -547,8 +566,8 @@ this pointers are NOT being treated by the user application in any case.
 */
 static int sep_create_sync_dma_tables_handler(void *arg)
 {
-/* error */
-int   error;
+	/* error */
+	int   error;
 
 	/* command arguments */
 	/*struct sep_driver_build_sync_table_t command_args; */
@@ -558,7 +577,8 @@ int   error;
 	CODE
 	--------------------------*/
 
-CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_create_sync_dma_tables_handler start\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+			"sep_create_sync_dma_tables_handler start\n");
 
 	if (copy_from_user(&ioctl_params_dma,
 			arg,
@@ -567,11 +587,11 @@ CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_create_sync_dma_tables_handler sta
 			goto end_function;
 	}
 
-
 	/* validate user parameters */
 	if (!ioctl_params_dma.userSpaceVirtualAddress) {
 
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: params validation error\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+					"params validation error\n");
 
 		error = -EINVAL;
 		goto end_function;
@@ -583,7 +603,8 @@ CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_create_sync_dma_tables_handler sta
 		ioctl_params_dma.DstRsrcLLI);
 
 	if (error) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: sep_lock_user_pages failed\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+					"sep_lock_user_pages failed\n");
 		goto end_function;
 	}
 
@@ -591,14 +612,14 @@ CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_create_sync_dma_tables_handler sta
 	if (copy_to_user(arg,
 			(void *)&ioctl_params_dma,
 			sizeof(struct ioctl_params_dma))) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: copy_to_user failed\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:copy_to_user failed\n");
 		error = -EFAULT;
 	}
 
-
 end_function:
 
-CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_create_sync_dma_tables_handler end\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:"\
+			 "sep_create_sync_dma_tables_handler end\n");
 	return error;
 }
 
@@ -612,7 +633,8 @@ static int sep_free_dma_table_data_handler(void *arg)
 	CODE
 	-----------------------------*/
 
-CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_free_dma_table_data_handler start\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+				"sep_free_dma_table_data_handler start\n");
 
 	/* unmap and free input map array */
 	if (sep_context.in_map_array) {
@@ -654,7 +676,7 @@ CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_free_dma_table_data_handler start\
 	if (sep_context.out_page_array) {
 		for (count = 0; count < sep_context.out_num_pages; count++) {
 			if (!PageReserved(sep_context.out_page_array[count]))
-			   SetPageDirty(sep_context.out_page_array[count]);
+				SetPageDirty(sep_context.out_page_array[count]);
 			flush_dcache_page(sep_context.out_page_array[count]);
 			page_cache_release(sep_context.out_page_array[count]);
 		}
@@ -670,8 +692,9 @@ CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_free_dma_table_data_handler start\
 	sep_context.in_map_array = 0;
 	sep_context.out_map_array = 0;
 
-CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_free_dma_table_data_handler end\n");
-return error;
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+			"sep_free_dma_table_data_handler end\n");
+	return error;
 }
 
 /*
@@ -680,34 +703,35 @@ return error;
 static int sep_suspend(struct device *dev)
 {
 	int error = 0;
-	
+
 	/*----------------------------
 	    CODE
 	-----------------------------*/
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> sep_suspend start\n");
-			
+
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:-------->sep_suspend start\n");
+
 	/* check whether or not the suspending process has been already done */
 	if (0 != atomic_dec_return(&sep_context.resource)) {
 		atomic_inc(&sep_context.resource);
-		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> already suspended\n");
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> "\
+						"already suspended\n");
 		goto end_function;
 	}
-	
+
 	/* check the clk object */
 	if (NULL == sep_clk) {
 		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: clk object is null\n");
 		error = -EFAULT;
 		goto end_function;
 	}
-	
+
 	/* disable clock */
 	clk_disable(sep_clk);
 
 end_function:
-	
+
 	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_suspend end\n");
-	
+
 	return error;
 }
 
@@ -721,17 +745,18 @@ static int sep_resume(struct device *dev)
 	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
 	int sec_hal_error = 0;
 	#endif
-	
+
 	/*----------------------------
 	    CODE
 	-----------------------------*/
-	
+
 	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> sep_resume start\n");
-	
+
 	/* check whether or not the resuming process has been already done */
 	if (1 != atomic_inc_return(&sep_context.resource)) {
 		atomic_dec(&sep_context.resource);
-		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> already resumed\n");
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> "\
+						"already resumed\n");
 		goto end_function;
 	}
 
@@ -741,21 +766,22 @@ static int sep_resume(struct device *dev)
 		error = -EBUSY;
 		goto end_function;
 	}
-	
+
 	/* enable clock */
 	error = clk_enable(sep_clk);
 	if (error) {
 		CC42_DEBUG_PRINT(KERN_ERR "clk_enable() failed\n");
 		error = -EBUSY;
 		goto end_function;
-	}
-	else {
-		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: clk successfully enabled\n");
+	} else {
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+						"clk successfully enabled\n");
 	}
 
 	/* check the power down count */
 	count = power_down_count(0);
-	CC42_DEBUG_PRINT(KERN_INFO "SEP Driver: power_down_count: [%lld]->[%lld]\n", sep_power_down_counter, count);
+	CC42_DEBUG_PRINT(KERN_INFO "SEP Driver: power_down_count: "\
+			"[%lld]->[%lld]\n", sep_power_down_counter, count);
 	if (sep_power_down_counter != count) {
 		/* to update the sep power down counter */
 		sep_power_down_counter = count;
@@ -763,25 +789,25 @@ static int sep_resume(struct device *dev)
 		#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
 		sec_hal_error = sec_hal_pm_public_cc42_key_init();
 		if (sec_hal_error) {
-			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:" \
-			"sec_hal_pm_public_cc42_key_init failed" \
-				" with error 0x%x\n", sec_hal_error);
-		}
-		else {
-			CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: \
-			sec_hal_pm_public_cc42_key_init succeeded \n");
+			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+			"sec_hal_pm_public_cc42_key_init failed with "\
+				"error 0x%x\n", sec_hal_error);
+			sep_rkek_return_value = sec_hal_error;
+		} else {
+			CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+			"sec_hal_pm_public_cc42_key_init succeeded\n");
 		}
 		#endif
+
 	}
 
-	
 end_function:
-	if(error){
-		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: FATAL error occurred\n");
-	}
-	
+	if (error)
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+						"FATAL error occurred\n");
+
 	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_resume end\n");
-	
+
 	return error;
 }
 
@@ -795,30 +821,33 @@ static int sep_driver_suspend(struct device *dev)
 	    CODE
 	-----------------------------*/
 	int result;
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> sep_driver_suspend start\n");
-	
+
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> "\
+						"sep_driver_suspend start\n");
+
 	/* if already suspended by the runtime-PM, do nothing */
 	if (pm_runtime_suspended(dev)) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: already suspended by the runtime-PM\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+			"already suspended by the runtime-PM\n");
 		goto end_function;
 	}
-	
+
 	/* common suspend */
 	/* Note: Even if this driver failed to suspend, it shouldn't block */
-	/*      the system suspend.                                        */ 
+	/* the system suspend */
 	(void)sep_suspend(dev);
-	
+
 	/* power down the device */
 	result = pm_runtime_put_sync(&sep_device.dev);
-	if(0 != result){
-		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> pm_runtime_put_sync failed, result=[%d]\n", result);
+	if (0 != result) {
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> "\
+			"pm_runtime_put_sync failed, result=[%d]\n", result);
 	}
-	
+
 end_function:
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_driver_suspend end\n");
-	
+
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- "\
+					"sep_driver_suspend end\n");
 	return 0;
 }
 
@@ -828,37 +857,40 @@ end_function:
 static int sep_driver_resume(struct device *dev)
 {
 	int result = 0;
-	
+
 	/*----------------------------
 	    CODE
 	-----------------------------*/
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> sep_driver_resume start\n");
-	
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> "\
+						"sep_driver_resume start\n");
 	/* common resume */
 	result = sep_resume(dev);
 	if (result) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: sep_resume() failed\n");
-		/* Even if internal resume-function has failed, we think that it has still  */ 
-		/* been necessary to balance the usage-count. So we handle it as non-error. */
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:sep_resume() failed\n");
+		/* Even if internal resume-function has failed, we think that */
+		/* it has still been necessary to balance the usage-count. */
+		/* So we handle it as non-error. */
 		result = 0;
 	}
-	
+
 	/* if there's a user, then we should power up the device */
 	if (0 == atomic_read(&sep_context.openable)) {
 		result = pm_runtime_get_sync(&sep_device.dev);
-		if(0 != result){
-			CC42_DEBUG_PRINT(KERN_ERR "pm_runtime_get_sync() failed, result=[%d]\n", result);
+		if (0 != result) {
+			CC42_DEBUG_PRINT(KERN_ERR "pm_runtime_get_sync() "\
+					 "failed, result=[%d]\n", result);
 		}
 	} else {
 		/* to update the state of runtime-PM */
 		pm_runtime_disable(dev);
 		pm_runtime_set_active(dev);
 		pm_runtime_enable(dev);
+		pm_runtime_suspend(dev);
 	}
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_driver_resume end\n");
-	
+
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- "\
+						"sep_driver_resume end\n");
+
 	return result;
 }
 
@@ -868,24 +900,27 @@ static int sep_driver_resume(struct device *dev)
 static int sep_driver_runtime_suspend(struct device *dev)
 {
 	int result = 0;
-	
+
 	/*----------------------------
 	    CODE
 	-----------------------------*/
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> sep_driver_runtime_suspend start\n");
-	
+
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> "\
+				"sep_driver_runtime_suspend start\n");
+
 	/* common suspend */
 	result = sep_suspend(dev);
 	if (result) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: sep_suspend() failed\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+						"sep_suspend() failed\n");
 		goto end_function;
 	}
-	
+
 end_function:
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_driver_runtime_suspend end\n");
-	
+
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- "\
+				"sep_driver_runtime_suspend end\n");
+
 	return result;
 }
 
@@ -895,32 +930,33 @@ end_function:
 static int sep_driver_runtime_resume(struct device *dev)
 {
 	int result = 0;
-	
+
 	/*----------------------------
 	    CODE
 	-----------------------------*/
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> sep_driver_runtime_resume start\n");
-	
+
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> "\
+					"sep_driver_runtime_resume start\n");
+
 	/* lock the system suspend by wakelock */
 	wake_lock(&sep_wakelock);
-	
+
 	/* common resume */
 	result = sep_resume(dev);
 	if (result) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: sep_resume() failed\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+						"sep_resume() failed\n");
 		goto end_function;
 	}
-	
+
 end_function:
-	
+
 	/* unlock the system suspend by wakelock */
 	wake_unlock(&sep_wakelock);
 
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_driver_runtime_resume end \n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<--------"\
+				"sep_driver_runtime_resume end\n");
 
-	
 	return result;
 }
 
@@ -929,24 +965,27 @@ end_function:
 */
 int sep_resource_enable(void)
 {
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> sep_resource_enable start \n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> "\
+					"sep_resource_enable start\n");
 
 	/* get clk object */
 	sep_clk = clk_get(NULL, "Crypt1");
 	if (IS_ERR(sep_clk)) {
-		/* If an error is detected here, I delay handling it by sep_resume(). */
+		/* If an error is detected here, delay handling is done by
+		sep_resume(). */
 		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: clk_get() failed\n");
 		sep_clk = NULL;
-	}
-	else {
-		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: cc4.2_driver_runtime_resume :clk_get() passed\n");
+	} else {
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+			"cc4.2_driver_runtime_resume :clk_get() passed\n");
 	}
 
 	/* enable the runtime PM */
 	pm_runtime_enable(&sep_device.dev);
 	pm_runtime_resume(&sep_device.dev);
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_resource_enable end\n");
+
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- "\
+					"sep_resource_enable end\n");
 
 	return 0;
 }
@@ -957,8 +996,9 @@ int sep_resource_enable(void)
 void sep_resource_disable(void)
 {
 
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> sep_resource_disable start\n");
-	
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> "\
+						"sep_resource_disable start\n");
+
 	/* disable the runtime PM */
 	pm_runtime_disable(&sep_device.dev);
 
@@ -968,9 +1008,9 @@ void sep_resource_disable(void)
 		clk_put(sep_clk);
 		sep_clk = NULL;
 	}
-	
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_resource_disable end\n");
-	
+
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- "\
+					"sep_resource_disable end\n");
 }
 
 static int __devinit sep_probe(struct platform_device *pdev)
@@ -988,36 +1028,43 @@ static int __devinit sep_probe(struct platform_device *pdev)
 
 
 	/* get the resource of I/O memory */
-	res = platform_get_resource_byname(&sep_device,
-				IORESOURCE_MEM, SEP_MEM_RESOURCE_NAME);
+	res = platform_get_resource_byname(&sep_device,\
+			IORESOURCE_MEM, SEP_MEM_RESOURCE_NAME);
 	if (!res) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:get resource-data failed\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:"\
+						"get resource-data failed\n");
 		ret_val = -ENOMEM;
 		goto end_function;
 	}
 
 	/* remap the io memory region to the kernel addresses */
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: res->start = 0x%08x.\n", res->start);
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: resource_size(res) \
-			 = 0x%08zx.\n", resource_size(res));
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: res->start = 0x%08x.\n", \
+							res->start);
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: resource_size(res) "\
+			 "= 0x%08zx.\n", resource_size(res));
 	sep_context.reg_addr = ioremap_nocache(
 		res->start, resource_size(res));
 	if (!sep_context.reg_addr) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:io memory remap failed\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver:"\
+						"io memory remap failed\n");
 		ret_val = -ENOMEM;
 		goto end_function;
 	}
 
 	/* enable resource */
-  	ret_val = sep_resource_enable();
-  	if (ret_val) {
-    		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: sep_resource_enable() failed\n");
-    		goto end_function;
-  	}
+	ret_val = sep_resource_enable();
+	if (ret_val) {
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+					"sep_resource_enable() failed\n");
+		goto end_function;
+	}
+
+	/* Initialise the Semaphore */
+	sema_init(&sep_sem, 1);
 
 end_function:
 	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: sep_probe End\n");
-  	return ret_val;
+	return ret_val;
 }
 
 
@@ -1035,6 +1082,17 @@ static int sep_open(struct inode *inode_ptr, struct file *file_ptr)
 	error = 0;
 
 	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> open start\n");
+
+	/* Acquire semaphore lock, and wait for maximum of 3 sec */
+	error = down_timeout(&sep_sem, (long)msecs_to_jiffies(3000));
+	if (error) {
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> open start:"\
+					" Failed to acquire semaphore lock\n");
+		return -ETIME;
+	} else {
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> open start:"\
+						" Acquire semaphore lock\n");
+	}
 
 	/* fatal error check */
 	if (sep_fatal) {
@@ -1066,15 +1124,21 @@ static int sep_open(struct inode *inode_ptr, struct file *file_ptr)
 	if (error) {
 		edbg("pm_runtime_get_sync() failed\n");
 		error = -EBUSY;
-	}
-	else {
-		CC42_DEBUG_PRINT(KERN_INFO "sep_open : pm_runtime_get_sync() passed\n");
+	} else {
+		CC42_DEBUG_PRINT(KERN_INFO "sep_open : "\
+					"pm_runtime_get_sync() passed\n");
 	}
 
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- open end \n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- open end\n");
 
 end_function:
 
+	if (error) {
+		/* Release the Semaphore lock */
+		up(&sep_sem);
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- open End: "\
+				"Error occured - Release Semaphore lock\n");
+	}
 	return error;
 }
 
@@ -1090,7 +1154,7 @@ static int sep_release(struct inode *inode_ptr, struct file *file_ptr)
 	---------------------*/
 
 	error = 0;
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:--------> sep_release start\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:-------> sep_release start\n");
 
 
 	/* unlock mutex if it is owned */
@@ -1106,17 +1170,22 @@ static int sep_release(struct inode *inode_ptr, struct file *file_ptr)
 		error = -EFAULT;
 		goto end_function;
 	}
-	
+
 	/* power off */
 	error = pm_runtime_put_sync(&sep_device.dev);
 	if (error) {
 		edbg("pm_runtime_put_sync() failed\n");
-	}
-	else {
-		CC42_DEBUG_PRINT(KERN_INFO "sep_open : pm_runtime_put_sync() passed\n");
+	} else {
+		CC42_DEBUG_PRINT(KERN_INFO "sep_open : "\
+			"pm_runtime_put_sync() passed\n");
 	}
 
 end_function:
+	/* Release the Semaphore-lock */
+	up(&sep_sem);
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_release: "\
+						"Release semaphore lock\n");
+
 	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- sep_release end\n");
 
 	return error;
@@ -1143,8 +1212,8 @@ static int sep_mmap(struct file  *filp, struct vm_area_struct  *vma)
 	/*check that the size of the mapped range is as the size of the
 	message shared area */
 	if ((vma->vm_end - vma->vm_start) > SEP_DRIVER_MMMAP_AREA_SIZE) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver mmap requested size \
-				is more than allowed\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver mmap requested size "\
+				"is more than allowed\n");
 		error = -EAGAIN;
 		goto end_function;
 	}
@@ -1153,14 +1222,16 @@ static int sep_mmap(struct file  *filp, struct vm_area_struct  *vma)
 	/* get physical address */
 	phys_addr  = SEP_IO_MEM_REGION_START_ADDRESS ;
 
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: phys_addr is %08x\n", (u32)phys_addr);
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: phys_addr is %08x\n", \
+				(u32)phys_addr);
 
 	if (remap_pfn_range(vma,
 		vma->vm_start,
 		phys_addr >> PAGE_SHIFT,
 		vma->vm_end - vma->vm_start,
 		pgprot_noncached(vma->vm_page_prot))) {
-		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver remap_page_range failed\n");
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver "\
+						"remap_page_range failed\n");
 		error = -EAGAIN;
 
 		goto end_function;
@@ -1186,59 +1257,59 @@ void Chip_HwInit(void)
 	//
 	*******************************************/
 	/* system module-stop control/status register(s) 2 */
-	volatile cc42Reset, *pSRCR2 = 0 ;
+	volatile u32 cc42Reset, *pSRCR2 = 0 ;
 	int ret_status = 0;
 	unsigned long flags;
+	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+	int sec_hal_error = 0;
+	#endif
 
 	/* reset CC4.2 from system domain */
 	pSRCR2 = (u32 *)IO_ADDRESS(0xE61580B0);
 
 	/* Acquire HPB Semaphore lock */
-	CC42_DEBUG_PRINT("\n cc4.2_driver: Requesting HPB Semaphore \n");
-	ret_status = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg,
-										LOCK_TIME_OUT_MS, &flags);
-	if(ret_status == 0)
-	{
-	/*  generate a reset pulse like
-	//     ______
-	// ____|    |___________ */
+	CC42_DEBUG_PRINT("\n cc4.2_driver: Requesting HPB Semaphore\n");
+	ret_status = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, \
+					LOCK_TIME_OUT_MS, &flags);
+	if (ret_status == 0) {
+		/*  generate a reset pulse like
+		//     ______
+		// ____|    |___________ */
 
 		cc42Reset = __raw_readl(pSRCR2);
 		cc42Reset &= (~(1<<29)); /* CC4.2 module is set*/
 		__raw_writel(cc42Reset, pSRCR2);
-		hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
-	}
-	else {
-		CC42_DEBUG_PRINT("\n cc4.2_driver:Failed to acquire HPB Semaphore-I");
+		hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+	} else {
+		CC42_DEBUG_PRINT("\n cc4.2_driver:Failed to "\
+						"acquire HPB Semaphore-I");
 	}
 	udelay(10);
-	
-	ret_status = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg,
-										LOCK_TIME_OUT_MS, &flags);
-	if(ret_status == 0)
-	{
+
+	ret_status = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg,\
+					LOCK_TIME_OUT_MS, &flags);
+	if (ret_status == 0) {
 		cc42Reset = __raw_readl(pSRCR2);
 		cc42Reset |= (1<<29); /* CC4.2 module is being reset*/
 		__raw_writel(cc42Reset, pSRCR2);
-		hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
-	}
-	else {
-		CC42_DEBUG_PRINT("\n cc4.2_driver:Failed to acquire HPB Semaphore-II");
+		hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+	} else {
+		CC42_DEBUG_PRINT("\n cc4.2_driver:Failed to "\
+					"acquire HPB Semaphore-II");
 	}
 	udelay(40);
-	
-	ret_status = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg,
-										LOCK_TIME_OUT_MS, &flags);
-	if(ret_status == 0)
-	{
+
+	ret_status = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg,\
+					LOCK_TIME_OUT_MS, &flags);
+	if (ret_status == 0) {
 		cc42Reset = __raw_readl(pSRCR2);
 		cc42Reset &= (~(1<<29)); /* CC4.2 module is set*/
 		__raw_writel(cc42Reset, pSRCR2);
-		hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+		hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+	} else {
+		CC42_DEBUG_PRINT("\n cc4.2_driver:Failed to acquire "\
+							"HPB Semaphore-III");
 	}
-	else {
-		CC42_DEBUG_PRINT("\n cc4.2_driver:Failed to acquire HPB Semaphore-III");
-	}	
 	udelay(10);
 
 	/* reset CC4.2 chip/hw */
@@ -1258,6 +1329,19 @@ void Chip_HwInit(void)
 	CC42_DEBUG_PRINT(KERN_INFO "CC4.2 HW Version = 0x%08X\n",\
 			ioread32(sep_context.reg_addr+0x928));
 
+	/* RKEK Implementation*/
+	#if defined(CONFIG_ARM_TZ) && defined(CONFIG_PM_HAS_SECURE)
+	sec_hal_error = sec_hal_pm_public_cc42_key_init();
+	if (sec_hal_error) {
+		CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: "\
+		"sec_hal_pm_public_cc42_key_init failed with "\
+			"error 0x%x\n", sec_hal_error);
+		sep_rkek_return_value = sec_hal_error;
+	} else {
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+		"sec_hal_pm_public_cc42_key_init succeeded\n");
+	}
+	#endif
 }
 
 
@@ -1275,24 +1359,41 @@ static long sep_ioctl(
 	switch (cmd) {
 
 	case SEP_IOCCREATESYMDMATABLE:
-		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:SEP_IOCCREATESYMDMATABLE_CMD\n");
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:"\
+					"SEP_IOCCREATESYMDMATABLE_CMD\n");
 		/* create dma table for synhronic operation */
 		error = sep_create_sync_dma_tables_handler((void *)arg);
 		break;
 
 	case SEP_IOCFREEDMATABLEDATA:
 		 /* free the pages */
-		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:SEP_IOCFREEDMATABLEDATA_CMD\n");
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:"\
+					"SEP_IOCFREEDMATABLEDATA_CMD\n");
 		error = sep_free_dma_table_data_handler((void *)arg);
 		break;
 
 	case SEP_HW_INIT:
-		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:SEP_HW_INIT COMMAND\n");
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:"\
+					"SEP_HW_INIT COMMAND\n");
 		Chip_HwInit();
 		break ;
 
+	case SEP_CHECK_RKEK_VALUE:
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:"\
+					"SEP_CHECK_RKEK_VALUE\n");
+		if (copy_to_user((void __user *)arg, \
+			(void *)&sep_rkek_return_value, sizeof(int))) {
+			error = -EFAULT;
+			CC42_DEBUG_PRINT(KERN_ERR "cc4.2_driver: Failed "\
+			"to copy RKEK return value to user space\n", error);
+		} else {
+			CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: "\
+			"Successfully copied RKEK value to user space\n");
+		}
+		break ;
+
 	default:
-		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: **** NO COMMAND ****\n");
+		CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: ** NO COMMAND **\n");
 		error = -ENOTTY;
 		break;
 	}
@@ -1316,6 +1417,7 @@ static void sep_init_context(void)
 	sep_context.out_num_pages = 0;
 	sep_context.in_map_array = 0;
 	sep_context.out_map_array = 0;
+	sep_rkek_return_value = 0;
 
 	/* init transaction mutex */
 	mutex_init(&sep_context.transaction_mutex);
@@ -1340,17 +1442,17 @@ static int __init sep_init(void)
 {
 
 	/* return value */
-	int			ret_val;
-	CC42_DEBUG_PRINT(KERN_INFO "Inside sep_init function \n");
+	int ret_val;
+	CC42_DEBUG_PRINT(KERN_INFO "Inside sep_init function\n");
 
 	/*------------------------
 	CODE
 	------------------------*/
 
 	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:-------->Init start\n");
-	
+
 	/* initialize wakelock object */
- 	wake_lock_init(&sep_wakelock, WAKE_LOCK_SUSPEND, "sep_wakelock");
+	wake_lock_init(&sep_wakelock, WAKE_LOCK_SUSPEND, "sep_wakelock");
 
 	ret_val = 0;
 
@@ -1359,16 +1461,17 @@ static int __init sep_init(void)
 
 	ret_val = sep_register_driver_to_device();
 	if (ret_val) {
-		CC42_DEBUG_PRINT(KERN_ERR "sep_driver:sep_driver_to_device \
-			failed,ret_val is %d\n", ret_val);
+		CC42_DEBUG_PRINT(KERN_ERR "sep_driver:sep_driver_to_device "\
+			"failed,ret_val is %d\n", ret_val);
 		goto end_function_unregister_driver_from_device;
 	}
 
 	/* register driver to fs */
 	ret_val = sep_register_driver_to_fs();
 	if (ret_val) {
-		CC42_DEBUG_PRINT(KERN_ERR "sep_driver:sep_register_driver_to_fs \
-			failed,ret_val is %d\n", ret_val);
+		CC42_DEBUG_PRINT(KERN_ERR "sep_driver:" \
+			"sep_register_driver_to_fs failed,ret_val is %d\n", \
+			ret_val);
 		goto end_function_deallocate_sep_shared_area;
 	}
 
@@ -1404,14 +1507,15 @@ static void __exit sep_exit(void)
 
 	/* unregister from fs */
 	sep_unregister_driver_from_fs();
-	
+
 	/* disable resource */
-  	sep_resource_disable();
+	sep_resource_disable();
 
 	/* destroy wakelock object */
-  	wake_lock_destroy(&sep_wakelock);
+	wake_lock_destroy(&sep_wakelock);
 
-	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver: free pages cc4.2 SHARED AREA\n");
+	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:free pages "\
+						"cc4.2 SHARED AREA\n");
 
 	CC42_DEBUG_PRINT(KERN_INFO "cc4.2_driver:<-------- Exit end\n");
 
@@ -1419,8 +1523,8 @@ static void __exit sep_exit(void)
 
 
 struct dev_pm_ops sep_pm_ops = {
-	.suspend			= sep_driver_suspend,
-	.resume				= sep_driver_resume,
+	.suspend		= sep_driver_suspend,
+	.resume			= sep_driver_resume,
 	.runtime_suspend	= sep_driver_runtime_suspend,
 	.runtime_resume		= sep_driver_runtime_resume,
 };

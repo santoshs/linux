@@ -1,6 +1,6 @@
 #ifdef CONFIG_VIBRATOR_ISA1000A
 
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/gpio.h>
 #include <linux/isa1000a_haptic.h>
 #include <linux/platform_device.h>
@@ -42,7 +42,7 @@ static struct platform_device isa1000_device = {
 static void isa1000_gpio_init(void)
 {
 	gpio_request(GPIO_MOTOR_EN, "MOTOR_EN");
-	gpio_direction_output(GPIO_MOTOR_EN, 1);
+	gpio_direction_output(GPIO_MOTOR_EN, 0);
 	gpio_export(GPIO_MOTOR_EN, 0);
 }
 

@@ -1,6 +1,6 @@
 /* vcd.h
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -23,28 +23,38 @@
 #define VCD_PROC_FILE_NAME_LOG_LEVEL	"log_level"
 #define VCD_PROC_FILE_NAME_EXEC_FUNC	"exec_func"
 
-#define VCD_PROC_BUF_SIZE	32
+#define VCD_PROC_BUF_SIZE		32
 
-#define VCD_POLL_READ_OK	1
-#define VCD_POLL_READ_NG	0
+#define VCD_POLL_READ_OK		1
+#define VCD_POLL_READ_NG		0
 
-#define VCD_PROC_IF_GET_MSG_BUFFER_LOG		\
-		"[VCD <- AMHAL] : '0'  - GET_MSG_BUFFER\n"
-#define VCD_PROC_IF_START_VCD_LOG		\
-		"[VCD <- AMHAL] : '1'  - START_VCD\n"
-#define VCD_PROC_IF_STOP_VCD_LOG		\
-		"[VCD <- AMHAL] : '2'  - STOP_VCD\n"
-#define VCD_PROC_IF_SET_HW_PARAM_LOG		\
-		"[VCD <- AMHAL] : '3'  - SET_HW_PARAM\n"
-#define VCD_PROC_IF_START_CALL_LOG		\
-		"[VCD <- AMHAL] : '4'  - START_CALL\n"
-#define VCD_PROC_IF_STOP_CALL_LOG		\
-		"[VCD <- AMHAL] : '5'  - STOP_CALL\n"
-#define VCD_PROC_IF_SET_UDATA_LOG		\
-		"[VCD <- AMHAL] : '9'  - SET_UDATA\n"
-#define VCD_PROC_IF_GET_STATUS_LOG		\
-		"[VCD <- AMHAL] : '10' - GET_STATUS\n"
-
+#define VCD_IF_GET_MSG_BUFFER_LOG	"[ <- AMHAL] GET_MSG_BUFFER\n"
+#define VCD_IF_SET_BINARY_BUF_LOG	"[ <- AMHAL] SET_BINARY(BUF)\n"
+#define VCD_IF_SET_BINARY_PRE_LOG	"[ <- AMHAL] SET_BINARY(PRE)\n"
+#define VCD_IF_SET_BINARY_MAIN_LOG	"[ <- AMHAL] SET_BINARY(MAIN)\n"
+#define VCD_IF_SET_BINARY_POST_LOG	"[ <- AMHAL] SET_BINARY(POST)\n"
+#define VCD_IF_START_VCD_LOG		"[ <- AMHAL] START_VCD\n"
+#define VCD_IF_STOP_VCD_LOG		"[ <- AMHAL] STOP_VCD\n"
+#define VCD_IF_SET_HW_PARAM_LOG		"[ <- AMHAL] SET_HW_PARAM\n"
+#define VCD_IF_START_CALL_LOG		"[ <- AMHAL] START_CALL\n"
+#define VCD_IF_STOP_CALL_LOG		"[ <- AMHAL] STOP_CALL\n"
+#define VCD_IF_SET_UDATA_LOG		"[ <- AMHAL] SET_UDATA\n"
+#define VCD_IF_GET_STATUS_LOG		"[ <- AMHAL] GET_STATUS\n"
+#define VCD_IF_SET_CALL_MODE_LOG	"[ <-  PT  ] SET_CALL_MODE\n"
+#define VCD_IF_START_RECORD_LOG		"[ <- SOUND] START_RECORD\n"
+#define VCD_IF_STOP_RECORD_LOG		"[ <- SOUND] STOP_RECORD\n"
+#define VCD_IF_START_PLAYBACK_LOG	"[ <- SOUND] START_PLAYBACK\n"
+#define VCD_IF_STOP_PLAYBACK_LOG	"[ <- SOUND] STOP_PLAYBACK\n"
+#define VCD_IF_GET_RECORD_BUFFER_LOG	"[ <- SOUND] GET_RECORD_BUFFER\n"
+#define VCD_IF_GET_PLAYBACK_BUFFER_LOG	"[ <- SOUND] GET_PLAYBACK_BUFFER\n"
+#define VCD_IF_GET_VOIP_UL_BUFFER_LOG	"[ <- SOUND] GET_VOIP_UL_BUFFER\n"
+#define VCD_IF_GET_VOIP_DL_BUFFER_LOG	"[ <- SOUND] GET_VOIP_DL_BUFFER\n"
+#define VCD_IF_WATCH_FW_LOG		"[ <- SOUND] WATCH_FW\n"
+#define VCD_IF_WATCH_FW_PT_LOG		"[ <-  PT  ] WATCH_FW_PT\n"
+#define VCD_IF_WATCH_CLKGEN_LOG		"[ <- SOUND] WATCH_CLKGEN\n"
+#define VCD_IF_WATCH_CLKGEN_PT_LOG	"[ <-  PT  ] WATCH_CLKGEN\n"
+#define VCD_IF_WATCH_CODEC_TYPE_LOG	"[ <- SOUND] WATCH_CODEC_TYPE\n"
+#define VCD_IF_WAIT_PATH_LOG		"[ <- SOUND] WAIT_PATH\n"
 
 /*
  * define macro declaration
@@ -86,6 +96,8 @@ enum VCD_DEBUG_COMMAND {
 	VCD_DEBUG_DUMP_DSPIO_MEMORY,
 	VCD_DEBUG_DUMP_SDRAM_STATIC_AREA_MEMORY,
 	VCD_DEBUG_DUMP_FW_STATIC_BUFFER_MEMORY,
+	VCD_DEBUG_DUMP_FW_CRASHLOG,
+	VCD_DEBUG_DUMP_DIAMOND_MEMORY,
 	VCD_DEBUG_SET_CALL_MODE,
 	VCD_DEBUG_SET_1KHZ_TONE_MODE,
 	VCD_DEBUG_SET_PCM_LOOPBACK_MODE,
@@ -94,6 +106,8 @@ enum VCD_DEBUG_COMMAND {
 	VCD_DEBUG_SET_MODE_1,
 	VCD_DEBUG_SET_MODE_2,
 	VCD_DEBUG_SET_MODE_3,
+	VCD_DEBUG_CALC_TRIGGER_START,
+	VCD_DEBUG_CALC_TRIGGER_STOP,
 };
 
 
@@ -124,14 +138,22 @@ struct vcd_async_wait {
 void vcd_complete_buffer(void);
 void vcd_beginning_buffer(void);
 void vcd_start_fw(void);
-void vcd_stop_fw(void);
+void vcd_stop_fw(int result);
+void vcd_stop_fw_stored_playback(void);
+void vcd_codec_type_ind(unsigned int codec_type);
 void vcd_udata_ind(void);
 void vcd_start_clkgen(void);
 void vcd_wait_path(void);
 void vcd_voip_ul_callback(unsigned int buf_size);
 void vcd_voip_dl_callback(unsigned int buf_size);
+void vcd_get_semaphore(void);
+void vcd_release_semaphore(void);
 
 /* Internal functions */
+static int vcd_get_binary_buffer(void);
+static int vcd_set_binary_preprocessing(char *file_path);
+static int vcd_set_binary_main(unsigned int write_size);
+static int vcd_set_binary_postprocessing(void);
 static int vcd_get_msg_buffer(void);
 static int vcd_get_async_area(void);
 static int vcd_free_async_area(void);
@@ -144,7 +166,7 @@ static int vcd_set_udata(void);
 static void vcd_get_status(void);
 
 static int vcd_set_call_mode(void *arg);
-static void vcd_async_notify(unsigned int cb_type);
+static void vcd_async_notify(unsigned int cb_type, int result);
 static int vcd_start_record(void *arg);
 static int vcd_stop_record(void *arg);
 static int vcd_start_playback(void *arg);
@@ -152,7 +174,10 @@ static int vcd_stop_playback(void *arg);
 static int vcd_get_record_buffer(void *arg);
 static int vcd_get_playback_buffer(void *arg);
 static int vcd_watch_fw(void *arg);
+static int vcd_watch_fw_pt(void *arg);
 static int vcd_watch_clkgen(void *arg);
+static int vcd_watch_clkgen_pt(void *arg);
+static int vcd_watch_codec_type(void *arg);
 static int vcd_set_wait_path(void *arg);
 static int vcd_get_voip_ul_buffer(void *arg);
 static int vcd_get_voip_dl_buffer(void *arg);
@@ -179,6 +204,7 @@ static void vcd_debug_watch_start_fw(void);
 static void vcd_debug_watch_stop_fw(void);
 static void vcd_debug_watch_start_clkgen(void);
 static void vcd_debug_watch_stop_clkgen(void);
+static void vcd_debug_watch_codec_type(unsigned int codec_type);
 
 static int vcd_create_proc_entry(void);
 static void vcd_remove_proc_entry(void);

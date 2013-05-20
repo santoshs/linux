@@ -28,10 +28,12 @@
 #include <linux/ioport.h>
 #include <linux/gpio.h>
 #include <linux/fs.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/sh_dma.h>
 #include <linux/dmaengine.h>
 #include <linux/pcm2pwm.h>
+#include <linux/dma-direction.h>
+#include <linux/dma-mapping.h>
 
 #ifdef DEBUG_PCM2PWM
 #include <linux/uaccess.h>
@@ -57,6 +59,15 @@ static void pcm2pwm_delete_debug_if(void);
 static ssize_t pcm2pwm_test_write(struct file *filp, const char __user *buf,
 						size_t count, loff_t *ppos);
 #endif	/* DEBUG_PCM2PWM */
+
+#define CLKGEN_PHY_BASE    (0xEC270000)
+#define CLKGEN_REG_MAX     (0x0098)
+#define CLKGEN_MAP_LEN     (CLKGEN_REG_MAX + 4)
+#define CLKGSYSCTL         0
+#define CLKGTIMSEL1        0x58
+#define CLKGCPF0COM        0x18
+#define CLKGPULSECTL       0x4
+void __iomem *iomem_addr_clkgen = NULL
 
 /* Enumurate */
 enum pcm2pwm_state {
@@ -344,6 +355,15 @@ extern int pcm2pwm_open(void)
 		return -EBUSY;
 	}
 
+	/* map I/O memory clkgen*/
+		iomem_addr_clkgen = ioremap_nocache(CLKGEN_PHY_BASE,
+					CLKGEN_MAP_LEN);
+	if (iomem_addr_clkgen == NULL) {
+		printk(KERN_ERR "[ERR]%s[%d] CLKGEN IO memory map failed\n",
+							__func__, __LINE__);
+		return -EINVAL;
+	}
+
 	pcm2pwm_platdevice.state = PCM2PWM_OPEN;
 
 	return ret;
@@ -373,6 +393,9 @@ extern int pcm2pwm_close(void)
 	}
 
 	pdev = pcm2pwm_platdevice.pdev;
+
+	/* unmap I/O memory clkgen */
+	iounmap((void *)iomem_addr_clkgen);
 
 	/* unmap I/O memory */
 	iounmap(pcm2pwm_platdevice.base_address);
@@ -509,21 +532,23 @@ extern int pcm2pwm_enable(enum pcm2pwm_request_state state,
 
 	/*
 	 * Setting for CLKGEN-----------------------------------------------
+	 * Implemention of iomem_addr_clkgen to access right IO_ADDRESS of
+	 * CLKGEN using ioread32/iowrite32
 	*/
 	/* [CLKGEN] 1.CLKGSYSCTL */
-	__raw_writel(0x00000000, IO_ADDRESS(0xEC270000));
+	iowrite32(0x00000000, iomem_addr_clkgen + CLKGSYSCTL);
 
 	/* [CLKGEN] 2.CLKGTIMSEL1: choose port CPUFIFO 0 TIM */
-	__raw_writel(0x40000000, IO_ADDRESS(0xEC270058));
+	iowrite32(0x40000000, iomem_addr_clkgen + CLKGTIMSEL1);
 
 	/* [CLKGEN] 3.CLKGCPF0COM:
 		Mono, 32fs, 8khz , non-continuous mode, master bit */
-	 __raw_writel(0x00000101, IO_ADDRESS(0xEC270018));
+	iowrite32(0x00000101, iomem_addr_clkgen + CLKGCPF0COM);
+	val32 = ioread32(iomem_addr_clkgen + 0x04);
+	val32 = val32 | 0x00000004;
 
 	/* [CLKGEN] 4.CLKGPULSECTL: pulse enable for cpu-fifo0 */
-	val32 = __raw_readl(IO_ADDRESS(0xEC270004));
-	val32 = val32 | 0x00000004;
-	__raw_writel(val32, IO_ADDRESS(0xEC270004));
+	iowrite32(val32, iomem_addr_clkgen + CLKGPULSECTL);
 
 	/* start DMA transfer */
 	ret = dma_request_start(src, data_sz);
@@ -635,10 +660,10 @@ static int dma_request_start(const void *buf, unsigned int buf_size)
 	sg_dma_address(pcm2pwm_dma_dev.tx_sg) =
 		(sg_dma_address(pcm2pwm_dma_dev.tx_sg) & ~(PAGE_SIZE  - 1));
 
-	tx_desc = chan->device->device_prep_slave_sg(chan,
+		tx_desc = dmaengine_prep_slave_sg(chan,
 					pcm2pwm_dma_dev.tx_sg,
 					pcm2pwm_dma_dev.tx_sg_len,
-					DMA_TO_DEVICE,
+					DMA_MEM_TO_DEV,
 					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!tx_desc) {
 		dma_request_release();
@@ -711,11 +736,11 @@ static void work_dma_callback(struct work_struct *work)
 	dma_cookie_t tx_cookie;
 	chan = pcm2pwm_dma_dev.tx_chan;
 	mutex_lock(&pcm2pwm_mutex);
-	pcm2pwm_dma_dev.tx_desc = chan->device->device_prep_slave_sg(
+	pcm2pwm_dma_dev.tx_desc = dmaengine_prep_slave_sg(
 					chan,
 					pcm2pwm_dma_dev.tx_sg,
 					pcm2pwm_dma_dev.tx_sg_len,
-					DMA_TO_DEVICE,
+					DMA_MEM_TO_DEV,
 					DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 	if (!pcm2pwm_dma_dev.tx_desc) {
 		dma_request_release();

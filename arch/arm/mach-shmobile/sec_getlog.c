@@ -30,8 +30,8 @@ void sec_getlog_supply_fbinfo(void *p_fb, u32 xres, u32 yres, u32 bpp,
 	if (p_fb) {
 		pr_info("%s: 0x%p %d %d %d %d\n", __func__, p_fb, xres, yres,
 			bpp, frames);
-		frame_buf_mark.p_fb = p_fb;
-		frame_buf_mark.xres = xres;
+		frame_buf_mark.p_fb = (void*)0xc0100000;  /* temp code for  screenbuffer(0x4bc00000)  */
+		frame_buf_mark.xres = (((xres+0x7)>>3)<<3);
 		frame_buf_mark.yres = yres;
 		frame_buf_mark.bpp = bpp;
 		frame_buf_mark.frames = frames;
@@ -84,10 +84,10 @@ void sec_getlog_supply_loggerinfo(void *p_main,
 {
 	pr_info("%s: 0x%p 0x%p 0x%p 0x%p\n", __func__, p_main, p_radio,
 		p_events, p_system);
-	plat_log_mark.p_main = p_main;
-	plat_log_mark.p_radio = p_radio;
-	plat_log_mark.p_events = p_events;
-	plat_log_mark.p_system = p_system;
+	plat_log_mark.p_main = p_main+0x03500000;  /* due to screen buffer, RLTE ramdump gets  datas from 0x4bc00000.  so must be added 0x1000000 */
+	plat_log_mark.p_radio = p_radio+0x03500000;
+	plat_log_mark.p_events = p_events+0x03500000;
+	plat_log_mark.p_system = p_system+0x03500000;
 }
 EXPORT_SYMBOL(sec_getlog_supply_loggerinfo);
 
@@ -107,16 +107,16 @@ static struct {
 void sec_getlog_supply_kloginfo(void *klog_buf)
 {
 	pr_info("%s: 0x%p\n", __func__, klog_buf);
-	kernel_log_mark.klog_buf = klog_buf;
+	kernel_log_mark.klog_buf = klog_buf+0x03500000;
 }
 EXPORT_SYMBOL(sec_getlog_supply_kloginfo);
 
 static int __init sec_getlog_init(void)
 {
 	marks_ver_mark.mem[0].size = meminfo.bank[0].size;
-	marks_ver_mark.mem[0].addr = meminfo.bank[0].start;
+ 	marks_ver_mark.mem[0].addr = meminfo.bank[0].start;
 	marks_ver_mark.mem[1].size = meminfo.bank[1].size;
-	marks_ver_mark.mem[1].addr = meminfo.bank[1].start;
+ 	marks_ver_mark.mem[1].addr = meminfo.bank[1].start;
 
 	return 0;
 }

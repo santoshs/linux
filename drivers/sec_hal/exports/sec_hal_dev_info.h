@@ -17,9 +17,7 @@
 
 
 #define DEVNAME     "sectz"
-#define RPCDEVNAME  DEVNAME "_rpc"
 #define MODNAME     "SEC_HAL"
-const char* k_modname = MODNAME;
 
 
 #endif /* DEVINFO_H */

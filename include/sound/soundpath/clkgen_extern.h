@@ -27,7 +27,7 @@
 #endif
 
 /* CLKGEN start */
-CLKGEN_CTRL_NO_EXTERN int clkgen_start(const u_int uiValue, const int iRate);
+CLKGEN_CTRL_NO_EXTERN int clkgen_start(const u_int uiValue, const int iRate, const u_int rate);
 /* CLKGEN stop */
 CLKGEN_CTRL_NO_EXTERN void clkgen_stop(void);
 /* CLKGEN registers dump */

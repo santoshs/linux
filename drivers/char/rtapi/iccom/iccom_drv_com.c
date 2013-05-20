@@ -2,7 +2,7 @@
  * iccom_drv_com.c
  *	 Inter Core Communication driver common function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -26,22 +26,15 @@
 #include "iccom_drv.h"
 #include "iccom_drv_common.h"
 #include "iccom_drv_private.h"
-/* MU2SYS1418 ---> */
 #include "iccom_drv_id.h"
-/* MU2SYS1418 <--- */
 
 
 static iccom_fatal_info g_iccom_fatal;			  /* fatal information */
 static struct list_head g_iccom_list_recv;		  /* queue header */
 static spinlock_t g_iccom_lock_recv_list;		  /* spinlock for receive */
 static spinlock_t g_iccom_lock_fatal;			  /* spinlock for fatal */
-extern struct completion g_iccom_async_completion;  /* completion for asynchronous */
-extern spinlock_t			g_iccom_lock_handle_list;
-extern struct list_head		g_iccom_list_handle;
 
-/* MU2SYS1418 ---> */ 
-static void 			*iccom_handle;			/* iccomhandle for log */
-/* MU2SYS1418 <--- */
+static void				*iccom_handle;			/* iccomhandle for log */
 
 /******************************************************************************/
 /* Function   : iccom_create_handle											  */
@@ -82,6 +75,8 @@ iccom_drv_handle *iccom_create_handle(
 		}
 	} else {
 		MSG_ERROR("[ICCOMK]ERR| handle allocate error.\n");
+		MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
+		return (iccom_drv_handle *)NULL;
 	}
 
 	handle_list = kmalloc(sizeof(*handle_list), GFP_KERNEL);
@@ -89,6 +84,8 @@ iccom_drv_handle *iccom_create_handle(
 		MSG_ERROR("[ICCOMK]ERR| handle list allocate error.\n");
 		memset(handle, 0, alloc_size);
 		kfree(handle);
+		MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
+		return (iccom_drv_handle *)NULL;
 	} else {
 		handle_list->handle = handle;
 
@@ -115,7 +112,7 @@ void iccom_destroy_handle(
 	spin_lock_irqsave(&g_iccom_lock_handle_list, flag);
 	list_for_each_entry(handle_list, &g_iccom_list_handle, list) {
 		if (handle_list->handle == handle) {
-			MSG_MED("[ICCOMK]INF|list[0x%08x] handle[0x%08x]\n", 
+			MSG_MED("[ICCOMK]INF|list[0x%08x] handle[0x%08x]\n",
 			(unsigned int)handle_list->handle, (unsigned int)handle);
 			list_del(&handle_list->list);
 			kfree(handle_list);
@@ -364,9 +361,8 @@ void iccom_leak_check(
 	return;
 }
 
-/* MU2SYS1418 ---> */
 /******************************************************************************/
-/* Function   : iccom_log_request 											  */
+/* Function   : iccom_log_request											  */
 /* Description: log output													  */
 /******************************************************************************/
 static void iccom_log_request(void *user_data, int result, int func_id,
@@ -382,7 +378,7 @@ static void iccom_log_request(void *user_data, int result, int func_id,
 	switch (func_id) {
 	case EVENT_DEBUG_STARTOUTPUTLOG:
 		if ((0 < length) && (0 != addr)) {
-			printk(KERN_ALERT "[RTDomain]%s",addr);
+			printk(KERN_ALERT "[RTDomain]%s", addr);
 		}
 		break;
 	default:
@@ -393,7 +389,7 @@ static void iccom_log_request(void *user_data, int result, int func_id,
 }
 
 /******************************************************************************/
-/* Function   : iccom_log_start 											  */
+/* Function   : iccom_log_start												  */
 /* Description: log start													  */
 /******************************************************************************/
 void iccom_log_start(void)
@@ -440,7 +436,7 @@ void iccom_log_start(void)
 }
 
 /******************************************************************************/
-/* Function   : iccom_log_stop 												  */
+/* Function   : iccom_log_stop												  */
 /* Description: log stop													  */
 /******************************************************************************/
 void iccom_log_stop(void)
@@ -456,4 +452,4 @@ void iccom_log_stop(void)
 	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
 	return;
 }
-/* MU2SYS1418 <--- */
+

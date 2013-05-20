@@ -48,6 +48,7 @@ struct thermal_sensor {
 	struct work_struct 		tj0_work;
 	struct work_struct 		tj1_work;
 	struct work_struct 		tj2_work;
+	struct work_struct      tj3_work;
 	struct workqueue_struct 	*queue;
 	struct thermal_sensor_data  	pdata[2];
 	int 				ths_irq;

@@ -2,7 +2,7 @@
  * system_rtload_internal.h
  *     RT domain boot internal function header file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -43,8 +43,9 @@ typedef struct {
 	unsigned long		command_area_size;
 	unsigned long		load_flag;
 	system_rt_img_info	img[RT_LEVEL_MAX];
-	unsigned long		displaybuff_address;
-	unsigned long		displaybuff_size;
+	unsigned long		sh_pmb_offset;
+	unsigned long		sh_pmb_nc_offset;
+	unsigned long		mfi_pmb_offset;
 } system_rt_section_header;
 
 typedef struct {
@@ -52,8 +53,6 @@ typedef struct {
 } get_section_header_param;
 
 
-int sys_get_section_header(
-	get_section_header_param	*param
-);
+int sys_get_section_header(get_section_header_param *param);
 
 #endif /* __SYSTEM_RTLOAD_INTERNAL_H__ */

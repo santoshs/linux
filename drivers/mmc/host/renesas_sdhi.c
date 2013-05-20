@@ -15,16 +15,16 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
+#include <linux/sh_dma.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/workqueue.h>
+#include <linux/slab.h>
 #include <linux/pagemap.h>
 #include <linux/scatterlist.h>
 #include <linux/clk.h>
 #include <linux/io.h>
-#include <linux/slab.h>
 #include <linux/mmc/host.h>
-#include <linux/mmc/core.h>
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/renesas_sdhi.h>
 #include <mach/gpio.h>
@@ -115,6 +115,10 @@
 
 
 #define SDHI_MIN_DMA_LEN	8
+#define SDHI_TIMEOUT		5000	/* msec */
+
+#define SD_CLK_CMD_DELAY   200     /* microseconds */
+unsigned int wakeup_from_suspend_sd;
 
 /* sdcard1_detect_state variable used to detect the state of the SD card */
 static int sdcard1_detect_state;
@@ -140,6 +144,10 @@ struct renesas_sdhi_host {
 	void __iomem *base;
 
 	/* current state */
+	unsigned long bus_shift;
+
+	/* current state */
+	u8 sdio_irq_enabled;
 	u8 bus_width;
 	u8 power_mode;
 	u8 app_mode;
@@ -155,11 +163,15 @@ struct renesas_sdhi_host {
 
 	struct workqueue_struct *work;
 	struct delayed_work	detect_wq;
+	struct delayed_work	timeout_wq;
 
 	/* DMA support */
 	bool			force_pio;
+	struct sh_dmae_slave	dma_slave_tx;
+	struct sh_dmae_slave	dma_slave_rx;
 	struct dma_chan		*dma_tx;
 	struct dma_chan		*dma_rx;
+	u32			burst_size;
 
 	/* pio related stuff */
 	struct scatterlist      *sg_ptr;
@@ -167,23 +179,26 @@ struct renesas_sdhi_host {
 	unsigned int            sg_len;
 	unsigned int            sg_off;
 	struct sdhi_register_value *reg;
+#ifdef CONFIG_PM
+	int state;
+#endif
 };
 
 static u16 sdhi_read16(struct renesas_sdhi_host *host, u32 offset)
 {
-	return __raw_readw(host->base + offset);
+	return __raw_readw(host->base + (offset << host->bus_shift));
 }
 
 static void sdhi_read16s(struct renesas_sdhi_host *host,
 		u32 offset, u16 *buf, int count)
 {
-	__raw_readsw(host->base + offset, buf, count);
+	__raw_readsw(host->base + (offset << host->bus_shift), buf, count);
 }
 
 static u32 sdhi_read32(struct renesas_sdhi_host *host, u32 offset)
 {
-	return __raw_readw(host->base + offset) |
-		__raw_readw(host->base + offset + 2) << 16;
+	return __raw_readw(host->base + (offset << host->bus_shift)) |
+	__raw_readw(host->base + ((offset + 2) << host->bus_shift)) << 16;
 }
 
 static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
@@ -206,7 +221,7 @@ static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 		}
 		break;
 	}
-	__raw_writew(val, host->base + offset);
+	__raw_writew(val, host->base + (offset << host->bus_shift));
 }
 
 static int sdhi_save_register(struct renesas_sdhi_host *host)
@@ -240,7 +255,7 @@ static int sdhi_restore_register(struct renesas_sdhi_host *host)
        sdhi_write16(host, SDHI_SOFT_RST, 0x0001);
 
        sdhi_write16(host, SDHI_INFO2, sdhi_read16(host, SDHI_INFO2) | (1 << 13));
-       
+
        sdhi_write16(host, SDHI_CLK_CTRL, reg->sd_clk_ctrl);
        sdhi_write16(host, SDHI_INFO_MASK, reg->sd_info1_mask);
        sdhi_write16(host, SDHI_INFO2_MASK, reg->sd_info2_mask);
@@ -255,17 +270,16 @@ static int sdhi_restore_register(struct renesas_sdhi_host *host)
        return 0;
 }
 
-
 static void sdhi_write16s(struct renesas_sdhi_host *host,
 		u32 offset, u16 *buf, int count)
 {
-	__raw_writesw(host->base + offset, buf, count);
+	__raw_writesw(host->base + (offset << host->bus_shift), buf, count);
 }
 
 static void sdhi_write32(struct renesas_sdhi_host *host, u32 offset, u32 val)
 {
-	__raw_writew(val & 0xffff, host->base + offset);
-	__raw_writew(val >> 16, host->base + offset + 2);
+	__raw_writew(val & 0xffff, host->base + (offset << host->bus_shift));
+	__raw_writew(val >> 16, host->base + ((offset + 2) << host->bus_shift));
 }
 
 static void sdhi_enable_irqs(struct renesas_sdhi_host *host, u32 i)
@@ -282,16 +296,12 @@ static void sdhi_disable_irqs(struct renesas_sdhi_host *host, u32 i)
 
 static void sdhi_dma_enable(struct renesas_sdhi_host *host, bool enable)
 {
-	u16 val;
+	struct renesas_sdhi_platdata *pdata = host->pdata;
 
-	sdhi_write16(host, SDHI_DMA_MODE,
-			enable ? host->pdata->dma_en_val : 0);
+	sdhi_write16(host, SDHI_DMA_MODE, enable ? pdata->dma_en_val : 0);
 
-	if (host->pdata->dma_buf_acc32) {
-		val = sdhi_read16(host, SDHI_EXT_ACC);
-		sdhi_write16(host, SDHI_EXT_ACC,
-				enable ? (val | 1) : (val & ~1));
-	}
+	if (pdata->flags & RENESAS_SDHI_DMA_SLAVE_CONFIG)
+		pdata->set_dma(host->pdev, 2);
 }
 
 static void sdhi_reset(struct renesas_sdhi_host *host)
@@ -306,24 +316,48 @@ static void sdhi_reset(struct renesas_sdhi_host *host)
 	sdhi_write32(host, SDHI_INFO, 0);
 	sdhi_write16(host, SDHI_OPTION, SDHI_OPT_WIDTH1 | SDHI_OPT_TIMEOUT);
 
+	/*
+	 * Ensure that the data size of DMA transfer is set to default '2'
+	 * on reset, regardless of RENESAS_SDHI_DMA_SLAVE_CONFIG option.
+	 */
+	if (host->pdata->set_dma)
+		host->pdata->set_dma(host->pdev, 2);
+
 	host->clock = 0;
 	host->bus_width = 0;
 	host->app_mode = 0;
 	host->force_pio = false;
+	host->burst_size = 0;
 }
 
 static void renesas_sdhi_set_clock(
 	struct renesas_sdhi_host *host, int new_clock)
 {
-	u32 clk = 0, clock;
+	u32 clk = 0, clock, flags = host->pdata->flags;
+	u16 val16;
 
 	if (new_clock) {
 		for (clock = host->mmc->f_min, clk = 0x80000080;
 				new_clock >= (clock<<1); clk >>= 1)
 			clock <<= 1;
 		clk |= 0x100;
-		if (host->pdata->flags & RENESAS_SDHI_SDCLK_OFFEN)
+		if (flags & RENESAS_SDHI_SDCLK_OFFEN)
 			clk |= 0x200;
+		if (flags & RENESAS_SDHI_SDCLK_DIV1 &&
+				new_clock == host->mmc->f_max)
+			clk |= 0xff;
+	}
+	if (flags & RENESAS_SDHI_SDCLK_DIV1) {
+		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
+		if ((clk & 0xff) == 0xff || (val16 & 0xff) == 0xff) {
+			val16 &= ~0x100;
+			sdhi_write16(host, SDHI_CLK_CTRL, val16);
+			val16 = clk & 0xff;
+			sdhi_write16(host, SDHI_CLK_CTRL, val16);
+			val16 |= clk & 0x300;
+			sdhi_write16(host, SDHI_CLK_CTRL, val16);
+			return;
+		}
 	}
 	sdhi_write16(host, SDHI_CLK_CTRL, clk & 0x3ff);
 }
@@ -331,21 +365,31 @@ static void renesas_sdhi_set_clock(
 static void renesas_sdhi_power(struct renesas_sdhi_host *host, int power)
 {
 	struct renesas_sdhi_platdata *pdata = host->pdata;
-
+	int ret = 0;
 	switch (power) {
 	case 1:
 		if (pdata->set_pwr)
-			pdata->set_pwr(host->pdev, 1);
+			pdata->set_pwr(host->pdev, RENESAS_SDHI_POWER_ON);
 		if (host->dynamic_clock) {
-			pm_runtime_get_sync(&host->pdev->dev);
-			sdhi_reset(host);
+			ret = pm_runtime_get_sync(&host->pdev->dev);
+			if (0 > ret)
+				printk(KERN_ALERT "[%s]ret %d/n",__func__,ret);
+			else
+				sdhi_reset(host);
 		}
 		break;
 	default:
-		if (host->dynamic_clock)
-			pm_runtime_put_sync(&host->pdev->dev);
-		if (pdata->set_pwr)
-			pdata->set_pwr(host->pdev, 0);
+		if (host->dynamic_clock) {
+			ret = pm_runtime_put_sync(&host->pdev->dev);
+			if (0 > ret)
+				printk(KERN_ALERT "[%s]ret %d/n",__func__,ret);
+			else
+			{
+				if (pdata->set_pwr)
+					pdata->set_pwr(host->pdev,
+						 RENESAS_SDHI_POWER_OFF);
+			}
+		}
 		break;
 	}
 }
@@ -378,8 +422,7 @@ static void renesas_sdhi_pio_irq(struct renesas_sdhi_host *host)
 		return;
 	}
 
-	sg_virt = kmap_atomic(sg_page(host->sg_ptr), KM_BIO_SRC_IRQ) +
-			host->sg_ptr->offset;
+	sg_virt = kmap_atomic(sg_page(host->sg_ptr)) + host->sg_ptr->offset;
 	buf = (unsigned short *)(sg_virt + host->sg_off);
 
 	count = host->sg_ptr->length - host->sg_off;
@@ -394,7 +437,7 @@ static void renesas_sdhi_pio_irq(struct renesas_sdhi_host *host)
 
 	host->sg_off += count;
 
-	kunmap_atomic(sg_virt - host->sg_ptr->offset, KM_BIO_SRC_IRQ);
+	kunmap_atomic(sg_virt - host->sg_ptr->offset);
 
 	if (host->sg_off == host->sg_ptr->length)
 		renesas_sdhi_next_sg(host);
@@ -404,13 +447,13 @@ static void renesas_sdhi_data_done(
 	struct renesas_sdhi_host *host, struct mmc_command *cmd)
 {
 	struct mmc_data *data = host->data;
-	int dir;
+	enum dma_transfer_direction dir;
 	u32 val;
 
 	if (data) {
 		if (!host->force_pio) {
 			dir = (host->data->flags & MMC_DATA_READ) ?
-				DMA_FROM_DEVICE : DMA_TO_DEVICE;
+				DMA_DEV_TO_MEM : DMA_MEM_TO_DEV;
 			dma_unmap_sg(mmc_dev(host->mmc), host->sg_ptr,
 						host->sg_len, dir);
 		}
@@ -482,6 +525,7 @@ static void renesas_sdhi_cmd_done(
 			else
 				dmaengine_terminate_all(host->dma_tx);
 		}
+		__cancel_delayed_work(&host->timeout_wq);
 		renesas_sdhi_data_done(host, host->cmd);
 	} else {
 		sdhi_disable_irqs(host, SDHI_INFO_RSP_END);
@@ -503,11 +547,11 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 	/* sdio */
 	if (!status) {
 		sdio_status = sdhi_read16(host, SDHI_SDIO_INFO);
-		sdhi_write16(host, SDHI_SDIO_INFO, 0);
-		if (sdio_status & SDHI_SDIO_IOIRQ) {
+		if (sdio_status & SDHI_SDIO_IOIRQ)
 			mmc_signal_sdio_irq(mmc);
-			goto end;
-		}
+		else
+			sdhi_write16(host, SDHI_SDIO_INFO, 0); /* just in case */
+		goto end;
 	}
 
 	if (status & SDHI_INFO_DETECT) {
@@ -560,6 +604,7 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 	}
 
 	if (status & SDHI_INFO_RW_END) {
+		__cancel_delayed_work(&host->timeout_wq);
 		renesas_sdhi_data_done(host, host->cmd);
 		goto end;
 	}
@@ -576,6 +621,8 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		container_of(work, struct renesas_sdhi_host, detect_wq.work);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 status;
+
+	flush_delayed_work_sync(&host->mmc->detect);
 
 	clk_enable(host->clk);
 
@@ -604,7 +651,7 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 	/* PMIC End */
 
 
-	if (!IS_ERR_OR_NULL(host->mrq)) {
+	if (!IS_ERR_OR_NULL(host->mrq) || !IS_ERR_OR_NULL(host->cmd)) {
 		if (host->mrq->cmd)
 			host->mrq->cmd->error = -ENOMEDIUM;
 		if (host->mrq->data) {
@@ -613,6 +660,7 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 				dmaengine_terminate_all(host->dma_tx);
 			if (host->dma_rx)
 				dmaengine_terminate_all(host->dma_rx);
+			cancel_delayed_work(&host->timeout_wq);
 		}
 		renesas_sdhi_data_done(host, host->cmd);
 	}
@@ -640,6 +688,58 @@ static irqreturn_t renesas_sdhi_detect_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void renesas_sdhi_timeout_work(struct work_struct *work)
+{
+	struct renesas_sdhi_host *host =
+		container_of(work, struct renesas_sdhi_host, timeout_wq.work);
+	unsigned long flags;
+	int timeout = 0;
+	u32 val;
+
+	spin_lock_irqsave(&host->lock, flags);
+
+	if (IS_ERR_OR_NULL(host->mrq)) {
+		spin_unlock_irqrestore(&host->lock, flags);
+		return;
+	}
+
+	sdhi_disable_irqs(host, 0xffffffff);
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	dev_err(&host->pdev->dev,
+		"timeout waiting for hardware interrupt (CMD%u)\n",
+		host->cmd->opcode);
+
+	sdhi_write16(host, SDHI_STOP,
+			sdhi_read16(host, SDHI_STOP) | SDHI_STOP_STOP);
+	while ((sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DIVEN) == 0) {
+		if (timeout++ > 1000) {
+			dev_err(&host->pdev->dev,
+				"timeout waiting STOP command\n");
+			break;
+		}
+		msleep(1);
+	}
+
+	if (host->dma_tx)
+		dmaengine_terminate_all(host->dma_tx);
+	if (host->dma_rx)
+		dmaengine_terminate_all(host->dma_rx);
+
+	host->cmd->error = -ETIMEDOUT;
+	host->data->error = -ETIMEDOUT;
+
+	val = sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DETECT;
+	sdhi_write32(host, SDHI_INFO, val);
+
+	host->info_mask = 0xffffffff;
+	sdhi_enable_irqs(host, SDHI_INFO_ALLERR);
+	if (!host->dynamic_clock)
+		sdhi_enable_irqs(host, SDHI_INFO_DETECT);
+
+	renesas_sdhi_data_done(host, host->cmd);
+}
+
 static bool renesas_sdhi_filter(struct dma_chan *chan, void *arg)
 {
 	dev_dbg(chan->device->dev, "%s: slave data %p\n", __func__, arg);
@@ -650,9 +750,15 @@ static bool renesas_sdhi_filter(struct dma_chan *chan, void *arg)
 static void renesas_sdhi_request_dma(struct renesas_sdhi_host *host)
 {
 	struct renesas_sdhi_platdata *pdata = host->pdata;
+	struct sh_dmae_slave *tx, *rx;
 
-	if (!pdata->dma)
+	if (!pdata->slave_id_tx || !pdata->slave_id_rx)
 		return;
+
+	tx = &host->dma_slave_tx;
+	tx->slave_id = pdata->slave_id_tx;
+	rx = &host->dma_slave_rx;
+	rx->slave_id = pdata->slave_id_rx;
 
 	if (!host->dma_tx && !host->dma_rx) {
 		dma_cap_mask_t mask;
@@ -661,7 +767,7 @@ static void renesas_sdhi_request_dma(struct renesas_sdhi_host *host)
 		dma_cap_set(DMA_SLAVE, mask);
 
 		host->dma_tx = dma_request_channel(mask,
-			renesas_sdhi_filter, &pdata->dma->chan_tx);
+				renesas_sdhi_filter, tx);
 		dev_dbg(&host->pdev->dev, "%s: TX: got channel %p\n",
 				__func__, host->dma_tx);
 
@@ -669,7 +775,7 @@ static void renesas_sdhi_request_dma(struct renesas_sdhi_host *host)
 			return;
 
 		host->dma_rx = dma_request_channel(mask,
-			renesas_sdhi_filter, &pdata->dma->chan_rx);
+				renesas_sdhi_filter, rx);
 		dev_dbg(&host->pdev->dev, "%s: RX: got channel %p\n",
 					__func__, host->dma_rx);
 
@@ -703,11 +809,57 @@ static void renesas_sdhi_dma_callback(void *arg)
 		sdhi_enable_irqs(host, SDHI_INFO_RW_END);
 }
 
+static void renesas_sdhi_config_dma(struct renesas_sdhi_host *host,
+				    unsigned int length, unsigned int offset)
+{
+	struct renesas_sdhi_platdata *pdata = host->pdata;
+	struct dma_slave_config config;
+	int burst_size, ret;
+
+	config.src_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	config.dst_addr_width = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	if ((length % 32 == 0) && (offset % 32 == 0)) {
+		burst_size = 32;
+		config.src_maxburst = 16;
+		config.dst_maxburst = 16;
+		pdata->set_dma(host->pdev, 32);
+	} else if ((length % 16 == 0) && (offset % 16 == 0)) {
+		burst_size = 16;
+		config.src_maxburst = 8;
+		config.dst_maxburst = 8;
+		pdata->set_dma(host->pdev, 16);
+	} else {
+		burst_size = 2;
+		config.src_maxburst = 1;
+		config.dst_maxburst = 1;
+	}
+
+	if (burst_size == host->burst_size)
+		return;
+
+	config.direction = DMA_DEV_TO_MEM;
+	ret = dmaengine_slave_config(host->dma_rx, &config);
+
+	config.direction = DMA_MEM_TO_DEV;
+	ret |= dmaengine_slave_config(host->dma_tx, &config);
+
+	if (ret) {
+		dev_err(&host->pdev->dev,
+			"%s(): dmaengine_slave_config error\n", __func__);
+		host->burst_size = 2;
+		pdata->set_dma(host->pdev, 2);
+		return;
+	}
+
+	host->burst_size = burst_size;
+}
+
 static void renesas_sdhi_start_dma(
 	struct renesas_sdhi_host *host, struct mmc_data *data)
 {
 	struct scatterlist *sg = host->sg_ptr, *sg_tmp;
-	int dir, count, i;
+	enum dma_transfer_direction dir;
+	int count, i;
 	struct dma_async_tx_descriptor *desc = NULL;
 	struct dma_chan *chan;
 	dma_cookie_t cookie;
@@ -727,12 +879,15 @@ static void renesas_sdhi_start_dma(
 	sdhi_dma_enable(host, true);
 
 	if (data->flags & MMC_DATA_READ) {
-		dir = DMA_FROM_DEVICE;
+		dir = DMA_DEV_TO_MEM;
 		chan = host->dma_rx;
 	} else {
-		dir = DMA_TO_DEVICE;
+		dir = DMA_MEM_TO_DEV;
 		chan = host->dma_tx;
 	}
+
+	if (host->pdata->flags & RENESAS_SDHI_DMA_SLAVE_CONFIG)
+		renesas_sdhi_config_dma(host, sg->length, sg->offset);
 
 	count = dma_map_sg(chan->device->dev, data->sg, data->sg_len, dir);
 	if (count <= 0) {
@@ -740,8 +895,7 @@ static void renesas_sdhi_start_dma(
 		goto force_pio;
 	}
 
-	desc = chan->device->device_prep_slave_sg(chan,
-			data->sg, count, dir, DMA_CTRL_ACK);
+	desc = dmaengine_prep_slave_sg(chan, data->sg, count, dir, DMA_CTRL_ACK);
 	if (desc) {
 		desc->callback = renesas_sdhi_dma_callback;
 		desc->callback_param = host;
@@ -754,7 +908,7 @@ static void renesas_sdhi_start_dma(
 		}
 	} else {
 		dev_err(&host->pdev->dev,
-			"%s(): device_prep_slave_sg error\n", __func__);
+			"%s(): dmaengine_prep_slave_sg error\n", __func__);
 		dmaengine_terminate_all(chan);
 		goto force_pio;
 	}
@@ -787,6 +941,7 @@ static void renesas_sdhi_setup_data(
 static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 			struct mmc_command *cmd, u16 cmddat)
 {
+	u16 val16;
 	host->cmd = cmd;
 
 	cmddat |= cmd->opcode;
@@ -825,8 +980,27 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 	dev_dbg(&host->pdev->dev, "CMD %d %x %x %x %x\n",
 		cmd->opcode, cmd->arg, cmd->flags, cmd->retries, cmddat);
 
-	/* Send command */
-	sdhi_write16(host, SDHI_CMD, cmddat);
+
+	if (wakeup_from_suspend_sd == 1) {
+		clk_enable(host->clk);
+		/* Disable automatic control for SD clock output */
+		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
+		sdhi_write16(host, SDHI_CLK_CTRL, (val16 & ~0x200)|0x100);
+
+		/* Delay of 200 us */
+		udelay(SD_CLK_CMD_DELAY);
+
+		/* Send command */
+		sdhi_write16(host, SDHI_CMD, cmddat);
+
+		/* enable card clock */
+		sdhi_write16(host, SDHI_CLK_CTRL, val16);
+		wakeup_from_suspend_sd = 0;
+		clk_disable(host->clk);
+	} else {
+		/* Send command */
+		sdhi_write16(host, SDHI_CMD, cmddat);
+	}
 }
 
 static void renesas_sdhi_request(struct mmc_host *mmc, struct mmc_request *mrq)
@@ -863,6 +1037,8 @@ static void renesas_sdhi_request(struct mmc_host *mmc, struct mmc_request *mrq)
 			cmddat |= SDHI_CMD_MULTI;
 			sdhi_write16(host, SDHI_STOP, SDHI_STOP_MULTI);
 		}
+		queue_delayed_work(host->work, &host->timeout_wq,
+					msecs_to_jiffies(SDHI_TIMEOUT));
 	}
 
 	renesas_sdhi_start_cmd(host, mrq->cmd, cmddat);
@@ -941,6 +1117,11 @@ static void renesas_sdhi_enable_sdio_irq(struct mmc_host *mmc, int enable)
 	struct renesas_sdhi_host *host = mmc_priv(mmc);
 	u32 val;
 
+	if (host->sdio_irq_enabled == enable)
+		return;
+
+	host->sdio_irq_enabled = enable;
+
 	if (enable) {
 		clk_enable(host->clk);
 		val = sdhi_read16(host, SDHI_SDIO_INFO_MASK);
@@ -952,18 +1133,10 @@ static void renesas_sdhi_enable_sdio_irq(struct mmc_host *mmc, int enable)
 		val |= SDHI_SDIO_IOIRQ;
 		sdhi_write16(host, SDHI_SDIO_MODE, 0x0000);
 		sdhi_write16(host, SDHI_SDIO_INFO_MASK, val);
+		sdhi_write16(host, SDHI_SDIO_INFO, 0);
 		clk_disable(host->clk);
 	}
 }
-
-static const struct mmc_host_ops renesas_sdhi_ops = {
-	.request	= renesas_sdhi_request,
-	.set_ios	= renesas_sdhi_set_ios,
-	.get_ro         = renesas_sdhi_get_ro,
-	.get_cd		= renesas_sdhi_get_cd,
-	.enable_sdio_irq = renesas_sdhi_enable_sdio_irq,
-};
-
 
 static ssize_t sdhi_detect_show(struct kobject *kobj,
 					struct kobj_attribute *attr, char *buf)
@@ -1000,6 +1173,41 @@ static int sdhi_sysfs_init(struct renesas_sdhi_host *host)
 	return ret;
 }
 
+static int renesas_sdhi_signal_voltage_switch(
+		struct mmc_host *mmc, struct mmc_ios *ios)
+{
+	struct renesas_sdhi_host *host = mmc_priv(mmc);
+	struct renesas_sdhi_platdata *pdata = host->pdata;
+	u16 val16;
+
+	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
+		if (pdata->set_pwr)
+			pdata->set_pwr(host->pdev, RENESAS_SDHI_SIGNAL_V330);
+	} else if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
+		clk_enable(host->clk);
+
+		/* disable card clock */
+		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
+		sdhi_write16(host, SDHI_CLK_CTRL, val16 & ~0x100);
+
+		if (pdata->set_pwr)
+			pdata->set_pwr(host->pdev, RENESAS_SDHI_SIGNAL_V180);
+
+		/* enable card clock */
+		sdhi_write16(host, SDHI_CLK_CTRL, val16);
+		clk_disable(host->clk);
+	}
+	return 0;
+}
+
+static const struct mmc_host_ops renesas_sdhi_ops = {
+	.request	= renesas_sdhi_request,
+	.set_ios	= renesas_sdhi_set_ios,
+	.get_ro         = renesas_sdhi_get_ro,
+	.get_cd		= renesas_sdhi_get_cd,
+	.enable_sdio_irq = renesas_sdhi_enable_sdio_irq,
+	.start_signal_voltage_switch = renesas_sdhi_signal_voltage_switch,
+};
 
 static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 {
@@ -1057,6 +1265,17 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	host->pdata = pdata;
  	host->reg = reg;
 
+#if defined(CONFIG_MFD_D2153)
+	/*This call only used for updating the usage count of regulator,
+		as it is already turned on from bootloader.*/
+	if (pdata->set_pwr)
+		pdata->set_pwr(host->pdev, 1);
+#endif
+	/* powr off */
+	host->power_mode = MMC_POWER_OFF;
+	if (pdata->set_pwr)
+		pdata->set_pwr(host->pdev, 0);
+
 	if (!pdata->dma_en_val)
 		pdata->dma_en_val = SDHI_DMA_EN;
 	if (!pdata->dma_alignment)
@@ -1072,6 +1291,10 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	}
 	host->hclk = clk_get_rate(host->clk);
 	clk_enable(host->clk);
+
+	/* SD control register space size is 0x100, 0x200 for bus_shift=1 */
+	host->bus_shift = resource_size(res) >> 9;
+
 	host->base = ioremap(res->start, resource_size(res));
 	if (!host->base) {
 		ret = -ENOMEM;
@@ -1101,6 +1324,12 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	spin_lock_init(&host->lock);
 	host->work = create_singlethread_workqueue("sdhi");
 	INIT_DELAYED_WORK(&host->detect_wq, renesas_sdhi_detect_work);
+	INIT_DELAYED_WORK(&host->timeout_wq, renesas_sdhi_timeout_work);
+
+	if ((pdata->flags & RENESAS_SDHI_DMA_SLAVE_CONFIG) && !pdata->set_dma) {
+		ret = -EINVAL;
+		goto err3;
+	}
 
 	pm_runtime_enable(&pdev->dev);
 	ret = pm_runtime_resume(&pdev->dev);
@@ -1112,15 +1341,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 			ret = -EINVAL;
 			goto err4;
 		}
-
-	/* PMIC Start: Disable the Power source if card not available.
-		Will happen at board boot-up */
-		if (!(host->connect = pdata->get_cd(pdev))) {
-			if (pdata->set_pwr)
-				pdata->set_pwr(pdev, 0);
-		}
-	/* PMIC End: */
-
+		host->connect = pdata->get_cd(pdev);
 		host->dynamic_clock = 1;
 	} else if (host->pdata->caps &
 			(MMC_CAP_NEEDS_POLL | MMC_CAP_NONREMOVABLE)) {
@@ -1134,6 +1355,11 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
 		host->dynamic_clock = 0;
 	}
+
+	if (host->connect == 1)
+		wakeup_from_suspend_sd = 1;
+	else
+		wakeup_from_suspend_sd = 0;
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		/* updating the SD card presence*/
@@ -1176,6 +1402,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 					pdata->detect_irq);
 			goto err5;
 		}
+		device_init_wakeup(&pdev->dev, 1);
 	}
 
 	dev_info(&pdev->dev, "%s base at 0x%08lx clock rate %u MHz\n",
@@ -1195,10 +1422,13 @@ err4:
 		pdata->set_pwr(pdev, 0);
 	/* PMIC End */
 err3:
+	if (host->work)
+		destroy_workqueue(host->work);
 	iounmap(host->base);
 err2:
 	clk_put(host->clk);
 err1:
+	kfree(reg);
 	mmc_free_host(mmc);
 	return ret;
 }
@@ -1208,7 +1438,7 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	int i, irq;
-
+	int ret = 0;
 	mmc_remove_host(host->mmc);
 
 	cancel_delayed_work_sync(&host->detect_wq);
@@ -1225,10 +1455,14 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 	if (pdata->detect_irq)
 		free_irq(pdata->detect_irq, host);
 
+	kfree(host->reg);
+
 	platform_set_drvdata(pdev, NULL);
 	if (!host->dynamic_clock) {
 		clk_disable(host->clk);
-		pm_runtime_put_sync(&pdev->dev);
+	ret = pm_runtime_put_sync(&pdev->dev);
+	if (0 > ret)
+		return -1;
 	}
 
 	mmc_free_host(host->mmc);
@@ -1239,72 +1473,37 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static void renesas_sdhi_gpio_setting(struct renesas_sdhi_platdata *pdata,
-								int mode)
-{
-	int i;
-	int port;
-	struct renesas_sdhi_gpio_setting *gpio_before, *gpio_after;
-
-	for (i = 0; i < pdata->port_cnt; i++) {
-
-		port = pdata->gpio_setting_info[i].port;
-		if (mode == 1) {
-			gpio_after  = &pdata->gpio_setting_info[i].active;
-			gpio_before = &pdata->gpio_setting_info[i].deactive;
-		} else {
-			gpio_after = &pdata->gpio_setting_info[i].deactive;
-			gpio_before  = &pdata->gpio_setting_info[i].active;
-		}
-
-		if (pdata->gpio_setting_info[i].flag == 1) {
-			gpio_free(gpio_before->port_mux);
-			gpio_request(gpio_after->port_mux, NULL);
-
-			switch (gpio_after->direction) {
-			case RENESAS_SDHI_DIRECTION_NONE:
-				gpio_direction_input(port);
-				gpio_direction_none_port(port);
-				break;
-			case RENESAS_SDHI_DIRECTION_OUTPUT:
-				gpio_direction_output(port, 
-					gpio_after->out_level);
-				break;
-
-			case RENESAS_SDHI_DIRECTION_INPUT:
-				gpio_direction_input(port);
-				break;
-			}
-
-			switch (gpio_after->pull) {
-			case RENESAS_SDHI_PULL_OFF:
-				gpio_pull_off_port(port);
-				break;
-			case RENESAS_SDHI_PULL_DOWN:
-				gpio_pull_down_port(port);
-				break;
-
-			case RENESAS_SDHI_PULL_UP:
-				gpio_pull_up_port(port);
-				break;
-			}
-		}
-	}
-	return;
-}
-
+#define CHANNEL_SDHI1	1
+#define OFF		0
 int renesas_sdhi_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
-	int ret = mmc_suspend_host(host->mmc);
+	struct renesas_sdhi_platdata *pdata = host->pdata;
+	int ret = 0;
+
+	if (CHANNEL_SDHI1 == pdev->id) {
+		if (pdata->get_pwr)
+			host->state = pdata->get_pwr(host->pdev);
+	}
+	ret = mmc_suspend_host(host->mmc);
 	sdhi_save_register(host);
 	if (!host->dynamic_clock) {
 		clk_disable(host->clk);
 		
 	}
-	pm_runtime_put_sync(dev);
-	renesas_sdhi_gpio_setting(host->pdata, 0);
+	ret = pm_runtime_put_sync(dev);
+	if (0 > ret)
+		return -1;
+	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
+		if (host->pdata != NULL)
+			gpio_set_portncr_value(host->pdata->port_cnt,
+				host->pdata->gpio_setting_info, 1);
+	}
+
+	if (device_may_wakeup(dev))
+		enable_irq_wake(host->pdata->detect_irq);
+
 	return ret;
 }
 
@@ -1312,8 +1511,15 @@ int renesas_sdhi_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
+	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 val;
-	renesas_sdhi_gpio_setting(host->pdata, 1);
+	u32 ret = 0;
+
+	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
+		if (host->pdata != NULL)
+			gpio_set_portncr_value(host->pdata->port_cnt,
+				host->pdata->gpio_setting_info, 0);
+	}
 	pm_runtime_get_sync(dev);
 	if (!host->dynamic_clock) {
 		clk_enable(host->clk);
@@ -1322,8 +1528,16 @@ int renesas_sdhi_resume(struct device *dev)
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
 	}
  	sdhi_restore_register(host);
+	ret = mmc_resume_host(host->mmc);
 
-	return mmc_resume_host(host->mmc);
+	if (CHANNEL_SDHI1 == pdev->id) {
+		if (OFF == host->state) {
+			if (pdata->set_pwr)
+				pdata->set_pwr(host->pdev, 0);
+		}
+	}
+	wakeup_from_suspend_sd = 1;
+	return ret;
 }
 #else
 #define renesas_sdhi_suspend	NULL
@@ -1345,18 +1559,7 @@ static struct platform_driver renesas_sdhi_driver = {
 	},
 };
 
-static int __init renesas_sdhi_init(void)
-{
-	return platform_driver_register(&renesas_sdhi_driver);
-}
-
-static void __exit renesas_sdhi_exit(void)
-{
-	platform_driver_unregister(&renesas_sdhi_driver);
-}
-
-module_init(renesas_sdhi_init);
-module_exit(renesas_sdhi_exit);
+module_platform_driver(renesas_sdhi_driver);
 
 MODULE_DESCRIPTION("Renesas SDHI driver");
 MODULE_AUTHOR("Renesas");

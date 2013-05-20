@@ -37,6 +37,12 @@
 #include <linux/l2mux.h>
 #include <linux/etherdevice.h>
 #include <linux/pkt_sched.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <net/ipv6.h>
+#include <linux/udp.h>
+#include <net/mhi/sock.h>
+#include <linux/wakelock.h>
 
 #ifdef CONFIG_MHDP_BONDING_SUPPORT
 #define MHDP_BONDING_SUPPORT
@@ -64,6 +70,9 @@
 /* Print every MHDP SKB content */
 /* #define MHDP_DEBUG_SKB */
 
+//#define CONFIG_MHI_DEBUG
+
+#define UDP_PROT_TYPE	17
 
 #define EPRINTK(...)    printk(KERN_DEBUG "MHI/MHDP: " __VA_ARGS__)
 
@@ -108,12 +117,16 @@ struct mhdp_tunnel {
 struct mhdp_net {
 	struct mhdp_tunnel	*tunnels;
 	struct net_device	*ctl_dev;
+	struct mhdp_udp_filter	udp_filter;
+	spinlock_t udp_lock;
 #ifdef MHDP_USE_NAPI
 	struct net_device	*dev;
 	struct napi_struct	napi;
 	struct sk_buff_head	skb_list;
 #endif /*#ifdef MHDP_USE_NAPI*/
-
+	int wake_lock_time;
+	struct wake_lock wakelock;
+	spinlock_t wl_lock;
 };
 
 struct packet_info {
@@ -140,6 +153,16 @@ static int mhdp_netdev_event(struct notifier_block *this,
 static void tx_timer_timeout(unsigned long arg);
 
 
+static ssize_t mhdp_write_wakelock_value(struct device *dev,
+					struct device_attribute *attr,
+						const char *buf,
+						size_t count);
+static ssize_t mhdp_read_wakelock_value(struct device *dev,
+					struct device_attribute *attr,
+					char *buf);
+
+
+
 #ifdef MHDP_USE_NAPI
 
 static int mhdp_poll(struct napi_struct *napi, int budget);
@@ -153,6 +176,15 @@ static int  mhdp_net_id __read_mostly;
 
 static struct notifier_block mhdp_netdev_notifier = {
 	.notifier_call = mhdp_netdev_event,
+};
+
+
+static struct device_attribute mhdpwl_dev_attrs[] = {
+	__ATTR(mhdp_wakelock_time,
+			S_IRUGO | S_IWUSR,
+			mhdp_read_wakelock_value,
+			mhdp_write_wakelock_value),
+	__ATTR_NULL,
 };
 
 /*** Funtions ***/
@@ -183,7 +215,7 @@ __print_skb_content(struct sk_buff *skb, const char *tag)
 	/* SKB fragments */
 	for (i = 0; i < (skb_shinfo(skb)->nr_frags); i++) {
 		frag = &skb_shinfo(skb)->frags[i];
-		page = frag->page;
+		page = skb_frag_page(frag);
 
 		ptr = page_address(page);
 
@@ -198,13 +230,18 @@ __print_skb_content(struct sk_buff *skb, const char *tag)
 }
 #endif
 
-
+/**
+ * mhdp_net_dev - Get mhdp_net structure of mhdp tunnel
+ */
 static inline struct mhdp_net *
 mhdp_net_dev(struct net_device *dev)
 {
 	return net_generic(dev_net(dev), mhdp_net_id);
 }
 
+/**
+ * mhdp_tunnel_init - Initialize MHDP tunnel
+ */
 static void
 mhdp_tunnel_init(struct net_device *dev,
 		 struct mhdp_tunnel_parm *parms,
@@ -217,6 +254,8 @@ mhdp_tunnel_init(struct net_device *dev,
 
 	tunnel->next = mhdpn->tunnels;
 	mhdpn->tunnels = tunnel;
+	spin_lock_init(&mhdpn->wl_lock);
+
 
 	tunnel->dev         = dev;
 	tunnel->master_dev  = master_dev;
@@ -228,6 +267,9 @@ mhdp_tunnel_init(struct net_device *dev,
 	spin_lock_init (&tunnel->timer_lock);
 }
 
+/**
+ * mhdp_tunnel_destroy - Destroy MHDP tunnel
+ */
 static void
 mhdp_tunnel_destroy(struct net_device *dev)
 {
@@ -236,6 +278,9 @@ mhdp_tunnel_destroy(struct net_device *dev)
 	unregister_netdevice(dev);
 }
 
+/**
+ * mhdp_destroy_tunnels - Initialize all MHDP tunnels
+ */
 static void
 mhdp_destroy_tunnels(struct mhdp_net *mhdpn)
 {
@@ -247,6 +292,9 @@ mhdp_destroy_tunnels(struct mhdp_net *mhdpn)
 	mhdpn->tunnels = NULL;
 }
 
+/**
+ * mhdp_locate_tunnel - Retrieve MHDP tunnel thanks to PDN
+ */
 static struct mhdp_tunnel *
 mhdp_locate_tunnel(struct mhdp_net *mhdpn, int pdn_id)
 {
@@ -259,6 +307,9 @@ mhdp_locate_tunnel(struct mhdp_net *mhdpn, int pdn_id)
 	return NULL;
 }
 
+/**
+ * mhdp_add_tunnel - Add MHDP tunnel
+ */
 static struct net_device *
 mhdp_add_tunnel(struct net *net, struct mhdp_tunnel_parm *parms)
 {
@@ -301,7 +352,260 @@ err_alloc_dev:
 	return NULL;
 }
 
+/**
+ * mhdp_write_wakelock_value - store the wakelock value in mhdp
+ * @dev: Device to be created
+ * @attr: attribute of sysfs
+ * @buf: output stringwait
+ */
+static ssize_t
+mhdp_write_wakelock_value(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	int retval = count;
+	unsigned long flags;
+	struct mhdp_net *mhdpn = dev_get_drvdata(dev);
+	long int time;
 
+	if (kstrtol(buf, 10, &time)) {
+		EPRINTK("%s cannot access to wake lock time", __func__);
+		return -EINVAL;
+	}
+	spin_lock_irqsave(&mhdpn->wl_lock, flags);
+	mhdpn->wake_lock_time = (int)time;
+	spin_unlock_irqrestore(&mhdpn->wl_lock, flags);
+
+	DPRINTK("%s wake_lock_time = %d\n",
+				__func__,
+				mhdpn->wake_lock_time);
+
+	if ((wake_lock_active(&mhdpn->wakelock)) &&
+		(mhdpn->wake_lock_time <= 0)) {
+
+		wake_unlock(&mhdpn->wakelock);
+
+	} else if ((wake_lock_active(&mhdpn->wakelock)) &&
+			(mhdpn->wake_lock_time > 0)) {
+
+		wake_lock_timeout(&mhdpn->wakelock,
+					mhdpn->wake_lock_time * HZ);
+	}
+	return retval;
+}
+/**
+ * mhdp_read_wakelock_value - read the wakelock value in mhdp
+ * @dev: Device to be created
+ * @attr: attribute of sysfs
+ * @buf: output stringwait
+ */
+static ssize_t
+mhdp_read_wakelock_value(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct mhdp_net *mhdpn = dev_get_drvdata(dev);
+
+	if (mhdpn)
+		return sprintf(buf, "%d\n", mhdpn->wake_lock_time);
+
+	return sprintf(buf, "%d\n", 0);
+}
+
+
+/**
+ * mmhdp_check_wake_lock - check the wakelock state and restart wake lock if any
+ * @dev: net Device pointer
+ */
+void mhdp_check_wake_lock(struct net_device *dev)
+{
+	unsigned long flags;
+	struct mhdp_net *mhdpn = mhdp_net_dev(dev);
+
+	spin_lock_irqsave(&mhdpn->wl_lock, flags);
+
+	if (mhdpn->wake_lock_time != 0) {
+
+		spin_unlock_irqrestore(&mhdpn->wl_lock, flags);
+
+		wake_lock_timeout(&mhdpn->wakelock,
+					mhdpn->wake_lock_time * HZ);
+	} else {
+		spin_unlock_irqrestore(&mhdpn->wl_lock, flags);
+	}
+}
+
+
+static void
+mhdp_set_udp_filter(struct mhdp_net *mhdpn,
+			struct mhdp_udp_filter *filter)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&mhdpn->udp_lock, flags);
+	mhdpn->udp_filter.port_id = filter->port_id;
+	mhdpn->udp_filter.active = 1;
+	spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
+}
+
+
+static void
+mhdp_reset_udp_filter(struct mhdp_net *mhdpn)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&mhdpn->udp_lock, flags);
+	mhdpn->udp_filter.port_id = 0;
+	mhdpn->udp_filter.active = 0;
+	spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
+
+}
+
+
+static int
+mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
+{
+	struct ipv6hdr *ipv6header;
+	struct iphdr *ipv4header;
+	struct udphdr *udphdr;
+	int ret = 0;
+	unsigned char *next_hdr;
+	unsigned char next_hdr_lgth;
+	unsigned int size_of_previous_hdr;
+	struct sk_buff *newskb;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mhdpn->udp_lock, flags);
+
+	if (mhdpn->udp_filter.active == 0) {
+		spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
+		return 0;
+	}
+	spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
+
+	/*if udp, check port number*/
+	if (skb->protocol == htons(ETH_P_IP)) {
+
+		ipv4header = ip_hdr(skb);
+
+		if (ipv4header->protocol == UDP_PROT_TYPE) {
+
+			udphdr = (struct udphdr *)(
+					(unsigned int *)ipv4header +
+					ipv4header->ihl);
+
+
+			if (htons(udphdr->dest) == mhdpn->udp_filter.port_id) {
+				size_of_previous_hdr = ipv4header->ihl *
+							sizeof(unsigned int);
+				ret = 1;
+				DPRINTK("MHDP_FILTER: IPv4 packet filtered out");
+			}
+		}
+
+	} else if (skb->protocol == htons(ETH_P_IPV6)) {
+
+		ipv6header = ipv6_hdr(skb);
+		next_hdr = &ipv6header->nexthdr;
+
+		DPRINTK("MHDP_FILTER: IPv6 packet found 0x%02x", *next_hdr);
+
+		if ((*next_hdr != UDP_PROT_TYPE) &&
+			(*next_hdr != NEXTHDR_TCP))  {
+
+			DPRINTK("MHDP_FILTER: parsing header stack");
+
+			next_hdr = (unsigned char*)(ipv6header + sizeof(struct ipv6hdr));
+
+			/*parse the supported next_hdr until UDP is found*/
+			while ((*next_hdr != NEXTHDR_UDP) &&
+					(*next_hdr != NEXTHDR_TCP) &&
+					(*next_hdr != NEXTHDR_ICMP) &&
+					(*next_hdr != NEXTHDR_NONE) &&
+			((u32)(ipv6header + htons(ipv6header->payload_len)
+					+ sizeof(struct ipv6hdr))
+				> (u32)next_hdr)) {
+
+				DPRINTK("MHDP_FILTER: 0x%02x @ 0x%x", *next_hdr, next_hdr);
+
+				if (*next_hdr == NEXTHDR_FRAGMENT) {
+
+					next_hdr += 8*sizeof(char);
+
+				} else if (*next_hdr == NEXTHDR_IPV6) {
+
+					next_hdr += sizeof(struct ipv6hdr);
+
+				} else if ((*next_hdr == NEXTHDR_HOP) ||
+					(*next_hdr == NEXTHDR_ROUTING) ||
+					(*next_hdr == NEXTHDR_DEST)) {
+
+					next_hdr_lgth = *(next_hdr +
+								sizeof(char))+8*sizeof(char);
+					next_hdr += next_hdr_lgth;
+
+					DPRINTK("MHDP_FILTER: next_hdr_lgth = %d, next_hdr = 0x%x", next_hdr_lgth, next_hdr);
+
+				} else {
+					/*Not supported, force to none
+					and leave*/
+					*next_hdr = NEXTHDR_NONE;
+
+					DPRINTK("MHDP_FILTER: next_hdr NONE");
+				}
+			}
+			DPRINTK("MHDP_FILTER: finish parsing header stack");
+		}
+
+		if (*next_hdr == UDP_PROT_TYPE) {
+
+			/*UDP header*/
+			udphdr = (struct udphdr *)((unsigned char *)ipv6header +
+				sizeof(struct ipv6hdr));
+
+			DPRINTK("MHDP_FILTER: UDP header found");
+
+			if (htons(udphdr->dest) == mhdpn->udp_filter.port_id) {
+				ret = 1;
+				size_of_previous_hdr =
+					(unsigned int)(
+						(unsigned char *)udphdr -
+						(unsigned char *)ipv6header);
+				DPRINTK("MHDP_FILTER: IPv6 packet filtered out");
+			}
+			else
+			{
+				DPRINTK("MHDP_FILTER: wrong port %d != %d", htons(udphdr->dest), mhdpn->udp_filter.port_id);
+			}
+		}
+	}
+
+	if (ret == 1) {
+
+		newskb = skb_clone(skb, GFP_ATOMIC);
+
+		if (unlikely(!newskb)) {
+			ret = 0;
+			goto error;
+		}
+
+		skb_pull(newskb, (size_of_previous_hdr + sizeof(unsigned int)));
+
+		newskb->len = (unsigned int)htons(udphdr->len) -
+				sizeof(unsigned int);
+		newskb->protocol = UDP_PROT_TYPE;
+		skb_set_tail_pointer(newskb, newskb->len);
+
+		newskb->truesize = newskb->len + sizeof(struct sk_buff);
+
+		mhi_sock_rcv_multicast(newskb,
+				MHI_L3_MHDP_UDP_FILTER,
+				newskb->len);
+	}
+error:
+
+	return ret;
+}
+/**
+ * mhdp_netdev_ioctl - I/O control on mhdp tunnel
+ */
 static int
 mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
@@ -310,6 +614,8 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	struct mhdp_tunnel *tunnel, *pre_dev;
 	struct mhdp_tunnel_parm __user *u_parms;
 	struct mhdp_tunnel_parm k_parms;
+	struct mhdp_udp_filter __user *u_filter;
+	struct mhdp_udp_filter k_filter;
 
 	int err = 0;
 
@@ -343,7 +649,7 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 			tunnel->free_pdn = 0;
 
-			strcpy(&k_parms.name, tunnel->dev->name);
+			strcpy(k_parms.name, tunnel->dev->name);
 
 			if (copy_to_user(u_parms, &k_parms,
 					sizeof(struct mhdp_tunnel_parm)))
@@ -367,13 +673,33 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		for (tunnel = mhdpn->tunnels, pre_dev = NULL;
 		     tunnel;
 		     pre_dev = tunnel, tunnel = tunnel->next) {
-			if (tunnel->pdn_id == k_parms.pdn_id) {
-				tunnel->free_pdn = 1;			}
+			if (tunnel->pdn_id == k_parms.pdn_id)
+				tunnel->free_pdn = 1;
 		}
 		break;
 
 	case SIOCRESETMHDP:
 		mhdp_destroy_tunnels(mhdpn);
+		break;
+
+	case SIOSETUDPFILTER:
+
+		u_filter = (struct mhdp_udp_filter *)ifr->ifr_data;
+
+		if (copy_from_user(&k_filter, u_filter,
+					sizeof(struct mhdp_udp_filter))) {
+			DPRINTK("Err: cannot cp filter data from user space\n");
+			return -EFAULT;
+		}
+		if (k_filter.active == 1) {
+			DPRINTK("mhdp SIOSETUDPFILTER active on port %d\n",
+				k_filter.port_id);
+			mhdp_set_udp_filter(mhdpn, &k_filter);
+		} else {
+			DPRINTK("mhdp SIOSETUDPFILTER filter reset\n");
+			mhdp_reset_udp_filter(mhdpn);
+		}
+
 		break;
 
 	default:
@@ -383,6 +709,9 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	return err;
 }
 
+/**
+ * mhdp_netdev_change_mtu - Change mhdp tunnel MTU
+ */
 static int
 mhdp_netdev_change_mtu(struct net_device *dev, int new_mtu)
 {
@@ -394,13 +723,19 @@ mhdp_netdev_change_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
+/**
+ * mhdp_netdev_uninit - Un initialize mhdp tunnel
+ */
 static void
 mhdp_netdev_uninit(struct net_device *dev)
 {
 	dev_put(dev);
 }
 
-
+/**
+ * mhdp_submit_queued_skb - Submit packets to master netdev (IPC)
+ Packets can be concatenated or not
+ */
 static void
 mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 {
@@ -438,16 +773,18 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 		dev_queue_xmit(skb);
 
 		for (i = 0; i < nb_frags; i++) {
-		    if (tunnel->skb_to_free[i]) {
-			    dev_kfree_skb(tunnel->skb_to_free[i]);
-		    } else {
-			    EPRINTK("mhdp_submit_queued_skb: error no skb to free \n");
-		    }
+			if (tunnel->skb_to_free[i]) {
+				dev_kfree_skb(tunnel->skb_to_free[i]);
+			} else {
+				EPRINTK("mhdp_submit_queued_skb: error no skb to free \n");
+			}
 		}
-
 	}
 }
-
+/**
+ * mhdp_netdev_rx - Received packets from master netdev (IPC)
+  Packets can be concatenated or not
+ */
 static int
 mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 {
@@ -464,9 +801,12 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 	uint32_t packet_count;
 	unsigned char ip_ver;
 
+
+	mhdp_check_wake_lock(dev);
+
 	if (has_frag) {
 		frag = &skb_shinfo(skb)->frags[0];
-		page = frag->page;
+		page = skb_frag_page(frag);
 	}
 
 	if (skb_headlen(skb) > L2MUX_HDR_SIZE)
@@ -532,6 +872,10 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 			skb_pull(newskb, mhdp_header_len + offset);
 
+			newskb->len = length ;
+			skb_set_tail_pointer(newskb, length);
+			newskb->truesize = length + sizeof(struct sk_buff);
+
 			ip_ver = (u8)*newskb->data;
 
 		} else if (has_frag) {
@@ -547,6 +891,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 				page,
 				frag->page_offset +
 				((mhdp_header_len - skb_headlen(skb)) + offset),
+				length,
 				length);
 
 			ip_ver = *((unsigned long *)page_address(page) +
@@ -571,6 +916,9 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 		newskb->pkt_type = PACKET_HOST;
 
+		if (mhdp_is_filtered(mhdp_net_dev(dev), newskb))
+			goto end;
+
 		skb_tunnel_rx(newskb, dev);
 
 		tunnel = mhdp_locate_tunnel(mhdp_net_dev(dev), pdn_id);
@@ -587,7 +935,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 #endif /*#ifdef MHDP_USE_NAPI*/
 		}
 	}
-
+end:
 	rcu_read_unlock();
 
 	if (mhdp_header_len > skb_headlen(skb))
@@ -652,6 +1000,10 @@ mhdp_netdev_rx_napi(struct sk_buff *skb, struct net_device *dev)
 
 #endif /*MHDP_USE_NAPI*/
 
+/**
+ * tx_timer_timeout - Timer expiration function for TX packet concatenation
+  => will then call mhdp_submit_queued_skb to pass concatenated packets to IPC
+ */
 static void tx_timer_timeout(unsigned long arg)
 {
     struct mhdp_tunnel *tunnel = (struct mhdp_tunnel *) arg;
@@ -663,7 +1015,14 @@ static void tx_timer_timeout(unsigned long arg)
     spin_unlock(&tunnel->timer_lock);
 }
 
-
+/**
+ * mhdp_netdev_xmit - Hard xmit function of MHDP tunnel net dev
+  if TX packet doezn't fit in max MHDP frame length, send previous
+	MHDP frame asap else concatenate TX packet.
+  If nb concatenated packets reach max MHDP packets, send current
+	MHDP frame asap else start TX timer (if no further packets
+	to be transmitted, MHDP frame will be send on timer expiry)
+ */
 static int
 mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 {
@@ -674,14 +1033,16 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	int i;
 	int packet_count, offset, len;
 
+
+	mhdp_check_wake_lock(dev);
+
 	spin_lock(&tunnel->timer_lock);
 
 	SKBPRINT(skb, "SKB: TX");
 
 
-	if (timer_pending(&tunnel->tx_timer)) {
+	if (timer_pending(&tunnel->tx_timer))
 		del_timer(&tunnel->tx_timer);
-	}
 
 #if 0
 	{
@@ -785,7 +1146,7 @@ xmit_again:
 			(unsigned long)page_address(page));
 
 	skb_add_rx_frag(tunnel->skb, skb_shinfo(tunnel->skb)->nr_frags,
-			page, offset, skb_headlen(skb));
+				page, offset, skb_headlen(skb), skb_headlen(skb));
 
 	if (skb_shinfo(skb)->nr_frags) {
 
@@ -794,13 +1155,13 @@ xmit_again:
 				skb_frag_t *frag =
 					&skb_shinfo(tunnel->skb)->frags[i];
 
-			get_page(frag->page);
+			get_page(skb_frag_page(frag));
 
 				skb_add_rx_frag(tunnel->skb,
 					skb_shinfo(tunnel->skb)->nr_frags,
-					frag->page,
+					skb_frag_page(frag),
 					frag->page_offset,
-					frag->size);
+					frag->size, frag->size);
 		}
 	}
 
@@ -830,6 +1191,9 @@ tx_error:
 }
 
 
+/**
+ * mhdp_netdev_event -  Catch MHDP tunnel net dev states
+ */
 static int
 mhdp_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
 {
@@ -895,6 +1259,10 @@ static const struct net_device_ops mhdp_netdev_ops = {
 	.ndo_change_mtu	= mhdp_netdev_change_mtu,
 };
 
+
+/**
+ * mhdp_netdev_setup -  Setup MHDP tunnel
+ */
 static void mhdp_netdev_setup(struct net_device *dev)
 {
 	dev->netdev_ops	= &mhdp_netdev_ops;
@@ -921,6 +1289,9 @@ static void mhdp_netdev_setup(struct net_device *dev)
 
 }
 
+/**
+ * mhdp_init_net -  Initalize MHDP net structure
+ */
 static int __net_init mhdp_init_net(struct net *net)
 {
 	struct mhdp_net *mhdpn = net_generic(net, mhdp_net_id);
@@ -943,9 +1314,9 @@ static int __net_init mhdp_init_net(struct net *net)
 		free_netdev(mhdpn->ctl_dev);
 		return err;
 	}
+	spin_lock_init(&mhdpn->udp_lock);
 
-
-
+	mhdp_reset_udp_filter(mhdpn);
 #ifdef MHDP_USE_NAPI
 
 	netif_napi_add(mhdpn->ctl_dev, &mhdpn->napi, mhdp_poll, NAPI_WEIGHT);
@@ -954,10 +1325,25 @@ static int __net_init mhdp_init_net(struct net *net)
 
 #endif /*#ifdef MHDP_USE_NAPI*/
 
+	dev_set_drvdata(&mhdpn->ctl_dev->dev, mhdpn);
+	err = device_create_file(&mhdpn->ctl_dev->dev, &mhdpwl_dev_attrs[0]);
+
+	if (err)
+		printk(KERN_ERR "mhdp cannot create wakelock file");
+
+	mhdpn->wake_lock_time = 0;
+
+	wake_lock_init(&mhdpn->wakelock, WAKE_LOCK_SUSPEND,
+			"mhdp_wake_lock");
+
+
 
 	return 0;
 }
 
+/**
+ * mhdp_exit_net -  destroy MHDP net structure
+ */
 static void __net_exit mhdp_exit_net(struct net *net)
 {
 	struct mhdp_net *mhdpn = net_generic(net, mhdp_net_id);
@@ -965,6 +1351,9 @@ static void __net_exit mhdp_exit_net(struct net *net)
 	rtnl_lock();
 	mhdp_destroy_tunnels(mhdpn);
 	unregister_netdevice(mhdpn->ctl_dev);
+	device_remove_file(&mhdpn->ctl_dev->dev, &mhdpwl_dev_attrs[0]);
+	wake_lock_destroy(&mhdpn->wakelock);
+
 	rtnl_unlock();
 }
 
@@ -975,7 +1364,9 @@ static struct pernet_operations mhdp_net_ops = {
 	.size = sizeof(struct mhdp_net),
 };
 
-
+/**
+ * mhdp_init -  Initalize MHDP
+ */
 static int __init mhdp_init(void)
 {
 	int err;

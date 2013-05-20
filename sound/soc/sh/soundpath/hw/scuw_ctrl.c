@@ -20,7 +20,7 @@
 #include <sound/soundpath/common_extern.h>
 #include <sound/soundpath/scuw_extern.h>
 #include "scuw_ctrl.h"
-#include "common_ctrl.h"
+/*#include "common_ctrl.h"*/
 #include <mach/common.h>
 
 /*
@@ -60,8 +60,106 @@ static struct common_reg_table scuw_reg_tbl_voicecallA[] = {
 	{ SCUW_VD_VDSET,	0x00000002,	0, 0 },
 };
 
-/* Table for Voicecall(PortB) */
-static struct common_reg_table scuw_reg_tbl_voicecallB[] = {
+/* Table for Voicecall(PortB) BT 8kHz */
+static struct common_reg_table scuw_reg_tbl_voicecallB_8000[] = {
+/*        Reg			Val		D  C */
+	/*   1 : SPU2V output data */
+	{ SCUW_SEL_SELCR21,	0x00000001,	0, 0 },
+	/* 010: CPU-FIFO0 data */
+	{ SCUW_SEL_SELCR0,	0x00000006,	0, 0 },
+	/* 000: Voice data (from VOIP or SPU2V) */
+	{ SCUW_SEL_SELCR1,	0x00000000,	0, 0 },
+	/* 010: MIX0 system D and SEL5 */
+	{ SCUW_SW_SRC0,		0x00000002,	0, 0 },
+	/*  10: SW output data, clock supply to MIX0 halted */
+	{ SCUW_SEL_SELCR5,	0x00000002,	0, 0 },
+	/*   0: SEL5 output data, clock supply to IIR0 halted */
+	{ SCUW_SEL_SELCR6,	0x00000000,	0, 0 },
+	/*   0: SEL6 output data, clock supply to DVU0 halted */
+	{ SCUW_SEL_SELCR7,	0x00000000,	0, 0 },
+	/*   0: SEL7 output data */
+	{ SCUW_SEL_SELCR15,	0x00000000,	0, 0 },
+	/* 110: FSI-IF read port 1 data (from FSI2) */
+	{ SCUW_SEL_SELCR2,	0x00000006,	0, 0 },
+	/* 011: CPU-FIFO1 data */
+	{ SCUW_SEL_SELCR4,	0x00000000,	0, 0 },
+	/* 110: MIX1 system D and SEL8 */
+	{ SCUW_SW_SRC1,		0x00000006,	0, 0 },
+	/*   0: SEL8 output data, clock supply to IIR1 halted */
+	{ SCUW_SEL_SELCR8,	0x00000002,	0, 0 },
+	/*   0: SEL8 output data, clock supply to IIR1 halted */
+	{ SCUW_SEL_SELCR9,	0x00000000,	0, 0 },
+	/*   0: SEL9 output data, clock supply to DVU1 halted */
+	{ SCUW_SEL_SELCR10,	0x00000000,	0, 0 },
+	/* 001: SEL10 output data */
+	{ SCUW_SEL_SELCR12,	0x00000001,	0, 0 },
+	/* SRC0 / SRC1 setting */
+	/* 011: SRC0/SRC1 Module operates */
+	{ SCUW_MSTP0,		0x00000003,	0, 0 },
+	/*   0 : Resets the SRC0. */
+	{ SCUW_SWRSR_SRC0,	0x00000000,	0, 0 },
+	/*   1 : SRC0 operating state. */
+	{ SCUW_SWRSR_SRC0,	0x00000001,	0, 0 },
+	/*   1: SRC0 Initialization */
+	{ SCUW_SRCIR_SRC0,	0x00000001,	0, 0 },
+	/*   Output Audio Data 16bit, 1ch  */
+	{ SCUW_ADINR_SRC0,	0x00080001,	0, 0 },
+	/*   Enable IFSVR  */
+	{ SCUW_IFSCR_SRC0,	0x00000001,	0, 0 },
+	/*  Init. FS; 2^22 * 16k / 8k  */
+	{ SCUW_IFSVR_SRC0,	0x00800000,	0, 0 },
+	/*  IDATMD, BUFMD, IJECMD, TAPMD, async. SRC */
+	{ SCUW_SRCCR_SRC0,	0x00011110,	0, 0 },
+	/*  Min. FS; IFSVR * 98 % */
+	{ SCUW_MNFSR_SRC0,	0x007D70A3,	0, 0 },
+	/*  Buffer size; fixed value */
+	{ SCUW_BFSSR_SRC0,	0x00800005,	0, 0 },
+	/*  Negate initializing */
+	{ SCUW_SRCIR_SRC0,	0x00000000,	0, 0 },
+	/*   0 : Resets the SRC1. */
+	{ SCUW_SWRSR_SRC1,	0x00000000,	0, 0 },
+	/*   1 : SRC1 operating state. */
+	{ SCUW_SWRSR_SRC1,	0x00000001,	0, 0 },
+	/*   1: SRC1 Initialization */
+	{ SCUW_SRCIR_SRC1,	0x00000001,	0, 0 },
+	/*   Output Audio Data 16bit, 1ch  */
+	{ SCUW_ADINR_SRC1,	0x00080001,	0, 0 },
+	/*   Enable IFSVR  */
+	{ SCUW_IFSCR_SRC1,	0x00000001,	0, 0 },
+	/*  Init. FS; 2^22 * 8k / 16k  */
+	{ SCUW_IFSVR_SRC1,	0x00200000,	0, 0 },
+	/*  IDATMD, BUFMD, IJECMD, TAPMD, async. SRC */
+	{ SCUW_SRCCR_SRC1,	0x00011110,	0, 0 },
+	/*  Min. FS; IFSVR * 98 % */
+	{ SCUW_MNFSR_SRC1,	0x001F5C28,	0, 0 },
+	/*  Buffer size; fixed value */
+	{ SCUW_BFSSR_SRC1,	0x00800005,	0, 0 },
+	/*  Negate initializing */
+	{ SCUW_SRCIR_SRC1,	0x00000000,	0, 0 },
+	/*   1 : FSI-IF operates. */
+	{ SCUW_MSTP1,		0x00000001,	0, 0 },
+	/*   0 : Reset the FSI IF. */
+	{ SCUW_FSIIF_SWRSR,	0x00000000,	0, 0 },
+	/*   1 : FSI IF enters the operating state. */
+	{ SCUW_FSIIF_SWRSR,	0x00000001,	0, 0 },
+	/*   1 : Initialization */
+	{ SCUW_FSIIF_FSIIR,	0x00000001,	0, 0 },
+	/* 001 : 1 channel */
+	{ SCUW_FSIIF_ADINRW0,	0x00000001,	0, 0 },
+	/* 001 : 1 channel */
+	{ SCUW_FSIIF_ADINRR1,	0x00000001,	0, 0 },
+	/* target module : FSI2(0x00), Write address : FSI2 port B(0x19) */
+	{ SCUW_FSIIF_WADCR0,	0x00000019,	0, 0 },
+	/* target module : FSI2(0x00), Read address : FSI2 port B(0x18) */
+	{ SCUW_FSIIF_RADCR1,	0x00000018,	0, 0 },
+	/*   0 : Processing State */
+	{ SCUW_FSIIF_FSIIR,	0x00000000,	0, 0 },
+	/* 010 : Channel 1 to 7 are copied Channel 0 */
+	{ SCUW_VD_VDSET,	0x00000002,	0, 0 },
+};
+
+/* Table for Voicecall(PortB) BT 16kHz */
+static struct common_reg_table scuw_reg_tbl_voicecallB_16000[] = {
 /*        Reg			Val		D  C */
 	/*   1 : SPU2V output data */
 	{ SCUW_SEL_SELCR21,	0x00000001,	0, 0 },
@@ -77,9 +175,9 @@ static struct common_reg_table scuw_reg_tbl_voicecallB[] = {
 	{ SCUW_FSIIF_SWRSR,	0x00000001,	0, 0 },
 	/*   1 : Initialization */
 	{ SCUW_FSIIF_FSIIR,	0x00000001,	0, 0 },
-	/* 010 : 2 channel */
+	/* 010 : 1 channel */
 	{ SCUW_FSIIF_ADINRW0,	0x00000001,	0, 0 },
-	/* 010 : 2 channel */
+	/* 010 : 1 channel */
 	{ SCUW_FSIIF_ADINRR1,	0x00000001,	0, 0 },
 	/* target module : FSI2(0x00), Write address : FSI2 port B(0x19) */
 	{ SCUW_FSIIF_WADCR0,	0x00000019,	0, 0 },
@@ -197,7 +295,7 @@ static struct common_reg_table scuw_reg_tbl_loopbackBA[] = {
 	{ SCUW_MVPDR_MIX0,	0x00000000,	0, 0 },
 	{ SCUW_MDBER_MIX0,	0x00000000,	0, 0 },
 	/* 182:0.0038681205 times */
-	{ SCUW_MDBAR_MIX0,	0x00000000,	0, 0 },
+	{ SCUW_MDBAR_MIX0,	0x00000182,	0, 0 },
 	/* Mute */
 	{ SCUW_MDBBR_MIX0,	0x000003FF,	0, 0 },
 	/* Mute */
@@ -260,11 +358,12 @@ static struct common_reg_table scuw_reg_tbl_loopbackBA[] = {
    @brief SCUW start function
 
    @param[in]	uiValue		PCM type
+   @param[in]   rate            Sampling rate
    @param[out]	none
 
    @retval	ERROR_NONE	successful
  */
-int scuw_start(const u_int uiValue)
+int scuw_start(const u_int uiValue, const u_int rate)
 {
 	/* Local variable declaration */
 	u_int			dev		= 0;
@@ -286,8 +385,15 @@ int scuw_start(const u_int uiValue)
 		tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallA);
 	/* BLUETOOTHSCO */
 	} else if (false != (dev & SNDP_BLUETOOTHSCO)) {
-		reg_tbl  = scuw_reg_tbl_voicecallB;
-		tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallB);
+		if (rate == 16000) {
+			sndp_log_info("rate=16000..\n");
+			reg_tbl  = scuw_reg_tbl_voicecallB_16000;
+			tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallB_16000);
+		} else {
+			sndp_log_info("rate=8000..\n");
+			reg_tbl  = scuw_reg_tbl_voicecallB_8000;
+			tbl_size = ARRAY_SIZE(scuw_reg_tbl_voicecallB_8000);
+		}
 	/* FM_RADIO_RX */
 	} else {
 		reg_tbl  = scuw_reg_tbl_loopbackBA;
@@ -300,7 +406,7 @@ int scuw_start(const u_int uiValue)
 	/* SCUW Registers Dump */
 	scuw_reg_dump();
 
-	sndp_log_debug_func("end (ret = %d)\n", ERROR_NONE);
+	sndp_log_debug_func("end\n");
 
 	return ERROR_NONE;
 }
@@ -324,7 +430,7 @@ int scuw_stop(void)
 	/* Stop SCUW Clock Supply */
 	audio_ctrl_func(SNDP_HW_SCUW, STAT_OFF);
 
-	sndp_log_debug_func("end (ret = %d)\n", ERROR_NONE);
+	sndp_log_debug_func("end\n");
 
 	return ERROR_NONE;
 }
@@ -418,14 +524,12 @@ void scuw_reg_dump(void)
 	sndp_log_reg_dump("SCUW_FSIIF_RADCR1   [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_FSIIF_RADCR1),
 			ioread32((g_scuw_Base + SCUW_FSIIF_RADCR1)));
-
 	sndp_log_reg_dump("SCUW_SW_SRC0        [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_SW_SRC0),
 			ioread32((g_scuw_Base + SCUW_SW_SRC0)));
 	sndp_log_reg_dump("SCUW_SW_SRC1        [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_SW_SRC1),
 			ioread32((g_scuw_Base + SCUW_SW_SRC1)));
-
 	sndp_log_reg_dump("SCUW_SWRSR_SRC0     [%08lX] = %08X\n",
 			(g_scuw_Base + SCUW_SWRSR_SRC0),
 			ioread32((g_scuw_Base + SCUW_SWRSR_SRC0)));

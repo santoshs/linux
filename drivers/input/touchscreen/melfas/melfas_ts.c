@@ -67,6 +67,7 @@
 #endif
 //#include <../mach-msm/smd_private.h>
 //#include <../mach-msm/smd_rpcrouter.h>
+#include <mach/common.h>
 
 #if 0
 #define TS_MAX_Z_TOUCH			255
@@ -82,7 +83,6 @@
 
 #ifdef SEC_TSP
 #define P5_THRESHOLD			0x05
-#define TS_READ_REGS_LEN		5
 #define TS_WRITE_REGS_LEN		16
 #endif
 #ifdef CONFIG_SEC_DVFS
@@ -92,10 +92,19 @@
 #else
 #define TOUCH_BOOSTER			0
 #endif
-#define TS_READ_REGS_LEN		66
+
+/*6 byte per 1 finger + 1 more 6byte queue buffer */
+#define TS_READ_REGS_LEN 36 /* (MELFAS_MAX_TOUCH + 1) * 6 */
+
 #define MELFAS_MAX_TOUCH		5
+
+//#define TS_READ_REGS_LEN		66
+
+ /*6 byte per 1 finger + 1 more 6byte queue buffer */
+#define TS_READ_REGS_LEN	 36 /* (MELFAS_MAX_TOUCH + 1) * 6 */
+
 static int FW_VERSION;
-#define DEBUG_PRINT			0
+#define DEBUG_PRINT			1
 #define PRESS_KEY					1
 #define RELEASE_KEY					0
 #define SET_DOWNLOAD_BY_GPIO	1
@@ -163,42 +172,8 @@ static int gMenuKey_Intensity, gBackKey_Intensity;
 //extern unsigned int board_hw_revision;
 extern unsigned char IC_type;
 
-#if defined(CONFIG_MACH_KYLE_I)
-#define MAX_RX_	12
-#define MAX_TX_	19
-static const uint16_t SCR_ABS_UPPER_SPEC[MAX_RX_][MAX_TX_] = {
-	{3171,3304,3323,3339,3352,3362,3365,3369,3371,3371,3381,3383,3385,3387,3388,3389,3390,3390,3377},
-	{3187,3308,3320,3339,3349,3360,3362,3367,3368,3370,3377,3379,3381,3383,3384,3385,3385,3386,3372},
-	{3199,3315,3334,3351,3367,3377,3383,3388,3393,3397,3403,3406,3409,3410,3411,3411,3411,3411,3380},
-	{3212,3325,3337,3355,3365,3377,3379,3383,3384,3387,3392,3394,3396,3398,3399,3400,3400,3400,3387},
-	{3218,3324,3340,3355,3368,3377,3381,3383,3386,3388,3391,3394,3396,3398,3399,3400,3400,3400,3386},
-	{3220,3326,3339,3356,3367,3377,3380,3383,3385,3388,3391,3394,3396,3398,3399,3399,3400,3400,3386},
-	{3214,3320,3334,3350,3362,3370,3374,3377,3379,3382,3384,3387,3389,3391,3392,3393,3394,3394,3379},
-	{3210,3320,3334,3350,3362,3370,3373,3376,3379,3382,3384,3387,3389,3391,3392,3392,3393,3393,3379},
-	{3208,3320,3335,3350,3363,3370,3373,3376,3379,3381,3382,3386,3388,3390,3391,3392,3393,3393,3379},
-	{3204,3321,3338,3358,3372,3381,3385,3391,3396,3402,3404,3408,3410,3412,3412,3412,3413,3412,3379},
-	{3198,3314,3329,3345,3357,3365,3368,3370,3373,3376,3373,3378,3380,3382,3383,3384,3385,3385,3373},
-	{3208,3324,3338,3354,3365,3373,3375,3378,3380,3383,3350,3376,3382,3384,3385,3384,3387,3388,3375},
-};
-
-static const uint16_t SCR_ABS_LOWER_SPEC[MAX_RX_][MAX_TX_] = {
-	{1903,1983,1994,2003,2011,2017,2019,2021,2022,2023,2028,2030,2031,2032,2033,2033,2034,2034,2026},
-	{1912,1985,1992,2003,2009,2016,2017,2020,2021,2022,2026,2027,2029,2030,2030,2031,2031,2032,2023},
-	{1919,1989,2000,2011,2020,2026,2030,2033,2036,2038,2042,2044,2045,2046,2046,2047,2047,2046,2028},
-	{1927,1995,2002,2013,2019,2026,2027,2030,2031,2032,2035,2036,2038,2039,2039,2040,2040,2040,2032},
-	{1931,1995,2004,2013,2021,2026,2028,2030,2031,2033,2035,2036,2037,2039,2039,2040,2040,2040,2032},
-	{1932,1995,2003,2013,2020,2026,2028,2030,2031,2033,2035,2036,2038,2039,2039,2040,2040,2040,2032},
-	{1929,1992,2001,2010,2017,2022,2024,2026,2028,2029,2030,2032,2034,2035,2035,2036,2036,2036,2028},
-	{1926,1992,2000,2010,2017,2022,2024,2026,2027,2029,2030,2032,2033,2034,2035,2035,2036,2036,2027},
-	{1925,1992,2001,2010,2018,2022,2024,2026,2027,2029,2029,2031,2033,2034,2034,2035,2036,2036,2027},
-	{1922,1993,2003,2015,2023,2028,2031,2035,2038,2041,2042,2045,2046,2047,2047,2047,2048,2047,2027},
-	{1919,1988,1997,2007,2014,2019,2021,2022,2024,2026,2024,2027,2028,2029,2030,2030,2031,2031,2024},
-	{1925,1994,2003,2012,2019,2024,2025,2027,2028,2030,2010,2026,2029,2030,2031,2031,2032,2033,2025},
-};
-
-#else	/* CONFIG_MACH_KYLE */
-#define MAX_RX_	10
-#define MAX_TX_	15
+#define MAX_RX_	30
+#define MAX_TX_	5
 static const uint16_t SCR_ABS_UPPER_SPEC[MAX_RX_][MAX_TX_] = {
 	{3575,  3495,  3470,  3459,  3444},
 	{3438,  3426,  3424,  3419,  3419},
@@ -263,7 +238,6 @@ static const uint16_t SCR_ABS_LOWER_SPEC[MAX_RX_][MAX_TX_] = {
 	{2060, 2057, 2070, 2057, 2054},
 	{2054, 2053, 2053, 2052, 2028},
 };
-#endif
 
 static int g_exciting_ch, g_sensing_ch;
 static unsigned char is_inputmethod;
@@ -330,7 +304,8 @@ struct melfas_ts_data {
 };
 static struct melfas_ts_data *ts = NULL;
 #ifdef SEC_TSP
-struct class *sec_class;
+static struct class *sec_tsp_class; /*renamed to avoid a duplicated variable name*/
+static struct class *sec_touchkey_class; /*renamed to avoid a duplicated variable name*/
 struct device *sec_touchscreen_dev;
 struct device *sec_touchkey_dev;
 int menu_pressed;
@@ -367,7 +342,7 @@ static void run_cm_abs_read(void *device_data);
 static void run_cm_delta_read(void *device_data);
 static void run_intensity_read(void *device_data);
 static void not_support_cmd(void *device_data);
-static int check_delta_value(struct melfas_ts_data *ts);
+static void check_delta_value(struct melfas_ts_data *ts);
 struct tsp_cmd tsp_cmds[] = {
 	{TSP_CMD("fw_update", fw_update),},
 	{TSP_CMD("get_fw_ver_bin", get_fw_ver_bin),},
@@ -454,84 +429,64 @@ static void set_dvfs_lock(struct melfas_ts_data *ts, uint32_t on)
 static int melfas_ts_suspend(struct i2c_client *client, pm_message_t mesg);
 static int melfas_ts_resume(struct i2c_client *client);
 static void release_all_fingers(struct melfas_ts_data *ts);
+#if defined(SET_TSP_CONFIG) && defined(TSP_BOOST)
 static int melfas_set_config(struct i2c_client *client, u8 reg, u8 value);
+#endif
 static int melfas_i2c_write(struct i2c_client *client, char *buf, int length);
 static void TSP_reboot(void);
 #endif
 int melfas_fw_i2c_read(u16 addr, u8 *value, u16 length);
 int melfas_fw_i2c_write(char *buf, int length);
-static ssize_t	check_init_lowleveldata( void );
+/*static ssize_t	check_init_lowleveldata( void );*/
 static struct muti_touch_info g_Mtouch_info[MELFAS_MAX_TOUCH];
 
-#if 0
+
 #define VREG_ENABLE		1
 #define VREG_DISABLE	0
 #define TOUCH_ON  1
 #define TOUCH_OFF 0
-static struct regulator *touch_regulator;
-static struct regulator *touch_regulator_1_8;
 
 static void ts_power_enable(int en)
 {
 	int ret;
 	
-	printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
-#if 1
-	if(touch_regulator == NULL)
-	{
-		printk(" %s, %d \n", __func__, __LINE__ );
-		touch_regulator = regulator_get(NULL, "ldo15"); 
-		printk(" %s, %d \n", __func__, __LINE__ );			
-		if(IS_ERR(touch_regulator)){
-			printk("can not get VTOUCH_3.3V\n");
+		struct regulator *touch_regulator = NULL;
+		printk(KERN_EMERG "%s %s\n", __func__, (en) ? "on" : "off");
+		if (touch_regulator == NULL) {
+			printk(KERN_EMERG "%s, %d\n", __func__, __LINE__);
+			touch_regulator = regulator_get(NULL, "vtsp_3v");
+			if (IS_ERR(touch_regulator)) {
+				printk(KERN_EMERG "can not get VTOUCH_3.3V\n");
+				return;
+			}
 		}
-		//ret = regulator_set_voltage(touch_regulator,3300000,3300000);	
-		//ret = regulator_enable(touch_regulator);			
-	}
 
-	if(en==1)
-	{
-		printk(" %s, %d Touch On\n", __func__, __LINE__ );	
+		if (en == 1) {
+			printk(KERN_INFO"%s, %d Touch On\n", __func__, __LINE__);
 
-		//if(!regulator_is_enabled(touch_regulator))
-		{
-			printk(" %s, %d \n", __func__, __LINE__ );	
-			ret = regulator_set_voltage(touch_regulator,3300000,3300000);
-			printk("regulator_set_voltage ret = %d \n", ret);       			
-			ret = regulator_enable(touch_regulator);
-			printk("regulator_enable ret = %d \n", ret);       			
+			if (!regulator_is_enabled(touch_regulator)) {
+				printk(KERN_INFO "%s, %d\n", __func__, __LINE__);
+				ret = regulator_set_voltage(touch_regulator, 3000000, 3000000); /* 3.0V */
+				printk(KERN_INFO "regulator_set_voltage ret = %d\n", ret);
+				ret = regulator_enable(touch_regulator);
+				printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+			}
+		} else {
+			printk(KERN_INFO "%s, %d TOUCH Off\n", __func__, __LINE__);
+
+			if (regulator_is_enabled(touch_regulator)) {
+				ret = regulator_disable(touch_regulator);
+				printk(KERN_INFO "regulator_disable ret = %d\n", ret);
+			}
 		}
-	}
-else
-	{
-		printk("%s, %d TOUCH Off\n", __func__, __LINE__ );	
-
-		//if(regulator_is_enabled(touch_regulator))
-		{
-			ret = regulator_disable(touch_regulator);
-			printk("regulator_disable ret = %d \n", ret);			
-		}
-	}
-#endif
-
 }
-
-#else
-static void ts_power_enable(int en)
-{
-#ifdef CONFIG_PMIC_INTERFACE
-	printk(KERN_EMERG"%s : en=%d\n", __func__, en);
-	gpio_set_value(GPIO_PORT30, en ? 1:0);
-#endif
-}
-#endif
 
 void ts_power_control(int en)
 {
 	ts_power_enable(en);
 }
 EXPORT_SYMBOL(ts_power_control);
-
+#if 0
 static int melfas_init_panel(struct melfas_ts_data *ts)
 {
 	int buf = 0x00;
@@ -544,6 +499,7 @@ static int melfas_init_panel(struct melfas_ts_data *ts)
 	}
 	return true;
 }
+#endif
 #ifdef TA_DETECTION
 static void tsp_ta_probe(int ta_status)
 {
@@ -811,14 +767,10 @@ static void melfas_ts_get_data(struct work_struct *work)
 		i, (g_Mtouch_info[i].strength > 0),
 		g_Mtouch_info[i].posX, g_Mtouch_info[i].posY,
 		g_Mtouch_info[i].strength, g_Mtouch_info[i].width);
+#endif
+		printk(KERN_EMERG "[TSP] x, y : %d, %d\n", g_Mtouch_info[i].posX, g_Mtouch_info[i].posY);
 
-#if defined(CONFIG_MACH_KYLE_I) 
-		printk(KERN_EMERG "[TSP] ID, S, x, y, z, w : %d, %d, %d, %d,  %d %d\n",
-		i, (g_Mtouch_info[i].strength > 0),
-		g_Mtouch_info[i].posX, g_Mtouch_info[i].posY,
-		g_Mtouch_info[i].strength, g_Mtouch_info[i].width);
-#endif
-#endif
+
 		if (g_Mtouch_info[i].strength == 0)
 			g_Mtouch_info[i].strength = -1;
 		if (g_Mtouch_info[i].strength > 0)
@@ -940,12 +892,7 @@ int melfas_fw_i2c_busrt_write(u8 *value, u16 length)
 	else
 		return 0;
 }
-
-static ssize_t set_tsp_firm_version_show(struct device *dev, struct device_attribute *attr, char *buf)
-{
-	//return snprintf (buf, sizeof(buf), "%#02x, %#02x, %#02x\n", ts->version->core, ts->version->private, ts->version->public);
-	return 0;
-}
+#if 0
 static ssize_t set_tsp_firm_version_read_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	u8 fw_latest_version, privatecustom_version, publiccustom_version;
@@ -965,12 +912,14 @@ static ssize_t set_tsp_firm_version_read_show(struct device *dev, struct device_
 	publiccustom_version	= buff[5];
 	return snprintf (buf, sizeof(buf), "%#02x, %#02x, %#02x\n", fw_latest_version, privatecustom_version, publiccustom_version);
 }
+
 static ssize_t set_tsp_threshold_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	u8 threshold;
 	melfas_i2c_read(ts->client, P5_THRESHOLD, 1, &threshold);
 	return snprintf (buf, sizeof(buf), "%d\n", threshold);
 }
+#endif
 ssize_t set_tsp_for_inputmethod_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	printk(KERN_EMERG "[TSP] %s is called.. is_inputmethod=%d\n", __func__, is_inputmethod);
@@ -1005,12 +954,14 @@ static ssize_t tsp_call_release_touch(struct device *dev, struct device_attribut
 	TSP_reboot();
 	return snprintf (buf, sizeof(buf), "0\n");
 }
+#if 0
 static ssize_t tsp_touchtype_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	char temp[15];
 	snprintf (temp, sizeof(temp), "TSP : MMS144\n");
 	return 1;
 }
+#endif
 #ifdef TSP_BOOST
 ssize_t set_tsp_for_boost_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -1075,8 +1026,10 @@ static struct attribute_group sec_touch_attr_group = {
 #endif
 #endif
 #ifdef TSP_FACTORY_TEST
-static bool debug_print = true;
+/*static bool debug_print = true;*/
+#if 0
 static u16 inspection_data[180] = { 0, };
+#endif
 static u16 lntensity_data[180] = { 0, };
 static u16 CmDelta_data[228] = { 0, }; /* inspection */
 static u16 CmABS_data[228] = { 0, }; /* reference */
@@ -1108,7 +1061,7 @@ static int check_debug_data(struct melfas_ts_data *ts)
 	u8 read_data_buf[50] = {0,};
 	//u16 read_data_buf1[50] = {0,};
 	int /*read_data_len,*/ sensing_ch, exciting_ch;
-	int ret, i, j, status;
+	int ret, i, j, status = 0;
 	int size;
 	tsp_testmode = 1;
 	printk(KERN_EMERG "[TSP] %s entered. line : %d\n", __func__, __LINE__);
@@ -1180,13 +1133,13 @@ static int check_debug_data(struct melfas_ts_data *ts)
 	return status;
 }
 /* inspection = CmDelta_data */
-static int check_delta_data(struct melfas_ts_data *ts)
+static void check_delta_data(struct melfas_ts_data *ts)
 {
 	u8 setLowLevelData[4];
 	u8 read_data_buf[50] = {0,};
 	//u16 read_data_buf1[50] = {0,};
 	int /*read_data_len,*/ sensing_ch, exciting_ch;
-	int ret, i, j, status;
+	int ret, i, j;
 	int size;
 	printk(KERN_EMERG "[TSP] %s entered. line : %d,\n", __func__, __LINE__);
 
@@ -1246,7 +1199,7 @@ static int check_delta_data(struct melfas_ts_data *ts)
 	tsp_testmode = 0;
 	TSP_reboot();
 	printk(KERN_EMERG "%s : end\n", __func__);
-	return status;
+	return;
 }
 static int atoi(char *str)
 {
@@ -1283,7 +1236,7 @@ static ssize_t set_all_delta_mode_show(struct device *dev, struct device_attribu
 }
 static ssize_t set_all_refer_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	int status = 0;
+	int status;
 /* ABS */
 	status = check_debug_data(ts);
 	set_tsp_module_off_show(dev, attr, buf);
@@ -1362,6 +1315,7 @@ static void check_intensity_data(struct melfas_ts_data *ts)
 	check_delta_data(ts);
 	printk(KERN_EMERG "%s : end\n", __func__);
 }
+#if 0
 static ssize_t set_refer0_mode_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
@@ -1443,6 +1397,7 @@ static ssize_t set_intensity4_mode_show(struct device *dev,
 	intensity = lntensity_data[309];
 	return snprintf (buf, sizeof(buf), "%u\n", intensity);
 }
+#endif
 /*
 static DEVICE_ATTR(set_refer0, S_IRUGO | S_IWUSR | S_IWGRP, set_refer0_mode_show, NULL);
 static DEVICE_ATTR(set_delta0, S_IRUGO | S_IWUSR | S_IWGRP, set_intensity0_mode_show, NULL);
@@ -1671,35 +1626,27 @@ static ssize_t touchkey_led_control(struct device *dev,
 
 	if( data )
 	{
-#ifdef CONFIG_MFD_D2153
 		struct regulator *regulator;
 		
-		regulator = regulator_get(NULL, "vtsp_3v");
-		if (IS_ERR(regulator))
-			return -1;
+			regulator = regulator_get(NULL, "key_led");
+			if (IS_ERR(regulator))
+				return -1;
 
-		regulator_enable(regulator);
+			regulator_enable(regulator);
 
-		regulator_put(regulator);
-#else
-		pmic_set_power_on(E_POWER_VANA_MM);
-#endif
+			regulator_put(regulator);
 	}
 	else
 	{
-#ifdef CONFIG_MFD_D2153
 		struct regulator *regulator;
 		
-		regulator = regulator_get(NULL, "vtsp_3v");
-		if (IS_ERR(regulator))
-			return -1;
+			regulator = regulator_get(NULL, "key_led");
+			if (IS_ERR(regulator))
+				return -1;
 
-		regulator_disable(regulator);
+			regulator_disable(regulator);
 
-		regulator_put(regulator);
-#else
-		pmic_set_power_off(E_POWER_VANA_MM);
-#endif
+			regulator_put(regulator);
 	}
 
 	return size;
@@ -1786,6 +1733,7 @@ static ssize_t touchkey_menu_show(struct device *dev,
 {
 	return snprintf(buf, 10, "%d\n", gMenuKey_Intensity);
 }
+#if 0
 static ssize_t	check_init_lowleveldata( void )
 {
 	u8 read_buf[1] = {0,};
@@ -1807,7 +1755,8 @@ static ssize_t	check_init_lowleveldata( void )
 
 	return ret;
 }
-static int start_rawcounter = 1;
+#endif
+/*static int start_rawcounter = 1;*/
 static ssize_t tkey_rawcounter_store(struct device *dev, \
 struct device_attribute *attr, const char *buf, size_t size)
 {
@@ -1937,6 +1886,7 @@ static ssize_t touch_sensitivity_show(struct device *dev,
 {
 	return snprintf(buf, sizeof(int), "%x\n", 0);
 }
+#if 0
 static ssize_t touchkey_firm_store(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -1952,6 +1902,7 @@ static ssize_t touchkey_firm_store(struct device *dev,
 	}
 	return printk(KERN_EMERG "\n[Melfas]TSP firmware update by kyestring");
 }
+#endif
 static DEVICE_ATTR(tsp_firm_version_phone,
 			S_IRUGO | S_IWUSR | S_IWGRP, firmware_phone_show, NULL);
 static DEVICE_ATTR(tsp_firm_version_panel, S_IRUGO | S_IWUSR | S_IWGRP,
@@ -2380,11 +2331,8 @@ static void get_chip_name(void *device_data)
 	struct melfas_ts_data *ts = (struct melfas_ts_data *)device_data;
 	char buff[16] = {0};
 	set_default_result(ts);
-#if defined(CONFIG_MACH_KYLE_I)
-	snprintf(buff, sizeof(buff), "%s", "MMS134S");
-#else
 	snprintf(buff, sizeof(buff), "%s", "MMS133s");
-#endif
+
 	set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
 	ts->cmd_state = 2;
 	dev_info(&ts->client->dev, "%s: %s(%d)\n", __func__,
@@ -2535,14 +2483,14 @@ static int check_debug_value(struct melfas_ts_data *ts)
 	printk(KERN_EMERG "%s : end\n", __func__);
 	return status;
 }
-static int check_delta_value(struct melfas_ts_data *ts)
+static void check_delta_value(struct melfas_ts_data *ts)
 {
 	u8 setLowLevelData[4];
 	u8 read_data_buf[50] = {0,};
 	//u16 read_data_buf1[50] = {0,};
 	char buff[TSP_CMD_STR_LEN] = {0};
 	int /*read_data_len,*/ sensing_ch, exciting_ch;
-	int ret, i, j, status;
+	int ret, i, j;
 	int size;
 	u32 max_value, min_value;
 	u32 raw_data;
@@ -2617,7 +2565,7 @@ static int check_delta_value(struct melfas_ts_data *ts)
 	tsp_testmode = 0;
 	TSP_reboot();
 	printk(KERN_EMERG "%s : end\n", __func__);
-	return status;
+	return;
 }
 static void get_intensity(void *device_data)
 {
@@ -3119,7 +3067,7 @@ static int factory_init_tk(struct melfas_ts_data *ts)
 {
 	struct i2c_client *client = ts->client;
 	int ret;
-	ts->dev_tk = device_create(sec_class, NULL, (dev_t)NULL, ts,
+	ts->dev_tk = device_create(sec_tsp_class, NULL, (dev_t)NULL, ts,
 								"sec_touchkey");
 	if (IS_ERR(ts->dev_tk)) {
 		dev_err(&client->dev, "Failed to create fac touchkey dev\n");
@@ -3178,12 +3126,6 @@ static int tsp_reboot_count;
 extern bool msm_fb_is_lcd_present(void);
 static int melfas_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-#if 0
-	struct device *qt602240_noise_test;
-#ifdef TA_DETECTION
-	bool ta_status;
-#endif
-#endif
 #ifdef SEC_TSP_FACTORY_TEST
 	struct device *fac_dev_ts;
 #endif
@@ -3212,35 +3154,13 @@ init_again:
 		ret = -ENOMEM;
 		goto err_alloc_data_failed;
 	}
-#if 0
-	ts_data = ts;
-	data = client->dev.platform_data;
-	ts->power = data->power;
-	ts->gpio = data->gpio;
-	ts->version = data->version;
-#ifdef TA_DETECTION
-	ts->register_cb = data->register_cb;
-	ts->read_ta_status = data->read_ta_status;
-#endif
-    ts->client = client;
-    i2c_set_clientdata(client, ts);
-	ts->power(true);
-#endif
 	ts->client = client;
 	i2c_set_clientdata(client, ts);
-#if 1
+
 	printk(KERN_EMERG "%s: i2c_master_send() [%d], Add[%d]\n", __func__,
 		ret, ts->client->addr);
-#endif
+
 #if SET_DOWNLOAD_BY_GPIO
-#if 0
-	buf[0] = TS_READ_VERSION_ADDR;
-	ret = i2c_master_send(ts->client, &buf, 1);
-	if (ret < 0) {
-		printk(KERN_EMERG "melfas_ts_work_func : i2c_master_send [%d]\n", ret);
-	}
-	ret = i2c_master_recv(ts->client, &buf, 3);
-#endif
 	if (0){//(msm_fb_is_lcd_present() == true) {
 		for (i = 0; i < DOWNLOAD_RETRY_CNT; i++) {
 			ret = MFS_ISC_update();
@@ -3293,7 +3213,6 @@ init_again:
 		ts->dvfs_lock_status = false;
 #endif
 
-	// don't care ts->client->irq = irqpin2irq(32);
 
     if (ts->client->irq) {
 #if DEBUG_PRINT
@@ -3301,14 +3220,9 @@ init_again:
 		ts->client->name, ts->client->irq);
 #endif
 
-#if 1
+
 	ret = request_threaded_irq(ts->client->irq, NULL, melfas_ts_irq_handler,
 						IRQF_TRIGGER_FALLING | IRQF_ONESHOT, ts->client->name, ts);
-#else
-	ret = request_threaded_irq(ts->client->irq, NULL, melfas_ts_irq_handler,
-						IRQF_TRIGGER_LOW | IRQF_ONESHOT, ts->client->name, ts);
-
-#endif
 	if (ret > 0) {
 		printk(KERN_EMERG "%s: Can't allocate irq %d, ret %d\n",
 			__func__, ts->client->irq, ret);
@@ -3319,34 +3233,10 @@ init_again:
 	for (i = 0; i < MELFAS_MAX_TOUCH ; i++)  /* _SUPPORT_MULTITOUCH_ */
 		g_Mtouch_info[i].strength = -1;
 
-#if 0
-	printk(KERN_EMERG "[TSP] tsp_enabled is %d", tsp_enabled);
-	data->register_cb(tsp_ta_probe);
-	if (data->read_ta_status) {
-		data->read_ta_status(&ta_status);
-		printk(KERN_EMERG "[TSP] ta_status is %d", ta_status);
-		tsp_ta_probe(ta_status);
-	}
-#endif
 #if DEBUG_PRINT
 	printk(KERN_EMERG "%s: succeed to register input device\n", __func__);
 #endif
-#if 0
-	sec_touchscreen = device_create(sec_class, NULL, 0, ts, "sec_touchscreen");
-	if (IS_ERR(sec_touchscreen))
-		pr_err("[TSP] Failed to create device for the sysfs\n");
-	ret = sysfs_create_group(&sec_touchscreen->kobj, &sec_touch_attr_group);
-	if (ret)
-		pr_err("[TSP] Failed to create sysfs group\n");
-#endif
-#if 0
-	qt602240_noise_test = device_create(sec_class, NULL, 0, ts, "qt602240_noise_test");
-	if (IS_ERR(qt602240_noise_test))
-		pr_err("[TSP] Failed to create device for the sysfs\n");
-	ret = sysfs_create_group(&qt602240_noise_test->kobj, &sec_touch_factory_attr_group);
-	if (ret)
-		pr_err("[TSP] Failed to create sysfs group\n");
-#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	printk(KERN_EMERG "%s: register earlysuspend.\n", __func__);
 	ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
@@ -3366,12 +3256,9 @@ init_again:
 		ts->config_fw_version = "S7562_0526_G1F";
 	else{
 		ts->config_fw_version = "S7562_0526_G1M";
-		#if defined(CONFIG_MACH_KYLE_I) 		
-		ts->config_fw_version = "S7562i_0526_GFF";
-		#endif
 	}
 
-	fac_dev_ts = device_create(sec_class,
+	fac_dev_ts = device_create(sec_tsp_class,
 			NULL, 0, ts, "tsp");
 	if (IS_ERR(fac_dev_ts))
 		dev_err(&client->dev, "Failed to create device for the sysfs\n");
@@ -3404,7 +3291,7 @@ init_again:
 		printk(KERN_EMERG "Failed to create device file(%s)!\n",
 			dev_attr_raw_show.attr.name);
 #endif
-	sec_touchscreen_dev = device_create(sec_class,
+	sec_touchscreen_dev = device_create(sec_tsp_class,
 	NULL, 0, NULL, "sec_touchscreen");
 	if (IS_ERR(sec_touchscreen_dev))
 		pr_err("Failed to create device(sec_touchscreen)!\n");
@@ -3472,7 +3359,7 @@ init_again:
 			    &dev_attr_set_module_on) < 0)
 		pr_err("Failed to create device file(%s)!\n",
 				dev_attr_set_module_on.attr.name);
-	sec_touchkey_dev = device_create(sec_class,
+	sec_touchkey_dev = device_create(sec_touchkey_class,
 			NULL, 0, NULL, "sec_touchkey");
 	if (IS_ERR(sec_touchkey_dev))
 		pr_err("Failed to create device(sec_touchscreen)!\n");
@@ -3501,21 +3388,12 @@ init_again:
 				dev_attr_brightness.attr.name);
 	tsp_enabled = true;
 	return 0;
-#if 0
-	TSP_boost(ts, is_boost);
-#endif
 #if DEBUG_PRINT
 	printk(KERN_EMERG "%s: Start touchscreen. name: %s, irq: %d\n",
 		__func__, ts->client->name, ts->client->irq);
 #endif
 	return 0;
 
-#if 0
-err_detect_failed:
-	ts->power(false);
-	printk(KERN_EMERG "melfas-ts: err_detect failed\n");
-	kfree(ts);
-#endif	
 err_request_irq:
 	printk(KERN_EMERG "melfas-ts: err_request_irq failed\n");
 	free_irq(client->irq, ts);
@@ -3634,12 +3512,22 @@ extern unsigned int is_lpcharging_state(void);
 #endif
 static int __devinit melfas_ts_init(void)
 {
+	int ret;
+	
+	printk("melfas_ts_init");
 
-	sec_class = class_create(THIS_MODULE, "sec_touchscreen");
-	if (IS_ERR(sec_class))
+	sec_tsp_class = class_create(THIS_MODULE, "sec_touchscreen");
+	if (IS_ERR(sec_tsp_class))
 	{
 		printk("%s: sec_touch class creation failed.\n", __func__ );
-		return PTR_ERR(sec_class);
+		return PTR_ERR(sec_tsp_class);
+	}
+    
+	sec_touchkey_class = class_create(THIS_MODULE, "sec_touchkey");
+	if (IS_ERR(sec_touchkey_class))
+	{
+		printk("%s: sec_touchkey_class creation failed.\n", __func__ );
+		return PTR_ERR(sec_touchkey_class);
 	}
 #ifdef CONFIG_BATTERY_SEC
 	if (is_lpcharging_state()) {
@@ -3656,7 +3544,14 @@ static int __devinit melfas_ts_init(void)
 		FW_VERSION = 0xFF;
 #endif
 		FW_VERSION = 0x08;
+#if 0
 	return i2c_add_driver(&melfas_ts_driver);
+#else
+	ret = i2c_add_driver(&melfas_ts_driver);
+	printk("melfas_ts_init ret = %d", ret);
+	return ret;
+
+#endif	
 }
 static void __exit melfas_ts_exit(void)
 {

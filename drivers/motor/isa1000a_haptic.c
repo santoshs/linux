@@ -22,6 +22,8 @@
 
 #include "../staging/android/timed_output.h"
 
+#include <mach/common.h>
+
 #define CLK_SOURCE_CP 0 /* CP clock Common Peripheral*/
 #define VIB_CYCLE		0x0244 /* Value of TGRB to set the cycle */
 #define VIB_DUTY_OVERDRV_ON 0
@@ -70,9 +72,6 @@ void vibtonz_en(bool en)
 			vib_iter->pwm_handle = NULL;
 			return ;
         }
-#ifdef CONFIG_PMIC_INTERFACE
-		pmic_set_power_on(E_POWER_VANA_MM);
-#endif
 		vib_iter->gpio_en(en);
 	}
 	else
@@ -96,9 +95,6 @@ void vibtonz_en(bool en)
         vib_iter->pwm_handle = NULL;
 
 		vib_iter->gpio_en(en);
-#ifdef CONFIG_PMIC_INTERFACE		
-		pmic_set_power_off(E_POWER_VANA_MM);
-#endif
 	}
 }
 EXPORT_SYMBOL(vibtonz_en);
@@ -155,11 +151,6 @@ static int isa1000a_haptic_probe(struct platform_device *pdev)
 
 	printk("%s\n", __func__);
 	vib_iter = &vib_desc;
-
-#ifdef CONFIG_PMIC_INTERFACE
-	pmic_set_voltage(E_POWER_VANA_MM, E_LDO_VOLTAGE_3_0000V);
-	pmic_set_power_off(E_POWER_VANA_MM);
-#endif
 
 	vib_iter->gpio_en = pdata->gpio_en;
 	vib_iter->pwm_name = (const char *)pdata->pwm_name;

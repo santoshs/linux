@@ -3,7 +3,7 @@
 DEBUG = n
 
 # Multimedia log output level INFO=0 LOW=1 MED=2 HIGH=3 ERROR=4 FATAL=5 NONE=255
-LEVEL=255
+LEVEL=4
 
 # Add your debugging flag (or not) to CFLAGS
 ifeq ($(DEBUG),y)

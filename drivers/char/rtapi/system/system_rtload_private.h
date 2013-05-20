@@ -2,7 +2,7 @@
  * system_rtload_private.h
  *	 RT domain boot function private header file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012,2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -33,9 +33,7 @@
 #define RD_BOOT_ADDR(x)		(readl((x)) & ~0xf)
 
 int system_sub_load_rtimage(void);
-int system_sub_get_section_header(
-	system_rt_section_header *section_header
-);
+int system_sub_get_section_header(system_rt_section_header *section_header);
 
 #endif	/* __SYSTEM_RTLOAD_PRIVATE_H__ */
 

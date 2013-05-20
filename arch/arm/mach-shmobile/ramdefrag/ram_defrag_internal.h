@@ -25,6 +25,9 @@
 #include <linux/types.h> /* ssize_t */
 #include <mach/ram_defrag.h>
 
+extern spinlock_t inode_sb_list_lock;
 static int page_check(struct page *page);
+static void drop_pagecache_sb(struct super_block *sb, void *unused);
+static void drop_slab(void);
 
 #endif /*__ARCH_RAM_DEFRAG_INTERNAL_H__*/

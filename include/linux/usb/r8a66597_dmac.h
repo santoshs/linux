@@ -20,8 +20,8 @@
  *
  */
 
-#ifndef	__LINUX_USB_R8A66597_DMAC_H
-#define	__LINUX_USB_R8A66597_DMAC_H
+#ifndef __LINUX_USB_R8A66597_DMAC_H
+#define __LINUX_USB_R8A66597_DMAC_H
 
 #define USBDMA_BASE0	0xE68A0000
 #define USBDMA_BASE1	0xE68C0000
@@ -95,26 +95,26 @@
 #define RW	(1 << 13)	/* Final Buffer Access Detect Int Flag */
 #define NULLF	(1 << 12)	/* NULL Rx Int Flag */
 #define PRI	(15 << 8)	/* Priority */
-#define	  PRI_0	  (0 << 8)	/* Priority0 (lowest) */
-#define	  PRI_1	  (1 << 8)	/* Priority1 */
-#define	  PRI_2	  (2 << 8)	/* Priority2 */
-#define	  PRI_3	  (3 << 8)	/* Priority3 */
-#define	  PRI_4	  (4 << 8)	/* Priority4 */
-#define	  PRI_5	  (5 << 8)	/* Priority5 */
-#define	  PRI_6	  (6 << 8)	/* Priority6 */
-#define	  PRI_7	  (7 << 8)	/* Priority7 */
-#define	  PRI_8	  (8 << 8)	/* Priority8 */
-#define	  PRI_9	  (9 << 8)	/* Priority9 */
-#define	  PRI_10  (10 << 8)	/* Priority10 */
-#define	  PRI_11  (11 << 8)	/* Priority11 */
-#define	  PRI_12  (12 << 8)	/* Priority12 */
-#define	  PRI_13  (13 << 8)	/* Priority13 */
-#define	  PRI_14  (14 << 8)	/* Priority14 */
-#define	  PRI_15  (15 << 8)	/* Priority15 (Highest) */
+#define   PRI_0   (0 << 8)	/* Priority0 (lowest) */
+#define   PRI_1   (1 << 8)	/* Priority1 */
+#define   PRI_2   (2 << 8)	/* Priority2 */
+#define   PRI_3   (3 << 8)	/* Priority3 */
+#define   PRI_4   (4 << 8)	/* Priority4 */
+#define   PRI_5   (5 << 8)	/* Priority5 */
+#define   PRI_6   (6 << 8)	/* Priority6 */
+#define   PRI_7   (7 << 8)	/* Priority7 */
+#define   PRI_8   (8 << 8)	/* Priority8 */
+#define   PRI_9   (9 << 8)	/* Priority9 */
+#define   PRI_10  (10 << 8)	/* Priority10 */
+#define   PRI_11  (11 << 8)	/* Priority11 */
+#define   PRI_12  (12 << 8)	/* Priority12 */
+#define   PRI_13  (13 << 8)	/* Priority13 */
+#define   PRI_14  (14 << 8)	/* Priority14 */
+#define   PRI_15  (15 << 8)	/* Priority15 (Highest) */
 #define TS	(3 << 6)	/* MA Transfer Size */
-#define	  TS_8	  (0 << 6)	/* 8Byte */
-#define	  TS_16	  (1 << 6)	/* 16Byte */
-#define	  TS_32	  (2 << 6)	/* 32Byte */
+#define   TS_8    (0 << 6)	/* 8Byte */
+#define   TS_16   (1 << 6)	/* 16Byte */
+#define   TS_32   (2 << 6)	/* 32Byte */
 #define IE	(1 << 5)	/* Interrupt Enable */
 #define TOE	(1 << 4)	/* Timeout Enable */
 #define TO	(1 << 3)	/* Timeout Flag */
@@ -127,11 +127,10 @@
 #define TID0	(1 << 5)	/* Response Err Ch Identity Info */
 #define RM	(1 << 4)	/* Response Err Mask Mode */
 #define PR	(3 << 2)	/* Priority Mode */
-#define   PR_01	  (0 << 2)	/* CH0 > CH1 */
-#define   PR_10	  (1 << 2)	/* CH1 > CH0 */
-#define   PR_11	  (3 << 2)	/* Round-robin Mode */
+#define   PR_01   (0 << 2)	/* CH0 > CH1 */
+#define   PR_10   (1 << 2)	/* CH1 > CH0 */
+#define   PR_11   (3 << 2)	/* Round-robin Mode */
 #define AE	(1 << 1)	/* Address Error Flag */
 #define DME	(1 << 0)	/* DMA Master Enable */
-
 
 #endif /* __LIUNUX_USB_R8A66597_DMAC_H */

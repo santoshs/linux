@@ -34,7 +34,6 @@
 #include <linux/slab.h>
 #include <linux/i2c/i2c-sh_mobile.h>
 #include <mach/gpio.h>
-
 #include <mach/common.h>
 
 /* Transmit operation:                                                      */
@@ -122,6 +121,7 @@ struct sh_mobile_i2c_data {
 	void __iomem *reg;
 	struct i2c_adapter adap;
 	unsigned long bus_speed;
+	unsigned int clks_per_count;
 	struct clk *clk;
 	u_int8_t icic;
 	u_int8_t flags;
@@ -188,18 +188,23 @@ static void iic_wr(struct sh_mobile_i2c_data *pd, int offs, unsigned char data)
 	if (offs == ICIC)
 		data |= pd->icic;
 
-	iowrite8(data, pd->reg + offs);
+	writeb_relaxed(data, pd->reg + offs);
 }
 
 static unsigned char iic_rd(struct sh_mobile_i2c_data *pd, int offs)
 {
-	return ioread8(pd->reg + offs);
+	return readb_relaxed(pd->reg + offs);
 }
 
 static void iic_set_clr(struct sh_mobile_i2c_data *pd, int offs,
 			unsigned char set, unsigned char clr)
 {
 	iic_wr(pd, offs, (iic_rd(pd, offs) | set) & ~clr);
+}
+
+static void iic_sync(struct sh_mobile_i2c_data *pd)
+{
+	readb_relaxed(pd->reg + ICSR); /* defeat write posting */
 }
 
 static u32 sh_mobile_i2c_icch(unsigned long count, u32 tHIGH,
@@ -213,6 +218,11 @@ static u32 sh_mobile_i2c_icch(unsigned long count, u32 tHIGH,
 	 * and can ignore it.  SH/R-Mobile IIC controller starts counting
 	 * the HIGH peirod of the SCL signal (tHIGH) after the SCL input
 	 * voltage increases at VIH.
+	 *
+	 * Afterward it turns out calculating ICCH using only tHIGH spec
+	 * will result in violation of the tHD;STA timing spec.  We need
+	 * to take into account the fall time of SDA signal (tf) at START
+	 * condition, in order to meet both tHIGH and tHD;STA specs.
 	 */
 	return ((count * (tHIGH + tf)) + 5000) / 10000 + offset;
 }
@@ -235,14 +245,16 @@ static u32 sh_mobile_i2c_iccl(unsigned long count, u32 tLOW, u32 tf, int offset)
 static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 {
 	unsigned long i2c_clk_khz;
-	u32 tHIGH, tLOW, tf;
+	u32 tHIGH = 0;
+	u32 tLOW = 0;
+	u32 tf = 0;
 	int offset;
 
 	/* Get clock rate after clock is enabled */
 	clk_enable(pd->clk);
 	i2c_clk_khz = clk_get_rate(pd->clk) / 1000;
 
-#if defined(CONFIG_ARCH_SH73A0) || defined(CONFIG_ARCH_R8A73734)
+#if defined(CONFIG_ARCH_SH73A0) || defined(CONFIG_ARCH_R8A7373)
 	i2c_clk_khz /= 2;
 #endif
 
@@ -303,11 +315,8 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 
 	/* Mask all interrupts */
 	iic_wr(pd, ICIC, 0);
-
-	/*set the bus_data_delay*/
-	if (u2_get_board_rev() >= RLTE_SSG_REV_041)
-		iic_wr(pd, ICTC, (iic_rd(pd, ICTC) & UNMASK_ICTC_BITS_0TO2)|
-				(pd->bus_data_delay & UNMASK_DATA_DELAY_3TO7));
+	iic_wr(pd, ICTC, (iic_rd(pd, ICTC) & UNMASK_ICTC_BITS_0TO2)|
+			(pd->bus_data_delay & UNMASK_DATA_DELAY_3TO7));
 	/* Set the clock */
 	iic_wr(pd, ICCL, pd->iccl & 0xff);
 	iic_wr(pd, ICCH, pd->icch & 0xff);
@@ -323,6 +332,7 @@ static void deactivate_ch(struct sh_mobile_i2c_data *pd)
 
 	/* Disable channel */
 	iic_wr(pd, ICCR, 0);
+	iic_sync(pd);
 
 	/* Disable clock and mark device as idle */
 	clk_disable(pd->clk);
@@ -530,6 +540,8 @@ static irqreturn_t sh_mobile_i2c_isr(int irq, void *dev_id)
 
 	/* defeat write posting to avoid spurious WAIT interrupts */
 	iic_rd(pd, ICSR);
+	/* get I/O synced to avoid spurious WAIT interrupts */
+	iic_sync(pd);
 
 	return IRQ_HANDLED;
 }
@@ -542,17 +554,6 @@ start_ch(struct sh_mobile_i2c_data *pd, struct i2c_msg *usr_msg, int num)
 		return -EIO;
 	}
 
-#if 0
-	/* Initialize channel registers */
-	iic_set_clr(pd, ICCR, 0, ICCR_ICE);
-
-	/* Enable channel and configure rx ack */
-	iic_set_clr(pd, ICCR, ICCR_ICE, 0);
-
-	/* Set the clock */
-	iic_wr(pd, ICCL, pd->iccl);
-	iic_wr(pd, ICCH, pd->icch);
-#endif
 
 	pd->msg = NULL;
 	pd->msgs = usr_msg;
@@ -641,7 +642,7 @@ static int sh_mobile_i2c_hook_irqs(struct platform_device *dev, int hook)
 
 	while ((res = platform_get_resource(dev, IORESOURCE_IRQ, k))) {
 		for (n = res->start; hook && n <= res->end; n++) {
-			if (request_irq(n, sh_mobile_i2c_isr, IRQF_DISABLED,
+			if (request_irq(n, sh_mobile_i2c_isr, 0,
 					dev_name(&dev->dev), dev)) {
 				for (n--; n >= res->start; n--)
 					free_irq(n, dev);
@@ -718,16 +719,17 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 		goto err_irq;
 	}
 
-	/* Use platformd data bus speed or STANDARD_MODE */
+	/* Use platform data bus speed or STANDARD_MODE */
 	pd->bus_speed = STANDARD_MODE;
 	if (pdata && pdata->bus_speed)
 		pd->bus_speed = pdata->bus_speed;
-
-	if ((u2_get_board_rev() >= RLTE_SSG_REV_041) && pdata &&
-			(pdata->bus_data_delay <= MAX_SDA_DELAY
+	pd->clks_per_count = 1;
+	if (pdata && pdata->clks_per_count)
+		pd->clks_per_count = pdata->clks_per_count;
+	if (pdata && (pdata->bus_data_delay <= MAX_SDA_DELAY
 			 && pdata->bus_data_delay >= MIN_SDA_DELAY))
 		pd->bus_data_delay = pdata->bus_data_delay <<
-						SHIFT_3BITS_SDA_DELAY;
+							SHIFT_3BITS_SDA_DELAY;
 	else
 		pd->bus_data_delay = MIN_SDA_DELAY;
 	/* The IIC blocks on SH-Mobile ARM processors

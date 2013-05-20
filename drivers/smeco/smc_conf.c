@@ -219,7 +219,7 @@ smc_conf_t* smc_conf_create_from_instance_conf( char* smc_cpu_name, smc_instance
 
     smc_shm_conf->shm_area_start_address = (uint8_t*)smc_instance_conf->shm_start_address;
     smc_shm_conf->size                   = smc_instance_conf->shm_size;
-
+    smc_conf->name                       = smc_instance_conf->user_name;
     if( smc_conf->is_master )
     {
         smc_shm_conf->use_cache_control             = smc_instance_conf->shm_use_cache_control_master;
@@ -380,6 +380,84 @@ smc_instance_conf_t* smc_instance_conf_get_from_list(smc_instance_conf_t* smc_in
     SMC_TRACE_PRINTF_DEBUG("smc_instance_conf_get_from_list: returning config 0x%08X", (uint32_t)config);
 
     return config;
+}
+
+char* smc_instance_conf_name_get_from_list(smc_instance_conf_t* smc_instance_conf_array, int config_count, char* smc_user_name, uint8_t is_master, uint8_t version_major, uint8_t version_minor)
+{
+    char* name = NULL;
+    int   i    = 0;
+    smc_instance_conf_t* current_config = NULL;
+
+    SMC_TRACE_PRINTF_DEBUG("smc_instance_conf_name_get_from_list: Searching array with %d items...", config_count);
+
+    for(i = 0; i < config_count; i++)
+    {
+        SMC_TRACE_PRINTF_DEBUG("smc_instance_conf_name_get_from_list: Index %d: Check %s->%s: %s <-> %s...", i,
+                smc_instance_conf_array[i].user_name, smc_instance_conf_array[i].name,
+                smc_instance_conf_array[i].master_name, smc_instance_conf_array[i].slave_name);
+
+        if( strcmp(smc_instance_conf_array[i].user_name , smc_user_name ) == 0 )
+        {
+            if( is_master )
+            {
+                if( version_major > smc_instance_conf_array[i].master_cpu_version_major ||
+                    (version_major == smc_instance_conf_array[i].master_cpu_version_major &&
+                     version_minor >= smc_instance_conf_array[i].master_cpu_version_minor))
+                {
+                    /**/
+                    if( current_config==NULL || (current_config != NULL &&
+                        (smc_instance_conf_array[i].master_cpu_version_major > current_config->master_cpu_version_major ||
+                         (smc_instance_conf_array[i].master_cpu_version_major == current_config->master_cpu_version_major &&
+                         smc_instance_conf_array[i].master_cpu_version_minor >= current_config->master_cpu_version_minor)) ))
+                    {
+                        current_config = &smc_instance_conf_array[i];
+                        SMC_TRACE_PRINTF_DEBUG("smc_instance_conf_name_get_from_list: found master item from array index %d", i);
+                    }
+                }
+            }
+            else
+            {
+                if( version_major >= smc_instance_conf_array[i].slave_cpu_version_major ||
+                    (version_major == smc_instance_conf_array[i].slave_cpu_version_major &&
+                    version_minor >= smc_instance_conf_array[i].slave_cpu_version_minor ))
+                {
+                    /**/
+                    if( current_config==NULL || (current_config != NULL &&
+                        (smc_instance_conf_array[i].slave_cpu_version_major >= current_config->slave_cpu_version_major ||
+                        (smc_instance_conf_array[i].slave_cpu_version_major == current_config->slave_cpu_version_major &&
+                        smc_instance_conf_array[i].slave_cpu_version_minor >= current_config->slave_cpu_version_minor) ) ))
+                    {
+                        current_config = &smc_instance_conf_array[i];
+                        SMC_TRACE_PRINTF_DEBUG("smc_instance_conf_name_get_from_list: found slave item from array index %d", i);
+                    }
+                }
+            }
+        }
+    }
+
+    if( current_config != NULL )
+    {
+        if( is_master )
+        {
+            name = current_config->master_name;
+        }
+        else
+        {
+            name = current_config->slave_name;
+        }
+    }
+
+    if( name != NULL )
+    {
+        SMC_TRACE_PRINTF_DEBUG("smc_instance_conf_name_get_from_list: returning config name %s", name);
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_ASSERT("smc_instance_conf_name_get_from_list: No proper SMC '%s' configuration found for version %d.%d", smc_user_name, version_major, version_minor);
+        assert(0);
+    }
+
+    return name;
 }
 
 uint8_t smc_shm_conf_request_received( smc_channel_t* channel, int32_t fifo_out_size, int32_t fifo_in_size, uint32_t mdb_start_address, uint32_t mdb_size )

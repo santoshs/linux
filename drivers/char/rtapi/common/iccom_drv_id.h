@@ -2,7 +2,7 @@
  * iccom_drv_id.h
  *     function id definition header file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -35,7 +35,6 @@
 #define EVENT_STATUS_STARTPOWERAREANOTIFY	(FUNCTIONID_STATUS_CONTROL_BASE+4)
 #define EVENT_STATUS_ENDPOWERAREANOTIFY		(FUNCTIONID_STATUS_CONTROL_BASE+5)
 
-/* MU2SYS1418 ---> */
 /* Debug */
 /* Debug Task */
 /* Task ID */
@@ -45,6 +44,5 @@
 
 /* Debug */
 #define EVENT_DEBUG_STARTOUTPUTLOG   (FUNCTIONID_DEBUG_BASE+11)
-/* MU2SYS1418 <--- */
 
 #endif /* __ICCOM_DRV_ID_H__ */

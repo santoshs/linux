@@ -4,7 +4,7 @@
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/radix-tree.h>
-#include <linux/sysdev.h>
+#include <linux/device.h>
 
 #define _INTC_MK(fn, mode, addr_e, addr_d, width, shift) \
 	((shift) | ((width) << 5) | ((fn) << 9) | ((mode) << 13) | \
@@ -51,7 +51,7 @@ struct intc_subgroup_entry {
 
 struct intc_desc_int {
 	struct list_head list;
-	struct sys_device sysdev;
+	struct device dev;
 	struct radix_tree_root tree;
 	raw_spinlock_t lock;
 	unsigned int index;
@@ -68,6 +68,7 @@ struct intc_desc_int {
 	unsigned int nr_windows;
 	struct irq_chip chip;
 	bool skip_suspend;
+
 	int (*set_type)(struct irq_data *data, unsigned int flow_type);
 	int (*set_wake)(struct irq_data *data, unsigned int on);
 };
@@ -110,25 +111,34 @@ static inline void activate_irq(int irq)
 #endif
 }
 
+static inline int intc_handle_int_cmp(const void *a, const void *b)
+{
+	const struct intc_handle_int *_a = a;
+	const struct intc_handle_int *_b = b;
+
+	return _a->irq - _b->irq;
+}
+
 /* access.c */
 extern unsigned long
-(*intc_reg_fns[])(unsigned long addr, unsigned long h, unsigned long data);
+(*intc_reg_fns[])(unsigned long addr, unsigned long h, unsigned long data,
+		 raw_spinlock_t *lock);
 
 extern unsigned long
 (*intc_enable_fns[])(unsigned long addr, unsigned long handle,
 		     unsigned long (*fn)(unsigned long,
-				unsigned long, unsigned long),
-		     unsigned int irq);
+				unsigned long, unsigned long, raw_spinlock_t *),
+		     unsigned int irq, raw_spinlock_t *lock);
 extern unsigned long
 (*intc_disable_fns[])(unsigned long addr, unsigned long handle,
 		      unsigned long (*fn)(unsigned long,
-				unsigned long, unsigned long),
-		      unsigned int irq);
+				unsigned long, unsigned long, raw_spinlock_t *),
+		      unsigned int irq, raw_spinlock_t *lock);
 extern unsigned long
 (*intc_enable_noprio_fns[])(unsigned long addr, unsigned long handle,
 		            unsigned long (*fn)(unsigned long,
-				unsigned long, unsigned long),
-			    unsigned int irq);
+				unsigned long, unsigned long, raw_spinlock_t *),
+			    unsigned int irq, raw_spinlock_t *lock);
 
 unsigned long intc_phys_to_virt(struct intc_desc_int *d, unsigned long address);
 unsigned int intc_get_reg(struct intc_desc_int *d, unsigned long address);
@@ -159,8 +169,7 @@ void _intc_enable(struct irq_data *data, unsigned long handle);
 /* core.c */
 extern struct list_head intc_list;
 extern raw_spinlock_t intc_big_lock;
-extern unsigned int nr_intc_controllers;
-extern struct sysdev_class intc_sysdev_class;
+extern struct bus_type intc_subsys;
 
 unsigned int intc_get_dfl_prio_level(void);
 unsigned int intc_get_prio_level(unsigned int irq);

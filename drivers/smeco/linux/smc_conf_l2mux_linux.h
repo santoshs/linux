@@ -47,7 +47,8 @@ Description :  File created
 
     /* L2MUX control header size */
 #define SMC_L2MUX_HEADER_SIZE        4
-#define SMC_L2MUX_HEADER_OVERHEAD    26    /* Overhead added to SKB while allocating */
+
+/*TODO Clean-up this (+comments from C file) #define SMC_L2MUX_HEADER_OVERHEAD    26 */    /* Overhead added to SKB while allocating */
 
 #if( SMCTEST == TRUE )
     #define SMC_TEST_PHONET_DEVICE  0x70   /* Phonet messages to this device are routed to SMC test handler */

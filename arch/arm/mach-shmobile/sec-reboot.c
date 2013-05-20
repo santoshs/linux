@@ -173,7 +173,7 @@ static void sec_reboot(char str, const char *cmd)
 
 	flush_cache_all();
 	outer_flush_all();
-	arch_reset(0, 0);
+	arch_reset(str, cmd);
 
 	pr_emerg("%s: waiting for reboot\n", __func__);
 	while (1);

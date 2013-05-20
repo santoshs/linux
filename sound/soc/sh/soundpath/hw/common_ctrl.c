@@ -19,10 +19,10 @@
 
 #include <linux/clk.h>
 #include <sound/soundpath/common_extern.h>
+#include <sound/soundpath/scuw_extern.h>
 #include "common_ctrl.h"
-#include "scuw_ctrl.h"
 #include <mach/common.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/hwspinlock.h>
 
 
@@ -389,7 +389,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-				ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
+				ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
 				if (0 > ret)
 					sndp_log_err("Can't lock cpg\n");
 
@@ -400,7 +400,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 				sh_modify_register32(CPG_SRCR2, 0x01000000, 0);
 
 				if (0 <= ret)
-					hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+					hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 
 				g_clock_flag |= SNDP_CLK_CLKGEN;
 			}
@@ -431,7 +431,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-				ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
+				ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
 				if (0 > ret)
 					sndp_log_err("Can't lock cpg\n");
 
@@ -442,7 +442,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 				sh_modify_register32(CPG_SRCR3, 0x10000000, 0);
 
 				if (0 <= ret)
-					hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+					hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 
 				g_clock_flag |= SNDP_CLK_FSI;
 #ifdef SOUND_TEST
@@ -481,7 +481,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-				ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
+				ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
 				if (0 > ret)
 					sndp_log_err("Can't lock cpg\n");
 
@@ -492,7 +492,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 				sh_modify_register32(CPG_SRCR3, 0x04000000, 0);
 
 				if (0 <= ret)
-					hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
+					hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 
 				g_clock_flag |= SNDP_CLK_SCUW;
 			}
@@ -608,11 +608,12 @@ void common_set_register(
 
    @param[in]	uiValue		PCM type
    @param[in]	stat		On/Off
+   @param[in]	rate		Sampling Rate
    @param[out]	none
 
    @retval	none
  */
-void common_set_pll22(const u_int uiValue, int stat)
+void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 {
 	/* Local variable declaration */
 	u_int dev, fsickcr;
@@ -636,19 +637,45 @@ void common_set_pll22(const u_int uiValue, int stat)
 	/* Status ON */
 	if (STAT_ON == stat) {
 		/* mode check */
-		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
+		if ((SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) &&
+		    (SNDP_MODE_INCOMM != SNDP_GET_MODE_VAL(uiValue))) {
 			if (false == (dev & SNDP_BLUETOOTHSCO)) {
 				pll22val = 0x44000000;
 				fsival = 0x00001047;
 			} else {
-				pll22val = 0x44000000;
-				fsival = 0x00001047;
+				if (rate == 16000) {
+					sndp_log_info("rate=16000..\n");
+					pll22val = 0x44000000;
+					fsival = 0x0000104B;
+				} else {
+					sndp_log_info("rate=8000..]\n");
+					pll22val = 0x3F000000;
+					fsival = 0x0000104C;
+				}
 			}
-
-			ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
+#ifndef __SNDP_INCALL_CLKGEN_MASTER
+		} else {
+			if (false == (dev & SNDP_BLUETOOTHSCO)) {
+				pll22val = 0x3F000000;
+				fsival = 0x0000104C;
+			} else {
+				if (rate == 16000) {
+					sndp_log_debug("rate=16000..\n");
+					pll22val = 0x3F000000;
+					fsival = 0x0000104C;
+				} else {
+					sndp_log_info("rate=8000..]\n");
+					pll22val = 0x3F000000;
+					fsival = 0x0000104C;
+				}
+			}
+		}
+#endif /* __SNDP_INCALL_CLKGEN_MASTER */
+			ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
 			if (0 > ret)
 				sndp_log_err("Can't lock cpg\n");
 
+			/* set Pll22 enable */
 			iowrite32(pll22val, CPG_PLL22CR);
 			sh_modify_register32(CPG_PLLECR, 0, 0x00000010);
 
@@ -666,30 +693,23 @@ void common_set_pll22(const u_int uiValue, int stat)
 
 			/* FM Radio */
 			if (false != (dev & SNDP_FM_RADIO_RX)) {
-				/* PortA */
+				/* set FSIACKCR */
 				fsickcr = CPG_FSIACKCR;
-				/* FSICKCR enable 38 divide */
 				iowrite32(fsival, fsickcr);
 			}
 
 			if (0 <= ret)
-				hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
-
-		} else {
-			/* Pll22 enable 64 divide */
-			/* FSICKCR enable 25 divide */
-			/*
-			 * iowrite32(0x39000000, CPG_PLL22CR);
-			 * sh_modify_register32(CPG_PLLECR, 0, 0x00000010);
-			 * iowrite32(0x00001058, fsickcr);
-			 */
+				hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+#ifdef __SNDP_INCALL_CLKGEN_MASTER
 		}
+#endif /* __SNDP_INCALL_CLKGEN_MASTER */
 	/* Status OFF */
 	} else {
+#ifdef __SNDP_INCALL_CLKGEN_MASTER
 		/* mode check */
 		if (SNDP_MODE_INCALL != SNDP_GET_MODE_VAL(uiValue)) {
-
-			ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_cpg, 10, &flags);
+#endif /* __SNDP_INCALL_CLKGEN_MASTER */
+			ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
 			if (0 > ret)
 				sndp_log_err("Can't lock cpg\n");
 
@@ -698,9 +718,8 @@ void common_set_pll22(const u_int uiValue, int stat)
 
 			/* FM Radio */
 			if (false != (dev & SNDP_FM_RADIO_RX)) {
-				/* PortA */
+				/* FSIACKCR disable */
 				fsickcr = CPG_FSIACKCR;
-				/* FSICKCR disable */
 				iowrite32(0x00000100, fsickcr);
 			}
 
@@ -708,14 +727,15 @@ void common_set_pll22(const u_int uiValue, int stat)
 			sh_modify_register32(CPG_PLLECR, 0x00000010, 0);
 
 			if (0 <= ret)
-				hwspin_unlock_irqrestore(r8a73734_hwlock_cpg, &flags);
-
+				hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+#ifdef __SNDP_INCALL_CLKGEN_MASTER
 		}
+#endif /* __SNDP_INCALL_CLKGEN_MASTER */
 	}
 
-	sndp_log_info("CPG_PLL22CR[0x%08x]\n", ioread32(CPG_PLL22CR));
-	sndp_log_info("CPG_FSIACKCR[0x%08x]\n", ioread32(CPG_FSIACKCR));
-	sndp_log_info("CPG_FSIBCKCR[0x%08x]\n", ioread32(CPG_FSIBCKCR));
+	sndp_log_debug("CPG_PLL22CR[0x%08x]\n", ioread32(CPG_PLL22CR));
+	sndp_log_debug("CPG_FSIACKCR[0x%08x]\n", ioread32(CPG_FSIACKCR));
+	sndp_log_debug("CPG_FSIBCKCR[0x%08x]\n", ioread32(CPG_FSIBCKCR));
 
 	sndp_log_debug_func("end\n");
 }
@@ -729,25 +749,42 @@ void common_set_pll22(const u_int uiValue, int stat)
 
    @retval	none
  */
-void common_set_fsi2cr(int stat)
+void common_set_fsi2cr(u_int dev, int stat)
 {
 	/* Local variable declaration */
 	int ret;
 	unsigned long flags;
+	u_int clrbit = 0;
+	u_int setbit = 0;
 
 	sndp_log_debug_func("start\n");
 
-	ret = hwspin_lock_timeout_irqsave(r8a73734_hwlock_gpio, 10, &flags);
+	if (STAT_ON == stat) {
+		if (SNDP_NO_DEVICE == dev)
+			setbit = 0x0300;
+		else if (SNDP_BLUETOOTHSCO & dev)
+			setbit = 0x0200;
+		else
+			setbit = 0x0100;
+	} else {
+		if (SNDP_NO_DEVICE == dev)
+			clrbit = 0x0300;
+		else if (SNDP_BLUETOOTHSCO & dev)
+			clrbit = 0x0200;
+		else
+			clrbit = 0x0100;
+	}
+
+	ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_gpio, 10, &flags);
 	if (0 > ret)
 		sndp_log_err("Can't lock cpg\n");
 
-	if (STAT_ON == stat)
-		iowrite16(0x0300, GPIO_FSI2CR);
-	else
-		iowrite16(0x0000, GPIO_FSI2CR);
+	sh_modify_register16(GPIO_FSI2CR, clrbit, setbit);
 
 	if (0 <= ret)
-		hwspin_unlock_irqrestore(r8a73734_hwlock_gpio, &flags);
+		hwspin_unlock_irqrestore(r8a7373_hwlock_gpio, &flags);
+
+	sndp_log_debug("FSI2CR[0x%04x]\n", ioread16(GPIO_FSI2CR));
 
 	sndp_log_debug_func("end\n");
 }

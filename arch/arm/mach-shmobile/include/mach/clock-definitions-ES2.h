@@ -1,9 +1,630 @@
-#define VCLKCR5         IO_ADDRESS(0xE6150034)
-#define SLIMBCKCR	IO_ADDRESS(0xE6150088)
-#define M4CKCR          IO_ADDRESS(0xE6150098)
-#define DSI1PCKCR	IO_ADDRESS(0xE6150068)
-#define DSI1PHYCR	IO_ADDRESS(0xE6150070)
-#define PLL22CR		IO_ADDRESS(0xE61501F4)
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/io.h>
+#include <linux/clk.h>
+#include <linux/clkdev.h>
+#include <linux/sh_clk.h>
+#include <asm/clkdev.h>
+#include <mach/common.h>
+#include <mach/r8a7373.h>
+
+
+/***************************************************************************/
+#define EXSTMON2        IO_ADDRESS(0xe6180088)
+
+static int extal2_clk_enable(struct clk *clk)
+{
+        __raw_writel(__raw_readl(CPG_PLL2CR) & ~1, CPG_PLL2CR);
+        while (__raw_readl(EXSTMON2) & (1 << 16))       /* EX2MSK */
+                cpu_relax();
+        return 0;
+}
+
+static void extal2_clk_disable(struct clk *clk)
+{
+        __raw_writel(__raw_readl(CPG_PLL2CR) | 1, CPG_PLL2CR);  /* XOE */
+        /*
+         * Make sure that EX2MSK bit gets set here in response to XOE bit
+         * set to '1' (Stop XTAL2 oscillation) above.   This is needed for
+         * safety in case that EXTAL2 clock gets enabled right after it's
+         * disabled.
+         */
+        while (!(__raw_readl(EXSTMON2) & (1 << 16)))    /* EX2MSK */
+                cpu_relax();
+}
+
+static struct clk_ops extal2_clk_ops = {
+        .enable = extal2_clk_enable,
+        .disable = extal2_clk_disable,
+};
+
+
+/* Externals */
+static struct clk extal1_clk = {
+        .rate = 26 * 1000 * 1000,
+};
+
+static struct clk extal2_clk = {
+        .rate = 48 * 1000 * 1000,
+        .ops = &extal2_clk_ops,
+};
+
+static struct clk extalr_clk = {
+        .rate = 32768,
+};
+
+static struct clk fsiack_clk = { };
+
+static struct clk fsibck_clk = { };
+
+
+/* Constant divider */
+static unsigned long const_div_recalc(struct clk *clk)
+{
+        if(clk->name=="zb30_clk")
+        printk("SBSC(Zb3_clk) frequency at boot up is::%lu\n", clk->parent->rate / (int)(clk->priv));
+
+        return clk->parent->rate / (int)(clk->priv);
+}
+
+static struct clk_ops const_div_clk_ops = {
+        .recalc = const_div_recalc,
+};
+
+static struct clk extal1_div2_clk = {
+        .parent = &extal1_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)2,
+};
+
+static struct clk extal2_div2_clk = {
+        .parent = &extal2_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)2,
+};
+
+static struct clk extal2_div4_clk = {
+        .parent = &extal2_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)4,
+};
+
+static struct clk_ops followparent_clk_ops = {
+        .recalc = followparent_recalc,
+};
+
+static struct clk *main_clk_parent[] = {
+        [0] = &extal1_clk,
+        [1] = &extal1_div2_clk,
+        [2] = &extal2_clk,
+        [3] = &extal2_div2_clk,
+};
+
+static struct clk main_clk = SH_CLK_CKSEL(NULL, CKSCR, 0, 0,
+                                          main_clk_parent,
+                                          ARRAY_SIZE(main_clk_parent), 28, 2);
+
+static struct clk main_div2_clk = {
+        .parent = &main_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)2,
+};
+
+
+/* PLL0 */
+static unsigned long pll0_recalc(struct clk *clk)
+{
+        unsigned long mult = 1;
+
+        if (__raw_readl(PLLECR) & (1 << (8 + 0)))
+                mult = ((__raw_readl(PLL0CR) >> 24) & 0x3f) + 1;
+        printk("System-CPU(Z-clock) frequency at boot up is %lu\n",(clk->parent->rate * mult));
+        return clk->parent->rate * mult;
+}
+
+static struct clk_ops pll0_clk_ops = {
+        .recalc = pll0_recalc,
+};
+
+static struct clk pll0_clk = {
+        .parent = &main_clk,
+        .ops = &pll0_clk_ops,
+};
+
+/* PLL1 */
+static unsigned long pll1_recalc(struct clk *clk)
+{
+        /* Assuming this type is big enough for calculation */
+        unsigned long rate = clk->parent->rate;
+        u32 pll1cr = __raw_readl(PLL1CR);
+        if (__raw_readl(PLLECR) & (1 << (8 + 1))) {
+                /* Do mul. then div., to avoid lower bit loss */
+                rate *= ((pll1cr >> 24) & 0x3f) + 1;
+                if (pll1cr & (1 << 20)) /* CFG */
+                        rate *= 2;
+                if (pll1cr & (1 << 7))  /* CKSEL */
+                        rate /= 2;
+        }
+        return rate;
+}
+
+
+static struct clk_ops pll1_clk_ops = {
+        .recalc = pll1_recalc,
+};
+
+static struct clk pll1_clk = {
+        .parent = &main_clk,
+        .ops = &pll1_clk_ops,
+};
+
+static struct clk pll1_div2_clk = {
+        .parent = &pll1_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)2,
+};
+
+static struct clk pll1_div7_clk = {
+        .parent = &pll1_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)7,
+};
+
+static struct clk pll1_div13_clk = {
+        .parent = &pll1_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)13,
+};
+
+/* PLL2 */
+/* Ops for pll2 and pll3 */
+static unsigned long pll2223_recalc(struct clk *clk)
+{
+        unsigned long rate = clk->parent->rate;
+        u32 pll2223cr = __raw_readl(clk->enable_reg);
+        if (__raw_readl(PLLECR) & (1 << (8 + clk->enable_bit))) {
+                rate *= ((pll2223cr >> 24) & 0x3f) + 1; /* STC */
+                if (pll2223cr & (1 << 20))      /* CFG for PLL2,22 but 3 */
+                        rate *= 2;
+        }
+        return rate;
+}
+
+static struct clk_ops pll2223_clk_ops = {
+        .recalc = pll2223_recalc,
+};
+
+/* parent table for both pll2 and pll22 */
+static struct clk *pll2_parent[] = {
+        [0] = &main_div2_clk,
+        [1] = &extal2_div2_clk,
+        [3] = &extal2_div4_clk,
+        [4] = &main_clk,
+        [5] = &extal2_clk,
+};
+
+static struct clk pll2_cksel_clk = SH_CLK_CKSEL(NULL, CPG_PLL2CR, 0, 0,
+                                                pll2_parent,
+                                                ARRAY_SIZE(pll2_parent), 5, 3);
+
+static struct clk pll2_clk = {
+        .parent = &pll2_cksel_clk,
+        .ops = &pll2223_clk_ops,
+        .enable_reg = (void *__iomem)CPG_PLL2CR,
+        .enable_bit = 2,        /* bit in PLLECR */
+};
+
+/* PLL3 */
+static struct clk pll3_clk = {
+        .parent = &main_clk,
+        .ops = &pll2223_clk_ops,
+        .enable_reg = (void *__iomem)PLL3CR,
+        .enable_bit = 3,        /* bit in PLLECR */
+};
+
+/* Common divider */
+static void common_kick(struct clk *clk)
+{
+        __raw_writel(__raw_readl(FRQCRB) | (1 << 31), FRQCRB);
+}
+
+static unsigned int common_divisors[] = {
+        [0] = 2,
+        [1] = 3,
+        [2] = 4,
+        [3] = 6,
+        [4] = 8,
+        [5] = 12,
+        [6] = 16,
+        [7] = 18,
+        [8] = 24,
+        [10] = 36,
+        [11] = 48,
+        [12] = 7,
+};
+ 
+
+static struct clk_div_mult_table common_div_mult_table = {
+        .divisors = common_divisors,
+        .nr_divisors = ARRAY_SIZE(common_divisors),
+};
+
+static struct clk_div4_table common_div4_table = {
+        .div_mult_table = &common_div_mult_table,
+        .kick = common_kick,
+};
+
+enum {
+        DIV4_I, DIV4_ZG, DIV4_M3, DIV4_B, DIV4_M1,
+        DIV4_Z, DIV4_ZTR, DIV4_ZT, DIV4_ZX, DIV4_ZS, DIV4_HP,
+        DIV4_DDR,
+        DIV4_NR
+};
+
+static struct clk div4_clks[DIV4_NR] = {
+        [DIV4_I] = SH_CLK_DIV4(&pll1_clk, FRQCRA, 20, 0xdff, 0),
+        [DIV4_ZG] = SH_CLK_DIV4(&pll1_clk, FRQCRA, 16, 0x97f, 0),
+        [DIV4_M3] = SH_CLK_DIV4(&pll1_clk, FRQCRA, 12, 0x1dff, 0),
+        [DIV4_B] = SH_CLK_DIV4(&pll1_clk, FRQCRA, 8, 0xdff, 0),
+        [DIV4_M1] = SH_CLK_DIV4(&pll1_clk, FRQCRA, 4, 0x1dff, 0),
+        [DIV4_Z] = SH_CLK_DIV4(NULL, FRQCRB, 24, 0x097f, 0),
+        [DIV4_ZTR] = SH_CLK_DIV4(&pll1_clk, FRQCRB, 20, 0x0dff, 0),
+        [DIV4_ZT] = SH_CLK_DIV4(&pll1_clk, FRQCRB, 16, 0xdff, 0),
+        [DIV4_ZX] = SH_CLK_DIV4(&pll1_clk, FRQCRB, 12, 0xdff, 0),
+        [DIV4_ZS] = SH_CLK_DIV4(&pll1_clk, FRQCRB, 8, 0xdff, 0),
+        [DIV4_HP] = SH_CLK_DIV4(&pll1_clk, FRQCRB, 4, 0xdff, 0),
+        [DIV4_DDR] = SH_CLK_DIV4(&pll3_clk, FRQCRD, 0, 0x97f, 0),
+};
+
+
+static struct clk ztr_clk = {
+        .parent = &div4_clks[DIV4_ZTR],
+        .ops = &const_div_clk_ops,
+        .priv = (void *)1,
+};
+
+static struct clk ztrd2_clk = {
+        .parent = &div4_clks[DIV4_ZTR],
+        .ops = &const_div_clk_ops,
+        .priv = (void *)2,
+};
+
+static struct clk *ddr_parent[] = {
+        [0] = &pll3_clk,
+        [1] = &div4_clks[DIV4_DDR],
+};
+
+static struct clk ddr_clk = SH_CLK_CKSEL(NULL, FRQCRD, 0, 0,
+                                         ddr_parent, ARRAY_SIZE(ddr_parent), 4,
+                                         1);
+
+static struct clk zb30_clk = {
+        .parent = &ddr_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)2,
+};
+
+static struct clk zb30d2_clk = {
+        .parent = &ddr_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)4,
+};
+
+static struct clk ddr_div2_clk = {
+        .parent = &ddr_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)2,
+};
+
+static struct clk ddr_div4_clk = {
+        .parent = &ddr_clk,
+        .ops = &const_div_clk_ops,
+        .priv = (void *)4,
+};
+
+static struct clk *zb30sl_parent[] = {
+        [0] = &ddr_div2_clk,
+        [1] = &ddr_div4_clk,
+};
+
+static struct clk zb30sl_clk = SH_CLK_CKSEL(NULL, FRQCRD, 0, 0,
+                                            zb30sl_parent,
+                                            ARRAY_SIZE(zb30sl_parent), 15, 1);
+
+/* DIV6s */
+static struct clk *div6_two_parent[] = {
+        [0] = &pll1_div2_clk,
+        [1] = &pll2_clk,
+};
+
+static struct clk *sd_parent[] = {
+        [0] = &pll1_div2_clk,
+        [1] = &pll2_clk,
+        [2] = &pll1_div13_clk,
+};
+
+static struct clk *hsi_parent[] = {
+        [0] = &pll1_div2_clk,
+        [1] = &pll2_clk,
+        [2] = &pll1_div7_clk,
+};
+
+static struct clk *vclk_parent[] = {
+        [0] = &pll1_div2_clk,
+        [1] = &pll2_clk,
+        [3] = &extal2_clk,
+        [4] = &main_div2_clk,
+        [5] = &extalr_clk,
+        [6] = &main_clk,
+};
+
+static struct clk vclk3_cksel_clk = SH_CLK_CKSEL(NULL, VCLKCR3, 0, 0,
+                                                 vclk_parent,
+                                                 ARRAY_SIZE(vclk_parent), 12,
+                                                 3);
+
+
+/* Dynamic divider. Only for recalc. No setting capable. */
+static unsigned long div_recalc(struct clk *clk)
+{
+        return clk->parent->rate /
+            ((__raw_readl(clk->enable_reg) >> clk->src_shift
+              & ((1 << clk->src_width) - 1))
+             + 1);
+}
+
+static struct clk_ops div_clk_ops = {
+        .recalc = div_recalc,
+};
+
+/* pre divider followed by vclk3 */
+static struct clk vclk3_pdiv_clk = {
+        .parent = &vclk3_cksel_clk,
+        .ops = &div_clk_ops,
+        .enable_reg = (void *__iomem)VCLKCR3,
+        .src_shift = 6,
+        .src_width = 2,
+};
+
+enum {
+        DIV6_MP,
+        DIV6_ZB,
+        DIV6_SD0,
+        DIV6_SD1,
+        DIV6_VCK1,
+        DIV6_VCK2,
+        DIV6_VCK3,
+        DIV6_VCK4,
+        DIV6_FSIA,
+        DIV6_FSIB,
+        DIV6_SPUA,
+/* VCD add start */
+        DIV6_SPUV,
+/* VCD add end */
+        DIV6_HSI,
+        DIV6_DSIT,
+        DIV6_DSI0P,
+        DIV6_NR
+};
+
+static struct clk div6_clks[DIV6_NR] = {
+        [DIV6_MP] = SH_CLK_DIV6_EXT(NULL, MPCKCR, 9, CLK_DIV_SHARED,
+                                    div6_two_parent,
+                                    ARRAY_SIZE(div6_two_parent), 6, 1),
+        [DIV6_ZB] = SH_CLK_DIV6_EXT(NULL, ZBCKCR, 8, 0,
+                                    div6_two_parent,
+                                    ARRAY_SIZE(div6_two_parent), 7, 1),
+        [DIV6_SD0] = SH_CLK_DIV6_EXT(NULL, SD0CKCR, 8, 0,
+                                     sd_parent, ARRAY_SIZE(sd_parent), 6, 2),
+        [DIV6_SD1] = SH_CLK_DIV6_EXT(NULL, SD1CKCR, 8, 0,
+                                     sd_parent, ARRAY_SIZE(sd_parent), 6, 2),
+        [DIV6_VCK1] = SH_CLK_DIV6_EXT(NULL, VCLKCR1, 8, 0,
+                                      vclk_parent, ARRAY_SIZE(vclk_parent), 12,
+                                      3),
+        [DIV6_VCK2] = SH_CLK_DIV6_EXT(NULL, VCLKCR2, 8, 0,
+                                      vclk_parent, ARRAY_SIZE(vclk_parent), 12,
+                                      3),
+        [DIV6_VCK3] = SH_CLK_DIV6_EXT(&vclk3_pdiv_clk, VCLKCR3, 8, 0,
+                                      NULL, 0, 0, 0),
+        [DIV6_VCK4] = SH_CLK_DIV6_EXT(NULL, VCLKCR4, 8, 0,
+                                      vclk_parent, ARRAY_SIZE(vclk_parent), 12,
+                                      3),
+        [DIV6_FSIA] = SH_CLK_DIV6_EXT(NULL, FSIACKCR, 8, 0,
+                                      div6_two_parent,
+                                      ARRAY_SIZE(div6_two_parent), 6, 1),
+        [DIV6_FSIB] = SH_CLK_DIV6_EXT(NULL, FSIBCKCR, 8, 0,
+                                      div6_two_parent,
+                                      ARRAY_SIZE(div6_two_parent), 6, 1),
+        [DIV6_SPUA] = SH_CLK_DIV6_EXT(NULL, SPUACKCR, 8, 0,
+                                      div6_two_parent,
+                                      ARRAY_SIZE(div6_two_parent), 6, 1),
+/* VCD add start */
+        [DIV6_SPUV] = SH_CLK_DIV6_EXT(NULL, SPUVCKCR, 8, 0,
+                                      div6_two_parent,
+                                      ARRAY_SIZE(div6_two_parent), 6, 1),
+/* VCD add end */
+        [DIV6_HSI] = SH_CLK_DIV6_EXT(NULL, HSICKCR, 8, 0,
+                                     hsi_parent, ARRAY_SIZE(hsi_parent), 6, 2),
+        [DIV6_DSIT] = SH_CLK_DIV6_EXT(NULL, CPG_DSITCKCR, 8, 0,
+                                      div6_two_parent, ARRAY_SIZE(hsi_parent),
+                                      7, 1),
+        [DIV6_DSI0P] = SH_CLK_DIV6(&pll1_div2_clk, CPG_DSI0PCKCR, 0),
+};
+
+static struct clk *mp_parent[] = {
+        [0] = &div6_clks[DIV6_MP],
+        [1] = &extal2_clk,
+};
+
+static struct clk mp_clk = SH_CLK_CKSEL(NULL, MPCKCR, 9, CLK_CKSEL_CKSTP,
+                                        mp_parent, ARRAY_SIZE(mp_parent), 7, 1);
+
+static struct clk mpc_clk = SH_CLK_CKSEL(NULL, MPCKCR, 10, CLK_CKSEL_CKSTP,
+                                         mp_parent, ARRAY_SIZE(mp_parent), 7,
+                                         1);
+/* sound add */
+static struct clk mpmp_clk = SH_CLK_CKSEL(NULL, MPCKCR, 11, CLK_CKSEL_CKSTP,
+                                          mp_parent, ARRAY_SIZE(mp_parent), 7,
+                                          1);
+/* sound add */
+
+static struct clk *fsia_parent[] = {
+        [0] = &div6_clks[DIV6_FSIA],
+        [1] = &fsiack_clk,
+};
+
+static struct clk fsia_clk = SH_CLK_CKSEL(NULL, FSIACKCR, 0, 0,
+                                          fsia_parent, ARRAY_SIZE(fsia_parent),
+                                          7, 1);
+
+static struct clk *fsib_parent[] = {
+        [0] = &div6_clks[DIV6_FSIB],
+        [1] = &fsibck_clk,
+};
+
+static struct clk fsib_clk = SH_CLK_CKSEL(NULL, FSIBCKCR, 0, 0,
+                                          fsib_parent, ARRAY_SIZE(fsib_parent),
+                                          7, 1);
+
+static struct clk *spua_parent[] = {
+        [0] = &div6_clks[DIV6_SPUA],
+        [1] = &extal2_clk,
+};
+
+static struct clk spua_clk = SH_CLK_CKSEL(NULL, SPUACKCR, 0, 0,
+                                          spua_parent, ARRAY_SIZE(spua_parent),
+                                          7, 1);
+
+/* VCD add start */
+static struct clk *spuv_parent[] = {
+        [0] = &div6_clks[DIV6_SPUV],
+        [1] = &extal2_clk,
+};
+
+static struct clk spuv_clk = SH_CLK_CKSEL(NULL, SPUVCKCR, 0, 0,
+                                          spuv_parent, ARRAY_SIZE(spuv_parent),
+                                          7, 1);
+
+/* VCD add end */
+
+/* DSI0P
+ * HW clock topology is like
+ *  {parents}[SELMON0? EXSRC : EXSRCB] / (SELMON0? DIV : DIVB)
+ * But here implemented as
+ *  SELMON0? ({parents}[EXSRC] / DIV) : ({parents}[EXSRCB] / DIVB)
+ */
+static struct clk extcki_clk = { };
+
+static struct clk *dsi0p_parent[] = {
+        [0] = &pll1_div2_clk,
+        [1] = &pll2_clk,
+        [2] = &main_clk,
+        [3] = &extal2_clk,
+        [4] = &extcki_clk,
+};
+
+static struct clk dsi0p0_cksel_clk = SH_CLK_CKSEL(NULL, CPG_DSI0PCKCR,
+                                                  8, CLK_CKSEL_CKSTP,
+                                                  dsi0p_parent,
+                                                  ARRAY_SIZE(dsi0p_parent), 24,
+                                                  3);
+
+static struct clk dsi0p0_clk = {
+        .parent = &dsi0p0_cksel_clk,
+        .ops = &div_clk_ops,
+        .enable_reg = (void *__iomem)CPG_DSI0PCKCR,
+        .src_shift = 16,
+        .src_width = 6,
+};
+
+static struct clk dsi0p1_cksel_clk = SH_CLK_CKSEL(NULL, CPG_DSI0PCKCR,
+                                                  8, CLK_CKSEL_CKSTP,
+                                                  dsi0p_parent,
+                                                  ARRAY_SIZE(dsi0p_parent), 12,
+                                                  3);
+
+static struct clk dsi0p1_clk = {
+        .parent = &dsi0p1_cksel_clk,
+        .ops = &div_clk_ops,
+        .enable_reg = (void *__iomem)CPG_DSI0PCKCR,
+        .src_shift = 0,
+        .src_width = 6,
+};
+
+/* You can not set dsi0pckcr.selmon0, but it tggles.
+ * Call as sel_reparent(dsi0pclk, NULL) to set parent according to
+ * the register value. */
+/* @parent not used */
+static int selmon_reparent(struct clk *clk, struct clk *parent)
+{
+        int sel = (__raw_readl(clk->enable_reg) >> clk->src_shift)
+            & ((1 << clk->src_width) - 1);
+        return clk_reparent(clk, clk->parent_table[sel]);
+}
+
+static int selmon_enable(struct clk *clk)
+{
+        __raw_writel(__raw_readl(clk->enable_reg) & ~(1 << clk->enable_bit),
+                     clk->enable_reg);
+        return 0;
+}
+
+static void selmon_disable(struct clk *clk)
+{
+        __raw_writel(__raw_readl(clk->enable_reg) | (1 << clk->enable_bit),
+                     clk->enable_reg);
+}
+
+static struct clk_ops selmon_clk_ops = {
+        .recalc = followparent_recalc,
+        .set_parent = selmon_reparent,
+        .enable = selmon_enable,
+        .disable = selmon_disable,
+};
+
+static struct clk *selmon0_parent[2] = {
+        [0] = &dsi0p0_clk,
+        [1] = &dsi0p1_clk,
+};
+
+static struct clk dsi0p_clk = {
+        .ops = &selmon_clk_ops,
+        .enable_reg = (void *__iomem)CPG_DSI0PCKCR,
+        .enable_bit = 8,
+        .parent_table = selmon0_parent,
+        .src_shift = 27,
+        .src_width = 1,
+};
+
+static struct clk hdmi0_clk = {
+        .ops = &selmon_clk_ops,
+        .enable_reg = (void *__iomem)CPG_DSI0PCKCR,
+        .enable_bit = 9,
+        .parent_table = selmon0_parent,
+        .src_shift = 27,
+        .src_width = 1,
+};
+
+static struct clk *cp_parent[] = {
+        [0] = &main_div2_clk,
+        [1] = &extalr_clk,
+};
+
+static struct clk cp_clk = SH_CLK_CKSEL(&main_div2_clk, 0, 0, 0,
+                                        cp_parent, ARRAY_SIZE(cp_parent), 0, 0);
+
+static struct clk z_clk = {
+        .ops = &followparent_clk_ops,
+};
+
+
+
+
+
+
+
+/****************************************************************************/
+
 
 static struct clk es2_fsiack_clk = { };
 
@@ -198,11 +819,11 @@ static struct clk es2_div6_clks[ES2_DIV6_NR] = {
 	[ES2_DIV6_HSI] = SH_CLK_DIV6_EXT(NULL, HSICKCR, 8, 0,
 					 hsi_parent, ARRAY_SIZE(hsi_parent), 6,
 					 2),
-	[ES2_DIV6_DSIT] = SH_CLK_DIV6_EXT(NULL, DSITCKCR, 8, 0,
+	[ES2_DIV6_DSIT] = SH_CLK_DIV6_EXT(NULL, CPG_DSITCKCR, 8, 0,
 					  div6_two_parent,
 					  ARRAY_SIZE(hsi_parent), 7, 1),
-	[ES2_DIV6_DSI0P] = SH_CLK_DIV6(&pll1_div2_clk, DSI0PCKCR, 0),
-	[ES2_DIV6_DSI1P] = SH_CLK_DIV6(&pll2_clk, DSI1PCKCR, 0),
+	[ES2_DIV6_DSI0P] = SH_CLK_DIV6(&pll1_div2_clk, CPG_DSI0PCKCR, 0),
+	[ES2_DIV6_DSI1P] = SH_CLK_DIV6(&pll2_clk, CPG_DSI1PCKCR, 0),
 	[ES2_DIV6_SLIMB] = SH_CLK_DIV6_EXT(NULL, SLIMBCKCR, 8, 0,
 					   es2_slimb_parent,
 					   ARRAY_SIZE(es2_slimb_parent), 7, 1),
@@ -303,7 +924,7 @@ static struct clk *dsi1p_parent[] = {
 	[4] = &extcki_clk,
 };
 
-static struct clk dsi1p0_cksel_clk = SH_CLK_CKSEL(NULL, DSI1PCKCR,
+static struct clk dsi1p0_cksel_clk = SH_CLK_CKSEL(NULL, CPG_DSI1PCKCR,
 						  8, CLK_CKSEL_CKSTP,
 						  dsi1p_parent,
 						  ARRAY_SIZE(dsi1p_parent), 24,
@@ -312,12 +933,12 @@ static struct clk dsi1p0_cksel_clk = SH_CLK_CKSEL(NULL, DSI1PCKCR,
 static struct clk dsi1p0_clk = {
 	.parent = &dsi1p0_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)DSI1PCKCR,
+	.enable_reg = (void *__iomem)CPG_DSI1PCKCR,
 	.src_shift = 16,
 	.src_width = 6,
 };
 
-static struct clk dsi1p1_cksel_clk = SH_CLK_CKSEL(NULL, DSI1PCKCR,
+static struct clk dsi1p1_cksel_clk = SH_CLK_CKSEL(NULL, CPG_DSI1PCKCR,
 						  8, CLK_CKSEL_CKSTP,
 						  dsi1p_parent,
 						  ARRAY_SIZE(dsi1p_parent), 12,
@@ -326,7 +947,7 @@ static struct clk dsi1p1_cksel_clk = SH_CLK_CKSEL(NULL, DSI1PCKCR,
 static struct clk dsi1p1_clk = {
 	.parent = &dsi1p1_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)DSI1PCKCR,
+	.enable_reg = (void *__iomem)CPG_DSI1PCKCR,
 	.src_shift = 0,
 	.src_width = 6,
 };
@@ -338,7 +959,7 @@ static struct clk *selmon1_parent[2] = {
 
 static struct clk dsi1p_clk = {
 	.ops = &selmon_clk_ops,
-	.enable_reg = (void *__iomem)DSI1PCKCR,
+	.enable_reg = (void *__iomem)CPG_DSI1PCKCR,
 	.enable_bit = 8,
 	.parent_table = selmon1_parent,
 	.src_shift = 27,
@@ -456,6 +1077,9 @@ enum {
 	ES2_MSTP500,
 	ES2_MSTP_NR
 };
+
+#define DIV4_ 0                 /* XXX fill all of these */
+
 
 static struct clk es2_mstp_clks[ES2_MSTP_NR] = {
 	[ES2_MSTP031] = SH_CLK_MSTP32_EXT(&es2_div4_clks[DIV4_], SMSTPCR0, MSTPSR0, 31, 0),	/* RT-CPU TLB */

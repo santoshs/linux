@@ -35,7 +35,7 @@
 #include <linux/uaccess.h>
 #include <linux/i2c/taos.h>
 #include <linux/sensors_core.h>
-
+#include <linux/module.h>
 
 /* Note about power vs enable/disable:
  *  The chip has two functions, proximity and ambient light sensing.

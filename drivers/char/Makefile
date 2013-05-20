@@ -21,7 +21,6 @@ obj-$(CONFIG_UV_MMTIMER)	+= uv_mmtimer.o
 obj-$(CONFIG_VIOTAPE)		+= viotape.o
 obj-$(CONFIG_IBM_BSR)		+= bsr.o
 obj-$(CONFIG_SGI_MBCS)		+= mbcs.o
-obj-$(CONFIG_BRIQ_PANEL)	+= briq_panel.o
 obj-$(CONFIG_BFIN_OTP)		+= bfin-otp.o
 
 obj-$(CONFIG_PRINTER)		+= lp.o
@@ -75,4 +74,6 @@ js-rtc-y = rtc.o
 obj-$(CONFIG_CRYPTO_HW_DX_CC42)	+= cc4.2/
 
 obj-$(CONFIG_TTY_STM)		+= stm_tty.o
-obj-$(CONFIG_TTY_ETR)		+= etr_tty.o
+
+obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
+subdir-ccflags-y += -Werror

@@ -27,7 +27,6 @@
 
 // Battery capacity
 #define BATTERY_CAPACITY_1800mAH
-//#define USE_ANTO_ALGORITHM
 
 #define D2153_MANUAL_READ_RETRIES			(5)
 #define ADC2TEMP_LUT_SIZE					(22)
@@ -140,33 +139,38 @@
 #define D2153_LLOW_ITER						(4)
 #define D2153_LOW_ITER						(5)
 
-#define CONST_HPB_WAIT						25
+#define CONST_HPB_WAIT						(100) //25
 #define RT_CPU_SIDE							(0x01)
 #define SYS_CPU_SIDE						(0x40)
 #define BB_CPU_SIDE							(0x93)
-
-
-enum {
-	D2153_EVENT_TA_ATTACHED = 0,
-	D2153_EVENT_TA_DETACHED,
-	D2153_EVENT_USB_ATTACHED,
-	D2153_EVENT_USB_DETACHED,
-	D2153_EVENT_JIG_ATTACHED,
-	D2153_EVENT_JIG_DETACHED,			// 5
-	
-	D2153_EVENT_CHARGE_FULL,
-	D2153_EVENT_OVP_CHARGE_STOP,
-	D2153_EVENT_OVP_CHARGE_RESTART,		// 10
-	D2153_EVENT_SLEEP_MONITOR,
-
-	D2153_EVENT_MAX,
-};
 
 enum {
 	CHARGER_TYPE_NONE = 0,
 	CHARGER_TYPE_TA,
 	CHARGER_TYPE_USB,
 	CHARGER_TYPE_MAX
+};
+
+enum {
+	D2153_BATTERY_SOC = 0,
+	D2153_BATTERY_TEMP_HPA,
+	D2153_BATTERY_TEMP_ADC,
+	D2153_BATTERY_CUR_VOLTAGE,
+	D2153_BATTERY_AVG_VOLTAGE,
+	D2153_BATTERY_VOLTAGE_NOW,
+	D2153_BATTERY_SLEEP_MONITOR,
+	D2153_BATTERY_MAX
+};
+
+enum {
+	D2153_STATUS_CHARGING = 0,
+	D2153_STATUS_MAX
+};
+
+enum {
+	D2153_BATTERY_STATUS_DISCHARGING = 0,
+	D2153_BATTERY_STATUS_CHARGING,
+	D2153_BATTERY_STATUS_MAX
 };
 
 typedef enum d2153_adc_channel {
@@ -219,23 +223,8 @@ struct adc_cont_in_auto {
 	u8 adc_lsb_mask;
 };
 
-struct d2153_charger_data {
-	u8  is_charging;
-	int	current_charger;
-	int	jig_connected; 
-	int pmic_vbus_state;
-	unsigned int lp_charging;
-
-	struct wake_lock charger_wakeup;
-	
-	void	(*enable_charge)(void);
-	void	(*disable_charge)(void);
-};
-
 struct d2153_battery_data {
-	u8	health;
-	u8 	status;
-	u8	end_of_charge;
+	u8  is_charging;
 	u8  vdd_hwmon_level;
 
 	u32	current_level;
@@ -254,8 +243,10 @@ struct d2153_battery_data {
 
 	// for temperature
 	u32	current_temp_adc;
-	u32	average_temp_adc; 
+	u32 current_rf_temp_adc;
+	u32	average_temp_adc;
 	int	current_temperature;
+	int current_rf_temperature;
 	int	average_temperature;
 	u32 sum_temperature_adc;
 	
@@ -283,6 +274,8 @@ struct d2153_battery_data {
 	u8  temp_adc_init_done;
 	struct wake_lock sleep_monitor_wakeup;
     struct adc_man_res adc_res[D2153_ADC_CHANNEL_MAX];
+
+	u8 virtual_battery_full;
 };
 
 struct d2153_battery {
@@ -292,36 +285,26 @@ struct d2153_battery {
 
 	u8 adc_mode;
 
-	struct power_supply	battery;
-	struct power_supply	usb;
-	struct power_supply	wall;
-
-	struct d2153_charger_data	charger_data;
 	struct d2153_battery_data	battery_data;
 
 	struct delayed_work	monitor_volt_work;
 	struct delayed_work	monitor_temp_work;
-	struct delayed_work	info_notify_work;
-	struct delayed_work	charge_timer_work;
-	struct delayed_work	recharge_start_timer_work;
 	struct delayed_work	sleep_monitor_work;
 
 	struct mutex		meoc_lock;
 	struct mutex		lock;
 	struct mutex		api_lock;
 	
-	struct timer_list	charge_timer;
-	struct timer_list	recharge_start_timer; 
-
 	int (*d2153_read_adc)(struct d2153_battery *pbat, adc_channel channel);
 
 };
 
 // In order to set function pointer to control charging.
-int d2083_register_enable_charge(void (*enable_charge)(void));
-int d2083_register_disable_charge(void (*disable_charge)(void));
-void (*d2083_get_external_event_handler(void))(int, int);
+int d2153_register_enable_charge(void (*enable_charge)(void));
+int d2153_register_disable_charge(void (*disable_charge)(void));
+void (*d2153_get_external_event_handler(void))(int, int);
 
-void d2153_handle_modem_reset();
-
+void d2153_handle_modem_reset(void);
+int d2153_battery_read_status(int);
+void d2153_battery_start(void);
 #endif /* __D2153_BATTERY_H__ */

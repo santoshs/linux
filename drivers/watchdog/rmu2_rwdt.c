@@ -1,7 +1,7 @@
 /*
  * rmu2_rwdt.c
  *
- * Copyright (C) 2012 Renesas Mobile Corporation
+ * Copyright (C) 2013 Renesas Mobile Corporation
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -21,22 +21,11 @@
 #include <linux/rmu2_rwdt.h>
 #include <linux/io.h>
 #include <linux/hwspinlock.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/cpumask.h>
 #include <linux/delay.h>
-
-#define CONFIG_GIC_NS
-#define CONFIG_GIC_NS_CMT
-
-#ifdef CONFIG_RWDT_DEBUG
-#include <linux/proc_fs.h>
-
-static struct proc_dir_entry *proc_watch_entry;
-static int start_stop_cmt_watchdog;
-#endif
-
-#define ICD_ISR0 0xF0001080
-#define ICD_IPTR0 0xf0001800
+#include <linux/rmu2_cmt15.h>
+#include <mach/sbsc.h>
 
 static struct delayed_work *dwork;
 static struct delayed_work *dwork_wa_zq;
@@ -48,30 +37,22 @@ static unsigned long cntclear_time_wa_zq;
 static int stop_func_flg;
 static int wa_zq_flg;
 
-#define STBCHRB3 0xE6180043
-
 /* SBSC register address */
-#define SBSC_BASE		(0xFE000000U)
 static void __iomem *sbsc_sdmra_28200;
 static void __iomem *sbsc_sdmra_38200;
 
-#define SBSC_SDMRA_DONE		(0x00000000)
-#define SBSC_SDMRACR1A_ZQ	(0x0000560A)
+#define SBSC_SDMRA_DONE			(0x00000000)
+#define SBSC_SDMRACR1A_ZQ		(0x0000560A)
 
 /* CPG register address */
-#define CPG_BASE		(0xE6150000U)
-#define CPG_PLL3CR		IO_ADDRESS(CPG_BASE + 0x00DC)
+#define CPG_BASE			(0xE6150000U)
 
-#define CONFIG_RMU2_RWDT_ZQ_CALIB		(500)
-
+#define CONFIG_RMU2_RWDT_ZQ_CALIB	(500)
 
 /*
  * Modify register
  */
 static DEFINE_SPINLOCK(io_lock);
-#ifdef CONFIG_GIC_NS_CMT
-static DEFINE_SPINLOCK(cmt_lock);
-#endif	/* CONFIG_GIC_NS_CMT */
 
 void rmu2_modify_register32(unsigned int addr, u32 clear, u32 set)
 {
@@ -162,241 +143,6 @@ static struct miscdevice rwdt_mdev = {
 };
 
 /*
- * cpg_check_init: CPG Check initialization
- * input: none
- * output: none
- * return: none
- */
-static void cpg_check_init(void)
-{
-#ifdef RWDT_BUS_TIMEOUT_CHECK_ENABLE
-	__raw_writel(0x3fff3fffU, CPG_CHECK_REG);
-	__raw_writel(0x3fff3fffU, CPG_CHECK_REG + 4);
-#endif /* RWDT_BUS_TIMEOUT_CHECK_ENABLE */
-}
-
-/*
- * cpg_check_check: CPG Check
- * input: none
- * output: none
- * return: none
- */
-static void cpg_check_check(void)
-{
-#ifdef RWDT_BUS_TIMEOUT_CHECK_ENABLE
-	unsigned int val0;
-	unsigned int val1;
-	unsigned int addr;
-
-	/* get values */
-	val0 = __raw_readl(CPG_CHECK_REG);
-	val1 = __raw_readl(CPG_CHECK_REG + 4);
-
-	/* check */
-	if ((0U != (val0 & 0x80008000U)) || (0U != (val1 & 0x80008000U))) {
-		printk(KERN_EMERG "CPG STSTUS\n");
-		printk(KERN_EMERG " %08x=%08x\n", CPG_CHECK_STATUS,
-						__raw_readl(CPG_CHECK_STATUS));
-		printk(KERN_EMERG " %08x=%08x\n", CPG_CHECK_REG, val0);
-		printk(KERN_EMERG " %08x=%08x\n", CPG_CHECK_REG + 4, val1);
-		for (addr = 0xE6150440U; addr <= 0xE615047CU; addr += 4U) {
-			printk(KERN_EMERG " %08x=%08x\n",
-						addr, __raw_readl(addr));
-		}
-		for (addr = 0xE6150490U; addr <= 0xE615049CU; addr += 4U) {
-			printk(KERN_EMERG " %08x=%08x\n",
-						addr, __raw_readl(addr));
-		}
-
-		printk(KERN_EMERG "Bus timeout occurred!!");
-	} else if ((0x3fff3fffU != (val0 & 0x3fff3fffU)) ||
-				(0x3fff3fffU != (val1 & 0x3fff3fffU))) {
-		RWDT_DEBUG("CPG CHECK register was modified\n");
-		RWDT_DEBUG("and should be reset\n");
-		__raw_writel(0x3fff3fffU, CPG_CHECK_REG);
-		__raw_writel(0x3fff3fffU, CPG_CHECK_REG + 4);
-	} else {
-		/* Do nothing */
-	}
-#endif /* RWDT_BUS_TIMEOUT_CHECK_ENABLE */
-}
-
-#ifdef CONFIG_GIC_NS_CMT
-/*
- * rmu2_cmt_start: start CMT
- * input: none
- * output: none
- * return: none
- */
-static void rmu2_cmt_start(void)
-{
-	unsigned long flags, wrflg, i = 0;
-
-	printk(KERN_INFO "START < %s >\n", __func__);
-	RWDT_DEBUG("< %s >CMCLKE=%08x\n", __func__, __raw_readl(CMCLKE));
-	RWDT_DEBUG("< %s >CMSTR15=%08x\n", __func__, __raw_readl(CMSTR15));
-	RWDT_DEBUG("< %s >CMCSR15=%08x\n", __func__, __raw_readl(CMCSR15));
-	RWDT_DEBUG("< %s >CMCNT15=%08x\n", __func__, __raw_readl(CMCNT15));
-	RWDT_DEBUG("< %s >CMCOR15=%08x\n", __func__, __raw_readl(CMCOR15));
-
-	spin_lock_irqsave(&cmt_lock, flags);
-	__raw_writel(__raw_readl(CMCLKE) | (1<<5), CMCLKE);
-	spin_unlock_irqrestore(&cmt_lock, flags);
-
-	mdelay(8);
-
-	__raw_writel(0, CMSTR15);
-	__raw_writel(0U, CMCNT15);
-	__raw_writel(0x000001a6U, CMCSR15);	/* Int enable */
-	__raw_writel(dec2hex(CMT_OVF), CMCOR15);
-
-	do {
-		wrflg = ((__raw_readl(CMCSR15) >> 13) & 0x1);
-		i++;
-	} while (wrflg != 0x00 && i < 0xffffffff);
-
-	__raw_writel(1, CMSTR15);
-
-	RWDT_DEBUG("< %s >CMCLKE=%08x\n", __func__, __raw_readl(CMCLKE));
-	RWDT_DEBUG("< %s >CMSTR15=%08x\n", __func__, __raw_readl(CMSTR15));
-	RWDT_DEBUG("< %s >CMCSR15=%08x\n", __func__, __raw_readl(CMCSR15));
-	RWDT_DEBUG("< %s >CMCNT15=%08x\n", __func__, __raw_readl(CMCNT15));
-	RWDT_DEBUG("< %s >CMCOR15=%08x\n", __func__, __raw_readl(CMCOR15));
-}
-
-/*
- * rmu2_cmt_stop: stop CMT
- * input: none
- * output: none
- * return: none
- */
-void rmu2_cmt_stop(void)
-{
-	unsigned long flags, wrflg, i = 0;
-
-	printk(KERN_INFO "START < %s >\n", __func__);
-	__raw_readl(CMCSR15);
-	__raw_writel(0x00000186U, CMCSR15);	/* Int disable */
-	__raw_writel(0U, CMCNT15);
-	__raw_writel(0, CMSTR15);
-
-	do {
-		wrflg = ((__raw_readl(CMCSR15) >> 13) & 0x1);
-		i++;
-	} while (wrflg != 0x00 && i < 0xffffffff);
-
-	mdelay(12);
-	spin_lock_irqsave(&cmt_lock, flags);
-	__raw_writel(__raw_readl(CMCLKE) & ~(1<<5), CMCLKE);
-	spin_unlock_irqrestore(&cmt_lock, flags);
-}
-
-/*
- * rmu2_cmt_clear: CMT counter clear
- * input: none
- * output: none
- * return: none
- */
-static void rmu2_cmt_clear(void)
-{
-
-	int wrflg, i = 0;
-	printk(KERN_INFO "START < %s >\n", __func__);
-	__raw_writel(0, CMSTR15);	/* Stop counting */
-
-	__raw_writel(0U, CMCNT15);	/* Clear the count value */
-
-	do {
-		wrflg = ((__raw_readl(CMCSR15) >> 13) & 0x1);
-		i++;
-	} while (wrflg != 0x00 && i < 0xffffffff);
-	__raw_writel(1, CMSTR15);	/* Enable counting again */
-}
-
-/*
- * rmu2_cmt_irq: IRQ handler for CMT
- * input:
- *		@irq: interrupt number
- *		@dev_id: device ID
- * output: none
- * return:
- *		IRQ_HANDLED: irq handled
- */
-static irqreturn_t rmu2_cmt_irq(int irq, void *dev_id)
-{
-	unsigned int reg_val = __raw_readl(CMCSR15);
-#ifdef CONFIG_ARM_TZ
-	unsigned char *killer = NULL;
-	printk(KERN_ERR "TRUST ZONE ENABLED : CMT15 counter overflow occur!\n");
-#else
-
-	printk(KERN_ERR "TRUST ZONE DISABLED : CMT15 counter overflow occur!\n");
-#endif/* CONFIG_ARM_TZ */
-
-	reg_val &= ~0x0000c000U;
-	__raw_writel(reg_val, CMCSR15);
-
-#ifdef CONFIG_ARM_TZ
-	printk(KERN_ERR "Watchdog will trigger in 5 sec... Generating panic to collect logs...");
-	*killer = 1;
-#endif /* CONFIG_ARM_TZ */
-
-	return IRQ_HANDLED;
-}
-
-/*
- * rmu2_cmt_init_irq: IRQ initialization handler for CMT
- * input: none
- * output: none
- * return: none
- */
-static void rmu2_cmt_init_irq(void)
-{
-	int ret;
-	unsigned int irq;
-
-	RWDT_DEBUG("START < %s >\n", __func__);
-
-	irq = gic_spi(CMT15_SPI);
-	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
-	ret = request_irq(irq, rmu2_cmt_irq, IRQF_DISABLED,
-				"CMT15_RWDT0", (void *)irq);
-	if (0 > ret) {
-		printk(KERN_ERR "%s:%d request_irq failed err=%d\n",
-				__func__, __LINE__, ret);
-		free_irq(irq, (void *)irq);
-		return;
-	}
-
-#ifdef CONFIG_GIC_NS
-	{
-#ifdef CONFIG_RMU2_RWDT_30S
-		int i;
-		unsigned int val;
-		i = CMT15_SPI+32;
-		__raw_writel(__raw_readl(ICD_ISR0+4*(int)(i/32)) &
-					~(1<<(i%32)), ICD_ISR0+4*(int)(i/32));
-		printk(KERN_DEBUG "< %s > ICD_ISR%d = %08x\n",
-		__func__, i, __raw_readl(ICD_ISR0+4*(int)(i/32)));
-
-		/* DIST to CPU0 & CPU1 */
-		val = __raw_readl(ICD_IPTR0+4*(int)(i/4));
-		val = (val & ~(0xff << (8*(int)(i%4)))) |
-						(0x03 << (8*(int)(i%4)));
-		__raw_writel(val, ICD_IPTR0+4*(int)(i/4));
-		printk(KERN_ERR
-		"< %s > ICD_IPTR%d = %08x\n",
-		__func__, i, __raw_readl(ICD_IPTR0+4*(int)(i/4)));
-#endif  /* CONFIG_RMU2_RWDT_30S */
-	}
-#endif  /* CONFIG_GIC_NS */
-
-
-	enable_irq(irq);
-}
-#endif	/* CONFIG_GIC_NS_CMT */
-
-/*
  * rmu2_rwdt_cntclear: RWDT counter clear
  * input: none
  * output: none
@@ -412,7 +158,6 @@ int rmu2_rwdt_cntclear(void)
 	u8 reg8;
 	u32 wrflg;
 
-	RWDT_DEBUG("START < %s >\n", __func__);
 	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
 	if (NULL == r) {
 		ret = -ENOMEM;
@@ -428,11 +173,12 @@ int rmu2_rwdt_cntclear(void)
 	wrflg = ((u32)reg8 >> 5) & 0x01U;
 	if (0U == wrflg) {
 		RWDT_DEBUG(KERN_DEBUG "Clear the watchdog counter!!\n");
-		__raw_writel(RESCNT_CLEAR_DATA, base + RWTCNT);
+		__raw_writel(RESCNT_CLEAR_DATA, base + RWTCNT_OFFSET);
 		return 0;
 	} else {
 		return -EAGAIN; /* try again */
 	}
+	printk(KERN_ALERT "START < %s >\n", __func__);
 }
 
 /*
@@ -492,8 +238,8 @@ static void rmu2_rwdt_workfn_zq_wa(struct work_struct *work)
 {
 	__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
 	__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
-	RWDT_DEBUG("< %s > CPG_PLL3CR 0x%8x\n",
-			__func__, __raw_readl(CPG_PLL3CR));
+	RWDT_DEBUG("< %s > CPG_PLL3CR_WDT 0x%8x\n",
+			__func__, __raw_readl(CPG_PLL3CR_WDT));
 
 	if (0 == stop_func_flg)	/* do not execute while stop()*/
 		queue_delayed_work(wq_wa_zq, dwork_wa_zq, cntclear_time_wa_zq);
@@ -510,10 +256,14 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 {
 	int ret;
 
-#ifdef CONFIG_RWDT_DEBUG
-	if (start_stop_cmt_watchdog == 1) {
-		printk(KERN_DEBUG "Skip to clear RWDT for debug!!\n");
+#ifdef CONFIG_RWDT_CMT15_TEST
+	switch (test_mode) {
+	case TEST_NO_KICK:
+		printk(KERN_DEBUG "Skip clearing RWDT for debug!\n");
 		return;
+	case TEST_WORKQUEUE_LOOP:
+		loop((void *) 0);
+		break;
 	}
 #endif
 	RWDT_DEBUG("START < %s >\n", __func__);
@@ -652,7 +402,7 @@ static int rmu2_rwdt_start(void)
 	base = r->start;
 
 	for (;;) {
-		hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
+		hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
 		if (0 == hwlock)
 			break;
 	}
@@ -663,7 +413,7 @@ static int rmu2_rwdt_start(void)
 	rmu2_modify_register32(SYSC_RESCNT2, RESCNT2_RWD0A_MASK, 0x00000000);
 #endif	/* CONFIG_RMU2_RWDT_REBOOT_ENABLE */
 
-	hwspin_unlock(r8a73734_hwlock_sysc);
+	hwspin_unlock(r8a7373_hwlock_sysc);
 
 	/* module stop release */
 	clk_enable(rmu2_rwdt_clk);
@@ -865,13 +615,6 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	if (0 > ret)
 		return ret;
 
-	cpg_check_init();
-
-#ifdef CONFIG_GIC_NS_CMT
-	rmu2_cmt_init_irq();
-	rmu2_cmt_start();
-#endif	/* CONFIG_GIC_NS_CMT */
-
 #ifndef CONFIG_RMU2_RWDT_REBOOT_ENABLE
 	ret = rmu2_rwdt_init_irq();
 #endif /* CONFIG_RMU2_RWDT_REBOOT_ENABLE */
@@ -922,9 +665,6 @@ static int __devexit rmu2_rwdt_remove(struct platform_device *pdev)
 	RWDT_DEBUG("START < %s >\n", __func__);
 
 	rmu2_rwdt_stop();
-#ifdef CONFIG_GIC_NS_CMT
-	rmu2_cmt_stop();
-#endif	/* CONFIG_GIC_NS_CMT */
 	kfree(dwork);
 	destroy_workqueue(wq);
 	if (wa_zq_flg) {
@@ -957,11 +697,6 @@ static int rmu2_rwdt_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	int ret;
 	RWDT_DEBUG("START < %s >\n", __func__);
-
-#ifdef CONFIG_GIC_NS_CMT
-	rmu2_cmt_clear();
-	rmu2_cmt_stop();
-#endif	/* CONFIG_GIC_NS_CMT */
 
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();
@@ -1007,11 +742,6 @@ static int rmu2_rwdt_resume(struct platform_device *pdev)
 	int ret;
 	RWDT_DEBUG("START < %s >\n", __func__);
 
-#ifdef CONFIG_GIC_NS_CMT
-	rmu2_cmt_start();
-	rmu2_cmt_clear();
-#endif	/* CONFIG_GIC_NS_CMT */
-
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();
 
@@ -1052,45 +782,6 @@ static struct platform_driver rmu2_rwdt_driver = {
 
 };
 
-#ifdef CONFIG_RWDT_DEBUG
-
-int read_proc(char *buf, char **start, off_t offset,
-						int count, int *eof, void *data)
-{
-	int len = 0;
-	len = sprintf(buf, "%x", start_stop_cmt_watchdog);
-
-	return len;
-}
-
-int write_proc(struct file *file, const char __user *buf,
-						unsigned int count, void *data)
-{
-	char buffer[4];
-
-	if (count > sizeof(start_stop_cmt_watchdog))
-		return -EFAULT;
-
-	if (copy_from_user(buffer, buf, count))
-		return -EFAULT;
-
-	sscanf(buffer, "%x", &start_stop_cmt_watchdog);
-
-	return start_stop_cmt_watchdog;
-}
-
-void create_new_proc_entry(void)
-{
-	proc_watch_entry = create_proc_entry("proc_watch_entry", 0666, NULL);
-	if (!proc_watch_entry) {
-		printk(KERN_INFO "Error creating proc entry");
-		return;
-	}
-	proc_watch_entry->read_proc = (read_proc_t *)read_proc;
-	proc_watch_entry->write_proc = (write_proc_t *)write_proc;
-}
-
-#endif
 /*
  * init routines
  */
@@ -1114,10 +805,6 @@ static int __init rmu2_rwdt_init(void)
 		return ret;
 	}
 
-#ifdef CONFIG_RWDT_DEBUG
-	create_new_proc_entry();
-#endif
-
 	return ret;
 }
 
@@ -1130,9 +817,6 @@ static void __exit rmu2_rwdt_exit(void)
 
 	platform_driver_unregister(&rmu2_rwdt_driver);
 	platform_device_unregister(&rmu2_rwdt_dev);
-#ifdef CONFIG_RWDT_DEBUG
-	remove_proc_entry("proc_watch_entry", NULL);
-#endif
 }
 
 /*
@@ -1154,7 +838,7 @@ void rmu2_rwdt_software_reset(void)
 	/* execute software reset by setting 0x80000000 to RESCNT2 */
 
 	for (;;) {
-		hwlock = hwspin_lock_timeout(r8a73734_hwlock_sysc, 1);
+		hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
 		if (0 == hwlock) {
 			RWDT_DEBUG(">>> %s Get lock in loop successfully\n",
 							__func__);
@@ -1164,7 +848,7 @@ void rmu2_rwdt_software_reset(void)
 	rmu2_modify_register32(SYSC_RESCNT2, RESCNT2_PRES_MASK,
 							RESCNT2_PRES_MASK);
 
-	hwspin_unlock(r8a73734_hwlock_sysc);
+	hwspin_unlock(r8a7373_hwlock_sysc);
 }
 
 subsys_initcall(rmu2_rwdt_init);

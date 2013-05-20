@@ -23,8 +23,10 @@
 #include <linux/delay.h>
 #include <linux/hwspinlock.h>
 #include <linux/io.h>
+#include <linux/export.h>
+#include <memlog/memlog.h>
 
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <mach/pm.h>
 #include <mach/sbsc.h>
 
@@ -33,27 +35,10 @@
 #define pr_fmt(fmt) "dvfs[clocksuspend.c<%4d>]:" fmt, __LINE__
 #endif
 
-#define CPG_BASE		IO_ADDRESS(0xE6150000)
-#define ZDIVCR5			IO_ADDRESS(0xE61501b4)
-#define CPG_FRQCRA		(CPG_BASE + 0x0000)
-#define CPG_FRQCRB		(CPG_BASE + 0x0004)
-#define CPG_ZBCKCR		(CPG_BASE + 0x0010)
-#define CPG_FRQCRD		(CPG_BASE + 0x00E4)
-#define CPG_BBFRQCRD	(CPG_BASE + 0x00E8)
-
-#define CPG_PLLECR		(CPG_BASE + 0x00D0)
-#define CPG_PLL0CR		(CPG_BASE + 0x00D8)
-#define CPG_PLL1CR		(CPG_BASE + 0x0028)
-#define CPG_PLL2CR		(CPG_BASE + 0x002C)
-#define CPG_PLL3CR		(CPG_BASE + 0x00DC)
-#define CPG_CKSCR		(CPG_BASE + 0x00C0)
-#define CPG_LPCKCR_		(CPG_BASE + 0x1024)
 #define PLLCR_STC_MASK		0x3F000000
 #define PLLCR_BIT24_SHIFT	24
-
 #define FRQCRD_ZB30SEL		BIT(4)
 #define KICK_WAIT_INTERVAL_US	500
-
 #define SEM_TIMEOUT		2	/* 2ms */
 
 /* #define DOWN_PLL1_ENABLE	1 */
@@ -80,307 +65,6 @@ struct clk_hw_info {
  ******************************************************************************/
 static DEFINE_SPINLOCK(freq_change_lock);
 static DEFINE_SPINLOCK(zs_lock);
-static struct clk_hw_info __clk_hw_info_es1_x[] = {
-	[I_CLK] = {
-		.mask_bit	= 0xf,
-		.shift_bit	= 20,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = 0x1,
-			[DIV1_4] = 0x2,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x3,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x4,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x6,
-			[DIV1_18] = 0x7,
-			[DIV1_24] = 0x8,
-			[DIV1_32] = -1,
-			[DIV1_36] = 0xa,
-			[DIV1_48] = 0xb,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRA)
-	},
-	[ZG_CLK] = {
-		.mask_bit	= 0xf,
-		.shift_bit	= 16,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = 0x1,
-			[DIV1_4] = 0x2,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x3,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x4,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x6,
-			[DIV1_18] = -1,
-			[DIV1_24] = 0x8,
-			[DIV1_32] = -1,
-			[DIV1_36] = -1,
-			[DIV1_48] = 0xb,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRA)
-	},
-	[B_CLK] = {
-		.mask_bit	= 0xf,
-		.shift_bit	= 8,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = 0x1,
-			[DIV1_4] = 0x2,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x3,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x4,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x6,
-			[DIV1_18] = 0x7,
-			[DIV1_24] = 0x8,
-			[DIV1_32] = -1,
-			[DIV1_36] = 0xa,
-			[DIV1_48] = 0xb,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRA)
-	},
-	[M1_CLK] = {
-		.mask_bit	= 0xf,
-		.shift_bit	= 4,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = 0x1,
-			[DIV1_4] = 0x2,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x3,
-			[DIV1_7] = 0xc,
-			[DIV1_8]  = 0x4,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x6,
-			[DIV1_18] = 0x7,
-			[DIV1_24] = 0x8,
-			[DIV1_32] = -1,
-			[DIV1_36] = 0xa,
-			[DIV1_48] = 0xb,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRA)
-	},
-	[M3_CLK] = {
-		.mask_bit	= 0xf,
-		.shift_bit	= 12,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = 0x1,
-			[DIV1_4] = 0x2,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x3,
-			[DIV1_7] = 0xc,
-			[DIV1_8]  = 0x4,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x6,
-			[DIV1_18] = 0x7,
-			[DIV1_24] = 0x8,
-			[DIV1_32] = -1,
-			[DIV1_36] = 0xa,
-			[DIV1_48] = 0xb,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRA)
-	},
-	[Z_CLK] = {
-		.mask_bit	= 0x1f,
-		.shift_bit	= 24,
-		.div_val = {
-			[DIV1_1] = 0x0,
-			[DIV1_2] = 0x10,
-			[DIV1_3] = 0x11,
-			[DIV1_4] = 0x12,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x13,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x14,
-			[DIV1_12] = 0x15,
-			[DIV1_16] = 0x16,
-			[DIV1_18] = -1,
-			[DIV1_24] = 0x18,
-			[DIV1_32] = -1,
-			[DIV1_36] = -1,
-			[DIV1_48] = 0x1b,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRB)
-	},
-	[ZTR_CLK] = {
-		.mask_bit	= 0xf,
-		.shift_bit	= 20,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = 0x1,
-			[DIV1_4] = 0x2,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x3,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x4,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x6,
-			[DIV1_18] = 0x7,
-			[DIV1_24] = 0x8,
-			[DIV1_32] = -1,
-			[DIV1_36] = 0xa,
-			[DIV1_48] = 0xb,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRB)
-	},
-	[ZT_CLK] = {
-		.mask_bit	= 0xf,
-		.shift_bit	= 16,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = 0x1,
-			[DIV1_4] = 0x2,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x3,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x4,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x6,
-			[DIV1_18] = 0x7,
-			[DIV1_24] = 0x8,
-			[DIV1_32] = -1,
-			[DIV1_36] = 0xa,
-			[DIV1_48] = 0xb,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRB)
-	},
-	[ZX_CLK] = {
-		.mask_bit	= 0xf,
-		.shift_bit	= 12,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = 0x1,
-			[DIV1_4] = 0x2,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x3,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x4,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x6,
-			[DIV1_18] = 0x7,
-			[DIV1_24] = 0x8,
-			[DIV1_32] = -1,
-			[DIV1_36] = 0xa,
-			[DIV1_48] = 0xb,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRB)
-	},
-	[HP_CLK] = {
-		.mask_bit	= 0xf,
-		.shift_bit	= 4,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = 0x1,
-			[DIV1_4] = 0x2,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x3,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x4,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x6,
-			[DIV1_18] = 0x7,
-			[DIV1_24] = 0x8,
-			[DIV1_32] = -1,
-			[DIV1_36] = 0xa,
-			[DIV1_48] = 0xb,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRB)
-	},
-	[ZS_CLK] = {
-		.mask_bit	= 0xf,
-		.shift_bit	= 8,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = 0x1,
-			[DIV1_4] = 0x2,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x3,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x4,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x6,
-			[DIV1_18] = 0x7,
-			[DIV1_24] = 0x8,
-			[DIV1_32] = -1,
-			[DIV1_36] = 0xa,
-			[DIV1_48] = 0xb,
-			[DIV1_96] = -1
-		},
-		.addr = __io(CPG_FRQCRB)
-	},
-	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
-		.mask_bit	= 0x3f,
-		.shift_bit	= 0,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = -1,
-			[DIV1_4] = 0x1,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x2,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x3,
-			[DIV1_12] = 0x5,
-			[DIV1_16] = 0x7,
-			[DIV1_18] = 0x8,
-			[DIV1_24] = 0xb,
-			[DIV1_32] = 0xf,
-			[DIV1_36] = 0x11,
-			[DIV1_48] = 0x27,
-			[DIV1_96] = 0x2f
-		},
-		.addr = __io(CPG_ZBCKCR)
-	},
-	[ZB3_CLK] = {
-		.mask_bit	= 0x1f,
-		.shift_bit	= 0,
-		.div_val = {
-			[DIV1_1] = -1,
-			[DIV1_2] = 0x0,
-			[DIV1_3] = -1,
-			[DIV1_4] = 0x10,
-			[DIV1_5] = -1,
-			[DIV1_6] = 0x11,
-			[DIV1_7] = -1,
-			[DIV1_8] = 0x12,
-			[DIV1_12] = 0x13,
-			[DIV1_16] = 0x14,
-			[DIV1_18] = -1,
-			[DIV1_24] = 0x15,
-			[DIV1_32] = 0x16,
-			[DIV1_36] = -1,
-			[DIV1_48] = 0x18,
-			[DIV1_96] = 0x1b
-		},
-		.addr = __io(CPG_FRQCRD)
-	}
-};
 static struct clk_hw_info __clk_hw_info_es2_x[] = {
 	[I_CLK] = {
 		.mask_bit	= 0xf,
@@ -403,7 +87,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[ZG_CLK] = {
 		.mask_bit	= 0xf,
@@ -426,7 +110,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[B_CLK] = {
 		.mask_bit	= 0xf,
@@ -449,7 +133,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[M1_CLK] = {
 		.mask_bit	= 0xf,
@@ -472,7 +156,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[M3_CLK] = {
 		.mask_bit	= 0xf,
@@ -495,7 +179,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[M5_CLK] = {
 		.mask_bit	= 0xf,
@@ -518,7 +202,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRA)
+		.addr = IOMEM(FRQCRA)
 	},
 	[Z_CLK] = {
 		.mask_bit	= 0x1f,
@@ -541,7 +225,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x1b,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZTR_CLK] = {
 		.mask_bit	= 0xf,
@@ -564,7 +248,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZT_CLK] = {
 		.mask_bit	= 0xf,
@@ -587,7 +271,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZX_CLK] = {
 		.mask_bit	= 0xf,
@@ -610,7 +294,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[HP_CLK] = {
 		.mask_bit	= 0xf,
@@ -633,7 +317,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZS_CLK] = {
 		.mask_bit	= 0xf,
@@ -656,7 +340,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = __io(CPG_FRQCRB)
+		.addr = IOMEM(FRQCRB)
 	},
 	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
 		.mask_bit	= 0x3f,
@@ -679,7 +363,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x27,
 			[DIV1_96] = 0x2f
 		},
-		.addr = __io(CPG_ZBCKCR)
+		.addr = IOMEM(ZBCKCR)
 	},
 	[ZB3_CLK] = {
 		.mask_bit	= 0x1f,
@@ -702,7 +386,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x18,
 			[DIV1_96] = 0x1b
 		},
-		.addr = __io(CPG_FRQCRD)
+		.addr = IOMEM(FRQCRD)
 	}
 };
 
@@ -710,92 +394,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 static
 #endif
 struct clk_hw_info *__clk_hw_info;
-#ifndef SHM_CLK_TEST_MODE
-static
-#endif
-struct clk_rate __shmobile_freq_modes_es1_x[] = {
-	/* ES1.x */
-	{
-		/* suspend */
-		.i_clk = DIV1_6,
-		.zg_clk = DIV1_6,
-		.b_clk = DIV1_24,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.z_clk = DIV1_2,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_6,
-		.hp_clk	= DIV1_24,
-		.zs_clk = DIV1_24,
-		.zb_clk = DIV1_6,
-		.zb3_clk = DIV1_16
-	},
-	{
-		/* Normal, CPU:MAX */
-		.i_clk = DIV1_6,
-		.zg_clk = DIV1_6,
-		.b_clk = DIV1_12,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.z_clk = DIV1_1,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_3,
-		.hp_clk	= DIV1_12,
-		.zs_clk = DIV1_6,
-		.zb_clk = DIV1_6,
-		.zb3_clk = DIV1_4
-	},
-	{
-		/* Earlysuspend, CPU:MAX */
-		.i_clk = DIV1_6,
-		.zg_clk = DIV1_6,
-		.b_clk = DIV1_12,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.z_clk = DIV1_1,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_3,
-		.hp_clk	= DIV1_12,
-		.zs_clk = DIV1_6,
-		.zb_clk = DIV1_6,
-		.zb3_clk = DIV1_4
-	},
-	{
-		/* Earlysuspend, CPU:MID */
-		.i_clk = DIV1_6,
-		.zg_clk = DIV1_6,
-		.b_clk = DIV1_12,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.z_clk = DIV1_2,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_3,
-		.hp_clk	= DIV1_12,
-		.zs_clk = DIV1_12,
-		.zb_clk = DIV1_6,
-		.zb3_clk = DIV1_4
-	},
-	{
-		/* Earlysuspend, CPU:MIN */
-		.i_clk = DIV1_6,
-		.zg_clk = DIV1_6,
-		.b_clk = DIV1_24,
-		.m1_clk = DIV1_6,
-		.m3_clk = DIV1_8,
-		.z_clk = DIV1_4,
-		.ztr_clk = DIV1_4,
-		.zt_clk = DIV1_6,
-		.zx_clk = DIV1_6,
-		.hp_clk	= DIV1_24,
-		.zs_clk = DIV1_24,
-		.zb_clk = DIV1_6,
-		.zb3_clk = DIV1_16
-	}
-};
+
 #ifndef SHM_CLK_TEST_MODE
 static
 #endif
@@ -808,7 +407,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_2,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
@@ -827,7 +426,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
@@ -846,7 +445,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
@@ -865,7 +464,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
@@ -884,7 +483,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
@@ -903,7 +502,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_2,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
@@ -922,7 +521,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_24,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
@@ -931,7 +530,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.zs_clk = DIV1_24,
 		.zb_clk = DIV1_6,
 		.zb3_clk = DIV1_16,
-		.zb3_freq = 130000,
+		.zb3_freq = 97500,
 		.pll0 = PLLx46
 	},
 	{
@@ -941,7 +540,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
@@ -950,7 +549,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.zs_clk = DIV1_6,
 		.zb_clk = DIV1_6,
 		.zb3_clk = DIV1_2,
-		.zb3_freq = 390000,
+		.zb3_freq = 520000,
 		.pll0 = PLLx56
 	},
 	{
@@ -960,7 +559,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
@@ -969,7 +568,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.zs_clk = DIV1_6,
 		.zb_clk = DIV1_6,
 		.zb3_clk = DIV1_2,
-		.zb3_freq = 390000,
+		.zb3_freq = 520000,
 		.pll0 = PLLx56
 	},
 	{
@@ -979,7 +578,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.b_clk = DIV1_12,
 		.m1_clk = DIV1_6,
 		.m3_clk = DIV1_8,
-		.m5_clk = DIV1_7,
+		.m5_clk = DIV1_8,
 		.z_clk = DIV1_1,
 		.ztr_clk = DIV1_4,
 		.zt_clk = DIV1_6,
@@ -988,7 +587,7 @@ struct clk_rate __shmobile_freq_modes_es2_x[] = {
 		.zs_clk = DIV1_6,
 		.zb_clk = DIV1_6,
 		.zb3_clk = DIV1_2,
-		.zb3_freq = 390000,
+		.zb3_freq = 520000,
 		.pll0 = PLLx56
 	}
 };
@@ -1028,17 +627,17 @@ struct hwspinlock *gen_sem1;
 /*SBSC clock (ZB3) table parameter*/
 struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 	[ZB3_FREQ_65] = {
-		.pll3multiplier_1 = 0, /* 30, */
-		.zb3divider_1 = 0, /* 12, */
-		.pll3multiplier_2 = 40,
-		.zb3divider_2 = 16,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.pll3multiplier_1 = 30, 
+		.zb3divider_1 = 12,
+ 		.pll3multiplier_2 = 40,
+ 		.zb3divider_2 = 16,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x08043909,
+		.SDWCRC2A = 0x00170503,
+		.SDWCR00A = 0x10220202,
+		.SDWCR01A = 0x00030109,
+		.SDWCR10A = 0x10220202,
+		.SDWCR11A = 0x00030109,
 		.freq = 65000,
 	},
 	[ZB3_FREQ_87] = {
@@ -1046,13 +645,13 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.zb3divider_1 = 0,
 		.pll3multiplier_2 = 40,
 		.zb3divider_2 = 12,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x0B05390C,
+		.SDWCRC2A = 0x001F0704,
+		.SDWCR00A = 0x10320202,
+		.SDWCR01A = 0x00050109,
+		.SDWCR10A = 0x10320202,
+		.SDWCR11A = 0x00050109,
 		.freq = 86667,
 	},
 	[ZB3_FREQ_97] = {
@@ -1060,27 +659,27 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.zb3divider_1 = 8,
 		.pll3multiplier_2 = 0,
 		.zb3divider_2 = 0,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x0C06390D,
+		.SDWCRC2A = 0x00230804,
+		.SDWCR00A = 0x10420202,
+		.SDWCR01A = 0x00050109,
+		.SDWCR10A = 0x10420202,
+		.SDWCR11A = 0x00050109,
 		.freq = 97500,
 	},
 	[ZB3_FREQ_130] = {
-		.pll3multiplier_1 = 0, /* 30, */
-		.zb3divider_1 = 0, /* 6 */
+		.pll3multiplier_1 = 30, 
+		.zb3divider_1 = 6,
 		.pll3multiplier_2 = 40,
 		.zb3divider_2 = 8,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x10083912,
+		.SDWCRC2A = 0x002E0B06,
+		.SDWCR00A = 0x10520202,
+		.SDWCR01A = 0x00070109,
+		.SDWCR10A = 0x10520202,
+		.SDWCR11A = 0x00070109,
 		.freq = 130000,
 	},
 	[ZB3_FREQ_173] = {
@@ -1089,56 +688,28 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.pll3multiplier_2 = 40,
 		.zb3divider_2 = 6,
 		/*195 MHz value*/
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x190C491B,
+		.SDWCRC2A = 0x00461109,
+		.SDWCR00A = 0x10824303,
+		.SDWCR01A = 0x000B0109,
+		.SDWCR10A = 0x10824303,
+		.SDWCR11A = 0x000B0109,
 		.freq = 173333,
-	},
-	[ZB3_FREQ_195] = {
-		.pll3multiplier_1 = 30,
-		.zb3divider_1 = 4,
-		.pll3multiplier_2 = 0,
-		.zb3divider_2 = 0,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
-		.freq = 195000,
 	},
 	[ZB3_FREQ_260] = {
 		.pll3multiplier_1 = 0,
 		.zb3divider_1 = 0,
 		.pll3multiplier_2 = 40,
 		.zb3divider_2 = 4,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
+		.SDWCRC0A = 0x70884111,
+		.SDWCRC1A = 0x21106224,
+		.SDWCRC2A = 0x005D170C,
+		.SDWCR00A = 0x20A24404,
+		.SDWCR01A = 0x000F010A,
+		.SDWCR10A = 0x20A24404,
+		.SDWCR11A = 0x000F010A,
 		.freq = 260000,
-	},
-	[ZB3_FREQ_390] = {
-		.pll3multiplier_1 = 30,
-		.zb3divider_1 = 2,
-		.pll3multiplier_2 = 30,
-		.zb3divider_2 = 2,
-		.SDWCRC0A = 0x70A84115,
-		.SDWCRC1A = 0x4320CD48,
-		.SDWCRC2A = 0x00BB2E19,
-		.SDWCR00A = 0x51528909,
-		.SDWCR01A = 0x001F030E,
-		.SDWCR10A = 0x51528909,
-		.SDWCR11A = 0x001F030E,
-		.freq = 390000,
 	},
 	[ZB3_FREQ_520] = {
 		.pll3multiplier_1 = 0,
@@ -1164,7 +735,7 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 
 void cpg_set_lpclkcr_mode(u32 mode)
 {
-	__raw_writel(mode, CPG_LPCKCR_);
+	__raw_writel(mode, CPG_LPCKCR);
 }
 /*
  * __match_div_rate: get div-rate by hw setting value
@@ -1190,9 +761,6 @@ inline int __match_div_rate(int clk, int val)
 	for (i = 0; i < len; i++)
 		if (__clk_hw_info[clk].div_val[i] == val)
 			return div_table[i];
-
-	/* not expected(invalid value), just in case! */
-	pr_err("invalid clk/div-rate<%d/%d>\n", clk, val);
 	return -EINVAL;
 }
 
@@ -1300,7 +868,7 @@ int cpg_set_pll(int pll, unsigned int val)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
-	unsigned int addr = CPG_PLL0CR;
+	unsigned int addr = PLL0CR;
 	int timeout = 500;
 
 	if (pll != PLL0) {
@@ -1309,15 +877,15 @@ int cpg_set_pll(int pll, unsigned int val)
 		return -EINVAL;
 	}
 
-	pllcr = __raw_readl(__io(IO_ADDRESS(addr)));
+	pllcr = __raw_readl(IO_ADDRESS(addr));
 	stc_val = ((pllcr & PLLCR_STC_MASK) >> PLLCR_BIT24_SHIFT) + 1;
 	if (val != stc_val) {
 		pllcr &= ~PLLCR_STC_MASK;
 		pllcr |= ((val - 1) << PLLCR_BIT24_SHIFT);
-		__raw_writel(pllcr, __io(IO_ADDRESS(addr)));
+		__raw_writel(pllcr, IO_ADDRESS(addr));
 		/* wait for status bit set */
 		while (--timeout) {
-			if (__raw_readl(CPG_PLLECR) & (1 << 8))
+			if (__raw_readl(PLLECR) & (1 << 8))
 				break;
 			udelay(1);
 		}
@@ -1344,27 +912,26 @@ int cpg_get_pll(int pll)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
-	unsigned int addr = CPG_PLL0CR;
+	unsigned int addr = (unsigned int)PLL0CR;
 
 	switch (pll) {
 	case PLL0:
-		addr = CPG_PLL0CR;
+		addr = (unsigned int)PLL0CR;
 		break;
 	case PLL1:
-		addr = CPG_PLL1CR;
+		addr = (unsigned int)PLL1CR;
 		break;
 	case PLL2:
-		addr = CPG_PLL2CR;
+		addr = (unsigned int)CPG_PLL2CR;
 		break;
 	case PLL3:
-		addr = CPG_PLL3CR;
+		addr = (unsigned int)PLL3CR;
 		break;
 	default:
-		pr_err("PLL<%d> not supported\n", pll);
 			return -EINVAL;
 		}
 
-	pllcr = __raw_readl(__io(IO_ADDRESS(addr)));
+	pllcr = __raw_readl(IO_ADDRESS(addr));
 	stc_val = ((pllcr & PLLCR_STC_MASK) >> PLLCR_BIT24_SHIFT) + 1;
 
 	return (int)stc_val;
@@ -1385,12 +952,14 @@ int cpg_wait_kick(unsigned int time)
 	unsigned int wait_time = time;
 
 	while (0 < wait_time--) {
-		if ((__raw_readl(CPG_FRQCRB) >> 31) == 0)
+		if ((__raw_readl(FRQCRB) >> 31) == 0)
 			break;
 		if (!is_suspend_setclock)
 			udelay(1);
+#if (defined CONFIG_SUSPEND) || (defined CONFIG_CPU_IDLE)
 		else
-			shmobile_suspend_udelay(1);
+			udelay(1);
+#endif
 	}
 
 	return (wait_time <= 0) ? -EBUSY : 0;
@@ -1412,7 +981,7 @@ int cpg_set_kick(unsigned int time)
 
 	if ((wait_time <= 0) || (wait_time > KICK_WAIT_INTERVAL_US))
 		wait_time = KICK_WAIT_INTERVAL_US;
-	__raw_writel(BIT(31) | __raw_readl(CPG_FRQCRB), CPG_FRQCRB);
+	__raw_writel(BIT(31) | __raw_readl(FRQCRB), FRQCRB);
 
 	return cpg_wait_kick(wait_time);
 }
@@ -1431,14 +1000,12 @@ int cpg_set_kick(unsigned int time)
  */
 int cpg_get_freq(struct clk_rate *rates)
 {
-	unsigned int frqcra = __raw_readl(CPG_FRQCRA);
-	unsigned int frqcrb = __raw_readl(CPG_FRQCRB);
-	unsigned int frqcrd = __raw_readl(CPG_FRQCRD);
+	unsigned int frqcra = __raw_readl(FRQCRA);
+	unsigned int frqcrb = __raw_readl(FRQCRB);
+	unsigned int frqcrd = __raw_readl(FRQCRD);
 
-	if (!rates) {
-		pr_err("invalid parameter<NULL>\n");
+	if (!rates)
 		return -EINVAL;
-	}
 
 	/* get the clock setting
 	 * must execute in spin lock context
@@ -1482,7 +1049,6 @@ int cpg_get_freq(struct clk_rate *rates)
 		|| (rates->ztr_clk < 0) || (rates->zt_clk < 0)
 		|| (rates->zx_clk < 0) || (rates->hp_clk < 0)
 		|| (rates->zs_clk < 0) || (rates->zb3_clk < 0)) {
-		pr_err("invalid divrate\n");
 		return -EINVAL;
 	}
 
@@ -1505,8 +1071,8 @@ void cpg_enable_sbsc_change_for_modem(void)
 	unsigned int ckscr = 0;
 
 	/* unlock ZB30SEL */
-	ckscr = __raw_readl(CPG_CKSCR);
-	__raw_writel(BIT(14) | ckscr, CPG_CKSCR);
+	ckscr = __raw_readl(CKSCR);
+	__raw_writel(BIT(14) | ckscr, CKSCR);
 }
 
 /*
@@ -1520,7 +1086,7 @@ void cpg_enable_sbsc_change_for_modem(void)
  */
 void cpg_init_bbfrqcrd(void)
 {
-	writel(0x1B, CPG_BBFRQCRD);
+	writel(0x1B, BBFRQCRD);
 }
 
 /*
@@ -1536,19 +1102,21 @@ void cpg_init_bbfrqcrd(void)
 static unsigned int cpg_sbsc_decide_clock(unsigned int ape_freq_req)
 {
 	unsigned int system_freq_req = 0;
+	unsigned int pll_change = shmobile_get_pll_reprogram();
 	unsigned int bb_freq_req = shmobile_get_modem_req_freq();
 	int i = 0, ret = 0;
 
 	/* select the bigger requested value */
-	system_freq_req = max(bb_freq_req, ape_freq_req);
+	system_freq_req = bb_freq_req + ape_freq_req;
 	for (i = 0; i < ZB3_FREQ_SIZE; i++) {
 		/* find the frequency just on top of requested,
 		when modem requested some frequency, forbidden to use
 		multiplier 1 only use multiplier 2 to avoid PLL3 change */
-		/* Now we don't change PLL3 */
 		if ((system_freq_req <= zb3_lut[i].freq)
-			&& (zb3_lut[i].pll3multiplier_2 != 0)
-			&& (zb3_lut[i].zb3divider_2 != 0)) {
+			&& (((pll_change == 0) &&
+			(zb3_lut[i].pll3multiplier_2 != 0))
+			|| ((pll_change == 1) && 
+			((zb3_lut[i].pll3multiplier_2 != 0) || (zb3_lut[i].pll3multiplier_1 != 0))))) {
 			ret = i;
 			goto exit;
 		}
@@ -1578,40 +1146,37 @@ static void cpg_PLL3_change(unsigned int pll_multiplier)
 	long timeout = 1500;
 
 	/* Check PLL3 status */
-	work = __raw_readl(CPG_PLLECR);
-	if (!(work & CPG_PLLECR_PLL3ST)) {
-		pr_log("CPG_PLLECR_PLL3ST is 0\n");
+	work = __raw_readl(PLLECR);
+	if (!(work & CPG_PLLECR_PLL3ST))
 		return;
-	}
 
 	if (pll_multiplier == 40)
-		__raw_writel(CPG_PLL3CR_X40, CPG_PLL3CR);
+		__raw_writel(CPG_PLL3CR_X40, PLL3CR);
 	else if (pll_multiplier == 30)
-		__raw_writel(CPG_PLL3CR_X30, CPG_PLL3CR);
-	else
-		WARN(1, KERN_WARNING "unknown PLL3 multiplier");
+		__raw_writel(CPG_PLL3CR_X30, PLL3CR);
 
 	/* Wait PLL3 status on */
 	while (0 < timeout) {
 		timeout--;
-		work = __raw_readl(CPG_PLLECR);
+		work = __raw_readl(PLLECR);
 		work &= CPG_PLLECR_PLL3ST;
 		if (work == CPG_PLLECR_PLL3ST)
 			break;
 		if (!is_suspend_setclock)
 			udelay(1);
+#if (defined CONFIG_SUSPEND) || (defined CONFIG_CPU_IDLE)
 		else
-			shmobile_suspend_udelay(1);
+			udelay(1);
+#endif
 	}
 
 	/* Dummy read */
-	shmobile_sbsc_read_reg32(SBSC_SDMRACR1A);
-	if (timeout <= 0)
-		pr_err("%s: timeout\n", __func__);
+	shmobile_sbsc_read_reg32(SBSC_SDMRACR1A_OFFSET);
 }
 
 /*
- * cpg_set_sbsc_freq: set SBSC clock(ZB3) frequency
+ * __cpg_set_sbsc_freq: set SBSC clock(ZB3) frequency without semaphore lock
+ *			It is called by other APIs in semaphore lock!
  *
  * Arguments:
  *		@new_ape_freq: new frequency in kHz.
@@ -1620,7 +1185,7 @@ static void cpg_PLL3_change(unsigned int pll_multiplier)
  *		0: successful
  *		negative: operation fail
  */
-int cpg_set_sbsc_freq(unsigned int new_ape_freq)
+static int __cpg_set_sbsc_freq(unsigned int new_ape_freq)
 {
 	int ret = 0;
 #ifdef ZB3_CLK_DFS_ENABLE
@@ -1628,31 +1193,27 @@ int cpg_set_sbsc_freq(unsigned int new_ape_freq)
 	unsigned int reg = 0;
 	unsigned int ckscr = 0;
 	unsigned int old_freq = 0;
-	unsigned long cpgflags = 0;
 	unsigned int idx_newfreq = 0;
 	unsigned int actual_pllmult = 0;
 	u8 zb3divider, pll3multiplier;
 
-	/* limit */
-	if (ES_REV_2_2 > shmobile_chip_rev())
-		return 0;
-		/* return -EOPNOTSUPP; */
-
-	ret = shmobile_acquire_cpg_lock(&cpgflags);
-	/*we are now in protected area*/
-	if (ret) {
-		pr_err("%s(): ret<%d>! Can't get HPB semaphore!",
-			__func__, ret);
-		return ret;
+	if (shmobile_get_ape_req_freq() != new_ape_freq){
+		memory_log_dump_int(PM_DUMP_ID_ZB3DFS_FREQ_REQ, (new_ape_freq / 1000) << 16 | (shmobile_get_modem_req_freq() / 1000));
 	}
+
 	/*first determine frequency*/
 	idx_newfreq = cpg_sbsc_decide_clock(new_ape_freq);
-	zb3divider = zb3_lut[idx_newfreq].zb3divider_2;
-	pll3multiplier = zb3_lut[idx_newfreq].pll3multiplier_2;
+	
+	if((shmobile_get_pll_reprogram() == 1) && (zb3_lut[idx_newfreq].zb3divider_1 !=0) 
+		&& (zb3_lut[idx_newfreq].pll3multiplier_1 !=0)) {	
+		zb3divider = zb3_lut[idx_newfreq].zb3divider_1;
+		pll3multiplier = zb3_lut[idx_newfreq].pll3multiplier_1;
+	} else {
+		zb3divider = zb3_lut[idx_newfreq].zb3divider_2;
+		pll3multiplier = zb3_lut[idx_newfreq].pll3multiplier_2;
+	}
 
 	if ((zb3divider == 0) || (pll3multiplier == 0)) {
-		pr_err("bad zb3divider=%d pll3multiplier=%d\n",
-			zb3divider, pll3multiplier);
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -1689,7 +1250,6 @@ int cpg_set_sbsc_freq(unsigned int new_ape_freq)
 		break;
 	default:
 		reg_zb3div = 0x00;
-		pr_err("unknown ZB3 divider %d\n", zb3divider);
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -1703,14 +1263,11 @@ int cpg_set_sbsc_freq(unsigned int new_ape_freq)
 	shmobile_set_ape_req_freq(new_ape_freq);
 
 	ret = cpg_wait_kick(KICK_WAIT_INTERVAL_US);
-	if (0 > ret) {
-		pr_err("%s()[%d]: error<%d>! busy\n",
-			__func__, __LINE__, ret);
+	if (0 > ret)
 		goto exit;
-	}
 
 	actual_pllmult = cpg_get_pll(PLL3);
-	reg = __raw_readl(CPG_FRQCRD);
+	reg = __raw_readl(FRQCRD);
 	old_freq = (26 * actual_pllmult);
 
 	switch (reg & (0x1F)) {
@@ -1746,7 +1303,6 @@ int cpg_set_sbsc_freq(unsigned int new_ape_freq)
 		old_freq /= 96;
 		break;
 	default:
-		pr_err("unknown ZB3 register divider:%x\n", reg & (0x801F));
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -1769,44 +1325,70 @@ int cpg_set_sbsc_freq(unsigned int new_ape_freq)
 
 		if ((reg != reg_zb3div) && ((reg != 0x8004) ||
 			(reg_zb3div != 0x8000))) {
-			pr_log("%s()[%d]: FRQCRD[0x%8x]\n", __func__,
-				__LINE__, reg_zb3div);
-			__raw_writel(reg_zb3div, CPG_FRQCRD);
+			__raw_writel(reg_zb3div, FRQCRD);
 			/* set and wait for KICK bit changed */
 			if (cpg_set_kick(KICK_WAIT_INTERVAL_US)) {
-				pr_err("%s()[%d]: error! set kick bit\n",
-					__func__, __LINE__);
 				ret = -ETIMEDOUT;
 				goto exit;
 			}
 
 			/*ERRATA*/
 			if (zb3divider == 2) {
-				ckscr = __raw_readl(CPG_CKSCR);
+				ckscr = __raw_readl(CKSCR);
 				ckscr &= ~BIT(14);
-				__raw_writel(ckscr, CPG_CKSCR);
+				__raw_writel(ckscr, CKSCR);
 
-				__raw_writel(BIT(15) | 0x4, CPG_FRQCRD);
+				__raw_writel(BIT(15) | 0x4, FRQCRD);
 
 				if (cpg_set_kick(KICK_WAIT_INTERVAL_US)) {
-					pr_err("%s()[%d]: error! set kick bit\n",
-						__func__, __LINE__);
 					ret = -ETIMEDOUT;
 					goto exit;
 				}
-				ckscr = __raw_readl(CPG_CKSCR);
-				__raw_writel(ckscr | BIT(14), CPG_CKSCR);
+				ckscr = __raw_readl(CKSCR);
+				__raw_writel(ckscr | BIT(14), CKSCR);
 			}
 			/*end of ERRATA*/
 		}
 		if (zb3_lut[idx_newfreq].freq < old_freq)
 			shmobile_sbsc_update_param(&zb3_lut[idx_newfreq]);
+
+		memory_log_dump_int(PM_DUMP_ID_ZB3DFS_FREQ, (pll3multiplier << 26) | ((shmobile_get_pll_reprogram() & 1) << 25) | ((zb3_lut[idx_newfreq].freq / 1000) & 0x0000FFFF));
 	}
-	ret = 0;
 
 exit:
-	shmobile_release_cpg_lock(&cpgflags);
 #endif /* ZB3_CLK_DFS_ENABLE */
+	return ret;
+
+}
+/*
+ * cpg_set_sbsc_freq: set SBSC clock(ZB3) frequency
+ *
+ * Arguments:
+ *		@new_ape_freq: new frequency in kHz.
+ *
+ * Return:
+ *		0: successful
+ *		negative: operation fail
+ */
+int cpg_set_sbsc_freq(unsigned int new_ape_freq)
+{
+	int ret = 0;
+	unsigned long cpgflags = 0;
+
+	/* limit */
+	if (ES_REV_2_2 > shmobile_chip_rev())
+		return 0;
+
+	ret = shmobile_acquire_cpg_lock(&cpgflags);
+	/*we are now in protected area*/
+	if (ret) {
+		pr_err("%s(): ret<%d>! Can't get HPB semaphore!",
+			__func__, ret);
+		return ret;
+	}
+	ret = __cpg_set_sbsc_freq(new_ape_freq);
+	shmobile_release_cpg_lock(&cpgflags);
+	pr_log("%s() end! ret<%d>", __func__, ret);
 	return ret;
 }
 EXPORT_SYMBOL(cpg_set_sbsc_freq);
@@ -1837,9 +1419,9 @@ int cpg_set_freqval(int clk, int div)
 
 		spin_unlock_irqrestore(&freq_change_lock, flags);
 		pr_log("REQ[%d] REG[E0/E4/E8]=[0x%08x/0x%08x/0x%08x]\n", div,
-			__raw_readl(CPG_FRQCRD - 0x4),
-			__raw_readl(CPG_FRQCRD),
-			__raw_readl(CPG_FRQCRD + 0x4));
+			__raw_readl(FRQCRD - 0x4),
+			__raw_readl(FRQCRD),
+			__raw_readl(FRQCRD + 0x4));
 		return ret;
 	}
 
@@ -1941,18 +1523,18 @@ int cpg_get_freqval(int clk, int *div)
 
 	/* get divrate */
 	if (clk == ZB3_CLK) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRD), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRD), clk);
 	} else if (clk == ZB_CLK) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_ZBCKCR), clk);
+		div_rate = HW_TO_DIV(__raw_readl(ZBCKCR), clk);
 	} else if ((clk == ZB_CLK) || (clk == ZG_CLK) || (clk == B_CLK)
 		|| (clk == M1_CLK) || (clk == M3_CLK) || (clk == I_CLK)) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRA), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRA), clk);
 	} else if ((clk == Z_CLK) || (clk == ZTR_CLK) || (clk == ZT_CLK)
 		|| (clk == ZX_CLK) || (clk == HP_CLK) || (clk == ZS_CLK)) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRB), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRB), clk);
 	} else if ((shmobile_chip_rev() >= ES_REV_2_0) &&
 		(clk == M5_CLK)) {
-		div_rate = HW_TO_DIV(__raw_readl(CPG_FRQCRA), clk);
+		div_rate = HW_TO_DIV(__raw_readl(FRQCRA), clk);
 	} else {
 		spin_unlock_irqrestore(&freq_change_lock, flags);
 		pr_err("error! invalid clock<%d>\n", clk);
@@ -2013,20 +1595,20 @@ int cpg_set_freq(const struct clk_rate rates)
 	}
 #ifdef DOWN_PLL1_ENABLE
 	if (is_first_run) {
-		reg = __raw_readl(CPG_PLL1CR);
+		reg = __raw_readl(PLL1CR);
 		/* Set Bit 7 = 1 to change clock source */
 		if (!(reg & BIT(7))) { /* BIT 7 = 0 */
 			reg |= BIT(7);
-			__raw_writel(reg, CPG_PLL1CR);
+			__raw_writel(reg, PLL1CR);
 			while (--timeout) {
-				if (__raw_readl(CPG_PLLECR) & (1 << 9))
+				if (__raw_readl(PLLECR) & (1 << 9))
 					break;
 				udelay(1);
 			}
 
 			if (timeout <= 0)
 				pr_err("wait PLL1 status timeout\n");
-			pr_info("CPG_PLL1CR = 0x%8x", __raw_readl(CPG_PLL1CR));
+			pr_info("PLL1CR = 0x%8x", __raw_readl(PLL1CR));
 		}
 		is_first_run = 0;
 	}
@@ -2035,11 +1617,10 @@ int cpg_set_freq(const struct clk_rate rates)
 	ret = shmobile_acquire_cpg_lock(&cpgflags);
 	if (ret) {
 		pr_err("%s(): can't get SBSC semaphore", __func__);
-		goto done;
+		goto exit;
 	}
 	/* get current setting, if nor success try to apply new one */
-	if (cpg_get_freq(&curr_rates))
-		pr_warning("error! can not get current setting, try new one\n");
+	cpg_get_freq(&curr_rates);
 
 	/* change FRQCR(A/B) ? */
 	if ((curr_rates.i_clk != rates.i_clk)
@@ -2066,22 +1647,11 @@ int cpg_set_freq(const struct clk_rate rates)
 		(curr_rates.zs_clk != rates.zs_clk)) {
 		frq_change = 1;
 		zs_change = 1;
-		/* try to get the lock, timout:2ms */
-		ret = hwspin_lock_timeout_nospin(gen_sem1, SEM_TIMEOUT);
-		if (ret) {
-			pr_err("%s(): can't get ZS semaphore", __func__);
-			shmobile_release_cpg_lock(&cpgflags);
-			goto done;
-		}
 	}
 	/* wait for KICK bit change (if any) */
 	ret = cpg_wait_kick(KICK_WAIT_INTERVAL_US);
-	if (ret) {
-		pr_err("error! wait KICK timeout\n");
-		hwspin_unlock_nospin(gen_sem1);
-		shmobile_release_cpg_lock(&cpgflags);
+	if (ret)
 		goto done;
-	}
 
 	/* change FRQCR(A/B) ? */
 	if (frq_change) {
@@ -2101,6 +1671,12 @@ int cpg_set_freq(const struct clk_rate rates)
 		/* change ZS clock */
 		if (zs_change) {
 			spin_lock_irqsave(&zs_lock, zsflags);
+			/* try to get the lock, timout:2ms */
+			ret = hwspin_lock_timeout_nospin(gen_sem1, SEM_TIMEOUT);
+			if (ret) {
+				spin_unlock_irqrestore(&zs_lock, zsflags);
+				goto done;
+			}
 			reg |= DIV_TO_HW(ZS_CLK, rates.zs_clk);
 		} else {
 			/* keep current ZS-Phy */
@@ -2108,7 +1684,7 @@ int cpg_set_freq(const struct clk_rate rates)
 		}
 
 		/* apply setting */
-		__raw_writel(reg, CPG_FRQCRB);
+		__raw_writel(reg, FRQCRB);
 
 		reg = DIV_TO_HW(I_CLK, rates.i_clk);
 		reg |= DIV_TO_HW(ZG_CLK, rates.zg_clk);
@@ -2118,33 +1694,30 @@ int cpg_set_freq(const struct clk_rate rates)
 		reg |= DIV_TO_HW(M5_CLK, rates.m5_clk);
 
 		/* apply setting */
-		__raw_writel(reg, CPG_FRQCRA);
-		pr_log("FRQCR[A/B]=[0x%08X/0x%08X]\n",
-			__raw_readl(CPG_FRQCRA),
-			__raw_readl(CPG_FRQCRB));
+		__raw_writel(reg, FRQCRA);
 
 		/* set and wait for KICK bit changed */
-		if (cpg_set_kick(KICK_WAIT_INTERVAL_US)) {
-			pr_err("error! set & wait KICK timeout\n");
+		ret = cpg_set_kick(KICK_WAIT_INTERVAL_US);
+		if (ret) {
 			if (zs_change) {
-				spin_unlock_irqrestore(&zs_lock, zsflags);
 				hwspin_unlock_nospin(gen_sem1);
+				spin_unlock_irqrestore(&zs_lock, zsflags);
 			}
-			shmobile_release_cpg_lock(&cpgflags);
 			goto done;
 		}
 
 		if (zs_change) {
-			spin_unlock_irqrestore(&zs_lock, zsflags);
 			hwspin_unlock_nospin(gen_sem1);
+			spin_unlock_irqrestore(&zs_lock, zsflags);
 		}
 	}
-	shmobile_release_cpg_lock(&cpgflags);
 	/* change ZB3 clock ? */
-	ret = cpg_set_sbsc_freq(rates.zb3_freq);
-
+	ret = __cpg_set_sbsc_freq(rates.zb3_freq);
 done:
+	shmobile_release_cpg_lock(&cpgflags);
+exit:
 	spin_unlock_irqrestore(&freq_change_lock, flags);
+	pr_log("%s() end! ret<%d>", __func__, ret);
 	return ret;
 }
 
@@ -2212,18 +1785,14 @@ static int cpg_set_zdiv(int mode)
 /******************************************************************************/
 int pm_setup_clock(void)
 {
-	unsigned long flags;
 	unsigned int zbckcr = 0;
 	unsigned int cnt_zb = 1000;/*Wait 1ms*/
 
-	spin_lock_irqsave(&freq_change_lock, flags);
 	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		__shmobile_freq_modes = __shmobile_freq_modes_es2_x;
 		__clk_hw_info = __clk_hw_info_es2_x;
-	} else {
-		__shmobile_freq_modes = __shmobile_freq_modes_es1_x;
-		__clk_hw_info = __clk_hw_info_es1_x;
-	}
+	} 
+	
 	shmobile_sbsc_init();
 	the_clock.zs_disabled_cnt = 0;
 	the_clock.hp_disabled_cnt = 0;
@@ -2235,19 +1804,18 @@ int pm_setup_clock(void)
 	}
 	/* stop ZB-Phy */
 	while (cnt_zb--) {
-		zbckcr = __raw_readl(CPG_ZBCKCR);
+		zbckcr = __raw_readl(ZBCKCR);
 		if (zbckcr & BIT(8)) {
 			pr_info("ZB-Phy stopped, ZBCKCR<0x%08x>\n", zbckcr);
 			break;
 		}
 		zbckcr |= BIT(8);
-		__raw_writel(zbckcr, CPG_ZBCKCR);
+		__raw_writel(zbckcr, ZBCKCR);
 		udelay(1);
 	}
 	if (!cnt_zb)
 		pr_err("fail to stop ZB-Phy, ZBCKCR<0x%08x>\n", zbckcr);
 
-	spin_unlock_irqrestore(&freq_change_lock, flags);
 
 	return 0;
 }
@@ -2299,8 +1867,6 @@ int pm_set_clock_mode(int mode)
 
 	if (shmobile_chip_rev() >= ES_REV_2_0)
 		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es2_x);
-	else
-		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es1_x);
 
 	if ((mode >= size) || (mode < 0)) {
 		pr_err("invalid clock mode<%d>\n", mode);
@@ -2344,8 +1910,6 @@ int pm_get_clock_mode(int mode, struct clk_rate *rate)
 
 	if (shmobile_chip_rev() >= ES_REV_2_0)
 		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es2_x);
-	else
-		size = (int)ARRAY_SIZE(__shmobile_freq_modes_es1_x);
 
 	/* invalid parameter? */
 	if ((!rate) || (mode >= size) || (mode < 0)) {

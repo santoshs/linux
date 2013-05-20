@@ -1,11 +1,25 @@
 /*
- * File: l2mux.h
- *
- * MHI L2MUX kernel definitions
- *
- * Copyright (C) 2011 Renesas Mobile Corporation. All rights reserved.
- *
- */
+* File: l2mux.h
+*
+* MHI L2MUX kernel definitions
+*
+* Copyright (C) 2012 Renesas Mobile Corporation. All rights reserved.
+*
+* This program is free software; you can redistribute it and/or
+* modify it under the terms of the GNU General Public License
+* version 2 as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. ÂSee the GNU
+* General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program; if not, write to the Free Software
+* Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+* 02110-1301 USA
+*
+*/
 
 #ifndef LINUX_L2MUX_H
 #define LINUX_L2MUX_H
@@ -13,6 +27,7 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 
+#ifdef __KERNEL__
 #include <net/sock.h>
 #define ACTIVATE_L2MUX_STAT
 
@@ -20,7 +35,7 @@
 #include <linux/list.h>
 #include <linux/time.h>
 #endif /* ACTIVATE_L2MUX_STAT */
-
+#endif /*__KERNEL__*/
 
 /* Official L3 protocol IDs */
 #define MHI_L3_PHONET		0x00
@@ -33,7 +48,9 @@
 #define MHI_L3_MHDP_DL		0x07
 #define MHI_L3_MHDP_UL		0x08
 #define MHI_L3_AUX_HOST		0x09
+#define MHI_L3_IMS		0x0D
 #define MHI_L3_THERMAL		0xC1
+#define MHI_L3_MHDP_UDP_FILTER	0xFC
 #define MHI_L3_HIGH_PRIO_TEST	0xFD
 #define MHI_L3_MED_PRIO_TEST	0xFE
 #define MHI_L3_LOW_PRIO_TEST	0xFF
@@ -44,6 +61,7 @@
 /* Special value for ANY */
 #define MHI_L3_ANY		0xFFFF
 
+#ifdef __KERNEL__
 typedef int (l2mux_skb_fn)(struct sk_buff *skb, struct net_device *dev);
 
 struct l2muxhdr {
@@ -72,6 +90,18 @@ struct l2muxstat {
 	struct timeval time_val;
 	struct list_head list;
 	unsigned int stat_counter;
+};
+
+struct l2mux_stat_info {
+	struct proc_dir_entry *proc_entry;
+	struct l2muxstat l2muxstat_tab;
+	int l2mux_stat_id;
+	int previous_stat_counter;
+	unsigned int l2mux_total_stat_counter;
+	enum l2mux_trace_state l2mux_traces_state;
+	int l2mux_traces_activation_done;
+	struct net_device *dev;
+	struct work_struct l2mux_stat_work;
 };
 
 #endif /* ACTIVATE_L2MUX_STAT */
@@ -117,6 +147,6 @@ extern int l2mux_netif_tx_unregister(int pt);
 
 extern int l2mux_skb_rx(struct sk_buff *skb, struct net_device *dev);
 extern int l2mux_skb_tx(struct sk_buff *skb, struct net_device *dev);
-
+#endif /*__KERNEL__*/
 
 #endif /* LINUX_L2MUX_H */

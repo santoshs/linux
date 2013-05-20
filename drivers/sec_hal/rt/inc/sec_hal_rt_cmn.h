@@ -12,8 +12,8 @@
 ** Copyright (C) 2010-2012 Renesas Electronics Corp.                       **
 ** All rights reserved.                                                    **
 ** *********************************************************************** */
-#ifndef SEC_HAL_CMN_H
-#define SEC_HAL_CMN_H
+#ifndef SEC_HAL_RT_CMN_H
+#define SEC_HAL_RT_CMN_H
 
 /* ***************** MACROS, CONSTANTS, COMPILATION FLAGS **************** */
 /* Component level, constant, visible to all, macro defs                   */
@@ -51,8 +51,10 @@
 #include <asm/io.h>
 /*#define SEC_HAL_MEM_VIR2PHY_FUNC(vir) virt_to_phys(vir)*/
 /* TBD, own macro for ICRAM memory conversion, others are needed too */
-#define SEC_HAL_MEM_VIR2PHY_FUNC(vir) sec_hal_virt_to_icram_phys(vir)
-#define SEC_HAL_MEM_PHY2VIR_FUNC(phy) phys_to_virt((phys_addr_t)phy)
+#define SEC_HAL_MEM_VIR2PHY_FUNC(vir) \
+sec_hal_virt_to_icram_phys((unsigned long)vir)
+#define SEC_HAL_MEM_PHY2VIR_FUNC(phy) \
+sec_hal_icram_phys_to_virt((unsigned long)phy)
 #endif /* SEC_HAL_TEST_ISOLATION */
 #endif
 
@@ -90,6 +92,7 @@
 #endif
 
 unsigned long sec_hal_virt_to_icram_phys(unsigned long virt_addr);
+unsigned long sec_hal_icram_phys_to_virt(unsigned long phys_addr);
 
 /* ******************************** END ********************************** */
-#endif /* SEC_HAL_CMN_H */
+#endif /* SEC_HAL_RT_CMN_H */

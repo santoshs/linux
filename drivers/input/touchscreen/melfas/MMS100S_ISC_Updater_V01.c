@@ -10,11 +10,7 @@
 #include "MMS100S_ISC_Updater_Customize.h"
 #include "MMS100S_ISC_Updater.h"
 
-#if defined(CONFIG_MACH_KYLE_I)
-#include <KYLE_I_R03_VA19.c>
-#else
 #include <KYLE_CORE28_PR_31_VC05.c>
-#endif
 #include <KYLE_G1F_R00_VF22.c>
 
 #define MFS_HEADER_		5
@@ -48,7 +44,6 @@ bool exception_condition = false;
 static eMFSRet_t enter_ISC_mode(void);
 static eMFSRet_t check_module_compatibility(const unsigned char *_pBinary_Data);
 static eMFSRet_t check_firmware_version(const unsigned char *_pBinary_Data);
-static eMFSRet_t check_module_type(void);
 eMFSRet_t MFS_ISC_force_update(void);
 eMFSRet_t check_firmware_version_resume(void);
 
@@ -64,16 +59,8 @@ unsigned char TSP_PanelVersion, TSP_PhoneVersion;
 eMFSRet_t MFS_ISC_update(void)
 {
 	eMFSRet_t ret;
-	unsigned char moduleComp;
-	unsigned char read_buffer;
-	int i;
+/*	unsigned char read_buffer;*/
 	MFS_I2C_set_slave_addr(mfs_i2c_slave_addr);
-
-#if defined(CONFIG_MACH_KYLE_I) 
-	ret = check_firmware_version(MELFAS_binary);
-	printk(KERN_ERR "<MELFAS> TSP_PanelVersion=%x\n", TSP_PanelVersion);
-	printk(KERN_ERR "<MELFAS> TSP_PhoneVersion=%x\n", TSP_PhoneVersion);
-#endif
 
 /*
 	melfas_fw_i2c_read(MODULE_COMPATIBILITY_ADDR, &read_buffer, 1);
@@ -81,20 +68,6 @@ eMFSRet_t MFS_ISC_update(void)
 	printk(KERN_ERR "<MELFAS> Module Compatibility IC_type=%x\n",
 		IC_type);
 */
-#if defined(CONFIG_MACH_KYLE_I) 
-	for (i = 0; i < READ_RETRY_CNT; i++) {
-		ret = check_module_type();
-		if (ret != MRET_SUCCESS) 
-			MFS_ms_delay(50);
-		else
-			break;
-	}
-	printk(KERN_ERR "<MELFAS> IC_type is =%x!!!\n\n", IC_type);
-	if (ret != MRET_SUCCESS) {
-		MFS_ISC_force_update();
-		ret = check_module_type();
-		}
-#endif		
 	if (IC_type == 0x0F || IC_type == 0x52) {
 		ret = check_module_compatibility(MELFAS_binary_G1F);
 		if (ret != MRET_SUCCESS)
@@ -244,33 +217,9 @@ MFS_ISC_force_update_FINISH:
 	return ret;
 }
 
-eMFSRet_t check_module_type(void)
-{
-	unsigned char read_buffer;
-	unsigned char moduleComp;
-	printk(KERN_ERR "<MELFAS> enter_check_module_type_function!!!\n\n");
-
-	melfas_fw_i2c_read(0x1F, &read_buffer, 1);
-	moduleComp = read_buffer;
-	printk(KERN_ERR "<MELFAS> Module Type=%x\n",
-		moduleComp);
-
-	if (moduleComp == 0x46) {
-		printk(KERN_ERR "<MELFAS> G1F type detected!!!\n\n");
-		IC_type = 0x0F;
-		return MRET_SUCCESS;
-	}
-
-	else if (moduleComp == 0x4D) {
-		printk(KERN_ERR "<MELFAS> G1M type detected!!!\n\n");
-		IC_type = 0x0D;
-		return MRET_SUCCESS;
-	} else
-		return MRET_CHECK_IC_TYPE_ERROR;
-}
 eMFSRet_t check_module_compatibility(const unsigned char *_pBinary_Data)
 {
-	unsigned char write_buffer, read_buffer;
+	unsigned char read_buffer;
 	unsigned char moduleComp, setComp;
 	printk(KERN_ERR "<MELFAS> Check Module Compatibility\n");
 
@@ -280,9 +229,7 @@ eMFSRet_t check_module_compatibility(const unsigned char *_pBinary_Data)
 		moduleComp);
 	setComp = _pBinary_Data[SET_COMPATIBILITY_ADDR];
 	setComp = setComp - 55;
-#if defined(CONFIG_MACH_KYLE_I) 	
-	setComp = 0x03;	/* HW rev R03 */
-#endif
+
 	printk(KERN_ERR "<MELFAS> Module Compatibility setComp=%x\n", setComp);
 
 	if (moduleComp == setComp  || moduleComp == 0xE0 || moduleComp == 0x52)
@@ -298,16 +245,14 @@ eMFSRet_t check_module_compatibility(const unsigned char *_pBinary_Data)
 
 eMFSRet_t check_firmware_version(const unsigned char *_pBinary_Data)
 {
-	unsigned char write_buffer, read_buffer;
+	unsigned char read_buffer;
 	unsigned char moduleVersion, setVersion;
 	printk(KERN_ERR "<MELFAS> Check Firmware Version\n");
 	melfas_fw_i2c_read(FIRMWARE_VERSION_ADDR, &read_buffer, 1);
 
 	moduleVersion = read_buffer;
 	setVersion = _pBinary_Data[SET_VERSION_ADDR];
-#if defined(CONFIG_MACH_KYLE_I) 
-	setVersion = 0x19;		/* kylei white panel R03 */
-#endif	
+
 	TSP_PanelVersion = moduleVersion;
 	TSP_PhoneVersion = setVersion;
 
@@ -416,11 +361,11 @@ int mass_erase(void)
 	printk(KERN_ERR "<MELFAS> mass erase start\n\n");
 
 	MFS_ms_delay(5);
-	if (!melfas_fw_i2c_write(mass_erase_cmd, MFS_HEADER_))
+	if (!melfas_fw_i2c_write((char *)mass_erase_cmd, MFS_HEADER_))
 		printk(KERN_ERR "<MELFAS> mass erase start write fail\n\n");
 	MFS_ms_delay(5);
 	while (read_buffer[2] != ISC_STATUS_RET_MASS_ERASE_DONE) {
-		melfas_fw_i2c_write(mass_erase_cmd, MFS_HEADER_);
+		melfas_fw_i2c_write((char *)mass_erase_cmd, MFS_HEADER_);
 		MFS_ms_delay(1000);
 		if (!melfas_fw_i2c_read(ISC_CMD_ISC_STATUS_ADDR, read_buffer, 4))
 

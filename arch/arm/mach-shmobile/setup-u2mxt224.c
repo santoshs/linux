@@ -18,42 +18,42 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
  * MA  02110-1301, USA.
  */
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/i2c/atmel_mxt_ts.h>
 #include <linux/regulator/consumer.h>
 
-#ifndef CONFIG_PMIC_INTERFACE
+#include <mach/common.h>
+
 	static struct regulator *mxt224_regulator;
-#endif
 
 static void mxt224_set_power(int on)
 {
-#ifdef CONFIG_PMIC_INTERFACE
-//	pmic_set_power_on(E_POWER_VANA_MM);
-	if(on)
-	{
-		gpio_set_value(GPIO_PORT29, 1);
-		gpio_set_value(GPIO_PORT30, 1);
-	}
-	else
-	{
-		gpio_set_value(GPIO_PORT29, 0 );
-		gpio_set_value(GPIO_PORT30, 0 );		
-	}
-#else
-	if (!mxt224_regulator)
-		mxt224_regulator = regulator_get(NULL, "vdd_touch");
-
-	if (mxt224_regulator) {
-		if (on)
-			regulator_enable(mxt224_regulator);
+	if (u2_get_board_rev() <= RLTE_BOARD_REV_0_4) {
+		/*	pmic_set_power_on(E_POWER_VANA_MM);*/
+		if(on)
+		{
+			gpio_set_value(GPIO_PORT29, 1);
+			gpio_set_value(GPIO_PORT30, 1);
+		}
 		else
-			regulator_disable(mxt224_regulator);
+		{
+			gpio_set_value(GPIO_PORT29, 0 );
+			gpio_set_value(GPIO_PORT30, 0 );		
+		}
+	} else if (u2_get_board_rev() >= RLTE_BOARD_REV_0_5) {
+		if (!mxt224_regulator)
+			mxt224_regulator = regulator_get(NULL, "vdd_touch");
+
+		if (mxt224_regulator) {
+			if (on)
+				regulator_enable(mxt224_regulator);
+			else
+				regulator_disable(mxt224_regulator);
+		}
 	}
-#endif
 }
 
 static int mxt224_read_chg(void)

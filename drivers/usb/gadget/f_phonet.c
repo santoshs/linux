@@ -8,18 +8,9 @@
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA
  */
 
+#include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
@@ -323,17 +314,17 @@ pn_net_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	/* struct if_phonet_req *req = (struct if_phonet_req *)ifr; */
 	int ret;
 
-	switch (cmd) 
+	switch (cmd)
 	{
 	    case SIOCPNGAUTOCONF:
 #ifdef PN_NETDEV_AUTOCONF
 		ret = phonet_address_add(dev, PN_MEDIA_USB);
-		if (ret) 
+		if (ret)
 			return ret;
-		
+
 		phonet_address_notify(RTM_NEWADDR, dev, PN_MEDIA_USB);
 		phonet_route_add(dev, PN_DEV_PC);
-		
+
 		dev_open(dev);
 #endif
 		/* Return NOIOCTLCMD so Phonet won't do it again */
@@ -375,11 +366,10 @@ static void pn_net_setup(struct net_device *dev)
 static int
 pn_rx_submit(struct f_phonet *fp, struct usb_request *req, gfp_t gfp_flags)
 {
-	struct net_device *dev = fp->dev;
 	struct page *page;
 	int err;
 
-	page = __netdev_alloc_page(dev, gfp_flags);
+	page = alloc_page(gfp_flags);
 	if (!page)
 		return -ENOMEM;
 
@@ -389,7 +379,7 @@ pn_rx_submit(struct f_phonet *fp, struct usb_request *req, gfp_t gfp_flags)
 
 	err = usb_ep_queue(fp->out_ep, req, gfp_flags);
 	if (unlikely(err))
-		netdev_free_page(dev, page);
+		put_page(page);
 	return err;
 }
 
@@ -400,18 +390,18 @@ static void pn_rx_complete(struct usb_ep *ep, struct usb_request *req)
 	struct page *page = req->context;
 	struct sk_buff *skb;
 	unsigned long flags;
-	
-	if (likely(req->status == 0)) 
+
+	if (likely(req->status == 0))
 	{
 		spin_lock_irqsave(&fp->rx.lock, flags);
 		{
 		skb = fp->rx.skb;
 		if (!skb)
-				skb = netdev_alloc_skb(dev, 12);
+			skb = netdev_alloc_skb(dev, 12);
 		if (req->actual < req->length) /* Last fragment */
 			fp->rx.skb = NULL;
-			else
-				fp->rx.skb = skb;
+		else
+			fp->rx.skb = skb;
 		}
 		spin_unlock_irqrestore(&fp->rx.lock, flags);
 
@@ -425,26 +415,22 @@ static void pn_rx_complete(struct usb_ep *ep, struct usb_request *req)
 			/* Can't use pskb_pull() on page in IRQ */
 			memcpy(skb_put(skb, 1), page_address(page), 1);
 			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
-					1, req->actual-1);
-		}
-		else {
-		skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
-					0, req->actual);
+					1, req->actual-1, PAGE_SIZE);
+		} else {
+			skb_add_rx_frag(skb, skb_shinfo(skb)->nr_frags, page,
+					0, req->actual, PAGE_SIZE);
 		}
 		page = NULL;
 
-		if (req->actual < req->length) 
-		{
+		if (req->actual < req->length) {
 			dev->stats.rx_packets++;
 			dev->stats.rx_bytes += skb->len;
 			__skb_pull(skb, 1);
 			netif_rx(skb);
 		}
-cont:		
-		pn_rx_submit(fp, req, GFP_ATOMIC);
-	}
-	else 
-	{
+cont:
+		pn_rx_submit(fp, req, GFP_ATOMIC | __GFP_COLD);
+	} else {
 		switch (req->status) {
 
 	/* Do not resubmit in these cases: */
@@ -459,13 +445,13 @@ cont:
 		dev->stats.rx_over_errors++;
 	default:
 		dev->stats.rx_errors++;
-			pn_rx_submit(fp, req, GFP_ATOMIC);
+			pn_rx_submit(fp, req, GFP_ATOMIC | __GFP_COLD);
 		break;
 		}
 	}
 
 	if (page)
-		netdev_free_page(dev, page);
+		put_page(page);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -507,24 +493,24 @@ static int pn_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		spin_lock(&port->lock);
 		__pn_reset(f);
 		if (alt == 1) {
-			struct usb_endpoint_descriptor *out, *in;
 			int i;
 
-			out = ep_choose(gadget,
-					&pn_hs_sink_desc,
-					&pn_fs_sink_desc);
-			in = ep_choose(gadget,
-					&pn_hs_source_desc,
-					&pn_fs_source_desc);
-			usb_ep_enable(fp->out_ep, out);
-			usb_ep_enable(fp->in_ep, in);
+			if (config_ep_by_speed(gadget, f, fp->in_ep) ||
+			    config_ep_by_speed(gadget, f, fp->out_ep)) {
+				fp->in_ep->desc = NULL;
+				fp->out_ep->desc = NULL;
+				spin_unlock(&port->lock);
+				return -EINVAL;
+			}
+			usb_ep_enable(fp->out_ep);
+			usb_ep_enable(fp->in_ep);
 
 			port->usb = fp;
 			fp->out_ep->driver_data = fp;
 			fp->in_ep->driver_data = fp;
 
 			for (i = 0; i < phonet_rxq_size; i++)
-				pn_rx_submit(fp, fp->out_reqv[i], GFP_ATOMIC);
+				pn_rx_submit(fp, fp->out_reqv[i], GFP_ATOMIC | __GFP_COLD);
 			netif_carrier_on(dev);
 		}
 		spin_unlock(&port->lock);
@@ -710,7 +696,7 @@ int phonet_bind_config(struct usb_configuration *c)
 
 	fp->dev = dev;
 	fp->function.name = "phonet";
-    fp->function.strings = pn_strings;
+	fp->function.strings = pn_strings;
 	fp->function.bind = pn_bind;
 	fp->function.unbind = pn_unbind;
 	fp->function.set_alt = pn_set_alt;
@@ -750,7 +736,7 @@ int gphonet_setup(struct usb_gadget *gadget)
 
 void gphonet_cleanup(void)
 {
-    if (dev) {
+	if (dev) {
 		unregister_netdev(dev);
 		dev = NULL;
 	}

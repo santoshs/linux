@@ -29,21 +29,25 @@
 
 #include "pmdbg_api.h"
 #include <linux/pm.h>
+#include <mach/irqs.h>
 
 
 #define CHK_JUMP(_ret, _label)	\
-					if (_ret)\
-						goto _label;
+			do { \
+				if (_ret)\
+					goto _label;\
+			} while (0);
 
-#define IS_CHAR(c)		((c >= 32)&&(c<=126))
-#define IS_DIGIT(c)		((c >= 48)&&(c<=57))
-#define IS_ALPHABET(c)	(((c >= 65)&&(c<=90))||((c >= 97)&&(c<=122)))
+#define IS_CHAR(c)		((c >= 32) && (c <= 126))
+#define IS_DIGIT(c)		((c >= 48) && (c <= 57))
+#define IS_ALPHABET(c)	(((c >= 65) && (c <= 90)) || ((c >= 97) && (c <= 122)))
 #define IS_CHAR_SPACE(c)	(c == 32)
-#define TO_LOWER(c)		( ((c >= 65)&&(c<=90)) ? (c+32):c )
-#define TO_UPPER(c)		( ((c >= 97)&&(c<=22)) ? (c-32):c )
+#define TO_LOWER(c)		(((c >= 65) && (c <= 90)) ? (c + 32) : c)
+#define TO_UPPER(c)		(((c >= 97) && (c <= 22)) ? (c - 32) : c)
 
-int parse_param(const char *buf, int size, char* cmd, int* cmd_sz, char* par, int *para_sz);
+int parse_param(const char *buf, int size, char *cmd,
+			int *cmd_sz, char *par, int *para_sz);
 
-
+extern void pmdbg_dbgpin_to_dbgmode(void);
 
 #endif /*__TST_PM_CORE__*/

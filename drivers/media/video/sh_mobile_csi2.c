@@ -1,7 +1,7 @@
 /*
  * Driver for the SH-Mobile MIPI CSI-2 unit
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * Copyright (C) 2010, Guennadi Liakhovetski <g.liakhovetski@gmx.de>
@@ -18,49 +18,67 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/videodev2.h>
+#include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/sh_clk.h>
 
+#include <media/sh_mobile_ceu.h>
 #include <media/sh_mobile_csi2.h>
 #include <media/soc_camera.h>
+#include <media/soc_mediabus.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-dev.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-subdev.h>
 
-#define SH_CSI2_DEBUG	0
+#define CSI2_POWAREA_MNG_ENABLE
 
-#define SH_CSI2_TREF	0x00
-#define SH_CSI2_SRST	0x04
-#define SH_CSI2_PHYCNT	0x08
-#define SH_CSI2_CHKSUM	0x0C
-#define SH_CSI2_VCDT	0x10
-#define SH_CSI2_PHYCNT2	0x48
-#define SH_CSI2_PHYCNT3	0x20
-#define SH_CSI2_INTSTATE	0x38
-#define SH_CSI2_INTEN	0x30
-#define SH_CSI2_INTEN_ALL 0x5F53
-#define	SH_CSI2_OUT	0x24
+#ifdef CSI2_POWAREA_MNG_ENABLE
+#include <rtapi/system_pwmng.h>
+#endif
+
+#define RTAPI_CAMERA_ENABLE
+
+#ifdef RTAPI_CAMERA_ENABLE
+#include <rtapi/camera.h>
+#endif
+
+#define SH_CSI2_DEBUG		(0)
+#define SH_CSI2_ERROR_RESET	(0)
+
+#define SH_CSI2_TREF		(0x00)
+#define SH_CSI2_SRST		(0x04)
+#define SH_CSI2_PHYCNT		(0x08)
+#define SH_CSI2_CHKSUM		(0x0C)
+#define SH_CSI2_VCDT		(0x10)
+#define SH_CSI2_PHYCNT2		(0x48)
+#define SH_CSI2_PHYCNT3		(0x20)
+#define SH_CSI2_INTSTATE	(0x38)
+#define SH_CSI2_INTEN		(0x30)
+#define SH_CSI2_INTEN_ALL	(0x5F5F)
+#define SH_CSI2_INT_ERROR	(SH_CSI2_INTEN_ALL)
+#define SH_CSI2_INT_RESET_ERROR	(0x25F)
+#define SH_CSI2_OUT		(0x24)
 
 struct sh_csi2 {
 	struct v4l2_subdev		subdev;
 	struct list_head		list;
-	struct notifier_block		notifier;
 	unsigned int			irq;
+	unsigned long			mipi_flags;
 	void __iomem			*base;
+	void __iomem			*intcs_base;
 	struct platform_device		*pdev;
 	struct sh_csi2_client_config	*client;
-	unsigned long (*query_bus_param)(struct soc_camera_device *);
-	int (*set_bus_param)(struct soc_camera_device *, unsigned long);
 	int				strm_on;
 	spinlock_t			lock;
+	unsigned int			err_cnt;
 #if SH_CSI2_DEBUG
 	int				vd_s_cnt;
 	int				vd_e_cnt;
 	int				shp_cnt;
 	int				lnp_cnt;
-#endif
+#endif /* SH_CSI2_DEBUG */
 };
 
 static void sh_csi2_hwinit(struct sh_csi2 *priv);
@@ -89,7 +107,7 @@ static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
 		priv->vd_e_cnt = 0;
 		priv->shp_cnt = 0;
 		priv->lnp_cnt = 0;
-#endif
+#endif /* SH_CSI2_DEBUG */
 
 		tmp = 0x10;
 		if (priv->client->lanes & 0xF)
@@ -110,7 +128,7 @@ static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
 }
 
 static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
-			   struct v4l2_mbus_framefmt *mf)
+			struct v4l2_mbus_framefmt *mf)
 {
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 	struct sh_csi2_pdata *pdata = priv->pdev->dev.platform_data;
@@ -140,7 +158,8 @@ static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 		case V4L2_MBUS_FMT_SRGGB12_1X12:
 			break;
 		default:
-			/* All MIPI CSI-2 devices must support one of primary formats */
+			/* All MIPI CSI-2 devices
+			 * must support one of primary formats */
 			mf->code = V4L2_MBUS_FMT_YUYV8_2X8;
 		}
 		break;
@@ -153,7 +172,8 @@ static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 		case V4L2_MBUS_FMT_SBGGR12_1X12:	/* RAW12 */
 			break;
 		default:
-			/* All MIPI CSI-2 devices must support one of primary formats */
+			/* All MIPI CSI-2 devices
+			 * must support one of primary formats */
 			mf->code = V4L2_MBUS_FMT_SBGGR8_1X8;
 		}
 		break;
@@ -166,17 +186,19 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 {
 	struct sh_csi2 *priv = data;
 	u32 intstate = ioread32(priv->base + SH_CSI2_INTSTATE);
-	u32 reg_vcdt = 0;
-	u32 reg_inten = 0;
 	unsigned long flags;
 
 	spin_lock_irqsave(&priv->lock, flags);
 
 	iowrite32(intstate, priv->base + SH_CSI2_INTSTATE);
-	if (intstate & 0x5F53)
+	if (intstate & SH_CSI2_INT_ERROR) {
+		priv->err_cnt++;
 		printk(KERN_ALERT "CSI Error Interrupt(0x%08X)\n", intstate);
-
-	if (intstate & 0x253) {
+	}
+#if SH_CSI2_ERROR_RESET
+	if (intstate & SH_CSI2_INT_RESET_ERROR) {
+		u32 reg_vcdt = 0;
+		u32 reg_inten = 0;
 		printk(KERN_ALERT "CSI HW Error Reset3(0x%08X)\n", intstate);
 		reg_vcdt = ioread32(priv->base + SH_CSI2_VCDT);
 		reg_inten = ioread32(priv->base + SH_CSI2_INTEN);
@@ -185,6 +207,7 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 		sh_csi2_stream(priv, priv->strm_on);
 		iowrite32(reg_inten, priv->base + SH_CSI2_INTEN);
 	}
+#endif /* SH_CSI2_ERROR_RESET */
 
 #if SH_CSI2_DEBUG
 	if (intstate & (1 << 26)) {
@@ -207,7 +230,7 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 			printk(KERN_ALERT "LNP = %d\n", priv->lnp_cnt);
 		priv->lnp_cnt++;
 	}
-#endif
+#endif /* SH_CSI2_DEBUG */
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
@@ -220,7 +243,7 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
  * error out.
  */
 static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
-			 struct v4l2_mbus_framefmt *mf)
+			struct v4l2_mbus_framefmt *mf)
 {
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 	u32 tmp = (priv->client->channel & 3) << 8;
@@ -266,7 +289,31 @@ static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
 	}
 
 	iowrite32(tmp, priv->base + SH_CSI2_VCDT);
+
 	return 0;
+}
+
+static int sh_csi2_g_mbus_config(struct v4l2_subdev *sd,
+				struct v4l2_mbus_config *cfg)
+{
+	cfg->flags = V4L2_MBUS_PCLK_SAMPLE_RISING |
+		V4L2_MBUS_HSYNC_ACTIVE_HIGH | V4L2_MBUS_VSYNC_ACTIVE_HIGH |
+		V4L2_MBUS_MASTER | V4L2_MBUS_DATA_ACTIVE_HIGH;
+	cfg->type = V4L2_MBUS_PARALLEL;
+
+	return 0;
+}
+
+static int sh_csi2_s_mbus_config(struct v4l2_subdev *sd,
+				const struct v4l2_mbus_config *cfg)
+{
+	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
+	struct soc_camera_device *icd = v4l2_get_subdev_hostdata(sd);
+	struct v4l2_subdev *client_sd = soc_camera_to_subdev(icd);
+	struct v4l2_mbus_config client_cfg = {.type = V4L2_MBUS_CSI2,
+						.flags = priv->mipi_flags};
+
+	return v4l2_subdev_call(client_sd, video, s_mbus_config, &client_cfg);
 }
 
 static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
@@ -274,7 +321,6 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 	struct sh_csi2_pdata *pdata = priv->pdev->dev.platform_data;
 	unsigned long flags;
-	void __iomem *intcs_base;
 
 	spin_lock_irqsave(&priv->lock, flags);
 	if (0 != enable) {
@@ -282,35 +328,24 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 		if (pdata->local_reset)
 			pdata->local_reset(priv, 1);
 
-		if (request_irq(priv->irq, sh_mobile_csi2_irq, IRQF_DISABLED,
-			dev_name(&priv->pdev->dev), priv)) {
-			dev_err(&priv->pdev->dev,
-				"Unable to register CSI interrupt.\n");
-		}
-
 		/* stream ON */
 		iowrite32(SH_CSI2_INTEN_ALL, priv->base + SH_CSI2_INTEN);
-
-		intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-		iowrite16(ioread16(intcs_base + pdata->ipr) | (pdata->ipr_set),
-			intcs_base + pdata->ipr);
-		iowrite8(pdata->imcr_set, intcs_base + pdata->imcr);
+		iowrite16(ioread16(priv->intcs_base + pdata->ipr) |
+			(pdata->ipr_set), priv->intcs_base + pdata->ipr);
+		iowrite8(pdata->imcr_set, priv->intcs_base + pdata->imcr);
 		dev_dbg(&priv->pdev->dev,
 			"> IPR(0x%x)=0x04%x, IMCR(0x%x)=0x02%x\n",
-			pdata->ipr, ioread16(intcs_base + pdata->ipr),
-			pdata->imcr, ioread8(intcs_base + pdata->imcr));
-		iounmap(intcs_base);
+			pdata->ipr, ioread16(priv->intcs_base + pdata->ipr),
+			pdata->imcr, ioread8(priv->intcs_base + pdata->imcr));
 
 		priv->strm_on = 1;
+		priv->err_cnt = 0;
 	} else {
 		/* stream OFF */
 		printk(KERN_ALERT "%s stream off\n", __func__);
-		intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-		iowrite8(pdata->imcr_set, intcs_base + pdata->imcr - 0x40);
-		iounmap(intcs_base);
+		iowrite8(pdata->imcr_set, priv->intcs_base +
+			pdata->imcr - 0x40);
 		priv->strm_on = 0;
-
-		free_irq(priv->irq, priv);
 
 		if (pdata->local_reset)
 			pdata->local_reset(priv, 0);
@@ -319,18 +354,30 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
+static int sh_csi2_g_input_status(struct v4l2_subdev *sd, u32 *status)
+{
+	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
+	unsigned long flags;
+
+	if (!status) {
+		dev_err(&priv->pdev->dev, "status is NULL.\n");
+		return -EINVAL;
+	}
+
+	spin_lock_irqsave(&priv->lock, flags);
+	*status = priv->err_cnt;
+	priv->err_cnt = 0;
+	spin_unlock_irqrestore(&priv->lock, flags);
+	return 0;
+}
 
 static struct v4l2_subdev_video_ops sh_csi2_subdev_video_ops = {
 	.s_mbus_fmt	= sh_csi2_s_fmt,
 	.try_mbus_fmt	= sh_csi2_try_fmt,
 	.s_stream	= sh_csi2_s_stream,
-};
-
-static struct v4l2_subdev_core_ops sh_csi2_subdev_core_ops;
-
-static struct v4l2_subdev_ops sh_csi2_subdev_ops = {
-	.core	= &sh_csi2_subdev_core_ops,
-	.video	= &sh_csi2_subdev_video_ops,
+	.g_mbus_config	= sh_csi2_g_mbus_config,
+	.s_mbus_config	= sh_csi2_s_mbus_config,
+	.g_input_status	= sh_csi2_g_input_status,
 };
 
 static void sh_csi2_hwinit(struct sh_csi2 *priv)
@@ -356,75 +403,100 @@ static void sh_csi2_hwinit(struct sh_csi2 *priv)
 
 }
 
-static int sh_csi2_set_bus_param(struct soc_camera_device *icd,
-				 unsigned long flags)
+static int sh_csi2_client_connect(struct sh_csi2 *priv)
 {
-	return 0;
-}
-
-static unsigned long sh_csi2_query_bus_param(struct soc_camera_device *icd)
-{
-	struct soc_camera_link *icl = to_soc_camera_link(icd);
-	const unsigned long flags = SOCAM_PCLK_SAMPLE_RISING |
-		SOCAM_HSYNC_ACTIVE_HIGH | SOCAM_VSYNC_ACTIVE_HIGH |
-		SOCAM_MASTER | SOCAM_DATAWIDTH_8 | SOCAM_DATA_ACTIVE_HIGH;
-
-	return soc_camera_apply_sensor_flags(icl, flags);
-}
-
-static int sh_csi2_notify(struct notifier_block *nb,
-			  unsigned long action, void *data)
-{
-	struct device *dev = data;
-	struct soc_camera_device *icd = to_soc_camera_dev(dev);
-	struct v4l2_device *v4l2_dev = dev_get_drvdata(dev->parent);
-	struct sh_csi2 *priv =
-		container_of(nb, struct sh_csi2, notifier);
 	struct sh_csi2_pdata *pdata = priv->pdev->dev.platform_data;
-	int ret, i;
+	struct soc_camera_device *icd = v4l2_get_subdev_hostdata(&priv->subdev);
+	struct v4l2_subdev *client_sd = soc_camera_to_subdev(icd);
+	struct device *dev = v4l2_get_subdevdata(&priv->subdev);
+	struct v4l2_mbus_config cfg;
+	unsigned long common_flags, csi2_flags;
+	int i, ret;
+
+	if (priv->client)
+		return -EBUSY;
 
 	for (i = 0; i < pdata->num_clients; i++)
 		if (&pdata->clients[i].pdev->dev == icd->pdev)
 			break;
 
-	dev_dbg(dev, "%s(%p): action = %lu, found #%d\n", __func__, dev, action, i);
+	dev_dbg(dev, "%s(%p): found #%d\n", __func__, dev, i);
 
 	if (i == pdata->num_clients)
-		return NOTIFY_DONE;
+		return -ENODEV;
 
-	switch (action) {
-	case BUS_NOTIFY_BOUND_DRIVER:
-		snprintf(priv->subdev.name, V4L2_SUBDEV_NAME_SIZE, "%s%s",
-			 dev_name(v4l2_dev->dev), ".mipi-csi");
-		priv->subdev.grp_id = (long)icd;
-		ret = v4l2_device_register_subdev(v4l2_dev, &priv->subdev);
-		dev_dbg(dev, "%s(%p): ret(register_subdev) = %d\n", __func__, priv, ret);
-		if (ret < 0)
-			return NOTIFY_DONE;
+	/* Check if we can support this camera */
+	csi2_flags = V4L2_MBUS_CSI2_CONTINUOUS_CLOCK | V4L2_MBUS_CSI2_1_LANE;
 
-		priv->set_bus_param		= icd->ops->set_bus_param;
-		priv->query_bus_param		= icd->ops->query_bus_param;
-		icd->ops->set_bus_param		= sh_csi2_set_bus_param;
-		icd->ops->query_bus_param	= sh_csi2_query_bus_param;
-
-		pm_runtime_get_sync(v4l2_get_subdevdata(&priv->subdev));
-
+	switch (pdata->type) {
+	case SH_CSI2C:
+		if (pdata->clients[i].lanes != 1)
+			csi2_flags |= V4L2_MBUS_CSI2_2_LANE;
 		break;
-	case BUS_NOTIFY_UNBIND_DRIVER:
-		/* Driver is about to be unbound */
-		icd->ops->set_bus_param		= priv->set_bus_param;
-		icd->ops->query_bus_param	= priv->query_bus_param;
-		priv->set_bus_param		= NULL;
-		priv->query_bus_param		= NULL;
-
-		v4l2_device_unregister_subdev(&priv->subdev);
-
-		pm_runtime_put(v4l2_get_subdevdata(&priv->subdev));
-		break;
+	case SH_CSI2I:
+		switch (pdata->clients[i].lanes) {
+		default:
+			csi2_flags |= V4L2_MBUS_CSI2_4_LANE;
+		case 3:
+			csi2_flags |= V4L2_MBUS_CSI2_3_LANE;
+		case 2:
+			csi2_flags |= V4L2_MBUS_CSI2_2_LANE;
+		}
 	}
 
-	return NOTIFY_OK;
+	cfg.type = V4L2_MBUS_CSI2;
+	ret = v4l2_subdev_call(client_sd, video, g_mbus_config, &cfg);
+	if (ret == -ENOIOCTLCMD)
+		common_flags = csi2_flags;
+	else if (!ret)
+		common_flags = soc_mbus_config_compatible(&cfg,
+							csi2_flags);
+	else
+		common_flags = 0;
+
+	if (!common_flags)
+		return -EINVAL;
+
+	/* All good: camera MIPI configuration supported */
+	priv->mipi_flags = common_flags;
+	priv->client = pdata->clients + i;
+
+	pm_runtime_get_sync(dev);
+
+	sh_csi2_hwinit(priv);
+
+	return 0;
 }
+
+static void sh_csi2_client_disconnect(struct sh_csi2 *priv)
+{
+	if (!priv->client)
+		return;
+
+	priv->client = NULL;
+
+	pm_runtime_put(v4l2_get_subdevdata(&priv->subdev));
+}
+
+static int sh_csi2_s_power(struct v4l2_subdev *sd, int on)
+{
+	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
+
+	if (on)
+		return sh_csi2_client_connect(priv);
+
+	sh_csi2_client_disconnect(priv);
+	return 0;
+}
+
+static struct v4l2_subdev_core_ops sh_csi2_subdev_core_ops = {
+	.s_power	= sh_csi2_s_power,
+};
+
+static struct v4l2_subdev_ops sh_csi2_subdev_ops = {
+	.core	= &sh_csi2_subdev_core_ops,
+	.video	= &sh_csi2_subdev_video_ops,
+};
 
 static __devinit int sh_csi2_probe(struct platform_device *pdev)
 {
@@ -455,14 +527,6 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	priv->irq = irq;
-	priv->notifier.notifier_call = sh_csi2_notify;
-
-	/* We MUST attach after the MIPI sensor */
-	ret = bus_register_notifier(&soc_camera_bus_type, &priv->notifier);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "CSI2 cannot register notifier\n");
-		goto ernotify;
-	}
 
 	if (!request_mem_region(res->start, resource_size(res), pdev->name)) {
 		if (!(pdata->flags & SH_CSI2_MULTI)) {
@@ -482,34 +546,41 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	priv->pdev = pdev;
 
 	pdata->priv = priv;
-	priv->client = pdata->clients;
+	platform_set_drvdata(pdev, priv);
 
 	v4l2_subdev_init(&priv->subdev, &sh_csi2_subdev_ops);
 	v4l2_set_subdevdata(&priv->subdev, &pdev->dev);
 
-	platform_set_drvdata(pdev, priv);
+	snprintf(priv->subdev.name, V4L2_SUBDEV_NAME_SIZE, "%s.mipi-csi",
+			dev_name(pdata->v4l2_dev->dev));
+	ret = v4l2_device_register_subdev(pdata->v4l2_dev, &priv->subdev);
+	dev_dbg(&pdev->dev,
+		"%s(%p): ret(register_subdev) = %d\n", __func__, priv, ret);
+	if (ret < 0)
+		goto esdreg;
 
 	pm_runtime_enable(&pdev->dev);
 
 	spin_lock_init(&priv->lock);
 
 	priv->strm_on = 0;
+	priv->err_cnt = 0;
 #if SH_CSI2_DEBUG
 	priv->vd_s_cnt = 0;
 	priv->vd_e_cnt = 0;
 	priv->shp_cnt = 0;
 	priv->lnp_cnt = 0;
-#endif
+#endif /* SH_CSI2_DEBUG */
 
 	dev_dbg(&pdev->dev, "CSI2 probed.\n");
 
 	return 0;
 
+esdreg:
+	iounmap(priv->base);
 eremap:
 	release_mem_region(res->start, resource_size(res));
 ereqreg:
-	bus_unregister_notifier(&soc_camera_bus_type, &priv->notifier);
-ernotify:
 	kfree(priv);
 
 	return ret;
@@ -520,7 +591,7 @@ static __devexit int sh_csi2_remove(struct platform_device *pdev)
 	struct sh_csi2 *priv = platform_get_drvdata(pdev);
 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
-	bus_unregister_notifier(&soc_camera_bus_type, &priv->notifier);
+	v4l2_device_unregister_subdev(&priv->subdev);
 	pm_runtime_disable(&pdev->dev);
 	iounmap(priv->base);
 	release_mem_region(res->start, resource_size(res));
@@ -531,22 +602,14 @@ static __devexit int sh_csi2_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver __refdata sh_csi2_pdrv = {
-	.remove  = __devexit_p(sh_csi2_remove),
-	.driver  = {
+	.remove	= __devexit_p(sh_csi2_remove),
+	.probe	= sh_csi2_probe,
+	.driver	= {
 		.name	= "sh-mobile-csi2",
 		.owner	= THIS_MODULE,
 	},
 };
 
-static int __init sh_csi2_init(void)
-{
-	return platform_driver_probe(&sh_csi2_pdrv, sh_csi2_probe);
-}
-
-static void __exit sh_csi2_exit(void)
-{
-	platform_driver_unregister(&sh_csi2_pdrv);
-}
 void sh_csi2_power(struct device *dev, int power_on)
 {
 	struct clk *csi_clk;
@@ -554,6 +617,18 @@ void sh_csi2_power(struct device *dev, int power_on)
 	struct clk *icb_clk;
 	struct soc_camera_link *icl;
 	struct sh_csi2_pdata *csi_info;
+	struct sh_csi2 *priv;
+#ifdef CSI2_POWAREA_MNG_ENABLE
+	void *system_handle;
+	system_pmg_param powarea_start_notify;
+	system_pmg_param powarea_end_notify;
+	system_pmg_delete pmg_delete;
+#endif
+#ifdef RTAPI_CAMERA_ENABLE
+	void *camera_handle;
+	struct camera_prm_param camera_notify;
+	struct camera_prm_delete cam_delete;
+#endif
 	int ret;
 	if (!dev) {
 		printk(KERN_ALERT "%s :not device\n", __func__);
@@ -561,6 +636,7 @@ void sh_csi2_power(struct device *dev, int power_on)
 	}
 	icl = (struct soc_camera_link *) dev->platform_data;
 	csi_info = (struct sh_csi2_pdata *) icl->priv;
+	priv = (struct sh_csi2 *)csi_info->priv;
 
 	csi_clk = clk_get(NULL, csi_info->cmod_name);
 	if (IS_ERR(csi_clk)) {
@@ -580,36 +656,101 @@ void sh_csi2_power(struct device *dev, int power_on)
 	}
 
 	if (csi_info->priv) {
+#ifdef RTAPI_CAMERA_ENABLE
+		camera_handle = camera_new();
+		camera_notify.handle = camera_handle;
+#endif
+#ifdef CSI2_POWAREA_MNG_ENABLE
+		system_handle = system_pwmng_new();
+#endif
 		if (power_on) {
+#ifdef RTAPI_CAMERA_ENABLE
+			printk(KERN_INFO "Start A3R power area(CSI2)\n");
+			ret = camera_start_notify(&camera_notify);
+			if (SMAP_LIB_CAMERA_OK != ret)
+				printk(KERN_ERR
+				"camera_start_notify err[%d]!\n", ret);
+#endif
+#ifdef CSI2_POWAREA_MNG_ENABLE
+			printk(KERN_INFO "Start A4LC power area(CSI2)\n");
+			/* Notifying the Beginning of Using Power Area */
+			powarea_start_notify.handle = system_handle;
+			powarea_start_notify.powerarea_name =
+				RT_PWMNG_POWERAREA_A4LC;
+			ret = system_pwmng_powerarea_start_notify(
+				&powarea_start_notify);
+			if (SMAP_LIB_PWMNG_OK != ret)
+				printk(KERN_ERR
+					"powarea_start_notify err[%d]!\n", ret);
+#endif
 			ret = clk_enable(icb_clk);
 			if (0 != ret) {
 				printk(
-					KERN_ALERT "%s :clk_enable(icb) error(%d)",
-					__func__, ret);
+				KERN_ALERT "%s :clk_enable(icb) error(%d)",
+				__func__, ret);
 			}
 			ret = clk_enable(meram_clk);
 			if (0 != ret) {
 				printk(
-					KERN_ALERT "%s :clk_enable(meram) error(%d)",
-					__func__, ret);
+				KERN_ALERT "%s :clk_enable(meram) error(%d)",
+				__func__, ret);
 			}
 			ret = clk_enable(csi_clk);
 			if (0 != ret) {
 				printk(
-					KERN_ALERT "%s :clk_enable(%s) error(%d)",
-					__func__, csi_info->cmod_name, ret);
+				KERN_ALERT "%s :clk_enable(%s) error(%d)",
+				__func__, csi_info->cmod_name, ret);
 			}
+
+			if (request_irq(priv->irq, sh_mobile_csi2_irq,
+				IRQF_DISABLED, dev_name(&priv->pdev->dev),
+				priv)) {
+				dev_err(&priv->pdev->dev,
+					"Unable to register CSI interrupt.\n");
+			}
+			priv->intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
+
 			sh_csi2_hwinit(csi_info->priv);
 			sh_csi2_stream(csi_info->priv, 1);
 		} else {
 			sh_csi2_stream(csi_info->priv, 0);
+			iounmap(priv->intcs_base);
+			free_irq(priv->irq, priv);
 			clk_disable(csi_clk);
 			clk_disable(meram_clk);
 			clk_disable(icb_clk);
+#ifdef CSI2_POWAREA_MNG_ENABLE
+			printk(KERN_INFO "End A4LC power area(CSI2)\n");
+			/* Notifying the Beginning of Using Power Area */
+			powarea_end_notify.handle = system_handle;
+			powarea_end_notify.powerarea_name =
+				RT_PWMNG_POWERAREA_A4LC;
+			ret = system_pwmng_powerarea_end_notify(
+				&powarea_end_notify);
+			if (SMAP_LIB_PWMNG_OK != ret)
+				printk(KERN_ERR
+					"powarea_end_notify err[%d]!\n", ret);
+#endif
+#ifdef RTAPI_CAMERA_ENABLE
+			printk(KERN_INFO "End A3R power area(CSI2)\n");
+			ret = camera_end_notify(&camera_notify);
+			if (SMAP_LIB_CAMERA_OK != ret)
+				printk(KERN_ERR
+				"camera_end_notify err[%d]!\n", ret);
+#endif
 		}
+#ifdef RTAPI_CAMERA_ENABLE
+		cam_delete.handle = camera_handle;
+		camera_delete(&cam_delete);
+#endif
+#ifdef CSI2_POWAREA_MNG_ENABLE
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+#endif
 	}
 	clk_put(csi_clk);
 	clk_put(meram_clk);
+	clk_put(icb_clk);
 }
 
 int sh_csi2__l_reset(void *handle, int reset)
@@ -627,8 +768,7 @@ int sh_csi2__l_reset(void *handle, int reset)
 	return 0;
 }
 
-module_init(sh_csi2_init);
-module_exit(sh_csi2_exit);
+module_platform_driver(sh_csi2_pdrv);
 
 MODULE_DESCRIPTION("SH-Mobile MIPI CSI-2 driver");
 MODULE_AUTHOR("Guennadi Liakhovetski <g.liakhovetski@gmx.de>");

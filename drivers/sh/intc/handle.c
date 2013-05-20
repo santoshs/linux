@@ -13,7 +13,7 @@
 #include <linux/spinlock.h>
 #include "internals.h"
 
-static unsigned long ack_handle[NR_IRQS];
+static unsigned long ack_handle[INTC_NR_IRQS];
 
 static intc_enum __init intc_grp_id(struct intc_desc *desc,
 				    intc_enum enum_id)
@@ -172,9 +172,8 @@ intc_get_prio_handle(struct intc_desc *desc, struct intc_desc_int *d,
 	return 0;
 }
 
-static unsigned int __init intc_ack_data(struct intc_desc *desc,
-					  struct intc_desc_int *d,
-					  intc_enum enum_id)
+static unsigned int intc_ack_data(struct intc_desc *desc,
+				  struct intc_desc_int *d, intc_enum enum_id)
 {
 	struct intc_mask_reg *mr = desc->hw.ack_regs;
 	unsigned int i, j, fn, mode;
@@ -211,20 +210,20 @@ static void intc_enable_disable(struct intc_desc_int *d,
 	unsigned int cpu;
 	unsigned long (*fn)(unsigned long, unsigned long,
 		   unsigned long (*)(unsigned long, unsigned long,
-				     unsigned long),
-		   unsigned int);
+				     unsigned long, raw_spinlock_t *),
+		   unsigned int, raw_spinlock_t *);
 
 	if (do_enable) {
 		for (cpu = 0; cpu < SMP_NR(d, _INTC_ADDR_E(handle)); cpu++) {
 			addr = INTC_REG(d, _INTC_ADDR_E(handle), cpu);
 			fn = intc_enable_noprio_fns[_INTC_MODE(handle)];
-			fn(addr, handle, intc_reg_fns[_INTC_FN(handle)], 0);
+			fn(addr, handle, intc_reg_fns[_INTC_FN(handle)], 0, &d->lock);
 		}
 	} else {
 		for (cpu = 0; cpu < SMP_NR(d, _INTC_ADDR_D(handle)); cpu++) {
 			addr = INTC_REG(d, _INTC_ADDR_D(handle), cpu);
 			fn = intc_disable_fns[_INTC_MODE(handle)];
-			fn(addr, handle, intc_reg_fns[_INTC_FN(handle)], 0);
+			fn(addr, handle, intc_reg_fns[_INTC_FN(handle)], 0, &d->lock);
 		}
 	}
 }

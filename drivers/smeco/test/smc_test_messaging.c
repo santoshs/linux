@@ -307,7 +307,6 @@ static uint8_t smc_test_handler_send_phonet_message(uint8_t* test_input_data, ui
 #endif
 
     return return_value;
-
 }
 
 

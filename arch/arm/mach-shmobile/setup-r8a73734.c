@@ -12,10 +12,11 @@
 #include <asm/sched_clock.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
-#include <mach/r8a73734.h>
+#include <mach/r8a7373.h>
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
-#include <mach/board-u2evm-renesas-bt.h>
+#include <mach/dev-renesas-bt.h>
+#include <mach/sh_cmt.h>
 
 #define CKS(_name, _divisor) { .name = _name, .divisor = _divisor }
 #define I2C_SDA_NODELAY	0
@@ -43,7 +44,7 @@ static struct sh_timer_config cmt11_platform_data = {
 	.cks_table	= cmt1_cks_table,
 	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
 	.cks		= 3,
-	.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
+	.cmcsr_init	= 0x120, /* Free-run, request interrupt, debug */
 };
 
 static struct resource cmt11_resources[] = {
@@ -76,7 +77,7 @@ static struct sh_timer_config cmt12_platform_data = {
 	.cks_table	= cmt1_cks_table,
 	.cks_num	= ARRAY_SIZE(cmt1_cks_table),
 	.cks		= 3,
-	.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
+	.cmcsr_init	= 0x120, /* Free-run, request interrupt, debug */
 };
 
 static struct resource cmt12_resources[] = {
@@ -616,23 +617,6 @@ static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 		.port_func	= GPIO_FN_I2C_SDA1H,
 	},
 };
-//IIC1H
-static struct resource i2c5_resources_es10[] = {
-	[0] = {
-		.name	= "IIC5",
-		.start	= 0xe682a000,
-		.end	= 0xe682a425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-
-	// This was swapped in ES1 (189 is for I2CB interrupt!)
-		.start	= gic_spi(190),
-		.end	= gic_spi(190),
-
-		.flags	= IORESOURCE_IRQ,
-	},
-};
 
 static struct resource i2c5_resources_es20[] = {
 	[0] = {
@@ -781,16 +765,6 @@ static struct platform_device i2c4_device = {
 	.num_resources	= ARRAY_SIZE(i2c4_resources),
 	.dev		= {
 		.platform_data	= &i2c4_platform_data,
-	},
-};
-
-static struct platform_device i2c5_device_es10 = {
-	.name		= "i2c-sh_mobile",
-	.id		= 5,
-	.resource	= i2c5_resources_es10,
-	.num_resources	= ARRAY_SIZE(i2c5_resources_es10),
-	.dev		= {
-		.platform_data	= &i2c5_platform_data,
 	},
 };
 
@@ -1171,6 +1145,28 @@ static struct platform_device dma0_device = {
 	},
 };
 
+static struct resource pmu_resources[] = {
+  [0] = {
+    .name= "cpu0",
+    .start= gic_spi(77),
+    .end= gic_spi(77),
+    .flags= IORESOURCE_IRQ,
+  },
+  [1] = {
+    .name= "cpu1",
+    .start= gic_spi(78),
+    .end= gic_spi(78),
+    .flags= IORESOURCE_IRQ,
+  },
+};
+
+static struct platform_device pmu_device = {
+  .name= "arm-pmu",
+  .resource= pmu_resources,
+  .num_resources= ARRAY_SIZE(pmu_resources),
+};
+
+
 #ifdef CONFIG_SMECO
 static struct resource smc_resources[] =
 {
@@ -1374,16 +1370,15 @@ static struct platform_device sgx_device = {
 	.num_resources = ARRAY_SIZE(sgx_resources),
 };
 
+/* Removed unused SCIF Ports getting initialized
+ * to reduce BOOT UP time "JIRAID 1382"  */
 static struct platform_device *r8a73734_early_devices[] __initdata = {
 	&cmt11_device,
 	&cmt12_device,
 	&scif0_device,
-	&scif1_device,
-	&scif2_device,
-	&scif3_device,
 	&scif4_device,
 	&scif5_device,
-	&scif6_device,
+	&pmu_device,
 };
 
 #if 0
@@ -1402,27 +1397,9 @@ static struct platform_device *r8a73734_late_devices[] __initdata = {
 #endif
 };
 #endif
-// HS-- ES10 Specific late devices
-static struct platform_device *r8a73734_late_devices_es10[] __initdata = {
-    &i2c0_device,
-    &i2c1_device,
-    &i2c2_device,
-    &i2c4_device,
-    &i2c5_device_es10,
-    &i2c6_device,
-    &dma0_device,
-#ifdef CONFIG_SMECO
-    &smc_netdevice0,
-    &smc_netdevice1,
-#endif
-    &hwsem0_device,
-    &hwsem1_device,
-    &hwsem2_device,
-    &sgx_device,
-};
 
-// HS-- ES20 Specific late devices
-static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
+// HS-- ES20 Specific late devices for Dialog
+static struct platform_device *r8a73734_late_devices_es20_d2153[] __initdata = {
     &i2c0_device,
     &i2c1_device,
     &i2c2_device,
@@ -1449,18 +1426,35 @@ static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
    &sgx_device,
 };
 
-/* CMT10 clocksource */
-#define CMCLKE	0xe6131000
-#define CMSTR0	0xe6130000
-#define CMCSR0	0xe6130010
-#define CMCNT0	0xe6130014
-#define CMCOR0	0xe6130018
+// HS-- ES20 Specific late devices
+static struct platform_device *r8a73734_late_devices_es20[] __initdata = {
+    &i2c0_device,
+    &i2c1_device,
+    &i2c2_device,
+    &i2c3_device,
+    &i2c4_device,
+    &i2c5_device_es20,
+    &i2c6_device,
+#ifndef CONFIG_SPI_SH_MSIOF
+    &i2c7_device,
+#endif
+#ifndef CONFIG_PN544_NFC
+    &i2c8_device,
+#endif
+    &i2c0gpio_device,
+    &i2c1gpio_device,
+    &dma0_device,
+#ifdef CONFIG_SMECO
+    &smc_netdevice0,
+    &smc_netdevice1,
+#endif
+   &hwsem0_device,
+   &hwsem1_device,
+   &hwsem2_device,
+   &sgx_device,
+};
 
-/* CMT14 sched_clock */
-#define CMSTR4	0xe6130400
-#define CMCSR4	0xe6130410
-#define CMCNT4	0xe6130414
-#define CMCOR4	0xe6130418
+
 
 extern spinlock_t sh_cmt_lock;	/* arch/arm/mach-shmobile/sh_cmt.c */
 
@@ -1492,7 +1486,7 @@ static void cmt10_start(void)
 
 	/* setup */
 	__raw_writel(0, CMCNT0);
-	__raw_writel(0x10b, CMCSR0); /* Free-running, DBGIVD, cp_clk/1 */
+	__raw_writel(0x103, CMCSR0); /* Free-running, DBGIVD, cp_clk/1 */
 	__raw_writel(0xffffffff, CMCOR0);
 	while (__raw_readl(CMCNT0) != 0)
 		cpu_relax();
@@ -1542,7 +1536,7 @@ static void r8a73734_clocksource_init(void)
 	__raw_writel(0, CMSTR4);
 
 	__raw_writel(0, CMCNT4);
-	__raw_writel(0x10f, CMCSR4); /* Free-running, DBGIVD, RCLK/1 */
+	__raw_writel(0x107, CMCSR4); /* Free-running, DBGIVD, RCLK/1 */
 	__raw_writel(0xffffffff, CMCOR4);
 	while (__raw_readl(CMCNT4) != 0)
 		cpu_relax();
@@ -1571,17 +1565,12 @@ void __init r8a73734_add_standard_devices(void)
 			ARRAY_SIZE(r8a73734_early_devices));
 //ES2.0 change start
 
-	if((system_rev & 0xFFFF) == 0x3E00)
-	{
-		platform_add_devices(r8a73734_late_devices_es10,
-				ARRAY_SIZE(r8a73734_late_devices_es10));
-	
-	}
-	else if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
+	if (u2_get_board_rev() >= RLTE_BOARD_REV_0_5) {
+		platform_add_devices(r8a73734_late_devices_es20_d2153,
+				ARRAY_SIZE(r8a73734_late_devices_es20_d2153));
+	} else {
 		platform_add_devices(r8a73734_late_devices_es20,
-				ARRAY_SIZE(r8a73734_late_devices_es20)); 	  
-	
+				ARRAY_SIZE(r8a73734_late_devices_es20));
 	}
 //ES2.0 change end
 
@@ -1593,15 +1582,15 @@ void __init r8a73734_add_standard_devices(void)
 	if( is_es20() )
 	{
 		printk("Loading ES20 late devices...\n");
-		platform_add_devices(r8a73734_late_devices_es20,
-			ARRAY_SIZE(r8a73734_late_devices_es20));
-	}
-	else
-	{
-		printk("Loading ES10 late devices...\n");
-		platform_add_devices(r8a73734_late_devices_es10,
-			ARRAY_SIZE(r8a73734_late_devices_es10));
-	} */
+		if (u2_get_board_rev() >= RLTE_BOARD_REV_0_5) {
+			platform_add_devices(r8a73734_late_devices_es20_d2153,
+				ARRAY_SIZE(r8a73734_late_devices_es20_d2153));
+		} else {
+			platform_add_devices(r8a73734_late_devices_es20,
+				ARRAY_SIZE(r8a73734_late_devices_es20));
+		}
+	 }
+	*/
 }
 
 #define CCCR	IO_ADDRESS(0xe600101c)

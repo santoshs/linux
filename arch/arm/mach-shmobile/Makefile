@@ -4,22 +4,24 @@
 
 # Common objects
 # obj-y				:= timer.o console.o clock.o pm_runtime.o
-obj-y				:= timer.o console.o clock.o
+obj-y				:= timer.o console.o clock.o cmt.o serial.o
 obj-$(CONFIG_SH_TIMER_CMT_ARM)	+= sh_cmt.o
-obj-y                           += tz_comm/
+#obj-y                           += tz_comm/
 # CPU objects
 obj-$(CONFIG_ARCH_SH7367)	+= setup-sh7367.o clock-sh7367.o intc-sh7367.o
 obj-$(CONFIG_ARCH_SH7377)	+= setup-sh7377.o clock-sh7377.o intc-sh7377.o
 obj-$(CONFIG_ARCH_SH7372)	+= setup-sh7372.o clock-sh7372.o intc-sh7372.o
 obj-$(CONFIG_ARCH_SH73A0)	+= setup-sh73a0.o clock-sh73a0.o intc-sh73a0.o
-obj-$(CONFIG_ARCH_R8A73734)	+= setup-r8a73734.o clock-r8a73734.o intc-r8a73734.o sbsc.o
+obj-$(CONFIG_ARCH_R8A7740)	+= setup-r8a7740.o clock-r8a7740.o intc-r8a7740.o
+obj-$(CONFIG_ARCH_R8A7779)	+= setup-r8a7779.o clock-r8a7779.o intc-r8a7779.o
+obj-$(CONFIG_ARCH_R8A7373)	+= setup-r8a7373.o clock-r8a7373.o intc-r8a7373.o sbsc.o
 
 # SMP objects
 smp-y				:= platsmp.o headsmp.o
 smp-$(CONFIG_HOTPLUG_CPU)	+= hotplug.o
-smp-$(CONFIG_LOCAL_TIMERS)	+= localtimer.o
 smp-$(CONFIG_ARCH_SH73A0)	+= smp-sh73a0.o
-smp-$(CONFIG_ARCH_R8A73734)	+= smp-r8a73734.o
+smp-$(CONFIG_ARCH_R8A7779)	+= smp-r8a7779.o
+smp-$(CONFIG_ARCH_R8A7373)	+= smp-r8a7373.o
 
 # Pinmux setup
 pfc-y				:=
@@ -27,29 +29,36 @@ pfc-$(CONFIG_ARCH_SH7367)	+= pfc-sh7367.o
 pfc-$(CONFIG_ARCH_SH7377)	+= pfc-sh7377.o
 pfc-$(CONFIG_ARCH_SH7372)	+= pfc-sh7372.o
 pfc-$(CONFIG_ARCH_SH73A0)	+= pfc-sh73a0.o
-pfc-$(CONFIG_ARCH_R8A73734)	+= pfc-r8a73734.o
-
-# IRQ objects
-obj-$(CONFIG_ARCH_SH7367)	+= entry-intc.o
-obj-$(CONFIG_ARCH_SH7377)	+= entry-intc.o
-obj-$(CONFIG_ARCH_SH7372)	+= entry-intc.o
-obj-$(CONFIG_ARCH_SH73A0)	+= entry-gic.o
-obj-$(CONFIG_ARCH_R8A73734)	+= entry-gic.o
+pfc-$(CONFIG_ARCH_R8A7740)	+= pfc-r8a7740.o
+pfc-$(CONFIG_ARCH_R8A7779)	+= pfc-r8a7779.o
+pfc-$(CONFIG_ARCH_R8A7373)	+= pfc-r8a7373.o
 
 # PM objects
-ifeq ($(CONFIG_PM_HAS_SECURE),y)
-obj-$(CONFIG_CPU_IDLE)		+= pmCoreStandby_tz.o
+ifeq ($(CONFIG_CPU_IDLE),y)
+	ifeq ($(CONFIG_PM_HAS_SECURE),y)
+	obj-$(CONFIG_CPU_IDLE)		+= pmCoreStandby_tz.o cpuidle.o pm.o
+	else
+	obj-$(CONFIG_CPU_IDLE)		+= pmCoreStandby.o cpuidle.o pm.o
+	endif
 else
-obj-$(CONFIG_CPU_IDLE)		+= pmCoreStandby.o
+	ifeq ($(CONFIG_PM_HAS_SECURE),y)
+	obj-$(CONFIG_SUSPEND)		+= pmCoreStandby_tz.o pm.o
+	else
+	obj-$(CONFIG_SUSPEND)		+= pmCoreStandby.o pm.o
+	endif
 endif
 obj-$(CONFIG_SUSPEND)		+= suspend.o
-obj-$(CONFIG_CPU_IDLE)		+= cpuidle.o
+
 obj-$(CONFIG_ARCH_SH7372)	+= pm-sh7372.o sleep-sh7372.o
 obj-y						+= poweroff.o
 obj-$(CONFIG_PDC) 			+= powerdomain.o
 obj-$(CONFIG_CPU_FREQ) 		+= cpufreq.o clocksuspend.o
 
 ccflags-$(CONFIG_PM_TEST)	:= -DDEBUG
+obj-$(CONFIG_ARCH_R8A7779)	+= pm-r8a7779.o
+obj-$(CONFIG_ARCH_R8A7373)	+= pm-r8a7373.o sleep-r8a7373.o
+# boot stop sysfs
+obj-$(CONFIG_PM_BOOT_SYSFS)	+= pm_boot_sysfs.o
 
 # Board objects
 obj-$(CONFIG_MACH_G3EVM)	+= board-g3evm.o
@@ -57,15 +66,17 @@ obj-$(CONFIG_MACH_G4EVM)	+= board-g4evm.o
 obj-$(CONFIG_MACH_AP4EVB)	+= board-ap4evb.o
 obj-$(CONFIG_MACH_AG5EVM)	+= board-ag5evm.o
 obj-$(CONFIG_MACH_MACKEREL)	+= board-mackerel.o
-obj-$(CONFIG_RENESAS_WIFI)	+= board-u2evm-renesas-wifi.o
-ifeq ($(CONFIG_MFD_D2153),y)
-obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm-d2153.o
-else
+obj-$(CONFIG_MACH_KOTA2)	+= board-kota2.o
+obj-$(CONFIG_MACH_BONITO)	+= board-bonito.o
+obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
 obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
-endif
-obj-$(CONFIG_MACH_U2USB)     += setup-u2usb.o
+obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte.o
+obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
+obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte.o
+obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
+obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
 # BT object
-obj-$(CONFIG_RENESAS_BT)	+= board-u2evm-renesas-bt.o
+obj-$(CONFIG_RENESAS_BT)	+= dev-renesas-bt.o
 
 # Framework support
 obj-$(CONFIG_SMP)		+= $(smp-y)
@@ -76,29 +87,72 @@ obj-$(CONFIG_GENERIC_GPIO)	+= $(pfc-y)
 #obj-y	+= flash-control.o
 
 # RAM Defragmentation
-obj-$(CONFIG_ARCH_R8A73734)	+= ramdefrag/
+obj-$(CONFIG_ARCH_R8A7373)	+= ramdefrag/
 # crashlog
 obj-y += crashlog.o
 
 obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec-reboot.o
 obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
 # touchkey
-obj-y += setup-u2touchkey.o
+obj-y += setup-u2touchkey.o dev-touchpanel.o
 # touchscreen
-#pmic_debug
-#obj-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += setup-u2mxt224.o
-obj-y += setup-u2mxt224.o
+obj-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += setup-u2mxt224.o
 # vibrator
 obj-$(CONFIG_VIBRATOR_ISA1000A)	+=  setup-u2vibrator.o
 # charging
 obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2smb328a.o
+obj-$(CONFIG_SEC_CHARGING_FEATURE) += setup-u2spa.o
 # current timer
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2current_timer.o
+obj-$(CONFIG_U2_CURRENTTIMER)	+= setup-u2current_timer.o
 # sdhi
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2sdhi.o
+obj-$(CONFIG_U2_SDHI)	+= setup-u2sdhi.o
+
 # gpio_key and keysc
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2gpio_key.o
-ifneq ($(CONFIG_MFD_D2153),y)
+obj-$(CONFIG_U2_GPIOKEY)	+= setup-u2gpio_key.o
 #setup-u2tps80032
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2tps80032.o
-endif
+obj-$(CONFIG_PMIC_INTERFACE)	+= setup-u2tps80032.o
+# WiFi objects
+obj-$(CONFIG_RENESAS_WIFI) 	+= dev-wifi.o
+#obj-$(CONFIG_RENESAS_WIFI)	+= dev-renesas-wifi.o
+
+# gpio
+obj-$(CONFIG_GENERIC_GPIO)	+= gpio.o
+
+#setup-d2153
+obj-$(CONFIG_MFD_D2153)	+= setup-d2153.o
+
+#setup-audio
+obj-$(CONFIG_SND_SOC_SH4_FSI)	+= setup-u2audio.o
+
+#GPS
+obj-$(CONFIG_GPS_CSR_GSD5T) 	+= dev-gps.o
+obj-$(CONFIG_RENESAS_GPS) 	+= board-gardalte-gps.o
+
+#NFC
+obj-$(CONFIG_BCMI2CNFC) 	+= dev-nfc.o
+obj-$(CONFIG_NFC_PN547) 	+= dev-nfc.o
+
+#MHL
+# obj-$(CONFIG_SAMSUNG_MHL) 	+= dev-mhl.o
+obj-$(CONFIG_SAMSUNG_MHL) 	+= dev-edid.o
+obj-$(CONFIG_SAMSUNG_MHL)	+= dev-mhl-sii8332.o
+
+
+#Sensor
+obj-$(CONFIG_SAMSUNG_SENSOR) 	+= dev-sensor.o
+
+# rcu
+obj-$(CONFIG_VIDEO_SH_MOBILE_RCU) += setup-u2rcu.o
+# csi2
+obj-$(CONFIG_VIDEO_SH_MOBILE_CSI2) += setup-u2csi2.o
+# ion
+obj-$(CONFIG_ION) += setup-u2ion.o
+# camera
+obj-$(CONFIG_SOC_CAMERA) += setup-u2camera.o
+# Ramdump
+obj-$(CONFIG_SH_RAMDUMP)	+= ramdump.o
+
+include arch/arm/mach-shmobile/Makefile.sec
+
+subdir-ccflags-y += -Werror
+

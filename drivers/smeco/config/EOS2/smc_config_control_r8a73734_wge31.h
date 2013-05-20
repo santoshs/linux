@@ -27,15 +27,13 @@ Description :  File created
 
 
 /*
- * EOS2 Contains two different configurations for ES1.0 and ES2.0
+ * EOS2 Contains configurations for ES2.0
  * NOTE: The channel configuration are currently the same
  */
 
-#define SMC_CONFIG_NAME_EOS2_ES10                    "EOS2-ES10-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
 #define SMC_CONFIG_NAME_EOS2_ES20                    "EOS2-ES20-SH-Mobile-R8A73734-WGEModem 3.1 for SMC control"
 
-
-#define SMC_CONF_COUNT_CONTROL          2
+#define SMC_CONF_COUNT_CONTROL          1
 
 #define SMC_CONF_CHANNEL_COUNT_CONTROL  1
 
@@ -89,32 +87,8 @@ static smc_instance_conf_channel_t smc_instance_conf_control_channels[SMC_CONF_C
 static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
 {
     /**
-     * SMC instance config for EOS2 SMC control instance between APE5R SH-Mobile and WGEModem3.1
-     * ES1.0/ES2.0 configurations
+     * SMC instance config for EOS2 SMC control instance between APE5R SH-Mobile and WGEModem3.1 ES2.0 configurations
      */
-
-    /* ES1.0 configuration */
-    {
-        .name                         = SMC_CONFIG_NAME_EOS2_ES10,
-        .user_name                    = SMC_CONFIG_USER_CONTROL,
-        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES10,
-        .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES10,
-
-        .master_cpu_version_major     = 1,
-        .master_cpu_version_minor     = 0,
-        .slave_cpu_version_major      = 1,
-        .slave_cpu_version_minor      = 0,
-
-        .shm_start_address            = SMC_CONF_CONTROL_SHM_START_ES10,
-        .shm_size                     = SMC_CONF_CONTROL_SHM_SIZE_ES10,
-        .shm_use_cache_control_master = FALSE,
-        .shm_use_cache_control_slave  = TRUE,
-        .shm_memory_offset_type_master_to_slave = SMC_SHM_OFFSET_MDB_OFFSET,    /* Data location is transferred as an offset not as a pointer */
-        .shm_cpu_memory_offset        = 0,
-
-        .channel_config_count         = SMC_CONF_CHANNEL_COUNT_CONTROL,
-        .channel_config_array         = smc_instance_conf_control_channels,
-    },
 
     /* ES2.0 configuration */
     {
