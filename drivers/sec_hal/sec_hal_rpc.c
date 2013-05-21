@@ -214,7 +214,7 @@ static uint32_t sec_hal_rpc_cb(
 	uint32_t p3,
 	uint32_t p4)
 {
-	uint32_t ret = 0x00;
+	uint32_t ret = 0x00, msg_st[3] = {0};
 	sec_msg_handle_t in_handle, out_handle;
 	uint64_t offset, filesize;
 	sd_rpc_params_t params = {
@@ -241,10 +241,10 @@ static uint32_t sec_hal_rpc_cb(
 		SEC_HAL_TRACE("SECHAL_RPC_FS_LOOKUP(1): p1=0x%08x, p2=0x%08x, in_handle=0x%08x",p1,p2,in_handle);
 		/* Read in_msg from ICRAM (dir handle, namelen and filename) */
 		/* Pass parameters (namelen and filename) to Sec Server */
-		sec_msg_param_read32(&in_handle, &(params.param1)); /* dummy read: directory handle */
-		sec_msg_param_read32(&in_handle, &(params.param1)); /* filename length */
+		msg_st[0] = sec_msg_param_read32(&in_handle, &(params.param1)); /* dummy read: directory handle */
+		msg_st[1] = sec_msg_param_read32(&in_handle, &(params.param1)); /* filename length */
 		/* Filename length must be valid */
-		if (params.param1 > SEC_STORAGE_FILENAME_MAXLEN) {
+		if ((msg_st[1] != SEC_MSG_STATUS_OK) || params.param1 > SEC_STORAGE_FILENAME_MAXLEN) {
 			sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
 			sec_msg_param_write32(&out_handle, SFS_STATUS_INVALID_NAME, SEC_MSG_PARAM_ID_NONE); /* status */
 			sec_msg_param_write32(&out_handle, 0, SEC_MSG_PARAM_ID_NONE); /* null handle */
@@ -264,15 +264,16 @@ static uint32_t sec_hal_rpc_cb(
 		SEC_HAL_TRACE("SECHAL_RPC_FS_READ(1): p1=0x%08x, p2=0x%08x, in_handle=0x%08x",p1,p2,in_handle);
 		/* Read in_msg from ICRAM (file handle, offset(64b) and length) */
 		/* Pass parameters (file handle and length) to Sec Server */
-		sec_msg_param_read32(&in_handle, &params.param1); /* file handle */
-		sec_msg_param_read64(&in_handle, &offset); /* offset */
+		msg_st[0] = sec_msg_param_read32(&in_handle, &params.param1); /* file handle */
+		msg_st[1] = sec_msg_param_read64(&in_handle, &offset); /* offset */
 		params.param2 = offset & 0xFFFFFFFF; /* low */
 		params.param3 = (offset & 0xFFFFFFFF00000000ULL) >> 32; /* high */
-		sec_msg_param_read32(&in_handle, &params.param4); /* length to-be-read */
+		msg_st[2] = sec_msg_param_read32(&in_handle, &params.param4); /* length to-be-read */
 		SEC_HAL_TRACE("SECHAL_RPC_FS_READ(1): handle=%d, offset=%llu, file_len=%d", params.param1, offset, params.param4);
 		sec_msg_close(&in_handle);
 		/* Filesize must be valid */
-		if (params.param4 > SEC_STORAGE_FILE_MAXLEN) {
+		if ((msg_st[0] != SEC_MSG_STATUS_OK) || (msg_st[1] != SEC_MSG_STATUS_OK)
+			|| (msg_st[2] != SEC_MSG_STATUS_OK) || params.param4 > SEC_STORAGE_FILE_MAXLEN) {
 			sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
 			sec_msg_param_write32(&out_handle, SFS_STATUS_INVALID_CALL, SEC_MSG_PARAM_ID_NONE); /* status */
 			sec_msg_param_write32(&out_handle, 0, SEC_MSG_PARAM_ID_NONE); /* length read 0 */
@@ -287,18 +288,15 @@ static uint32_t sec_hal_rpc_cb(
 		SEC_HAL_TRACE("SECHAL_RPC_FS_WRITE(1): p1=0x%08x, p2=0x%08x, in_handle=0x%08x",p1,p2,in_handle);
 		/* Read in_msg from ICRAM (file handle, offset(64b), length and file contents) */
 		/* Pass parameters (file handle, length and file contents) to Sec Server */
-		sec_msg_param_read32(&in_handle, &params.param1); /* file handle */
-		sec_msg_param_read64(&in_handle, &offset); /* offset */
+		msg_st[0] = sec_msg_param_read32(&in_handle, &params.param1); /* file handle */
+		msg_st[1] = sec_msg_param_read64(&in_handle, &offset); /* offset */
 		params.param2 = offset & 0xFFFFFFFF; /* low */
 		params.param3 = (offset & 0xFFFFFFFF00000000ULL) >> 32; /* high */
-		sec_msg_param_read32(&in_handle, &params.param4); /* length to-be-written */
+		msg_st[2] = sec_msg_param_read32(&in_handle, &params.param4); /* length to-be-written */
 		SEC_HAL_TRACE("SECHAL_RPC_FS_WRITE(1): handle=%d, offset=%llu, file_len=%d", params.param1, offset, params.param4);
 		/* Filesize must be valid */
-		if (params.param4 <= SEC_STORAGE_FILE_MAXLEN) {
-			/* Read file from sec message to params.data */
-			sec_msg_param_read(&in_handle, (void *)(params.data), (uint16_t)params.param4);
-			sec_msg_close(&in_handle);
-		} else {
+		if ((msg_st[0] != SEC_MSG_STATUS_OK) || (msg_st[1] != SEC_MSG_STATUS_OK)
+			|| (msg_st[2] != SEC_MSG_STATUS_OK) || params.param4 > SEC_STORAGE_FILE_MAXLEN) {
 			sec_msg_close(&in_handle);
 			sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
 			sec_msg_param_write32(&out_handle, SFS_STATUS_INVALID_CALL, SEC_MSG_PARAM_ID_NONE); /* status */
@@ -306,6 +304,8 @@ static uint32_t sec_hal_rpc_cb(
 			SEC_HAL_TRACE("Illegal filesize!");
 			return RPC_SUCCESS; /* Illegal filesize, return without calling Sec Server */
 		}
+		sec_msg_param_read(&in_handle, (void *)(params.data), (uint16_t)params.param4);
+		sec_msg_close(&in_handle);
 		params.reserved2 = g_secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
 		break;
 	case SEC_HAL_RPC_FS_CREATE:
@@ -313,10 +313,10 @@ static uint32_t sec_hal_rpc_cb(
 		SEC_HAL_TRACE("SECHAL_RPC_FS_CREATE(1): p1=0x%08x, p2=0x%08x, in_handle=0x%08x",p1,p2,in_handle);
 		/* Read in_msg from ICRAM (dir handle, namelen, "filename") */
 		/* Pass parameters (namelen and filename) to Sec Server     */
-		sec_msg_param_read32(&in_handle, &(params.param1)); /* dummy read: directory handle */
-		sec_msg_param_read32(&in_handle, &(params.param1)); /* filename length */
+		msg_st[0] = sec_msg_param_read32(&in_handle, &(params.param1)); /* dummy read: directory handle */
+		msg_st[1] = sec_msg_param_read32(&in_handle, &(params.param1)); /* filename length */
 		/* Filename length must be valid */
-		if (params.param1 > SEC_STORAGE_FILENAME_MAXLEN) {
+		if ((msg_st[1] != SEC_MSG_STATUS_OK) || params.param1 > SEC_STORAGE_FILENAME_MAXLEN) {
 			sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
 			sec_msg_param_write32(&out_handle, SFS_STATUS_INVALID_NAME, SEC_MSG_PARAM_ID_NONE); /* status */
 			sec_msg_close(&out_handle);
@@ -335,8 +335,16 @@ static uint32_t sec_hal_rpc_cb(
 		SEC_HAL_TRACE("SECHAL_RPC_FS_SIZE(1): p1=0x%08x, p2=0x%08x, in_handle=0x%08x",p1,p2,in_handle);
 		/* Read in_msg from ICRAM (file handle) */
 		/* Pass parameter (file handle) to Sec Server */
-		sec_msg_param_read32(&in_handle, &(params.param1)); /* file handle */
+		msg_st[0] = sec_msg_param_read32(&in_handle, &(params.param1)); /* file handle */
 		SEC_HAL_TRACE("SECHAL_RPC_FS_SIZE(1): f-handle=%d",params.param1);
+		if (msg_st[0] != SEC_MSG_STATUS_OK) {
+			sec_msg_open(&out_handle, (sec_msg_t *)(SEC_HAL_MEM_PHY2VIR_FUNC(p1)));
+			sec_msg_param_write32(&out_handle, SFS_STATUS_FAIL, SEC_MSG_PARAM_ID_NONE); /* status */
+			sec_msg_close(&out_handle);
+			sec_msg_close(&in_handle);
+			SEC_HAL_TRACE("failed to read, aborting!");
+			return RPC_SUCCESS;
+		}
 		sec_msg_close(&in_handle);
 		params.reserved2 = g_secure_storage_pid; /* this is used to access sec storage at correct thread's context*/
 		break;
@@ -517,9 +525,6 @@ int sec_hal_rpc_init(void)
 long sec_hal_rpc_ioctl(unsigned int cmd, void **data, sd_ioctl_params_t *param)
 {
 	long rv;
-
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
 
 	switch (cmd) {
 	case SD_SECURE_STORAGE_DAEMON_PID_REGISTER:
