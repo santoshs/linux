@@ -93,6 +93,7 @@ __weak int KERNEL_LOG;
 #define ID_JIG  4
 #define ID_UNKNOW 5
 #define ID_OTG  6
+#define ID_JIG_UART 7
 
 #define MAX_DCDT_retry 2
 static char * devices_name[] = { "NONE",
@@ -1017,7 +1018,7 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 case 0x1c: //Factory Mode : JIG UART OFF = 1
                 // auto switch -- ignore
                 INFO("Auto Switch Mode JIG UART OFF= 1\n");
-                pDrvData->accessory_id = ID_JIG;
+                pDrvData->accessory_id = ID_JIG_UART;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_UART;
                 EN_ADCCHG_MASK();
 		if (platform_data.jig_callback) {
@@ -1175,6 +1176,11 @@ inline void do_detach_work(int32_t regIntFlag)
         case ID_JIG:
         if (platform_data.jig_callback) {
             platform_data.jig_callback(RT8973_DETACHED,pDrvData->factory_mode);
+        }
+        break;
+        case ID_JIG_UART:
+        if (platform_data.jig_callback) {
+            platform_data.jig_callback(RT8973_DETACHED,pDrvData->factory_mode);
 	    wake_unlock(&pDrvData->uart_wakelock);
 	}
         break;
@@ -1306,6 +1312,7 @@ static bool init_reg_setting(void)
     int count = 0;
     INFO("Initialize register setting!!\n");
     pDrvData->chip_id = I2CRByte(RT8973_REG_CHIP_ID);
+    INFO("Chip ID is %d \n",pDrvData->chip_id);
     if  (pDrvData->chip_id<0)
     {
         ERR("I2C read error(reture %d)\n",pDrvData->chip_id);
@@ -1533,23 +1540,12 @@ static void rt8973musc_shutdown(struct i2c_client *client)
 
 static int rt8973musc_resume(struct i2c_client *client)
 {
-	int32_t regADC, regIntFlag;
-	struct i2c_client *pClient = client;
 	struct rtmus_platform_data *pdata = &platform_data;
-
-	/*if (device_may_wakeup(&client->dev) && client->irq)
-		disable_irq_wake(client->irq);*/
-
-	regIntFlag = I2CRByte(RT8973_REG_INT_FLAG);
-	if (regIntFlag&RT8973_INT_ATTACH_MASK) {
-		regADC = I2CRByte(RT8973_REG_ADC)&0x1f;
-
-	if ((0x1c == regADC) || (0x16 == regADC)) {
-		if (!wake_lock_active(&pDrvData->uart_wakelock))
-			wake_lock(&pDrvData->uart_wakelock);
-		}
-	}
-
+	INFO("In rt8973musc_resume\n");
+	if((ID_UART == pDrvData->accessory_id) || (ID_JIG_UART == pDrvData->accessory_id)){
+                if (!wake_lock_active(&pDrvData->uart_wakelock))
+                        wake_lock(&pDrvData->uart_wakelock);
+                }
     if (pdata->usb_power)
         pdata->usb_power(1);
 	return 0;
@@ -1560,6 +1556,7 @@ static int rt8973musc_suspend(struct i2c_client *client, pm_message_t state)
     struct rtmus_platform_data *pdata = &platform_data;
 	/*if (device_may_wakeup(&client->dev) && client->irq)
 		enable_irq_wake(client->irq);*/
+    INFO("In rt8973musc_suspend\n");
     if (pdata->usb_power)
         pdata->usb_power(0);
 
