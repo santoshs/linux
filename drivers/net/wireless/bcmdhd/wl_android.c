@@ -1625,7 +1625,7 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 		DHD_ERROR(("%s: too long priavte command\n", __FUNCTION__));
 		ret = -EINVAL;
 	}
-	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	command = kmalloc(priv_cmd.total_len + 1, GFP_KERNEL);
 	if (!command)
 	{
 		DHD_ERROR(("%s: failed to allocate memory\n", __FUNCTION__));
