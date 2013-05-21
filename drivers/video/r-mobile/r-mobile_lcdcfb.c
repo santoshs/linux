@@ -621,6 +621,12 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 		disp_delete.handle = hdmi_handle;
 		screen_display_delete(&disp_delete);
 		lcd_ext_param[0].hdmi_flag = FB_HDMI_STOP;
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+
+		sh_mobile_composer_hdmiset(1);
+#endif
+#endif
 		up(&lcd_ext_param[0].sem_lcd);
 		sh_mobile_lcdc_refresh(
 			RT_DISPLAY_REFRESH_ON, RT_DISPLAY_LCD1);
@@ -793,10 +799,6 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		disp_draw.buffer_id = set_buff_id;
 		disp_draw.buffer_offset = new_pan_offset;
 		disp_draw.rotate = lcd_ext_param[lcd_num].rotate;
-#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-		sh_mobile_composer_blendoverlay(disp_draw.buffer_offset
-						+ info->fix.smem_start);
-#endif
 		DBG_PRINT("screen_display_draw handle %x\n",
 			  (unsigned int)disp_draw.handle);
 		DBG_PRINT("screen_display_draw output_mode %d\n",
@@ -844,9 +846,6 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		disp_draw.buffer_id = set_buff_id;
 		disp_draw.buffer_offset = 0;
 		disp_draw.rotate = lcd_ext_param[lcd_num].rotate;
-#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-		sh_mobile_composer_blendoverlay(info->fix.smem_start);
-#endif
 		ret = screen_display_draw(&disp_draw);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
 			r_mobile_fb_err_msg(ret, "screen_display_draw");
@@ -1392,6 +1391,12 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 			lcd_ext_param[i].o_mode = RT_DISPLAY_LCD1;
 #if FB_SH_MOBILE_HDMI
 			lcd_ext_param[i].draw_mode = RT_DISPLAY_LCDHDMI;
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
+			/* disable mirror to HDMI */
+			lcd_ext_param[i].draw_mode = RT_DISPLAY_LCD1;
+#endif
+#endif
 #else
 			lcd_ext_param[i].draw_mode = RT_DISPLAY_LCD1;
 #endif
@@ -1607,8 +1612,6 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		printk(KERN_ALERT "kthread_run error\n");
 		goto err1;
 	}
-
-	sh_lcd_vsync.vsync_flag = 0;
 
 	fb_debug = 0;
 

@@ -313,10 +313,10 @@ int d2153_irq_init(struct d2153 *d2153, int irq,
 	}
 
 	enable_irq_wake(irq);
-
-	d2153->chip_irq = irq;
+	
+	d2153->chip_irq = irq;	
 	d2153_chip_irq = irq;
-
+	
 	return ret;
 }
 

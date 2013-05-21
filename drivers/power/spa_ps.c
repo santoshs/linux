@@ -77,14 +77,20 @@ static enum power_supply_property spa_batt_props[] = {
 static enum power_supply_property spa_charger_props[] = {
         POWER_SUPPLY_PROP_ONLINE,
 };
+#ifdef CONFIG_STC3115_FUELGAUGE
+extern int read_voltage(int *vbat);
+#endif
 
 #ifdef CONFIG_BATTERY_D2153
+#include <linux/d2153/d2153_battery.h>
+
 extern int d2153_get_rf_temperature(void);
 #endif
 
 static int spa_batt_get_property(struct power_supply *batt, enum power_supply_property property, union power_supply_propval *propval)
 {
 		int ret = 0;
+
 		struct spa_ps *spa_ps_iter =
 				container_of(batt, struct spa_ps, batt);
 
@@ -106,7 +112,24 @@ static int spa_batt_get_property(struct power_supply *batt, enum power_supply_pr
 						break;
 
 				case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+#ifdef CONFIG_STC3115_FUELGAUGE
+					{
+						int volt;
+						read_voltage(&volt);
+						propval->intval = volt * 1000;
+						if(propval->intval < 0)
+							propval->intval = spa_ps_iter->state.voltage * 1000;
+
+					}
+
+#elif CONFIG_BATTERY_D2153
+						propval->intval = d2153_battery_read_status(D2153_BATTERY_VOLTAGE_NOW) * 1000;
+						if(propval->intval < 0)
+							propval->intval = spa_ps_iter->state.voltage * 1000;
+#else
 						propval->intval = spa_ps_iter->state.voltage * 1000;
+
+#endif
 						break;
 
 				case POWER_SUPPLY_PROP_TEMP: /* Kelvin unit to Celsius (C = K - 273.15). x10ed unit */

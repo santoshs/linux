@@ -38,6 +38,11 @@ int platform_cpu_kill(unsigned int cpu)
 		mdelay(1);
 	}
 #else
+	/* If PANIC is in progress, do NOT call shmobile_platform_cpu_kill(); */
+	u8 reg = __raw_readb(STBCHR2);
+	if (reg & APE_RESETLOG_PANIC_START)
+		return 1;
+
 	return shmobile_platform_cpu_kill(cpu);
 #endif
 	return 1;
@@ -45,6 +50,9 @@ int platform_cpu_kill(unsigned int cpu)
 
 void platform_cpu_die(unsigned int cpu)
 {
+#ifdef CONFIG_ARCH_R8A7373
+	u8 reg;
+#endif /* CONFIG_ARCH_R8A7373 */
 	/* hardware shutdown code running on the CPU that is being offlined */
 	flush_cache_all();
 	dsb();
@@ -55,6 +63,11 @@ void platform_cpu_die(unsigned int cpu)
 	if (!shmobile_platform_cpu_die(cpu))
 		return;
 /* #ifdef CONFIG_SUSPEND */
+	/* If PANIC is in progress, do NOT call jump_systemsuspend(); */
+	reg = __raw_readb(STBCHR2);
+	if (reg & APE_RESETLOG_PANIC_START)
+		return;
+
 	memory_log_func(PM_FUNC_ID_JUMP_SYSTEMSUSPEND, 1);
 	jump_systemsuspend();
 	memory_log_func(PM_FUNC_ID_JUMP_SYSTEMSUSPEND, 0);

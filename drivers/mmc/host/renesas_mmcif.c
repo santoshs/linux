@@ -171,7 +171,7 @@
 #define CLKDEV_MMC_DATA		20000000 /* 20MHz */
 #define CLKDEV_INIT		400000   /* 400 KHz */
 
-#define EMMC_CLK_CMD_DELAY 362
+#define EMMC_CLK_CMD_DELAY	362
 unsigned int wakeup_from_suspend_emmc;
 
 enum mmcif_state {
@@ -1299,6 +1299,7 @@ static int sh_mmcif_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
+	
 	wakeup_from_suspend_emmc = 1;
 	shmmcif_log("%s: In\n", __func__);
 	return mmc_resume_host(host->mmc);

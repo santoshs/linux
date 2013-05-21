@@ -1083,27 +1083,28 @@ static int d2153_micbias_event(struct snd_soc_dapm_widget *widget,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (D2153_AB_Silicon == d2153_aad->chip_rev) {
-			d2153_aad_write(d2153_codec->aad_i2c_client,D2153_ACCDET_CFG2,0xBB);
-		}
-		else {
+		if (D2153_AA_Silicon == d2153_aad->chip_rev) {
 			d2153_aad->button.status = D2153_BUTTON_PRESS;
-			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
-						  D2153_ACCDET_BTN_EN,
-						  0);
+			d2153_aad_update_bits(d2153_codec->aad_i2c_client,
+					D2153_ACCDET_CONFIG,
+					D2153_ACCDET_BTN_EN,
+					0);
+		} else {
+			d2153_aad_write(d2153_codec->aad_i2c_client,
+					D2153_ACCDET_CFG2, 0xBB);
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if(d2153_aad->switch_data.state ==D2153_HEADSET)
 			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);		
-		if (D2153_AB_Silicon == d2153_aad->chip_rev) {
-			d2153_aad_write(d2153_codec->aad_i2c_client,D2153_ACCDET_CFG2,0x00);
-		}
-		else {
+		if (D2153_AA_Silicon == d2153_aad->chip_rev) {
 			d2153_aad->button.status = D2153_BUTTON_PRESS;
 			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
 						  D2153_ACCDET_BTN_EN, D2153_ACCDET_BTN_EN);
+		} else {
+			d2153_aad_write(d2153_codec->aad_i2c_client,
+					D2153_ACCDET_CFG2, 0x00);
 		}
 		break;
 	default:
@@ -1520,6 +1521,7 @@ static int d2153_hw_params(struct snd_pcm_substream *substream,
 		aif_ctrl |= D2153_AIF_WORD_LENGTH_S20_LE;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
+		/* keep S16_LE for FM Sound */
 		aif_ctrl |= D2153_AIF_WORD_LENGTH_S16_LE;
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
@@ -1698,11 +1700,8 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	u32 freq_ref;
 	u64 frac_div;
 
-	dlg_info("%s() fout = %d  \n",__FUNCTION__,fout);
+	dlg_info("%s() fout = %d\n", __func__, fout);
 	
-	/* Disable PLL before setting the divisors */
-	snd_soc_update_bits(codec, D2153_PLL_CTRL, D2153_PLL_EN, 0);
-
 	pll_ctrl = 0;
 	
 	/* Workout input divider based on MCLK rate */
@@ -1736,18 +1735,27 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	
 	pll_ctrl |= indiv_bits;
 
+	/* If SRM enabled, freq_out is (98304000 + 90316800)/2 = 94310400 */
+	if (d2153_codec->srm_en) {
+		fout = D2153_PLL_FREQ_OUT_94310400;
+		pll_ctrl |= D2153_PLL_SRM_EN;
+	}
+
+	/* Are we changing anything? */
+	if (d2153_codec->source == source &&
+	    d2153_codec->freq_ref == freq_ref &&
+		d2153_codec->fout == fout)
+		return 0;
+
+	/* Disable PLL before setting the divisors */
+	snd_soc_update_bits(codec, D2153_PLL_CTRL, D2153_PLL_EN, 0);
+
 	/* PLL Bypass mode */
 	if (source == D2153_SYSCLK_MCLK) {
 		snd_soc_write(codec, D2153_PLL_CTRL, pll_ctrl);
 		return 0;
 	}
 
-	/* If SRM enabled, freq_out is (98304000 + 90316800)/2 = 94310400 */
-	if (d2153_codec->srm_en) {
-		fout = D2153_PLL_FREQ_OUT_94310400;
-		pll_ctrl |= D2153_PLL_SRM_EN;
-	}
-	
 	/* Calculate dividers for PLL */
 	pll_integer = fout / freq_ref;
 	frac_div = (u64)(fout % freq_ref) * 8192ULL;
@@ -1762,6 +1770,10 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	snd_soc_write(codec, 0x52, 0x03);
 	snd_soc_update_bits(codec, D2153_PC_COUNT, 0x02, 0x02);
 	
+	d2153_codec->source = source;
+	d2153_codec->freq_ref = freq_ref;
+	d2153_codec->fout = fout;
+
 	/* Enable PLL */
 	pll_ctrl |= D2153_PLL_EN;
 	snd_soc_write(codec, D2153_PLL_CTRL, pll_ctrl);
@@ -2034,7 +2046,7 @@ static void d2153_setup(struct snd_soc_codec *codec)
 static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int value);
 #ifdef CONFIG_PM
 static int d2153_suspend(struct snd_soc_codec *codec)
-{	
+{
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
@@ -2088,7 +2100,6 @@ static int d2153_resume(struct snd_soc_codec *codec)
 
 	if(d2153_codec->switch_state == D2153_HEADSET)
 		return 0;
-	
 
 	d2153_codec_power(codec,1);
 	cache[D2153_SYSTEM_MODES_CFG3] = 0;
@@ -2205,6 +2216,7 @@ int d2153_aad_enable(struct snd_soc_codec *codec)
 		snd_soc_codec_get_drvdata(codec);
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
+	int aad_codec_detect_enable = d2153_aad->codec_detect_enable;
 
 	d2153_aad_write(client,D2153_ACCDET_UNLOCK_AO,0x4a);
 	
@@ -2234,13 +2246,13 @@ int d2153_aad_enable(struct snd_soc_codec *codec)
 	snd_soc_write(codec, D2153_MICBIAS1_CTRL, D2153_MICBIAS_LEVEL_2_6V);
 #endif	/* D2153_DEFAULT_SET_MICBIAS */
 
-#ifdef D2153_JACK_DETECT	
-	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
-#else	
-	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
-#endif	
+	if (aad_codec_detect_enable)
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x08);
+	else
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x80);
+
 	d2153_aad->button.status = D2153_BUTTON_PRESS; //ignore the fist interrupt	
-	
+
 	return 0;
 }
 
@@ -2250,6 +2262,7 @@ int d2153_aad_resume(struct snd_soc_codec *codec)
 		snd_soc_codec_get_drvdata(codec);
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
+	int aad_codec_detect_enable = d2153_aad->codec_detect_enable;
 
 	d2153_aad_write(client,D2153_ACCDET_UNLOCK_AO,0x4a);
 	
@@ -2268,12 +2281,12 @@ int d2153_aad_resume(struct snd_soc_codec *codec)
 
 	d2153_aad->first_check_done = 0;
 
-#ifdef D2153_JACK_DETECT	
-	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
-#else	
-	d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
-#endif	
-	
+	if (aad_codec_detect_enable)
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x08);
+	else
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x80);
+
+	d2153_aad->switch_data.state = D2153_NO_JACK;
 	d2153_aad->button.status = D2153_BUTTON_PRESS; //ignore the fist interrupt	
 	
 	return 0;
@@ -2726,7 +2739,7 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 				   sizeof(struct d2153_codec_priv), GFP_KERNEL);
 	if (!d2153_codec)
 		return -ENOMEM;
-		
+
 #ifdef CONFIG_SND_SOC_D2153_AAD
 	d2153_codec->d2153_pmic = client->dev.platform_data;
 #endif /* CONFIG_SND_SOC_D2153_AAD */
@@ -2782,6 +2795,7 @@ static int __devexit d2153_i2c_remove(struct i2c_client *client)
 	if (d2153_codec->aad_i2c_client)
 		i2c_unregister_device(d2153_codec->aad_i2c_client);
 #endif /* CONFIG_SND_SOC_D2153_AAD */
+
 	snd_soc_unregister_codec(&client->dev);
 	return 0;
 }

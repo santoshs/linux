@@ -567,6 +567,22 @@ static void fsi_clk_disable(struct fsi_master *master)
 	/* clk_disable(master->clks.clkgen); */
 }
 
+void fsi_clk_start(struct snd_pcm_substream *substream)
+{
+	struct fsi_priv *fsi = fsi_get_priv(substream);
+	struct fsi_master *master = fsi_get_master(fsi);
+	fsi_clk_enable(master);
+}
+EXPORT_SYMBOL(fsi_clk_start);
+
+void fsi_clk_stop(struct snd_pcm_substream *substream)
+{
+	struct fsi_priv *fsi = fsi_get_priv(substream);
+	struct fsi_master *master = fsi_get_master(fsi);
+	fsi_clk_disable(master);
+}
+EXPORT_SYMBOL(fsi_clk_stop);
+
 static void fsi_clk_ctrl(struct fsi_priv *fsi, int enable)
 {
 	u32 val = fsi_is_port_a(fsi) ? (1 << 0) : (1 << 4);
@@ -2108,6 +2124,9 @@ static int fsi_remove(struct platform_device *pdev)
 
 	master = dev_get_drvdata(&pdev->dev);
 
+	clk_put(master->clks.fsi);
+	clk_put(master->clks.clkgen);
+
 	snd_soc_unregister_dais(&pdev->dev, 1);
 	snd_soc_unregister_platform(&pdev->dev);
 
@@ -2122,10 +2141,6 @@ static int fsi_remove(struct platform_device *pdev)
 
 	iounmap(master->base);
 	kfree(master);
-
-	clk_put(master->clks.fsi);
-	/* clk_put(master->clks.shdmac); */
-	/* clk_put(master->clks.clkgen); */
 
 	return 0;
 }

@@ -14,10 +14,12 @@
 #include "rt_comm_defs.h"
 
 #define RT8973_WAIT_DELAY   1
+#define RT8973_10M_DELAY 10
 
 #define RT8973_REG_CHIP_ID         0x01
 #define RT8973_REG_CONTROL_1       0x02
 #define RT8973_REG_INT_FLAG        0x03
+#define RT8973_REG_INT_FLAG2       0x04
 #define RT8973_REG_INTERRUPT_MASK  0x05
 #define RT8973_REG_ADC             0x07
 #define RT8973_REG_DEVICE_1        0x0A
@@ -36,7 +38,7 @@
 #else
 #define RT8973_IRQF_MODE (IRQF_TRIGGER_LOW)
 #endif
-#define RTMUSC_DRIVER_VER "1.1.2"
+#define RTMUSC_DRIVER_VER "1.1.9"
 
 enum {
 	RT8973_DETACHED,

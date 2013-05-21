@@ -178,7 +178,6 @@ int rmu2_rwdt_cntclear(void)
 	} else {
 		return -EAGAIN; /* try again */
 	}
-	printk(KERN_ALERT "START < %s >\n", __func__);
 }
 
 /*
@@ -542,9 +541,9 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		RWDT_DEBUG("< %s > Apply for ZQ calibration\n", __func__);
 
-		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x400088, 0x4);
-		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x528200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x538200, 0x4);
+		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
+		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			wa_zq_flg = 1;
 			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
@@ -698,6 +697,10 @@ static int rmu2_rwdt_suspend(struct platform_device *pdev, pm_message_t state)
 	int ret;
 	RWDT_DEBUG("START < %s >\n", __func__);
 
+#ifdef CONFIG_GIC_NS_CMT
+	rmu2_cmt_clear();
+#endif	/* CONFIG_GIC_NS_CMT */
+
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();
 
@@ -741,6 +744,10 @@ static int rmu2_rwdt_resume(struct platform_device *pdev)
 {
 	int ret;
 	RWDT_DEBUG("START < %s >\n", __func__);
+
+#ifdef CONFIG_GIC_NS_CMT
+	rmu2_cmt_clear();
+#endif	/* CONFIG_GIC_NS_CMT */
 
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();

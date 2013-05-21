@@ -328,8 +328,7 @@ int shmobile_init_pm(void)
 	__raw_writel((unsigned long)0x0, IOMEM(APARMBAREA)); /* 4k */
 #endif
 
-	/* - set PLL1 stop conditon to
-				A2SL, A3R, A4MP, C4 state by CPG.PLL1STPCR */
+	/* - set PLL1 stop conditon to A2SL, A3R, A4MP, C4 state by CPG.PLL1STPCR */
 	__raw_writel(PLL1STPCR_DEFALT, PLL1STPCR);
 
 	copy_functions();

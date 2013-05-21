@@ -42,7 +42,8 @@
 #include <asm/ptrace.h>
 #include <asm/localtimer.h>
 #include <asm/smp_plat.h>
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 #include <mach/sec_debug.h>
 #endif
 
@@ -525,6 +526,9 @@ static void ipi_cpu_stop(unsigned int cpu)
 	    system_state == SYSTEM_RUNNING) {
 		raw_spin_lock(&stop_lock);
 		printk(KERN_CRIT "CPU%u: stopping\n", cpu);
+#ifdef CONFIG_SEC_DEBUG
+		sec_debug_save_context();
+#endif
 		dump_stack();
 		raw_spin_unlock(&stop_lock);
 	}
@@ -607,7 +611,7 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 	if (ipinr >= IPI_TIMER && ipinr < IPI_TIMER + NR_IPI)
 		__inc_irq_stat(cpu, ipi_irqs[ipinr - IPI_TIMER]);
 
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 	sec_debug_irq_log(ipinr, do_IPI, 1);
 #endif
 
@@ -650,7 +654,7 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		break;
 	}
 
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 	sec_debug_irq_log(ipinr, do_IPI, 2);
 #endif
 

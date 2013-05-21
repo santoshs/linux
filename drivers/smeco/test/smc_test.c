@@ -23,7 +23,7 @@ Description :  File created
 
 #include "smc_common_includes.h"
 
-#include "smc_conf.h"
+/*#include "smc_conf.h"*/
 #include "smc_trace.h"
 #include "smc_fifo.h"
 #include "smc.h"
@@ -31,8 +31,14 @@ Description :  File created
 #include "smc_test.h"
 #include "smc_mdb.h"
 
+
 #if(SMC_L2MUX_IF==TRUE)
-#include "smc_config_l2mux.h"  /* For testing configuration management */
+#include "smc_config_l2mux.h"
+
+void smc_suppress_warn(void)
+{
+    (void)smc_instance_conf_l2mux;
+}
 
 #ifdef SMECO_MODEM
 #include "smc_conf_l2mux_modem.h"
@@ -42,10 +48,11 @@ Description :  File created
 
 #endif
 
-#ifdef SMECO_LINUX_ANDROID
-    /* Nothing for Android at the moment */
-#elif defined SMECO_LINUX_KERNEL
 
+#ifdef SMECO_LINUX_ANDROID
+   /* User space specific includes */
+#elif defined SMECO_LINUX_KERNEL
+   /* Kernel space specific includes */
 #else
 
 #include "pn_const.h"
@@ -126,7 +133,8 @@ static uint8_t smc_test_case_shm_variable( uint8_t* test_input_data, uint16_t te
     /* DMA test case in smc_test_dma.c */
 extern uint8_t smc_test_case_dma( uint8_t* test_input_data, uint16_t test_input_data_len );
 
-
+    /* RPCL test */
+static uint8_t smc_test_case_rpcl( uint8_t* test_input_data, uint16_t test_input_data_len );
 
     /* ========================================================
      * SMC Test Case functions
@@ -150,6 +158,7 @@ smc_test_case_function smc_test_cases[] =
     smc_test_case_function_loopback,                /* 0x0C */
     smc_test_case_dma,                              /* 0x0D */
     smc_test_case_shm_variable,                     /* 0x0E */
+    smc_test_case_rpcl,                             /* 0x0F */
     0
 };
 
@@ -355,6 +364,7 @@ static uint8_t smc_test_case_function_signal( uint8_t* test_input_data, uint16_t
     return test_status;
 }
 
+
 static smc_t* get_smc_instance_1( uint8_t is_master, uint32_t shm_start_address )
 {
     if( !g_smc_instance1 )
@@ -552,11 +562,29 @@ static uint8_t smc_test_case_function_ping( uint8_t* test_input_data, uint16_t t
 
         smc_t* smc = smc_test_get_instance_by_test_instance_id( smc_instance_id );
 
-        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: Sending ping to channel %d using SMC instance %d ", channel_id, smc_instance_id );
+        if( smc != NULL )
+        {
+            smc_channel_t* smc_channel = smc_channel_get(smc, channel_id);
 
-        test_status = smc_channel_send_ping( smc_channel_get(smc, channel_id), TRUE );
+            if( smc_channel != NULL )
+            {
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: Sending ping to channel %d using SMC instance %d ", channel_id, smc_instance_id );
 
-        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: Sending ping to channel %d completed", channel_id);
+                test_status = smc_channel_send_ping( smc_channel, TRUE );
+
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: Sending ping to channel %d completed", channel_id);
+            }
+            else
+            {
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: No SMC channel %d available (instance id 0x%02X)", channel_id, smc_instance_id);
+                test_status = SMC_ERROR;
+            }
+        }
+        else
+        {
+            SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: No SMC instance available (id 0x%02X)", smc_instance_id);
+            test_status = SMC_ERROR;
+        }
     }
     else
     {
@@ -2027,7 +2055,173 @@ smc_loopback_data_t* smc_loopback_data_create( uint32_t size_of_message_payload,
  *
  **/
 
+static uint8_t smc_test_case_rpcl( uint8_t* test_input_data, uint16_t test_input_data_len )
+{
+    uint8_t  test_status = SMC_ERROR;
 
+#ifdef SMECO_MODEM
+
+    uint16_t test_input_len_required = 7;
+
+    if( test_input_data_len >= test_input_len_required )
+    {
+        #define FILE_WRITE 0x00
+        #define FILE_READ  0x01
+
+        uint8_t data_index = 0;
+        uint8_t test_case = test_input_data[data_index++];
+        FILE * fp = NULL;
+        char* fName = "CONF/SMC.DAT";
+
+        uint32_t error_count = 0;
+        uint32_t fSize       = 0;
+        uint16_t rCount      = 0;
+
+        rCount = SMC_BYTES_TO_16BIT( (test_input_data + data_index) );
+        data_index += 2;
+
+        fSize = SMC_BYTES_TO_32BIT( (test_input_data + data_index) );
+        data_index += 4;
+
+        if( test_case == FILE_WRITE )
+        {
+            if(test_input_data_len < test_input_len_required)
+            {
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: not enough test parameters, required %d", test_input_len_required);
+                return SMC_ERROR;
+            }
+        }
+
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: test RPCL %d times...", rCount);
+
+        for(int i = 0; i < rCount; i++)
+        {
+            if( test_case == FILE_WRITE )
+            {
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: opening file '%s' for writing... (%d)", fName, i+1);
+
+                fp = fopen(fName, "w");
+
+                if( fp )
+                {
+                    uint8_t* fData = NULL;
+                    int x = 0;
+
+                    if( fSize < 4 ) fSize = 4;
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: prepare file size %d bytes (%d)", fSize, i+1);
+
+                    fData = (uint8_t*)SMC_MALLOC(fSize);
+
+                    assert(fData != NULL);
+
+                    memset(fData, 0x00, fSize);
+
+                    x = 0;
+
+                    while( x < fSize-4 )
+                    {
+                        fData[x++] = 0x53;
+                        fData[x++] = 0x4D;
+                        fData[x++] = 0x43;
+                    }
+
+                    fData[fSize-1] = 0x00;
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: file open ok (%d), write %d bytes file data", i+1, fSize);
+
+                    if( fwrite(fData, fSize, 1, fp) == 1 )
+                    {
+                        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: file write ok (%d)", i+1);
+                    }
+                    else
+                    {
+                        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: file write failed (%d)", i+1);
+                        error_count++;
+                    }
+
+                    SMC_FREE( fData );
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: closing file... (%d)", i+1);
+
+                    fclose( fp );
+                }
+                else
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: file open for write failed (%d)", i+1);
+
+                    error_count++;
+                }
+            }
+            else
+            {
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: opening file '%s' for reading... (%d)", fName, i+1);
+
+                fp = fopen(fName, "r");
+
+                if( fp )
+                {
+                    uint8_t* fData = NULL;
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: prepare file size %d bytes (%d)", fSize, i+1);
+
+                    fData = (uint8_t*)SMC_MALLOC(fSize);
+
+                    assert(fData != NULL);
+
+                    memset(fData, 0x00, fSize);
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: file open ok (%d), read %d bytes file data", i+1, fSize);
+
+                    if( fread(fData, fSize, 1, fp) == 1 )
+                    {
+                        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: file read ok (%d)", i+1);
+                    }
+                    else
+                    {
+                        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: file read failed (%d)", i+1);
+                        error_count++;
+                    }
+
+                    SMC_FREE( fData );
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: closing file... (%d)", i+1);
+
+                    fclose( fp );
+                }
+                else
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: file open failed (%d)", i+1);
+                    error_count++;
+                }
+            }
+        }
+
+        if( error_count > 0 )
+        {
+            SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: %d errors detected", error_count);
+            test_status = SMC_ERROR;
+        }
+        else
+        {
+            test_status = SMC_OK;
+        }
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: not enough test input data (received %d, expected %d)",
+                                    test_input_data_len, test_input_len_required);
+        test_status = SMC_ERROR;
+    }
+
+    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: completed with return value 0x%02X", test_status);
+
+#else
+    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_rpcl: NOT IMPLEMENTED");
+#endif
+
+    return test_status;
+}
 
 
 /* EOF */

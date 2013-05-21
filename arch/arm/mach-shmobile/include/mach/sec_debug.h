@@ -30,7 +30,15 @@ extern void sec_getlog_supply_kloginfo(void *klog_buf);
 
 extern void sec_gaf_supply_rqinfo(unsigned short curr_offset,
 				  unsigned short rq_offset);
+
+extern void register_log_char_hook(void (*f) (char c));
+
+extern void sec_debug_save_context(void);
+
 #else
+
+extern void register_log_char_hook(void (*f) (char c));
+
 static inline int sec_debug_init(void)
 {
 	return 0;
@@ -70,6 +78,10 @@ static inline void sec_gaf_supply_rqinfo(unsigned short curr_offset,
 {
 }
 
+static inline void sec_debug_save_context(void)
+{
+}
+
 #endif
 
 struct worker;
@@ -79,9 +91,7 @@ struct work_struct;
 extern void __sec_debug_task_log(int cpu, struct task_struct *task);
 extern void __sec_debug_irq_log(unsigned int irq, void *fn, int en);
 extern void __sec_debug_work_log(struct worker *worker,
-				 struct work_struct *work, work_func_t f);
-extern void __sec_debug_hrtimer_log(struct hrtimer *timer,
-			enum hrtimer_restart (*fn) (struct hrtimer *), int en);
+				 struct work_struct *work, work_func_t f, int en);
 
 static inline void sec_debug_task_log(int cpu, struct task_struct *task)
 {
@@ -96,29 +106,23 @@ static inline void sec_debug_irq_log(unsigned int irq, void *fn, int en)
 }
 
 static inline void sec_debug_work_log(struct worker *worker,
-				      struct work_struct *work, work_func_t f)
+				      struct work_struct *work, work_func_t f, int en)
 {
 	if (unlikely(sec_debug_level.en.kernel_fault))
-		__sec_debug_work_log(worker, work, f);
+		__sec_debug_work_log(worker, work, f, en);
 }
 
-static inline void sec_debug_hrtimer_log(struct hrtimer *timer,
-			 enum hrtimer_restart (*fn) (struct hrtimer *), int en)
-{
-#ifdef CONFIG_SEC_DEBUG_HRTIMER_LOG
-	if (unlikely(sec_debug_level.en.kernel_fault))
-		__sec_debug_hrtimer_log(timer, fn, en);
-#endif
-}
-
+#ifdef CONFIG_SEC_DEBUG_SOFTIRQ_LOG
 static inline void sec_debug_softirq_log(unsigned int irq, void *fn, int en)
 {
-#ifdef CONFIG_SEC_DEBUG_SOFTIRQ_LOG
 	if (unlikely(sec_debug_level.en.kernel_fault))
 		__sec_debug_irq_log(irq, fn, en);
-#endif
 }
-
+#else
+static inline void sec_debug_softirq_log(unsigned int irq, void *fn, int en)
+{
+}
+#endif
 #else
 
 static inline void sec_debug_task_log(int cpu, struct task_struct *task)
@@ -130,12 +134,7 @@ static inline void sec_debug_irq_log(unsigned int irq, void *fn, int en)
 }
 
 static inline void sec_debug_work_log(struct worker *worker,
-				      struct work_struct *work, work_func_t f)
-{
-}
-
-static inline void sec_debug_hrtimer_log(struct hrtimer *timer,
-			 enum hrtimer_restart (*fn) (struct hrtimer *), int en)
+				      struct work_struct *work, work_func_t f, int en)
 {
 }
 
@@ -143,6 +142,7 @@ static inline void sec_debug_softirq_log(unsigned int irq, void *fn, int en)
 {
 }
 #endif
+
 #ifdef CONFIG_SEC_DEBUG_IRQ_EXIT_LOG
 extern void sec_debug_irq_last_exit_log(void);
 #else
@@ -191,10 +191,11 @@ static inline void debug_rwsemaphore_up_log(struct rw_semaphore *sem)
 {
 }
 #endif
-
 enum sec_debug_aux_log_idx {
-	SEC_DEBUG_AUXLOG_CPU_BUS_CLOCK_CHANGE,
-	SEC_DEBUG_AUXLOG_CMA_RBTREE_CHANGE,
+	SEC_DEBUG_AUXLOG_CPU_CLOCK_SWITCH_CHANGE,
+	SEC_DEBUG_AUXLOG_RUNTIME_PM_CHANGE,
+	SEC_DEBUG_AUXLOG_PM_CHANGE,
+	SEC_DEBUG_AUXLOG_NOTIFY_FAIL,
 	SEC_DEBUG_AUXLOG_ITEM_MAX,
 };
 

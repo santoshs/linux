@@ -95,7 +95,8 @@ static inline u32 sh_mmcif_readl(void __iomem *addr, int reg)
 
 static inline void sh_mmcif_writel(void __iomem *addr, int reg, u32 val)
 {
-	__raw_writel(val, addr + reg);
+	if (addr)
+		__raw_writel(val, addr + reg);
 }
 
 #define SH_MMCIF_BBS 512 /* boot block size */

@@ -50,10 +50,27 @@
 #include <linux/platform_data/rtsmc.h>
 #endif
 
+#define MUSB_IC_UART_AT_MODE           2
+#define MUSB_IC_UART_INVALID_MODE      -1
+#define MUSB_IC_UART_EMPTY_CR          3
+#define MUSB_IC_UART_EMPTY_CRLF        4
+#define MUSB_IC_UART_AT_MODE_MODECHAN  5
+
 void send_usb_insert_event(int);
 
 #define DEVICE_NAME "rt8973"
 #define RT8973_DRV_NAME "rt8973"
+
+#define EN_REV0_INT_BOUNCE_FIX 1
+
+#if EN_REV0_INT_BOUNCE_FIX
+#define EN_ADCCHG_MASK() en_adcchg_mask()
+#define DIS_ADCCHG_MASK() dis_adcchg_mask()
+#else
+#define EN_ADCCHG_MASK()
+#define DIS_ADCCHG_MASK()
+#endif
+
 
 static struct rt8973_data* pDrvData = NULL; /*driver data*/
 static struct platform_device *rtmus_dev = NULL; /* Device structure */
@@ -75,22 +92,22 @@ __weak int KERNEL_LOG;
 #define ID_CHARGER  3
 #define ID_JIG  4
 #define ID_UNKNOW 5
-#define MAX_DCDT_retry 10
+#define ID_OTG  6
+
+#define MAX_DCDT_retry 2
 static char * devices_name[] = { "NONE",
                         "USB",
                         "UART",
                         "CHARGER",
                         "JIG",
                         "UNKONW",
+                        "OTG",
                         };
 static int32_t DCDT_retry = 0;
 
 
-#define I2C_RW_RETRY_MAX 5
-#define I2C_RW_RETRY_DELAY 60
-
-#define RT8973_ADC_CHG_INT_MASK 0x41
-#define RT8973_REG_INT_CLEAR    0x00
+#define I2C_RW_RETRY_MAX 2
+#define I2C_RW_RETRY_DELAY 20
 
 #if 1
 #define I2CRByte(x) i2c_smbus_read_byte_data(pClient,x)
@@ -103,7 +120,7 @@ static s32 retry_i2c_smbus_write_byte_data(struct i2c_client *client,
 				     u8 command, u8 value)
 {
     s32 result=-1,i;
-    for (i=0;i<I2C_RW_RETRY_DELAY&&result<0;i++)
+    for (i=0;i<I2C_RW_RETRY_MAX&&result<0;i++)
     {
         result = i2c_smbus_write_byte_data(client,command,value);
         if (unlikely(result<0))
@@ -115,7 +132,7 @@ static s32 retry_i2c_smbus_write_byte_data(struct i2c_client *client,
 static s32 retry_i2c_smbus_read_byte_data(struct i2c_client *client, u8 command)
 {
     s32 result=-1,i;
-    for (i=0;i<I2C_RW_RETRY_DELAY&&result<0;i++)
+    for (i=0;i<I2C_RW_RETRY_MAX&&result<0;i++)
     {
         result = i2c_smbus_read_byte_data(client,command);
         if (unlikely(result<0))
@@ -128,6 +145,7 @@ static s32 retry_i2c_smbus_read_byte_data(struct i2c_client *client, u8 command)
 #define SWITCH_AT       103
 #define SWITCH_ISI      104
 extern int stop_isi;
+static int isi_mode; /*initialized to 0 */
 char at_isi_mode[100] = {0};
 
 static ssize_t tsu6712_show_UUS_state(struct device *dev,
@@ -149,6 +167,7 @@ ssize_t ld_set_manualsw(struct device *dev,
                 switch_set_state(&switch_usb_uart, SWITCH_AT);
 
                 stop_isi = 1;
+		isi_mode = 0;
         }
         if (0 == strncmp(buf, "switch isi", 10)) {
                 printk(" ld_set_manualsw switch isi\n");
@@ -156,12 +175,13 @@ ssize_t ld_set_manualsw(struct device *dev,
                 strcpy((char *)at_isi_mode, "isi");
                 switch_set_state(&switch_usb_uart, SWITCH_ISI);
                 stop_isi = 0;
+		isi_mode = 1;
         }
         return count;
 }
 ssize_t ld_set_switch_buf(struct device *dev,
-                                    struct device_attribute *attr,
-                                    const char *buf, size_t count)
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
 {
 	int i;
 	char temp[100];
@@ -187,7 +207,7 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	    (strncmp((char *)at_isi_switch_buf, "\r\n", 2) == 0)) {
 		memset(at_isi_switch_buf, 0, 400);
 		KERNEL_LOG = 0;
-		return TSU6712_UART_EMPTY_CRLF;
+		return MUSB_IC_UART_EMPTY_CRLF;
 	}
 
 	if (strstr(at_isi_switch_buf, "\r\n"))
@@ -209,21 +229,34 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	if (strstr(at_isi_switch_buf, atbuf) != NULL) {
 		KERNEL_LOG = 0;
 		memset(at_isi_switch_buf, 0, 400);
-		return TSU6712_UART_AT_MODE;
+		return MUSB_IC_UART_AT_MODE;
 	} else if (strstr(at_isi_switch_buf, atmodechanbuf) != NULL) {
 		KERNEL_LOG = 0;
 		memset(at_isi_switch_buf, 0, 400);
-		return TSU6712_UART_AT_MODE_MODECHAN;
+		return MUSB_IC_UART_AT_MODE_MODECHAN;
 	} else if (strstr(at_isi_switch_buf, "AT+ISISTART") != NULL ||
 		   strstr(at_isi_switch_buf, "AT+MODECHAN=0,0") != NULL) {
-		KERNEL_LOG = 0;
+
+		// do not switch to isi mode if isi mode already set
+		if (isi_mode == 0) {
+			KERNEL_LOG = 0;
+			memset(at_isi_switch_buf, 0, 400);
+			ld_set_manualsw(NULL, NULL, isi_cmd_buf,
+				strlen(isi_cmd_buf));
+			return count;
+               }
+       }
+
+	/* this sends response if at+isistart is given in isi mode */
+	if (strstr(at_isi_switch_buf, "AT+ISISTART\r") != NULL ||
+		strstr(at_isi_switch_buf, "AT+MODECHAN=0,0\r") != NULL) {
 		memset(at_isi_switch_buf, 0, 400);
 		ld_set_manualsw(NULL, NULL, isi_cmd_buf, strlen(isi_cmd_buf));
-		return count;
+		return TSU6712_UART_INVALID_MODE;
 	}
 
 	if (error != 0) {
-		count = TSU6712_UART_INVALID_MODE;
+		count = MUSB_IC_UART_INVALID_MODE;
 		memset(at_isi_switch_buf, 0, 400);
 	}
 
@@ -579,6 +612,7 @@ static ssize_t enable_irq_store(struct kobject *kobj,
 regRO(0x01)
 regRW(0x02)
 regRO(0x03)
+regRO(0x04)
 regRW(0x05)
 regRO(0x07)
 regRO(0x0A)
@@ -591,6 +625,7 @@ regRW(0x1B)
 static struct kobj_attribute reg0x01_attribute = (struct kobj_attribute)__ATTR_RO(reg0x01);
 static struct kobj_attribute reg0x02_attribute = (struct kobj_attribute)__ATTR_RW(reg0x02);
 static struct kobj_attribute reg0x03_attribute = (struct kobj_attribute)__ATTR_RO(reg0x03);
+static struct kobj_attribute reg0x04_attribute = (struct kobj_attribute)__ATTR_RO(reg0x04);
 static struct kobj_attribute reg0x05_attribute = (struct kobj_attribute)__ATTR_RW(reg0x05);
 static struct kobj_attribute reg0x07_attribute = (struct kobj_attribute)__ATTR_RO(reg0x07);
 static struct kobj_attribute reg0x0A_attribute = (struct kobj_attribute)__ATTR_RO(reg0x0A);
@@ -605,6 +640,7 @@ static struct attribute* rt8973_dbg_attrs [] =
     &reg0x01_attribute.attr,
     &reg0x02_attribute.attr,
     &reg0x03_attribute.attr,
+    &reg0x04_attribute.attr,
     &reg0x05_attribute.attr,
     &reg0x07_attribute.attr,
     &reg0x0A_attribute.attr,
@@ -639,6 +675,54 @@ inline int32_t wait_for_interrupt(void)
     msleep(RT8973_WAIT_DELAY);
     return gpio_get_value(CONFIG_RTMUSC_INT_GPIO_NUMBER);
 }
+
+static void en_int_mask(uint8_t mask)
+{
+    struct i2c_client* pClient = pDrvData->client;
+    int32_t regIntMask;
+    regIntMask = I2CRByte(RT8973_REG_INTERRUPT_MASK);
+    if (regIntMask<0)
+    {
+        ERR("Can't read RT8973_REG_INTERRUPT_MASK(0x%x)"
+            ", return value = %x",RT8973_REG_INTERRUPT_MASK,regIntMask);
+        return;
+    }
+    I2CWByte(RT8973_REG_INTERRUPT_MASK,regIntMask|mask);
+}
+
+static void dis_int_mask(uint8_t mask)
+{
+    struct i2c_client* pClient = pDrvData->client;
+    int32_t regIntMask;
+    regIntMask = I2CRByte(RT8973_REG_INTERRUPT_MASK);
+    if (regIntMask<0)
+    {
+        ERR("Can't read RT8973_REG_INTERRUPT_MASK(0x%x)"
+            ", return value = %x",RT8973_REG_INTERRUPT_MASK,regIntMask);
+        return;
+    }
+    I2CWByte(RT8973_REG_INTERRUPT_MASK,regIntMask&(~mask));
+}
+
+#if EN_REV0_INT_BOUNCE_FIX
+void en_adcchg_mask(void)
+{
+    if (((pDrvData->chip_id & 0xf8)>>3)==0)
+    {//REV0
+        INFO("Disable ADCCHG & ATTACH event\n");
+        en_int_mask(0x61);// ENABLE ADCCHG, ATTACH MASK
+    }
+}
+
+void dis_adcchg_mask(void)
+{
+    if (((pDrvData->chip_id & 0xf8)>>3)==0)
+    {//REV0
+        INFO("Enable ADCCHG & ATTACH event\n");
+        dis_int_mask(0x61);// DISABLE ADCCHG, ATTACH MASK
+    }
+}
+#endif
 static int enable_interrupt(int32_t enable)
 {
     struct i2c_client* pClient = pDrvData->client;
@@ -656,7 +740,9 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
 {
     int32_t regADC;
     int32_t regCtrl1;
+    int32_t regIntFlag2;
     struct i2c_client* pClient = pDrvData->client;
+    regIntFlag2 = I2CRByte(RT8973_REG_INT_FLAG2);
     if (regIntFlag&RT8973_INT_DCDTIMEOUT_MASK)
     {
         regADC = I2CRByte(RT8973_REG_ADC) & 0x1f;
@@ -674,7 +760,8 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 }
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_ON_UART;
-                 if (platform_data.jig_callback)
+                EN_ADCCHG_MASK();
+                if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_ON_UART);
                 break;
                 case 0x1c: //Factory Mode : JIG UART OFF = 1
@@ -685,6 +772,7 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 }
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_UART;
+                EN_ADCCHG_MASK();
                 if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_OFF_UART);
                 break;
@@ -696,6 +784,7 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 }
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_ON_USB;
+                EN_ADCCHG_MASK();
                 if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_ON_USB);
                 break;
@@ -707,13 +796,12 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 }
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_USB;
+                EN_ADCCHG_MASK();
                 if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_OFF_USB);
                 break;
-                default:
-                    ;
                 }
-                I2CWByte(RT8973_REG_INTERRUPT_MASK,0x08);
+                en_int_mask(0x08);
                 return;
             }
         INFO("Redo USB charger detection\n");
@@ -722,8 +810,29 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
             ERR("I2C read error\n");
         if (DCDT_retry>=MAX_DCDT_retry)
         {
-            WARNING("Abnormal Data Contact\nPlease re-plug in USB connector\n");
-            I2CWByte(RT8973_REG_INTERRUPT_MASK,0x08);
+            WARNING("Exceed max DCD_T retry\n");
+            en_int_mask(0x08);
+            /* > DCD retry
+            If UVLO ==0, this accessory should be a charger
+            */
+            if ((regIntFlag2&0x02)==0)
+            {
+                INFO("DCD_T retry failed : found VBUS ==> might be dock or unknown charger accessory\n");
+                pDrvData->accessory_id = ID_CHARGER;
+                if (platform_data.charger_callback)
+                    platform_data.charger_callback(RT8973_ATTACHED);
+            } else if (pDrvData->accessory_id == ID_CHARGER) // last accessory == CHARGER
+            {
+                INFO("Charger lost power\n");
+                pDrvData->accessory_id = ID_UNKNOW;
+                if (platform_data.charger_callback)
+                    platform_data.charger_callback(RT8973_DETACHED);
+            }
+            else
+            {
+                pDrvData->accessory_id = ID_UNKNOW;
+                WARNING("Detected unkown accessory!!\n");
+            }
             return;
         }
         I2CWByte(RT8973_REG_CONTROL_1,(uint8_t)(regCtrl1 & 0x9f));
@@ -755,6 +864,7 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 case 0x16: // UART cable
                 I2CWByte(RT8973_REG_MANUAL_SW1,0x6c);
                 pDrvData->accessory_id = ID_UART;
+                EN_ADCCHG_MASK();
                 if (platform_data.uart_callback)
                     platform_data.uart_callback(RT8973_ATTACHED);
                 break;
@@ -763,7 +873,8 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 I2CWByte(RT8973_REG_MANUAL_SW2,0x0c);
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_ON_UART;
-                 if (platform_data.jig_callback)
+                EN_ADCCHG_MASK();
+                if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_ON_UART);
                 break;
                 case 0x1c: //Factory Mode : JIG UART OFF = 1
@@ -771,6 +882,7 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 I2CWByte(RT8973_REG_MANUAL_SW2,0x04);
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_UART;
+                EN_ADCCHG_MASK();
                 if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_OFF_UART);
                 break;
@@ -779,6 +891,7 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 I2CWByte(RT8973_REG_MANUAL_SW2,0x0c);
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_ON_USB;
+                EN_ADCCHG_MASK();
                 if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_ON_USB);
                 break;
@@ -787,17 +900,92 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 I2CWByte(RT8973_REG_MANUAL_SW2,0x04);
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_USB;
+                EN_ADCCHG_MASK();
                 if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_OFF_USB);
                 break;
-                case 0x15: //Unknow accessory
                 case 0x1a:
+                    // desk dock
+                if ((regIntFlag2&0x02)==0)
+                {
+                    INFO("DCD_T retry failed : found VBUS ==> might be dock or unknown charger accessory\n");
+                    pDrvData->accessory_id = ID_CHARGER;
+                    if (platform_data.charger_callback)
+                        platform_data.charger_callback(RT8973_ATTACHED);
+                } else if (pDrvData->accessory_id == ID_CHARGER) // last accessory == CHARGER
+                {
+                    INFO("Charger lost power\n");
+                    pDrvData->accessory_id = ID_UNKNOW;
+                    if (platform_data.charger_callback)
+                        platform_data.charger_callback(RT8973_DETACHED);
+                }
+                else
+                {
+                    pDrvData->accessory_id = ID_UNKNOW;
+                    WARNING("Detected unkown accessory!!\n");
+                }
+                break;
+                case 0x15:
+                    // audio dock or smart hub dock or unknown accessory
+                if ((regIntFlag2&0x02)==0)
+                {
+                    INFO("DCD_T retry failed : found VBUS ==> might be dock or unknown charger accessory\n");
+                    pDrvData->accessory_id = ID_CHARGER;
+                    if (platform_data.charger_callback)
+                        platform_data.charger_callback(RT8973_ATTACHED);
+                } else if (pDrvData->accessory_id == ID_CHARGER) // last accessory == CHARGER
+                {
+                    INFO("Charger lost power\n");
+                    pDrvData->accessory_id = ID_UNKNOW;
+                    if (platform_data.charger_callback)
+                        platform_data.charger_callback(RT8973_DETACHED);
+                }
+                else
+                {
+                    pDrvData->accessory_id = ID_UNKNOW;
+                    WARNING("Detected unkown accessory!!\n");
+                }
+                break;
+                //Unknow accessory
                 case 0x1b:
                 case 0x1e:
                 pDrvData->accessory_id = ID_UNKNOW;
                 WARNING("Detected unkown accessory!!\n");
                 break;
+                case 0x00:
+                 if (regDev1&0x01)
+                { // OTG
+                    I2CWByte(RT8973_REG_MANUAL_SW1,0x24);
+                    I2CWByte(RT8973_REG_MANUAL_SW2,0x01);
+                    pDrvData->accessory_id = ID_OTG;
+                    if (platform_data.otg_callback)
+                        platform_data.otg_callback(1);
+
+                }
+                else
+                {
+                    if (pDrvData->accessory_id == ID_CHARGER) // last accessory == CHARGER
+                    {
+                        INFO("Charger lost power\n");
+                        pDrvData->accessory_id = ID_UNKNOW;
+                        if (platform_data.charger_callback)
+                            platform_data.charger_callback(RT8973_DETACHED);
+                    }
+                }
+                break;
+                case 0x17:
+                pDrvData->accessory_id = ID_CHARGER;
+                if (platform_data.charger_callback)
+                     platform_data.charger_callback(RT8973_ATTACHED);
+                break;
                 default:
+                if (pDrvData->accessory_id == ID_CHARGER) // last accessory == CHARGER
+                {
+                    INFO("Charger lost power\n");
+                    pDrvData->accessory_id = ID_UNKNOW;
+                    if (platform_data.charger_callback)
+                        platform_data.charger_callback(RT8973_DETACHED);
+                }
                 pDrvData->accessory_id = ID_UNKNOW;
                 WARNING("Unknow USB ID ADC = 0x%x\n",regADC);
             }
@@ -810,6 +998,7 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                  // auto switch -- ignore
                 INFO("Auto Switch Mode UART cable\n");
                 pDrvData->accessory_id = ID_UART;
+                EN_ADCCHG_MASK();
                 if (platform_data.uart_callback) {
 					uart_connecting = 1;
 					wake_lock(&pDrvData->uart_wakelock);					
@@ -821,6 +1010,7 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 INFO("Auto Switch Mode JIG UART ON= 1\n");
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_ON_UART;
+                EN_ADCCHG_MASK();
                 if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_ON_UART);
                 break;
@@ -829,18 +1019,18 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 INFO("Auto Switch Mode JIG UART OFF= 1\n");
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_UART;
+                EN_ADCCHG_MASK();
 		if (platform_data.jig_callback) {
 			wake_lock(&pDrvData->uart_wakelock);
 			platform_data.jig_callback(1, RTMUSC_FM_BOOT_OFF_UART);
 		}
-		I2CWByte(RT8973_REG_INTERRUPT_MASK , RT8973_ADC_CHG_INT_MASK);
-		I2CWByte(RT8973_REG_INT_FLAG , RT8973_REG_INT_CLEAR);
                 break;
                 case 0x19: //Factory Mode : JIG USB ON = 1
                 // auto switch -- ignore
                 INFO("Auto Switch Mode JIG USB ON= 1\n");
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_ON_USB;
+                EN_ADCCHG_MASK();
                 if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_ON_USB);
                 break;
@@ -849,18 +1039,93 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 INFO("Auto Switch Mode JIG USB OFF= 1\n");
                 pDrvData->accessory_id = ID_JIG;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_USB;
+                EN_ADCCHG_MASK();
                 if (platform_data.jig_callback)
                     platform_data.jig_callback(1,RTMUSC_FM_BOOT_OFF_USB);
                 break;
-                case 0x15: //Unknow accessory
                 case 0x1a:
-                case 0x1b:
+                if ((regIntFlag2&0x02)==0)
+                {
+                    INFO("DCD_T retry failed : found VBUS ==> might be dock or unknown charger accessory\n");
+                    pDrvData->accessory_id = ID_CHARGER;
+                    if (platform_data.charger_callback)
+                        platform_data.charger_callback(RT8973_ATTACHED);
+                } else if (pDrvData->accessory_id == ID_CHARGER) // last accessory == CHARGER
+                {
+                    INFO("Charger lost power\n");
+                    pDrvData->accessory_id = ID_UNKNOW;
+                    if (platform_data.charger_callback)
+                        platform_data.charger_callback(RT8973_DETACHED);
+                }
+                else
+                {
+                    pDrvData->accessory_id = ID_UNKNOW;
+                    WARNING("Detected unkown accessory!!\n");
+                }
+                break;
+                case 0x15:
+                if ((regIntFlag2&0x02)==0)
+                {
+                    INFO("DCD_T retry failed : found VBUS ==> might be dock or unknown charger accessory\n");
+                    pDrvData->accessory_id = ID_CHARGER;
+                    if (platform_data.charger_callback)
+                        platform_data.charger_callback(RT8973_ATTACHED);
+                } else if (pDrvData->accessory_id == ID_CHARGER) // last accessory == CHARGER
+                {
+                    INFO("Charger lost power\n");
+                    pDrvData->accessory_id = ID_UNKNOW;
+                    if (platform_data.charger_callback)
+                        platform_data.charger_callback(RT8973_DETACHED);
+                }
+                else
+                {
+                    pDrvData->accessory_id = ID_UNKNOW;
+                    WARNING("Detected unkown accessory!!\n");
+                }
+                break;
+                case 0x1b: //Unknow accessory
                 case 0x1e:
                 pDrvData->accessory_id = ID_UNKNOW;
                 WARNING("Detected unkown accessory!!\n");
                 break;
+                case 0x00:
+                if (regDev1&0x01)
+                { // OTG
+                    regCtrl1 = I2CRByte(RT8973_REG_CONTROL_1); /* in automatic mode, switch to manual mode */
+                    regCtrl1 &= (~0x04); // Manual Contrl
+                    I2CWByte(RT8973_REG_CONTROL_1,regCtrl1);
+                    I2CWByte(RT8973_REG_MANUAL_SW1,0x24);
+                    I2CWByte(RT8973_REG_MANUAL_SW2,0x01);
+                    pDrvData->accessory_id = ID_OTG;
+                    if (platform_data.otg_callback)
+                        platform_data.otg_callback(1);
+
+                }
+                else
+                {
+                    if (pDrvData->accessory_id == ID_CHARGER) // last accessory == CHARGER
+                    {
+                        INFO("Charger lost power\n");
+                        pDrvData->accessory_id = ID_UNKNOW;
+                        if (platform_data.charger_callback)
+                            platform_data.charger_callback(RT8973_DETACHED);
+                    }
+                }
+                break;
+                case 0x17:
+                pDrvData->accessory_id = ID_CHARGER;
+                if (platform_data.charger_callback)
+                     platform_data.charger_callback(RT8973_ATTACHED);
+                break;
                 default:
                 WARNING("Unknow USB ID ADC = 0x%x\n",regADC);
+                if (pDrvData->accessory_id == ID_CHARGER) // last accessory == CHARGER
+                {
+                    INFO("Charger lost power\n");
+                    pDrvData->accessory_id = ID_UNKNOW;
+                    if (platform_data.charger_callback)
+                        platform_data.charger_callback(RT8973_DETACHED);
+                }
                 pDrvData->accessory_id = ID_UNKNOW;
             }
         }
@@ -884,6 +1149,7 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
 inline void do_detach_work(int32_t regIntFlag)
 {
     struct i2c_client* pClient = pDrvData->client;
+    int32_t regCtrl1;
     if (regIntFlag&0x40)
     {
         if (pDrvData->operating_mode)
@@ -916,6 +1182,15 @@ inline void do_detach_work(int32_t regIntFlag)
         if (platform_data.charger_callback)
             platform_data.charger_callback(RT8973_DETACHED);
         break;
+        case ID_OTG:
+        if (platform_data.otg_callback)
+            platform_data.otg_callback(0);
+        if (pDrvData->operating_mode==0)
+        {
+            regCtrl1 = I2CRByte(RT8973_REG_CONTROL_1);
+            regCtrl1 |= 0x04; // Automatically Contrl
+            I2CWByte(RT8973_REG_CONTROL_1,regCtrl1);
+        }
         default:
         INFO("Unknown accessory detach\n");
         ;
@@ -943,23 +1218,29 @@ static void rt8973musc_work(struct work_struct *work)
 
     regIntFlag = I2CRByte(RT8973_REG_INT_FLAG);
     INFO("Interrupt Flag = 0x%x\n",regIntFlag);
-    if (regIntFlag&RT8973_INT_ATTACH_MASK) {
+    if (regIntFlag&RT8973_INT_ATTACH_MASK)
+    {
         regDev1 = I2CRByte(RT8973_REG_DEVICE_1);
         regDev2 = I2CRByte(RT8973_REG_DEVICE_2);
-	if (unlikely(regIntFlag&RT8973_INT_DETACH_MASK)) {
-		INFO("There is un-handled event!!\n");
-		if (regDev1 == 0 && regDev2 == 0)
-			do_detach_work(regIntFlag);
-		else
-			do_attach_work(regIntFlag, regDev1, regDev2);
-	 }
-	else
-		do_attach_work(regIntFlag, regDev1, regDev2);
-	}
-	else if (regIntFlag&RT8973_INT_DETACH_MASK) {
-		do_detach_work(regIntFlag);
-	}
-    else {
+        if (unlikely(regIntFlag&RT8973_INT_DETACH_MASK))
+        {
+            INFO("There is un-handled event!!\n");
+            if (regDev1==0 && regDev2==0)
+                do_detach_work(regIntFlag);
+            else
+                do_attach_work(regIntFlag,regDev1,regDev2);
+        }
+        else
+        {
+                do_attach_work(regIntFlag,regDev1,regDev2);
+        }
+    }
+    else if (regIntFlag&RT8973_INT_DETACH_MASK)
+    {
+        do_detach_work(regIntFlag);
+    }
+    else
+    {
         if (regIntFlag&0x80) // OTP
         {
             INFO("Warning : over temperature voltage\n");
@@ -1022,6 +1303,7 @@ static bool init_reg_setting(void)
 {
     struct i2c_client* pClient = pDrvData->client;
     int32_t regCtrl1;
+    int count = 0;
     INFO("Initialize register setting!!\n");
     pDrvData->chip_id = I2CRByte(RT8973_REG_CHIP_ID);
     if  (pDrvData->chip_id<0)
@@ -1036,32 +1318,59 @@ static bool init_reg_setting(void)
     }
     pDrvData->operating_mode = OPERATING_MODE;
     I2CWByte(RT8973_REG_RESET,0x01);
-    msleep(RT8973_WAIT_DELAY);
+    msleep(RT8973_10M_DELAY);
     regCtrl1 = I2CRByte(RT8973_REG_CONTROL_1);
     INFO("reg_ctrl1 = 0x%x\n",regCtrl1);
+
+    while(1)
+    {
+	if((regCtrl1!=0xe5 && regCtrl1!=0xc5) && (++count < 10))
+	{
+	I2CWByte(RT8973_REG_RESET,0x01);
+	msleep(RT8973_10M_DELAY);
+	regCtrl1 = I2CRByte(RT8973_REG_CONTROL_1);
+	INFO("reg_ctrl1 = 0x%x, count = %d\n",regCtrl1,count);
+	continue;
+	}
+	else
+	{
+	INFO("loop broken\n");
+	count = 0;
+	break;
+	}
+    }
+
     if (regCtrl1!=0xe5 && regCtrl1!=0xc5)
     {
-        ERR("Reg Ctrl 1 != 0xE5 or 0xC5\n");
-        return false;
+	ERR("Reg Ctrl 1 != 0xE5 or 0xC5\n");
+	return false;
     }
     if (pDrvData->operating_mode!=0)
     {
         regCtrl1 &= (~0x04);
         I2CWByte(RT8973_REG_CONTROL_1,regCtrl1);
     }
-    pDrvData->prev_int_flag = I2CRByte(RT8973_REG_INT_FLAG);
+    pDrvData->prev_int_flag = 0;
 
+    if (((pDrvData->chip_id & 0xf8)>>3)==0)
+	{
+		INFO("init_reg_setting I2C reset entered\n");
+		regCtrl1 |= (0x08);
+		I2CWByte(RT8973_REG_CONTROL_1,regCtrl1);
+	}
     INFO("prev_int_flag = 0x%x\n",
          pDrvData->prev_int_flag);
-    /* We will enable later
-    enable_interrupt(0);
-    msleep(RT8973_WAIT_DELAY);*/
+    /*
+    enable_interrupt(1);
+    msleep(RT8973_WAIT_DELAY);
+    */
     INFO("Set initial value OK\n");
     /*
     INFO("GPIO %d Value = %d\n",CONFIG_RTMUSC_INT_GPIO_NUMBER,
          gpio_get_value(CONFIG_RTMUSC_INT_GPIO_NUMBER));*/
     return true;
 }
+
 static void rt8973_init_func(struct work_struct *work)
 {
     int err;
@@ -1076,7 +1385,6 @@ static void rt8973_init_func(struct work_struct *work)
     INFO("Set initial value OK\n");
 
 }
-
 
 static int rt8973musc_probe(struct i2c_client *client,
                         const struct i2c_device_id *id)
@@ -1093,6 +1401,8 @@ static int rt8973musc_probe(struct i2c_client *client,
         goto i2c_check_functionality_fail;
     }
 
+    set_cable_status = CABLE_TYPE_NONE;
+
     drv_data = kzalloc(sizeof(struct rt8973_data),GFP_KERNEL);
     drv_data->client = client;
         memcpy(&platform_data,&rtmus_pdata,sizeof(struct rtmus_platform_data));
@@ -1107,6 +1417,7 @@ static int rt8973musc_probe(struct i2c_client *client,
 	uart_connecting = 0;
     if(platform_data.ex_init)
 		platform_data.ex_init();
+
     schedule_delayed_work(&drv_data->delayed_work, msecs_to_jiffies(2700));
 
 #if CONFIG_RTMUSC_IRQ_NUMBER<0
@@ -1164,7 +1475,7 @@ static int rt8973musc_probe(struct i2c_client *client,
     if (err < 0)
     {
         WARNING("enable_irq_wake(%d) failed for (%d)\n",client->irq, err);
-	}*/
+    }*/
     if (!init_reg_setting())
     {
         disable_irq(client->irq);
@@ -1179,6 +1490,8 @@ static int rt8973musc_probe(struct i2c_client *client,
 request_irq_fail:
 init_fail:
     wake_lock_destroy(&(drv_data->muic_wake_lock));
+    wake_lock_destroy(&(pDrvData->uart_wakelock));
+    cancel_delayed_work(&drv_data->delayed_work);
 #ifdef CONFIG_RTMUSC_INT_CONFIG
     gpio_free(CONFIG_RTMUSC_INT_GPIO_NUMBER);
     destroy_workqueue(rtmus_work_queue);
@@ -1324,7 +1637,7 @@ alloc_device_fail:
 }
 static void __exit rt8973_exit(void)
 {
-    if (rtmus_dev);
+    if (rtmus_dev)
     {
         platform_device_put(rtmus_dev);
         platform_device_unregister(rtmus_dev);

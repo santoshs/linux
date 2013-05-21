@@ -44,7 +44,7 @@ Description :  File created
 #include <linux/highmem.h>
 
   /* Linux kernel specific definitions */
-#define TRUE                   -1
+#define TRUE                   1
 #define FALSE                  0
 #define SMC_MALLOC(size)       kmalloc(size, GFP_KERNEL)
 #define SMC_MALLOC_IRQ(size)   kmalloc(size, GFP_ATOMIC)

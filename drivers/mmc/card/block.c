@@ -708,7 +708,7 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 	int err, retry;
 
 	if (mmc_card_removed(card))
-		return ERR_ABORT;
+		return ERR_NOMEDIUM;
 
 	/*
 	 * Try to get card status which indicates both the card state
@@ -726,8 +726,10 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 	}
 	/* We couldn't get a response from the card.  Give up. */
 	if (err) {
+		/* Check if the card is removed */
 		if (mmc_detect_card_removed(card->host))
-			return ERR_ABORT;
+			return ERR_NOMEDIUM;
+		return ERR_ABORT;
 	}
 
 	if ((status & R1_CARD_ECC_FAILED) ||

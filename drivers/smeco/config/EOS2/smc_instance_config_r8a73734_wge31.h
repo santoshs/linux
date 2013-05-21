@@ -15,9 +15,9 @@
 /*
 Change history:
 
-Version:       10   06-Jun-2012     Heikki Siikaluoma
+Version:       10   09-Apr-2013     Heikki Siikaluoma
 Status:        draft
-Description :  New SHM SDRAM memory mapping for the EOS2 ES2.0
+Description :  New SHM SDRAM memory mapping with flagging added
 
 Version:       1    03-Feb-2012     Heikki Siikaluoma
 Status:        draft
@@ -34,22 +34,26 @@ Description :  File created
 
   #define SMC_CPU_NAME          "Modem"
 
-        /* EOS2 ES20: TODO Set modem side include file for common memory mapping */
-  #define SDRAM_SMC_START_ADDR  0x44001000
-  #define SDRAM_SMC_END_ADDR    0x44800FFF
+  #if (defined(NEW_MEMORY_MAP_13W14) && NEW_MEMORY_MAP_13W14==TRUE )
 
+      #define SDRAM_SMC_START_ADDR  0x45001000
+      #define SDRAM_SMC_END_ADDR    0x457FFBFF
+
+  #else
+        /* Old memory map, to be cleaned when all releases have the new SHM mapping (after 13w14)*/
+      #define SDRAM_SMC_START_ADDR  0x44001000
+      #define SDRAM_SMC_END_ADDR    0x44800FFF
+
+  #endif    /* #if (defined(NEW_MEMORY_MAP_13W14) && NEW_MEMORY_MAP_13W14==TRUE ) */
 
 #elif( defined(SMECO_LINUX_KERNEL) )
 
   #ifdef SMC_CONFIG_ARCH_R8A7373
       #include <mach/memory-r8a7373.h>
-      /*#include <mach/r8a7373.h>*/
 
   #elif (defined ( SMC_CONFIG_ARCH_R8A73734 ) )
       /*#include <mach/memory-r8a73734.h>*/
-      /*#include <mach/r8a73734.h>*/
 
-      /* SSG build is missing the memory header -> using hard coded values */
       #define SDRAM_SMC_START_ADDR  0x44001000
       #define SDRAM_SMC_END_ADDR    0x44800FFF
 
@@ -76,7 +80,7 @@ Description :  File created
      * SMC specific configurations for EOS2
      */
 
-#define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20  "SH-Mobile-R8A73734-EOS2-ES20"
+#define SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A7373_EOS2_ES20  "SH-Mobile-R8A7373-EOS2-ES20"
 #define SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20         "WGEModem-3.1-EOS2-ES20"
 
 #define SMC_CONF_GLOBAL_SHM_START_ES20                       SDRAM_SMC_START_ADDR
@@ -150,7 +154,7 @@ Description :  File created
 
 #define SMC_APE_WAKEUP_WAKELOCK_USE                             /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */
 #define SMC_APE_WAKEUP_WAKELOCK_USE_TIMER                       /* If defined, the APE uses timer in wakelock while receiving packets from modem */
-#define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC           400      /* Wakelock timeout in milliseconds in APE IRQ (old configs: 2000/200) */
+#define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC              400    /* Wakelock timeout in milliseconds in APE IRQ (old configs: 2000/200/400<=), if 0, lock is released immediately */
 
 #define SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM                       /* If defined uses ext irq in modem side (modem wakes APE)*/
 
@@ -260,6 +264,9 @@ Description :  File created
                                                                             }
 
 
+
+  /*#define SMC_NETDEV_WAKELOCK_IN_TX */                           /* If defined, the wakelock is used in the net device TX */
+  #define SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS     10              /* Timeout in milliseconds if wakelock timer used in net device TX */
 
 #endif  /* End of target specific configuration */
 

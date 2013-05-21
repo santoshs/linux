@@ -3,10 +3,6 @@
 #
 
 # Each configuration option enables a list of files.
-obj-$(CONFIG_TOUCHSCREEN_IST30XX) += sec_touch.o
+obj-$(CONFIG_BOARD_VERSION_GARDA)	+= gardalte/
+obj-$(CONFIG_BOARD_VERSION_LOGANLTE)	+= loganlte/
 
-sec_touch-y := \
-	ist30xx_update.o \
-	ist30xx.o \
-	ist30xx_misc.o \
-	ist30xx_sys.o

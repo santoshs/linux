@@ -2965,6 +2965,7 @@ void sh_mobile_rcu_flash(int led)
 		rear_flash_set(set_state, SH_RCU_LED_MODE_PRE);
 	return;
 }
+
 void sh_mobile_rcu_init_dumplog(void)
 {
 #ifdef SH_RCU_DUMP_LOG_ENABLE
@@ -3124,14 +3125,13 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		kfree(pcdev->mmap_pages);
 		pcdev->mmap_pages = NULL;
 
-		ret = copy_from_user(mmap_page_info,
-			(int __user *)ctrl->value,
-			sizeof(mmap_page_info));
-		if (0 != ret) {
+		if (copy_from_user(mmap_page_info,
+				(int __user *)ctrl->value,
+				sizeof(mmap_page_info))) {
 			dev_err(icd->parent,
 				"%s:copy_from_user error(%d)\n",
 				__func__, ret);
-			return ret;
+			return -EIO;
 		}
 
 		page_num = (mmap_page_info[0] + PAGE_SIZE - 1)
@@ -3144,16 +3144,16 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 				__func__);
 			return -1;
 		}
-		ret = copy_from_user(pcdev->mmap_pages,
-			(int __user *)mmap_page_info[1],
-			page_num * sizeof(struct page *));
-		if (0 != ret) {
+
+		if (copy_from_user(pcdev->mmap_pages,
+				(int __user *)mmap_page_info[1],
+				page_num * sizeof(struct page *))) {
 			dev_err(icd->parent,
 				"%s:copy_from_user error(%d)\n",
 				__func__, ret);
 			kfree(pcdev->mmap_pages);
 			pcdev->mmap_pages = NULL;
-			return ret;
+			return -EIO;
 		}
 		pcdev->mmap_size = page_num;
 		return 0;
@@ -3243,7 +3243,7 @@ static void sh_mobile_rcu_late_resume(struct early_suspend *h)
 		dev_err(pcdev->ici.v4l2_dev.dev,
 			"%s down_interruptible -ERESTARTSYS\n", __func__);
 	pcdev->rcu_early_suspend_state = false;
-	if (pcdev->rcu_early_suspend_state)
+	if (pcdev->rcu_add_device_state)
 		up(&pcdev->sem_rcu_late_resume);
 	up(&pcdev->sem_rcu_state);
 	return;
@@ -3584,8 +3584,7 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 	 */
 
 	if (NULL == pcdev) {
-		dev_err(pcdev->icd->parent,
-			"%s, pcdev is NULL\n", __func__);
+		printk(KERN_ERR "%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
@@ -3622,8 +3621,7 @@ static int sh_mobile_rcu_runtime_resume(struct device *dev)
 	pcdev = dev_get_drvdata(dev);
 
 	if (NULL == pcdev) {
-		dev_err(pcdev->icd->parent,
-			"%s, pcdev is NULL\n", __func__);
+		printk(KERN_ERR "%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 

@@ -50,10 +50,6 @@
 
 #include <trace/events/timer.h>
 
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
-#include <mach/sec_debug.h>
-#endif
-
 /*
  * The timer bases:
  *
@@ -1219,17 +1215,7 @@ static void __run_hrtimer(struct hrtimer *timer, ktime_t *now)
 	 */
 	raw_spin_unlock(&cpu_base->lock);
 	trace_hrtimer_expire_entry(timer, now);
-
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
-	sec_debug_hrtimer_log(timer, fn, 1);
-#endif
-
 	restart = fn(timer);
-
-#if defined(CONFIG_SEC_DEBUG_SCHED_LOG)
-	sec_debug_hrtimer_log(timer, fn, 2);
-#endif
-
 	trace_hrtimer_expire_exit(timer);
 	raw_spin_lock(&cpu_base->lock);
 

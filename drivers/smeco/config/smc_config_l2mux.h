@@ -39,11 +39,7 @@ Description :  File created
     /*
      * Product specific configuration header files
      *
-     * TODO THE PRODUCT SPECIFIC BUILD FLAG NEEDED
      */
-
-
-/*#include "smc_config_l2mux_r8a73734_wge31.h"*/
 
 #if( SMC_CURRENT_PRODUCT_CONFIG == SMC_CONFIG_EOS2 )
     #include "smc_config_l2mux_r8a73734_wge31.h"
@@ -54,7 +50,6 @@ Description :  File created
 #else
     #error "Invalid SMC product configuration"
 #endif
-
 
 
     /*

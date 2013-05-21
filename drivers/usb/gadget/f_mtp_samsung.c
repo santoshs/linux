@@ -55,6 +55,14 @@
 #include "f_mtp.h"
 #include "gadget_chips.h"
 
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) 
+/*#ifdef CONFIG_MACH_U2EVM*/
+#include <linux/clk.h>
+#include <linux/sh_clk.h>
+#include <mach/pm.h>
+
+static int dfs_started = -1;
+#endif
 /*-------------------------------------------------------------------------*/
 /*Only for Debug*/
 #define DEBUG_MTP 0
@@ -171,7 +179,7 @@ struct usb_interface_descriptor mtpg_interface_desc = {
 	.bNumEndpoints          = 3,
 	.bInterfaceClass        = USB_CLASS_VENDOR_SPEC,
 	.bInterfaceSubClass     = USB_SUBCLASS_VENDOR_SPEC,
-	.bInterfaceProtocol     = 0,
+	.bInterfaceProtocol 	= 0,
 };
 
 static struct usb_interface_descriptor ptp_interface_desc = {
@@ -343,6 +351,7 @@ struct {
 	},
 };
 
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
 /* Function  : Change config for multi configuration
  * Parameter : int conf_num (config number)
  *             0 - use mtp only without Samsung USB Driver
@@ -376,6 +385,7 @@ static int mtp_set_config_desc(int conf_num)
 	}
 	return 1;
 }
+#endif
 
 /* -------------------------------------------------------------------------
  *	Main Functionalities Start!
@@ -489,6 +499,20 @@ static int mtpg_open(struct inode *ip, struct file *fp)
 	DEBUG_MTPB("[%s] mtpg_open and clearing the error = 0\n", __func__);
 
 	the_mtpg->error = 0;
+
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) 
+/*#ifdef CONFIG_MACH_U2EVM*/
+	{
+		int ret = stop_cpufreq();
+		DBG(the_mtpg->cdev, "%s(): stop_cpufreq\n", __func__);
+		if (ret) {
+			dfs_started = 1;
+			ERROR(the_mtpg->cdev, "%s(): error<%d>! stop_cpufreq\n",
+				__func__, ret);
+		} else
+			dfs_started = 0;
+	}
+#endif
 
 	return 0;
 }
@@ -718,10 +742,15 @@ static ssize_t mtpg_write(struct file *fp, const char __user *buf,
 	return r;
 }
 
+#if 0
+/**
+ * Not used function.
+ */
 static void interrupt_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	printk(KERN_DEBUG "Finished Writing Interrupt Data\n");
 }
+#endif
 
 static ssize_t interrupt_write(struct file *fd,
 			const char __user *buf, size_t count)
@@ -769,7 +798,6 @@ static void read_send_work(struct work_struct *work)
 {
 	struct mtpg_dev	*dev = container_of(work, struct mtpg_dev,
 							read_send_work);
-	struct usb_composite_dev *cdev = dev->cdev;
 	struct usb_request *req = 0;
 	struct usb_container_header *hdr;
 	struct file *file;
@@ -818,6 +846,11 @@ static void read_send_work(struct work_struct *work)
 			r = ret;
 			printk(KERN_DEBUG "[%s]\t%d ret = %d\n",
 						__func__, __LINE__, r);
+			break;
+		}
+
+		if (!req) {
+			printk(KERN_ERR "[%s]Alloc has failed\n", __func__);
 			break;
 		}
 
@@ -1075,6 +1108,15 @@ static int mtpg_release_device(struct inode *ip, struct file *fp)
 	printk("USBD][%s] MTP node close \n",__func__);
 	if (the_mtpg != NULL)
 		_unlock(&the_mtpg->open_excl);
+
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) 
+/*#ifdef CONFIG_MACH_U2EVM*/
+	if (!dfs_started) {
+		start_cpufreq();
+		DBG(the_mtpg->cdev, "%s(): start_cpufreq\n", __func__);
+		dfs_started = 1;
+	}
+#endif
 	return 0;
 }
 
@@ -1317,6 +1359,75 @@ static int mtpg_function_set_alt(struct usb_function *f,
 	if (dev->int_in->driver_data)
 		usb_ep_disable(dev->int_in);
 
+	ret = config_ep_by_speed(cdev->gadget, f, dev->int_in);
+	if (ret)
+		return ret;
+	ret = usb_ep_enable(dev->int_in);
+	if (ret) {
+		usb_ep_disable(dev->int_in);
+		dev->int_in->driver_data = NULL;
+		printk(KERN_ERR "[%s]Error in enabling INT EP\n", __func__);
+		return ret;
+	}
+	dev->int_in->driver_data = dev;
+	
+
+	if (dev->bulk_in->driver_data)
+		usb_ep_disable(dev->bulk_in);
+
+	ret = config_ep_by_speed(cdev->gadget, f, dev->bulk_in);
+	if (ret)
+		return ret;
+	ret = usb_ep_enable(dev->bulk_in);
+		
+	if (ret) {
+		usb_ep_disable(dev->bulk_in);
+		dev->bulk_in->driver_data = NULL;
+		 printk(KERN_ERR "[%s] Enable Bulk-IN EP error%d\n",
+							__func__, __LINE__);
+		 return ret;
+	}
+	dev->bulk_in->driver_data = dev;
+
+	if (dev->bulk_out->driver_data)
+		usb_ep_disable(dev->bulk_out);
+		
+	ret = config_ep_by_speed(cdev->gadget, f, dev->bulk_out);
+	if (ret)
+		return ret;
+	ret = usb_ep_enable(dev->bulk_out);
+	
+	if (ret) {
+		usb_ep_disable(dev->bulk_out);
+		dev->bulk_out->driver_data = NULL;
+		 printk(KERN_ERR "[%s] Enable Bulk-Out EP error%d\n",
+							__func__, __LINE__);
+		return ret;
+	}
+	dev->bulk_out->driver_data = dev;
+
+	dev->online = 1;
+	dev->error = 0;
+	dev->read_ready = 1;
+	dev->cancel_io = 0;
+
+	/* readers may be blocked waiting for us to go online */
+	wake_up(&dev->read_wq);
+
+	return 0;
+}
+
+#if 0
+static int mtpg_function_set_alt(struct usb_function *f,
+		unsigned intf, unsigned alt)
+{
+	struct mtpg_dev	*dev = mtpg_func_to_dev(f);
+	struct usb_composite_dev *cdev = f->config->cdev;
+	int ret;
+
+	if (dev->int_in->driver_data)
+		usb_ep_disable(dev->int_in);
+
 	ret = usb_ep_enable(dev->int_in,
 			ep_choose(cdev->gadget, &int_hs_notify_desc,
 						&int_fs_notify_desc));
@@ -1368,7 +1479,7 @@ static int mtpg_function_set_alt(struct usb_function *f,
 
 	return 0;
 }
-
+#endif
 static void mtpg_function_disable(struct usb_function *f)
 {
 	struct mtpg_dev	*dev = mtpg_func_to_dev(f);
@@ -1566,7 +1677,7 @@ static int mtp_bind_config(struct usb_configuration *c, bool ptp_config)
 	mtpg->function.unbind = mtpg_function_unbind;
 	mtpg->function.set_alt = mtpg_function_set_alt;
 	mtpg->function.disable = mtpg_function_disable;
-#ifdef CONFIG_USB_ANDROID_SAMSUNG_COMPOSITE
+#ifdef CONFIG_USB_G_ANDROID_SAMSUNG_COMPOSITE
 	mtpg->function.set_config_desc = mtp_set_config_desc;
 #endif
 
