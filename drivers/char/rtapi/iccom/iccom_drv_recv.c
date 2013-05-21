@@ -2,7 +2,7 @@
  * iccom_drv_recv.c
  *     Inter Core Communication driver function file for reception.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -180,7 +180,7 @@ int iccom_recv_command_async(void **handle, iccom_cmd_recv_async_param *recv_par
 		async_recv_status = &drv_handle->async_recv_status;
 	}
 
-	error = wait_for_completion_killable(async_completion);
+	error = wait_for_completion_interruptible(async_completion);
 	MSG_MED("[ICCOMK]INF|[%s] async completion result[%d]\n", __func__, error);
 
 	/* get receive queue */

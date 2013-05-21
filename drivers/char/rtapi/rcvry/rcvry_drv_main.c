@@ -32,6 +32,7 @@
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
 #include <linux/syscalls.h>
+#include <linux/pid.h>
 
 #include <log_kernel.h>
 #include <iccom_drv.h>
@@ -231,6 +232,8 @@ static long rcvry_drv_sub_wait_killable(struct file *fp)
 	struct completion *local_completion;
 	pid_t *local_pid;
 	struct file *local_fp = NULL;
+	struct pid *pid = NULL;
+	struct task_struct *tsk = NULL;
 
 	local_fp = fp;
 
@@ -251,7 +254,8 @@ static long rcvry_drv_sub_wait_killable(struct file *fp)
 	local_fp		=  rcvry_info_t[local_index].rcvry_fp;
 	up(&g_rcvry_sem);
 
-	error = wait_for_completion_killable(local_completion);
+	init_completion(local_completion);
+	error = wait_for_completion_interruptible(local_completion);
 	MSG_MED("[RCVRYD]INF|[%s] wait_for_completion_killable error = %d\n",
 		__func__, error);
 
@@ -287,6 +291,28 @@ static long rcvry_drv_sub_wait_killable(struct file *fp)
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
 	ret = mfis_drv_resume();
 #endif
+	if(error < 0){
+		down(&g_rcvry_sem);
+		MSG_MED("[RCVRYD]INF|[%s] completion current->flags = %#x\n",
+		__func__, current->flags);
+		MSG_MED("[RCVRYD]INF|[%s] completion current->tgid = %d\n",
+		__func__, current->tgid);
+		pid = find_get_pid(current->tgid);
+		tsk = get_pid_task(pid, PIDTYPE_PID);
+
+		MSG_MED("[RCVRYD]INF|[%s] completion tsk->flags = %#x\n",
+		__func__, tsk->flags);
+		MSG_MED("[RCVRYD]INF|[%s] completion tsk->tgid = %d\n",
+		__func__, tsk->tgid);
+
+		if((tsk != NULL) && !(tsk->flags & (PF_EXITING | PF_EXITPIDONE))){
+			MSG_HIGH("[RCVRYD]INF|[%s] not PF_EXITING \n",
+				 __func__);
+			up(&g_rcvry_sem);
+			return -EINTR;
+		}
+		up(&g_rcvry_sem);
+	}
 
 	if (error) {
 		down(&g_rcvry_sem);
