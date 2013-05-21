@@ -1269,7 +1269,7 @@ static void cmt10_start(void)
 
 	/* setup */
 	__raw_writel(0, CMCNT0);
-	__raw_writel(0x10b, CMCSR0); /* Free-running, DBGIVD, cp_clk/1 */
+	__raw_writel(0x103, CMCSR0); /* Free-running, DBGIVD, cp_clk/1 */
 	__raw_writel(0xffffffff, CMCOR0);
 	while (__raw_readl(CMCNT0) != 0)
 		cpu_relax();
@@ -1330,7 +1330,7 @@ static void __init cmt_clocksource_init(void)
 
 	/* setup */
 	__raw_writel(0, CMCNT0);
-	__raw_writel(0x10b, CMCSR0); /* Free-running, debug, cp_clk/1 */
+	__raw_writel(0x103, CMCSR0); /* Free-running, debug, cp_clk/1 */
 	__raw_writel(0xffffffff, CMCOR0);
 	while (__raw_readl(CMCNT0) != 0)
 		;
@@ -1355,7 +1355,7 @@ static void __init cmt_clocksource_init(void)
 
 	/* setup */
 	__raw_writel(0, CMCNT4);
-	__raw_writel(0x10f, CMCSR4); /* Free-running, debug, RCLK/1 */
+	__raw_writel(0x107, CMCSR4); /* Free-running, debug, RCLK/1 */
 	__raw_writel(0xffffffff, CMCOR4);
 	while (__raw_readl(CMCNT4) != 0)
 		;
@@ -1446,7 +1446,7 @@ static struct cmt_timer_config cmt1_timers[2] = {
 		.cks_table	= cmt1_cks_table,
 		.cks_num	= ARRAY_SIZE(cmt1_cks_table),
 		.cks		= 3,
-		.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
+		.cmcsr_init	= 0x120, /* Free-run, request interrupt, debug */
 	},
 	[1] = {
 		.res = {
@@ -1458,7 +1458,7 @@ static struct cmt_timer_config cmt1_timers[2] = {
 		.cks_table	= cmt1_cks_table,
 		.cks_num	= ARRAY_SIZE(cmt1_cks_table),
 		.cks		= 3,
-		.cmcsr_init	= 0x128, /* Free-run, request interrupt, debug */
+		.cmcsr_init	= 0x120, /* Free-run, request interrupt, debug */
 	},
 };
 

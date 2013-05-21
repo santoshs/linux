@@ -39,7 +39,7 @@
 #include "../../staging/android/logger.h"
 #include <sec_hal_cmn.h>
 
-#define BLOCK_SIZE		512UL
+#define BLOCK_SIZE_EMMC		512UL
 #define RECORD_SIZE		8
 
 #ifdef CONFIG_CRASHLOG_DDR
@@ -386,7 +386,7 @@ static void mmc_panic_mmc_reset(struct mmcoops_context *cxt)
         sh_mmcif_boot_cmd(host->addr, 0x07400000, 0x00010000);
 
         /* CMD16 - Set the block size */
-        sh_mmcif_boot_cmd(host->addr, 0x10400000, BLOCK_SIZE);
+        sh_mmcif_boot_cmd(host->addr, 0x10400000, BLOCK_SIZE_EMMC);
 }
 
 static int __mmc_panic_write(struct mmcoops_context *cxt,
@@ -397,7 +397,7 @@ static int __mmc_panic_write(struct mmcoops_context *cxt,
 	struct sh_mmcif_host *host = platform_get_drvdata(cxt->pdev);
 
 	sh_mmcif_writel(host->addr, MMCIF_CE_BLOCK_SET, 0);
-	sh_mmcif_writel(host->addr, MMCIF_CE_BLOCK_SET, BLOCK_SIZE);
+	sh_mmcif_writel(host->addr, MMCIF_CE_BLOCK_SET, BLOCK_SIZE_EMMC);
 
 	/* CMD13 - Status */
 	if (sh_mmcif_boot_cmd(host->addr, 0x0d400000, 0x00010000))
@@ -416,7 +416,7 @@ static int __mmc_panic_write(struct mmcoops_context *cxt,
 	if (sh_mmcif_boot_cmd_poll(host->addr, 0x00200000) < 0)
 		return -1;
 
-	for (i = 0; i < BLOCK_SIZE; i += 4) {
+	for (i = 0; i < BLOCK_SIZE_EMMC; i += 4) {
 		unsigned long x;
 		memcpy(&x, buf + i, 4);
 		sh_mmcif_writel(host->addr, MMCIF_CE_DATA, x);
@@ -479,7 +479,7 @@ static void mmc_log_write(	struct mmcoops_context *cxt,
 	unsigned long l1_cpy, l2_cpy;
 	
 	{
-		unsigned long max_size = emmc_log_size * BLOCK_SIZE;
+		unsigned long max_size = emmc_log_size * BLOCK_SIZE_EMMC;
 		if (l2 > max_size) {
 			s2 += l2 - max_size;
 			l2 = max_size;
@@ -491,14 +491,14 @@ static void mmc_log_write(	struct mmcoops_context *cxt,
 	}
 
 	for (i = 1; i < emmc_log_size + 1; i++) {
-		if (l1 >= BLOCK_SIZE) {
-			l1_cpy = BLOCK_SIZE;
+		if (l1 >= BLOCK_SIZE_EMMC) {
+			l1_cpy = BLOCK_SIZE_EMMC;
 			l2_cpy = 0;
 		} else {
 			l1_cpy = l1;
-			l2_cpy = min(l2, BLOCK_SIZE - l1_cpy);
-			if(BLOCK_SIZE > l1_cpy + l2_cpy)
-				memset(cxt->virt_addr, '\0', BLOCK_SIZE);
+			l2_cpy = min(l2, BLOCK_SIZE_EMMC - l1_cpy);
+			if(BLOCK_SIZE_EMMC > l1_cpy + l2_cpy)
+				memset(cxt->virt_addr, '\0', BLOCK_SIZE_EMMC);
 		}
 
 		memcpy(cxt->virt_addr, s1 , l1_cpy);
@@ -531,9 +531,9 @@ static void ddr_panic_write(char *buf, unsigned long start,
 		return;
 	}
 
-	adr_bak = (char *)(adr + (offset * BLOCK_SIZE));
+	adr_bak = (char *)(adr + (offset * BLOCK_SIZE_EMMC));
 
-	for (cnt = 0 ; cnt < BLOCK_SIZE ; cnt++) {
+	for (cnt = 0 ; cnt < BLOCK_SIZE_EMMC ; cnt++) {
 		__raw_writeb(*buf, adr_bak);
 		adr_bak++;
 		buf++;
@@ -551,7 +551,7 @@ static void mmc_log_write_ddr(	struct mmcoops_context *cxt,
 	unsigned long l1_cpy, l2_cpy;
 	
 	{
-		unsigned long max_size = emmc_log_size * BLOCK_SIZE;
+		unsigned long max_size = emmc_log_size * BLOCK_SIZE_EMMC;
 		if (l2 > max_size) {
 			s2 += l2 - max_size;
 			l2 = max_size;
@@ -562,14 +562,14 @@ static void mmc_log_write_ddr(	struct mmcoops_context *cxt,
 		}
 	}
 	for (i = 1; i < emmc_log_size + 1; i++) {
-		if (l1 >= BLOCK_SIZE) {
-			l1_cpy = BLOCK_SIZE;
+		if (l1 >= BLOCK_SIZE_EMMC) {
+			l1_cpy = BLOCK_SIZE_EMMC;
 			l2_cpy = 0;
 		} else {
 			l1_cpy = l1;
-			l2_cpy = min(l2, BLOCK_SIZE - l1_cpy);
-			if(BLOCK_SIZE > l1_cpy + l2_cpy)
-				memset(cxt->virt_addr, '\0', BLOCK_SIZE);
+			l2_cpy = min(l2, BLOCK_SIZE_EMMC - l1_cpy);
+			if(BLOCK_SIZE_EMMC > l1_cpy + l2_cpy)
+				memset(cxt->virt_addr, '\0', BLOCK_SIZE_EMMC);
 		}
 
 		memcpy(cxt->virt_addr, s1 , l1_cpy);
@@ -693,7 +693,7 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 	 */
 
 	count = 0;
-	memset(cxt->virt_addr, '\0', BLOCK_SIZE);
+	memset(cxt->virt_addr, '\0', BLOCK_SIZE_EMMC);
 	add_to_buf(cxt->virt_addr, count, &cxt->next_counter,
 		   sizeof(cxt->next_counter));
 	add_to_buf(cxt->virt_addr, count, &cxt->local_version,
@@ -806,8 +806,8 @@ static void mmcoops_do_dump(struct kmsg_dumper *dumper,
 		}
 	}
 #ifdef CONFIG_CRASHLOG_EMMC
-	count = BLOCK_SIZE - sizeof(cxt->next_counter);
-	memset(cxt->virt_addr, '\0', BLOCK_SIZE);
+	count = BLOCK_SIZE_EMMC - sizeof(cxt->next_counter);
+	memset(cxt->virt_addr, '\0', BLOCK_SIZE_EMMC);
 	add_to_buf(cxt->virt_addr, count, &cxt->next_counter,
 		   sizeof(cxt->next_counter));
 	mmc_panic_write(cxt, cxt->virt_addr, cxt->start +
@@ -937,7 +937,7 @@ static int __init mmcoops_probe(struct platform_device *pdev)
 	cxt->record_size = record_size;
 #endif
 
-	cxt->virt_addr = kmalloc(BLOCK_SIZE, GFP_KERNEL);
+	cxt->virt_addr = kmalloc(BLOCK_SIZE_EMMC, GFP_KERNEL);
 	if (!cxt->virt_addr)
 		goto kmalloc_failed;
 
