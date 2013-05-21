@@ -22,7 +22,11 @@
 #include <linux/power_supply.h>
 #include <linux/regulator/machine.h>
 #include <linux/bq27425.h>
+#ifdef CONFIG_USB_SWITCH_TSU6712
 #include <linux/tsu6712.h>
+#else
+#include <../drivers/mfd/richtek/rt8973.h>
+#endif
 #include <linux/pmic/pmic.h>
 #include <linux/spa_power.h>
 #include <linux/spa_agent.h>
@@ -496,7 +500,7 @@ static int smb328a_set_charging_current(struct i2c_client *client, int chg_curre
 	struct smb328a_chip *chip = i2c_get_clientdata(client);
     int cable_type = get_cable_type();
 
-	pr_info("%s\n", __func__);
+	pr_info("%s: cable = %d\n", __func__, cable_type);
 
 	if (cable_type == CABLE_TYPE_USB)
 		chip->chg_mode = CHG_MODE_USB;
