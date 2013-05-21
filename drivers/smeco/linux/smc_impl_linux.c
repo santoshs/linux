@@ -1894,6 +1894,35 @@ struct tasklet_struct* smc_create_tasklet(smc_signal_handler_t* signal_handler, 
  */
 
 
+#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+
+void* smc_wakelock_create( char* wakelock_name )
+{
+    struct wake_lock* wakelock = (struct wake_lock*)SMC_MALLOC_IRQ( sizeof( struct wake_lock ) );
+
+    wake_lock_init(wakelock, WAKE_LOCK_SUSPEND, wakelock_name);
+
+    SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_wakelock_create: Created 0x%08X, name '%s'", (uint32_t)wakelock, wakelock_name);
+
+    return (void*)wakelock;
+}
+
+void smc_wakelock_destroy( void* wakelock_item )
+{
+    if( wakelock_item != NULL )
+    {
+        struct wake_lock* wlock = (struct wake_lock*)wakelock_item;
+
+        SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_wakelock_destroy: destroy 0x%08X", (uint32_t)wakelock );
+
+        wake_unlock( wlock );
+
+        SMC_FREE( wakelock_item );
+    }
+}
+
+#endif
+
 void smc_wake_lock( uint32_t data )
 {
     SMC_TRACE_PRINTF_SLEEP_CONTROL("smc_wake_lock: data: 0x%08X", data);
@@ -1904,6 +1933,9 @@ void smc_wake_unlock( uint32_t data )
     SMC_TRACE_PRINTF_SLEEP_CONTROL("smc_wake_unlock: data: 0x%08X", data);
 
 }
+
+
+
 
 
 /* EOF */

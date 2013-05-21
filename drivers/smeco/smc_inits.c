@@ -49,7 +49,6 @@ static inline smc_semaphore_t* get_local_mutex_smc_instance(void)
     return g_local_mutex_smc_instance;
 }
 
-
 /*
  * Static local functions
  */
@@ -131,6 +130,7 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
     smc->smc_parent_ptr         = parent_object;
     smc->init_status            = SMC_INSTANCE_STATUS_INIT_NONE;
     smc->instance_name          = smc_instance_conf->name;
+    smc->tx_wakelock_count      = 0;
 
     smc_instance_add( smc );
 
@@ -192,7 +192,7 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
 
         for(i = 0; i < smc_instance_conf->smc_channel_conf_count; i++ )
         {
-            smc_channel_t* channel = smc_channel_create( smc_instance_conf->smc_channel_conf_ptr_array[i] );
+            smc_channel_t* channel = smc_channel_create( smc, smc_instance_conf->smc_channel_conf_ptr_array[i] );
 
 /*
 #ifdef SMC_DMA_TRANSFER_ENABLED
@@ -254,7 +254,7 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
  *       must be copied to SMC channel because the configuration
  *       might be destroyed after the configuration.
  */
-smc_channel_t* smc_channel_create( smc_channel_conf_t* smc_channel_conf )
+smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_channel_conf )
 {
     smc_channel_t* channel = (smc_channel_t*)SMC_MALLOC( sizeof( smc_channel_t ) );
 
@@ -263,7 +263,7 @@ smc_channel_t* smc_channel_create( smc_channel_conf_t* smc_channel_conf )
         /* Setup the configuration */
     channel->id                            = smc_channel_conf->channel_id;
     channel->priority                      = smc_channel_conf->priority;
-    channel->smc_instance                  = NULL;
+    channel->smc_instance                  = smc_instance;
     channel->copy_scheme                   = smc_channel_conf->copy_scheme;
     channel->protocol                      = smc_channel_conf->protocol;
     channel->wake_lock_flags               = smc_channel_conf->wake_lock_flags;
@@ -280,8 +280,6 @@ smc_channel_t* smc_channel_create( smc_channel_conf_t* smc_channel_conf )
 
     channel->smc_receive_data_allocator_cb = (smc_receive_data_allocator_callback)smc_channel_conf->smc_receive_data_allocator_cb;
     channel->smc_event_cb                  = (smc_event_callback)smc_channel_conf->smc_event_cb;
-
-
 
         /*
          * FIFOs are created when channel is added to SMC instance and SHM is ready
@@ -347,6 +345,33 @@ smc_channel_t* smc_channel_create( smc_channel_conf_t* smc_channel_conf )
     channel->dropped_packets_fifo_buffer = 0;
     channel->send_packets_fifo_buffer    = 0;
     channel->fifo_buffer_copied_total    = 0;
+    channel->tx_queue_peak               = 0;
+    channel->rx_queue_peak               = 0;
+
+    /* TX wakelock */
+#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+    {
+        char* name        = NULL;
+        char* name_prefix = "smc_wakelock_tx_";
+        char* temp_str    = NULL;
+        int   str_len     = 0;
+
+        temp_str = smc_utoa( smc_instance->tx_wakelock_count++ );
+
+        str_len = strlen(name_prefix) + strlen(temp_str) + 1;
+
+        name = (char*)SMC_MALLOC_IRQ(str_len);
+
+        memset( name, 0, str_len );
+        strcpy( name, name_prefix );
+        strcpy( name+strlen(name_prefix), temp_str );
+
+        channel->smc_tx_wakelock = smc_wakelock_create(name);
+
+        SMC_FREE(temp_str);
+        //SMC_FREE(name);
+    }
+#endif
 
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
@@ -601,6 +626,13 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
             SMC_FREE( smc_channel->send_semaphore );
             smc_channel->send_semaphore = NULL;
         }
+
+        /* TX wakelock */
+#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+        smc_wakelock_destroy(smc_channel->smc_tx_wakelock);
+        smc_channel->smc_tx_wakelock = NULL;
+#endif
+
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
         if( smc_channel->smc_dma != NULL )
