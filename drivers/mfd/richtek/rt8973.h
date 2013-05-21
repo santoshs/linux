@@ -66,6 +66,7 @@ struct rt8973_data
     struct wake_lock uart_wakelock;		
 };
 
+int get_cable_type(void);
 
 /* Initial Setting */
 #ifdef CONFIG_RT8973_CM_AUTO
