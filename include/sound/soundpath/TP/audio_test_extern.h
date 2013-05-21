@@ -41,6 +41,11 @@
 /***********************************/
 #define AUDIO_TEST_IOC_MAGIC		'a'
 
+/***********************************/
+/* ioctl                           */
+/***********************************/
+#define AUDIO_TEST_PCMNAME_MAX_LEN	(100)
+
 /*---------------------------------------------------------------------------*/
 /* structure declaration                                                     */
 /*---------------------------------------------------------------------------*/
@@ -59,6 +64,15 @@ struct audio_test_ioctl_cmd {
 	u_int delay_val;	/**< Delay Valid */
 	u_int pt_state;		/**< PT state */
 	u_int call_kind;	/**< Call kind */
+};
+/*!
+  @brief	ioctl command.
+*/
+struct audio_test_ioctl_pcmname_cmd {
+	u_int pcmdirection;		/**< Direction(Playback/Capture) */
+	u_int pcmstate;			/**< PCM status(Open/Close) */
+	u_int pcmtype;			/**< PCM type(Normal/PT) */
+	char pcmname[AUDIO_TEST_PCMNAME_MAX_LEN];	/**< PCM name */
 };
 
 /*---------------------------------------------------------------------------*/
@@ -90,6 +104,10 @@ struct audio_test_ioctl_cmd {
 					struct audio_test_ioctl_cmd)
 #define AUDIO_TEST_IOCTL_STOPSOUNDPLAY	_IOR(AUDIO_TEST_IOC_MAGIC, 13, \
 					struct audio_test_ioctl_cmd)
+#define AUDIO_TEST_IOCTL_GET_PCMNAME	_IOR(AUDIO_TEST_IOC_MAGIC, 14, \
+					struct audio_test_ioctl_pcmname_cmd)
+#define AUDIO_TEST_IOCTL_SET_PCMNAME	_IOW(AUDIO_TEST_IOC_MAGIC, 15, \
+					struct audio_test_ioctl_pcmname_cmd)
 
 #ifndef __AUDIO_TEST_LIB_H__
 /*---------------------------------------------------------------------------*/
@@ -144,6 +162,32 @@ enum audio_test_fsi_port {
 	AUDIO_TEST_DRV_FSI_PORTA,	/**< 0x00: Port A. */
 	AUDIO_TEST_DRV_FSI_PORTB,	/**< 0x01: Port B. */
 	AUDIO_TEST_DRV_FSI_MAX
+};
+
+/*!
+  @brief	direction.
+*/
+enum audio_test_pcm_direction {
+	AUDIO_TEST_DRV_PCMDIR_PLAYBACK,	/**< 0x00: Playback. */
+	AUDIO_TEST_DRV_PCMDIR_CAPTURE,	/**< 0x01: Capture. */
+	AUDIO_TEST_DRV_PCMDIR_MAX
+};
+
+/*!
+  @brief	PCM status.
+*/
+enum audio_test_pcm_state {
+	AUDIO_TEST_DRV_PCMSTATE_OPEN,	/**< 0x00: PCM open. */
+	AUDIO_TEST_DRV_PCMSTATE_CLOSE,	/**< 0x01: PCM close. */
+	AUDIO_TEST_DRV_PCMSTATE_MAX
+};
+/*!
+  @brief	PCM type.
+*/
+enum audio_test_pcm_type {
+	AUDIO_TEST_DRV_PCMTYPE_NORMAL,	/**< 0x00: Normal */
+	AUDIO_TEST_DRV_PCMTYPE_PT,	/**< 0x01: PT */
+	AUDIO_TEST_DRV_PCMTYPE_MAX
 };
 #endif
 

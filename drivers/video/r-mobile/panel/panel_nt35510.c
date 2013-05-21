@@ -134,6 +134,8 @@
 static int nt35510_panel_suspend(void);
 static int nt35510_panel_resume(void);
 static void mipi_display_reset(void);
+static void mipi_display_power_off(void);
+static int nt35510_panel_draw(void *screen_handle);
 
 static struct fb_panel_info r_mobile_info = {
 	.pixel_width	= R_MOBILE_M_PANEL_PIXEL_WIDTH,
@@ -483,6 +485,7 @@ static struct specific_cmdset mauc1_cmd[] = {
 #endif
 
 static int is_dsi_read_enabled;
+static int power_supplied;
 
 static struct fb_info *common_fb_info;
 static int panel_specific_cmdset(void *lcd_handle,
@@ -506,18 +509,29 @@ struct lcd_info {
 
 static struct lcd_info lcd_info_data;
 
-#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
-#define DURATION_TIME 3000 /* 3000ms */
-#define SHORT_DURATION_TIME 500 /* 500ms */
+#if defined(CONFIG_FB_LCD_ESD)
+static struct workqueue_struct *lcd_wq;
+static struct work_struct esd_detect_work;
+static int esd_detect_irq;
+static irqreturn_t lcd_esd_irq_handler(int irq, void *dev_id);
+static unsigned int esd_irq_portno;
+static char *esd_devname  = "panel_esd_irq";
+static int esd_irq_requested;
+#endif /* CONFIG_FB_LCD_ESD */
+
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
 #define ESD_CHECK_DISABLE 0
 #define ESD_CHECK_ENABLE 1
 
-static struct delayed_work esd_check_work;
 static struct mutex esd_check_mutex;
 static int esd_check_flag;
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
 
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+#define DURATION_TIME 3000 /* 3000ms */
+#define SHORT_DURATION_TIME 500 /* 500ms */
 static int esd_duration;
-
+static struct delayed_work esd_check_work;
 #endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 static int lcdfreq_lock_free(struct device *dev)
@@ -558,13 +572,12 @@ out:
 	return ret;
 }
 
-#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
 static int nt35510_panel_simple_reset(void)
 {
 	void *screen_handle;
 	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_start_lcd start_lcd;
-	screen_disp_draw disp_draw;
 	screen_disp_delete disp_delete;
 	int ret;
 
@@ -577,21 +590,17 @@ static int nt35510_panel_simple_reset(void)
 	system_handle = system_pwmng_new();
 #endif
 
-	printk(KERN_DEBUG "%s\n", __func__);
+	printk(KERN_ALERT "%s\n", __func__);
 
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 	esd_duration = SHORT_DURATION_TIME;
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 	is_dsi_read_enabled = 0;
 	screen_handle =  screen_display_new();
 
 	/* Start suspend sequence */
 	/* GPIO control */
-	gpio_direction_output(reset_gpio, 0);
-	msleep(20);
-	gpio_direction_output(reset_gpio, 1);
-	regulator_disable(power_ldo_3v);
-	regulator_disable(power_ldo_1v8);
-	msleep(25);
-	gpio_direction_output(reset_gpio, 0);
+	mipi_display_power_off();
 
 	disp_stop_lcd.handle		= screen_handle;
 	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
@@ -627,9 +636,6 @@ static int nt35510_panel_simple_reset(void)
 	msleep(20);
 
 	/* Start resume sequence */
-	/* LCD panel reset */
-	mipi_display_reset();
-
 	/* Start a display to LCD */
 	start_lcd.handle	= screen_handle;
 	start_lcd.output_mode	= RT_DISPLAY_LCD1;
@@ -638,6 +644,9 @@ static int nt35510_panel_simple_reset(void)
 		printk(KERN_ALERT "disp_start_lcd err!\n");
 		goto out;
 	}
+
+	/* LCD panel reset */
+	mipi_display_reset();
 
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
@@ -649,23 +658,10 @@ static int nt35510_panel_simple_reset(void)
 
 	is_dsi_read_enabled = 1;
 
-	disp_draw.handle = screen_handle;
-	disp_draw.output_mode = RT_DISPLAY_LCD1;
-	disp_draw.draw_rect.x = 0;
-	disp_draw.draw_rect.y = 0;
-	disp_draw.draw_rect.width = R_MOBILE_M_PANEL_PIXEL_WIDTH;
-	disp_draw.draw_rect.height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
-#ifdef CONFIG_FB_SH_MOBILE_RGB888
-	disp_draw.format = RT_DISPLAY_FORMAT_RGB888;
-#else
-	disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
-#endif
-	disp_draw.buffer_id = RT_DISPLAY_BUFFER_A;
-	disp_draw.buffer_offset = 0;
-	disp_draw.rotate = RT_DISPLAY_ROTATE_270;
-	ret = screen_display_draw(&disp_draw);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
-		r_mobile_fb_err_msg(ret, "screen_display_draw err!");
+	/* Return from a black screen */
+	ret = nt35510_panel_draw(screen_handle);
+	if (ret != 0) {
+		printk(KERN_ALERT "nt35510_panel_draw error!!\n");
 		goto out;
 	}
 
@@ -682,8 +678,9 @@ out:
 
 	return ret;
 }
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
 
-
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 static int nt35510_panel_check(void)
 {
 	unsigned char rdnumed;
@@ -747,14 +744,22 @@ out:
 static void nt35510_panel_esd_check_work(struct work_struct *work)
 {
 	struct delayed_work *dwork = to_delayed_work(work);
+	int retry = NT35510_INIT_RETRY_COUNT;
 
 	/* For the disable entering suspend */
 	mutex_lock(&esd_check_mutex);
 
 	while ((esd_check_flag == ESD_CHECK_ENABLE) && (nt35510_panel_check()))
 		while ((esd_check_flag == ESD_CHECK_ENABLE) &&
-						(nt35510_panel_simple_reset()))
+					(nt35510_panel_simple_reset())) {
+			if (retry <= 0) {
+				esd_check_flag = ESD_CHECK_DISABLE;
+				printk(KERN_ALERT "retry count 0!!!!\n");
+				break;
+			}
+			retry--;
 			msleep(20);
+		}
 
 	if (esd_check_flag == ESD_CHECK_ENABLE)
 		schedule_delayed_work(dwork, msecs_to_jiffies(esd_duration));
@@ -974,6 +979,65 @@ static struct lcd_ops nt35510_lcd_ops = {
 
 #endif /* NT35510_GED_ORG */
 
+#if defined(CONFIG_FB_LCD_ESD)
+static void lcd_esd_detect(struct work_struct *work)
+{
+	int retry = NT35510_INIT_RETRY_COUNT;
+
+	/* For the disable entering suspend */
+	mutex_lock(&esd_check_mutex);
+
+	printk(KERN_ALERT "%s\n", __func__);
+
+	/* esd recovery */
+	while ((nt35510_panel_simple_reset()) &&
+				(esd_check_flag == ESD_CHECK_ENABLE)) {
+		if (retry <= 0) {
+			void *screen_handle;
+			screen_disp_stop_lcd disp_stop_lcd;
+			screen_disp_delete disp_delete;
+			int ret;
+
+			screen_handle =  screen_display_new();
+
+			mipi_display_power_off();
+
+			disp_stop_lcd.handle		= screen_handle;
+			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+			ret = screen_display_stop_lcd(&disp_stop_lcd);
+			if (ret != SMAP_LIB_DISPLAY_OK)
+				printk(KERN_ALERT "display_stop_lcd err!\n");
+
+			disp_delete.handle = screen_handle;
+			screen_display_delete(&disp_delete);
+
+			esd_check_flag = ESD_CHECK_DISABLE;
+			printk(KERN_ALERT "retry count 0!!!!\n");
+			break;
+		}
+		retry--;
+		msleep(20);
+	}
+
+	if (esd_check_flag == ESD_CHECK_ENABLE)
+		enable_irq(esd_detect_irq);
+
+	/* Enable suspend */
+	mutex_unlock(&esd_check_mutex);
+}
+
+static irqreturn_t lcd_esd_irq_handler(int irq, void *dev_id)
+{
+	if (dev_id == &esd_irq_requested) {
+		printk(KERN_ALERT "%s\n", __func__);
+
+		disable_irq_nosync(esd_detect_irq);
+		queue_work(lcd_wq, &esd_detect_work);
+		return IRQ_HANDLED;
+	}
+	return IRQ_NONE;
+}
+#endif /* CONFIG_FB_LCD_ESD */
 
 int panel_dsi_read(int id, int reg, int len, char *buf)
 {
@@ -1027,6 +1091,37 @@ out:
 	screen_display_delete(&disp_delete);
 
 	return ret;
+}
+
+static int nt35510_panel_draw(void *screen_handle)
+{
+	screen_disp_draw disp_draw;
+	int ret;
+
+	printk(KERN_DEBUG "%s\n", __func__);
+
+	/* Memory clean */
+	disp_draw.handle = screen_handle;
+	disp_draw.output_mode = RT_DISPLAY_LCD1;
+	disp_draw.draw_rect.x = 0;
+	disp_draw.draw_rect.y = 0;
+	disp_draw.draw_rect.width = R_MOBILE_M_PANEL_PIXEL_WIDTH;
+	disp_draw.draw_rect.height = R_MOBILE_M_PANEL_PIXEL_HEIGHT;
+#ifdef CONFIG_FB_SH_MOBILE_RGB888
+	disp_draw.format = RT_DISPLAY_FORMAT_RGB888;
+#else
+	disp_draw.format = RT_DISPLAY_FORMAT_ARGB8888;
+#endif
+	disp_draw.buffer_id = RT_DISPLAY_BUFFER_A;
+	disp_draw.buffer_offset = 0;
+	disp_draw.rotate = RT_DISPLAY_ROTATE_270;
+	ret = screen_display_draw(&disp_draw);
+	if (ret != SMAP_LIB_DISPLAY_OK) {
+		printk(KERN_ALERT "screen_display_draw err!\n");
+		return -1;
+	}
+
+	return 0;
 }
 
 static int nt35510_panel_draw_black(void *screen_handle)
@@ -1187,6 +1282,12 @@ static void mipi_display_reset(void)
 {
 	printk(KERN_INFO "%s\n", __func__);
 
+	/* Already power supply */
+	if (power_supplied) {
+		printk(KERN_ALERT "Already power supply!\n");
+		goto out;
+	}
+
 	regulator_enable(power_ldo_1v8);
 	usleep_range(1000, 1000);
 	regulator_enable(power_ldo_3v);
@@ -1198,6 +1299,30 @@ static void mipi_display_reset(void)
 	gpio_direction_output(reset_gpio, 1);
 
 	usleep_range(10000, 10000);
+
+out:
+	power_supplied = true;
+}
+
+static void mipi_display_power_off(void)
+{
+	printk(KERN_INFO "%s\n", __func__);
+
+	/* Already not power supply */
+	if (!power_supplied) {
+		printk(KERN_ALERT "Already not power supply!\n");
+		goto out;
+	}
+
+	/* GPIO control */
+	gpio_direction_output(reset_gpio, 0);
+	msleep(20);
+	regulator_disable(power_ldo_3v);
+	regulator_disable(power_ldo_1v8);
+	msleep(25);
+
+out:
+	power_supplied = false;
 }
 
 
@@ -1234,12 +1359,7 @@ static int nt35510_panel_init(unsigned int mem_size)
 	system_pwmng_delete(&pmg_delete);
 #endif
 
-retry:
 	screen_handle =  screen_display_new();
-
-	/* GPIO control */
-	gpio_request(reset_gpio, NULL);
-	gpio_direction_output(reset_gpio, 1);
 
 	/* LCD panel reset */
 #if 0
@@ -1247,6 +1367,8 @@ retry:
 #else
 	regulator_enable(power_ldo_1v8);
 	regulator_enable(power_ldo_3v);
+
+	power_supplied = true;
 #endif
 
 	/* Setting peculiar to panel */
@@ -1280,6 +1402,8 @@ retry:
 		printk(KERN_ALERT "disp_start_lcd err!\n");
 		goto out;
 	}
+
+retry:
 	is_dsi_read_enabled = 1;
 
 	/* Transmit DSI command peculiar to a panel */
@@ -1290,11 +1414,21 @@ retry:
 
 		if (retry_count == 0) {
 			printk(KERN_ALERT "retry count 0!!!!\n");
-			nt35510_panel_draw_black(screen_handle);
+
+			mipi_display_power_off();
+
+			disp_stop_lcd.handle		= screen_handle;
+			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+			ret = screen_display_stop_lcd(&disp_stop_lcd);
+			if (ret != SMAP_LIB_DISPLAY_OK)
+				printk(KERN_ALERT "display_stop_lcd err!\n");
+
 			ret = -ENODEV;
 			goto out;
 		} else {
 			retry_count--;
+
+			mipi_display_power_off();
 
 			/* Stop a display to LCD */
 			disp_stop_lcd.handle		= screen_handle;
@@ -1307,6 +1441,19 @@ retry:
 
 			disp_delete.handle = screen_handle;
 			screen_display_delete(&disp_delete);
+			screen_handle =  screen_display_new();
+
+			/* Start a display to LCD */
+			start_lcd.handle	= screen_handle;
+			start_lcd.output_mode	= RT_DISPLAY_LCD1;
+			ret = screen_display_start_lcd(&start_lcd);
+			if (ret != SMAP_LIB_DISPLAY_OK) {
+				printk(KERN_ALERT "disp_start_lcd err!\n");
+				goto out;
+			}
+
+			mipi_display_reset();
+
 			goto retry;
 		}
 	}
@@ -1367,9 +1514,21 @@ retry:
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 	esd_duration = DURATION_TIME;
-	esd_check_flag = ESD_CHECK_ENABLE;
 	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(esd_duration));
 #endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
+
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
+	esd_check_flag = ESD_CHECK_ENABLE;
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
+
+#if defined(CONFIG_FB_LCD_ESD)
+	ret = request_irq(esd_detect_irq, lcd_esd_irq_handler,
+			IRQF_ONESHOT, esd_devname, &esd_irq_requested);
+	if (ret != 0)
+		printk(KERN_ALERT "request_irq err! =%d\n", ret);
+	else
+		esd_irq_requested = true;
+#endif /* CONFIG_FB_LCD_ESD */
 
 out:
 	disp_delete.handle = screen_handle;
@@ -1392,10 +1551,16 @@ static int nt35510_panel_suspend(void)
 	system_pmg_delete pmg_delete;
 #endif
 
-#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+#if defined(CONFIG_FB_LCD_ESD)
+	if (esd_irq_requested)
+		free_irq(esd_detect_irq, &esd_irq_requested);
+	esd_irq_requested = false;
+#endif /* CONFIG_FB_LCD_ESD */
+
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
 	esd_check_flag = ESD_CHECK_DISABLE;
 	mutex_lock(&esd_check_mutex);
-#endif /*  CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
 
 	printk(KERN_INFO "%s\n", __func__);
 
@@ -1431,11 +1596,7 @@ static int nt35510_panel_suspend(void)
 		printk(KERN_ALERT "display_stop_lcd err!\n");
 
 	/* GPIO control */
-	gpio_direction_output(reset_gpio, 0);
-	msleep(20);
-	regulator_disable(power_ldo_3v);
-	regulator_disable(power_ldo_1v8);
-	msleep(25);
+	mipi_display_power_off();
 
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
@@ -1448,20 +1609,16 @@ static int nt35510_panel_suspend(void)
 	powarea_end_notify.handle		= system_handle;
 	powarea_end_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
 	ret = system_pwmng_powerarea_end_notify(&powarea_end_notify);
-	if (ret != SMAP_LIB_PWMNG_OK) {
+	if (ret != SMAP_LIB_PWMNG_OK)
 		printk(KERN_ALERT "system_pwmng_powerarea_end_notify err!\n");
-		pmg_delete.handle = system_handle;
-		system_pwmng_delete(&pmg_delete);
-		return -1;
-	}
 
 	pmg_delete.handle = system_handle;
 	system_pwmng_delete(&pmg_delete);
 #endif
 
-#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
 	mutex_unlock(&esd_check_mutex);
-#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
 
 
 	return 0;
@@ -1482,10 +1639,10 @@ static int nt35510_panel_resume(void)
 	system_pmg_delete pmg_delete;
 #endif
 
-#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
 	/* Wait for end of check ESD */
 	mutex_lock(&esd_check_mutex);
-#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
 
 	printk(KERN_INFO "%s\n", __func__);
 
@@ -1527,11 +1684,21 @@ retry:
 		is_dsi_read_enabled = 0;
 		if (retry_count == 0) {
 			printk(KERN_ALERT "retry count 0!!!!\n");
-			nt35510_panel_draw_black(screen_handle);
+
+			mipi_display_power_off();
+
+			disp_stop_lcd.handle		= screen_handle;
+			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
+			ret = screen_display_stop_lcd(&disp_stop_lcd);
+			if (ret != SMAP_LIB_DISPLAY_OK)
+				printk(KERN_ALERT "display_stop_lcd err!\n");
+
 			ret = -ENODEV;
 			goto out;
 		} else {
 			retry_count--;
+
+			mipi_display_power_off();
 
 			/* Stop a display to LCD */
 			disp_stop_lcd.handle		= screen_handle;
@@ -1597,14 +1764,30 @@ retry:
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 	/* Schedule check ESD */
 	esd_duration = DURATION_TIME;
-	esd_check_flag = ESD_CHECK_ENABLE;
-	mutex_unlock(&esd_check_mutex);
 	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(esd_duration));
 #endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
+
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
+	esd_check_flag = ESD_CHECK_ENABLE;
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
+
+#if defined(CONFIG_FB_LCD_ESD)
+	ret = request_irq(esd_detect_irq, lcd_esd_irq_handler,
+			IRQF_ONESHOT, esd_devname, &esd_irq_requested);
+	if (ret != 0)
+		printk(KERN_ALERT "request_irq err! =%d\n", ret);
+	else
+		esd_irq_requested = true;
+
+#endif /* CONFIG_FB_LCD_ESD */
 
 out:
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
+
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
+	mutex_unlock(&esd_check_mutex);
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
 
 	return ret;
 }
@@ -1619,6 +1802,10 @@ static int nt35510_panel_probe(struct fb_info *info,
 	printk(KERN_INFO "%s\n", __func__);
 
 	reset_gpio = hw_info.gpio_reg;
+
+	/* GPIO control */
+	gpio_request(reset_gpio, NULL);
+	gpio_direction_output(reset_gpio, 1);
 
 	/* fb parent device info to platform_device */
 	pdev = to_platform_device(info->device);
@@ -1664,11 +1851,39 @@ static int nt35510_panel_probe(struct fb_info *info,
 
 	lcd_info_data.power = FB_BLANK_UNBLANK;
 
-#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
 	esd_check_flag = ESD_CHECK_DISABLE;
 	mutex_init(&esd_check_mutex);
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
+
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 	INIT_DELAYED_WORK(&esd_check_work, nt35510_panel_esd_check_work);
 #endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
+
+#if defined(CONFIG_FB_LCD_ESD)
+	/* get resource info from platform_device */
+	res_irq_port	= platform_get_resource_byname(pdev,
+							IORESOURCE_MEM,
+							"panel_esd_irq_port");
+	if (!res_irq_port) {
+		printk(KERN_ALERT "panel_esd_irq_port is NULL!!\n");
+		return -ENODEV;
+	}
+	esd_irq_portno = res_irq_port->start;
+
+	/* GPIO control */
+	gpio_request(esd_irq_portno, NULL);
+	gpio_direction_input(esd_irq_portno);
+	gpio_pull_off_port(esd_irq_portno);
+
+	printk(KERN_INFO "GPIO_PORT%d : for ESD detect\n", esd_irq_portno);
+
+	lcd_wq = create_workqueue("lcd_esd_irq_wq");
+	INIT_WORK(&esd_detect_work, lcd_esd_detect);
+	esd_detect_irq = gpio_to_irq(esd_irq_portno);
+	printk(KERN_INFO "IRQ%d       : for ESD detect\n", esd_detect_irq);
+
+#endif /* CONFIG_FB_LCD_ESD */
 
 	return 0;
 
@@ -1683,14 +1898,21 @@ static int nt35510_panel_remove(struct fb_info *info)
 {
 	printk(KERN_INFO "%s\n", __func__);
 
-#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
 	esd_check_flag = ESD_CHECK_DISABLE;
 
 	/* Wait for end of check to power mode state */
 	mutex_lock(&esd_check_mutex);
 	mutex_unlock(&esd_check_mutex);
+	mutex_destroy(&esd_check_mutex);
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
 
-#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
+#if defined(CONFIG_FB_LCD_ESD)
+	free_irq(esd_detect_irq, &esd_irq_requested);
+	gpio_free(esd_irq_portno);
+#endif /* CONFIG_FB_LCD_ESD */
+
+	gpio_free(reset_gpio);
 
 	/* unregister sysfs for LCD frequency control */
 	nt35510_lcd_frequency_unregister();
