@@ -291,7 +291,7 @@ static long rcvry_drv_sub_wait_killable(struct file *fp)
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
 	ret = mfis_drv_resume();
 #endif
-	if(error < 0){
+	if (error < 0) {
 		down(&g_rcvry_sem);
 		MSG_MED("[RCVRYD]INF|[%s] completion current->flags = %#x\n",
 		__func__, current->flags);
@@ -305,8 +305,8 @@ static long rcvry_drv_sub_wait_killable(struct file *fp)
 		MSG_MED("[RCVRYD]INF|[%s] completion tsk->tgid = %d\n",
 		__func__, tsk->tgid);
 
-		if((tsk != NULL) && !(tsk->flags & (PF_EXITING | PF_EXITPIDONE))){
-			MSG_HIGH("[RCVRYD]INF|[%s] not PF_EXITING \n",
+		if ((tsk != NULL) && !(tsk->flags & (PF_EXITING | PF_EXITPIDONE))) {
+			MSG_HIGH("[RCVRYD]INF|[%s] not PF_EXITING\n",
 				 __func__);
 			up(&g_rcvry_sem);
 			return -EINTR;
