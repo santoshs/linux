@@ -29,6 +29,7 @@
 #include <linux/completion.h>
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
+#include <linux/jiffies.h>
 
 #include <system_memory.h>
 #include "log_kernel.h"
@@ -79,6 +80,7 @@ spinlock_t			g_rtds_memory_lock_map_rtmem;
 struct list_head		g_rtds_memory_list_reg_phymem;
 struct semaphore		g_rtds_memory_phy_mem;
 struct semaphore		g_rtds_memory_send_sem;
+long				g_rtds_memory_sem_jiffies;
 #ifdef RTDS_SUPPORT_CMA
 spinlock_t			g_rtds_memory_lock_cma;
 struct list_head		g_rtds_memory_list_cma;
@@ -790,6 +792,9 @@ int rtds_memory_init_module(
 	init_MUTEX(&g_rtds_memory_shared_mem);
 	init_MUTEX(&g_rtds_memory_phy_mem);
 	init_MUTEX(&g_rtds_memory_send_sem);
+
+	/* Convert timeout value */
+	g_rtds_memory_sem_jiffies = msecs_to_jiffies(RTDS_MEM_WAIT_TIMEOUT);
 
 	/* Get section info */
 	section.section_header = &section_header;
