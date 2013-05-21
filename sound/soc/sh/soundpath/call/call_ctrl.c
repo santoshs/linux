@@ -2126,6 +2126,9 @@ static void call_work_record_incomm_dummy_set(struct sndp_work_info *work)
 	else
 		buf_size = pcm_info->save_buf_size;
 
+	if (buf_size <= (runtime->status->hw_ptr - runtime->control->appl_ptr))
+		goto no_proc;
+
 	/* If Buffer >= Data */
 	if ((g_call_record_incomm_len + buf_size) <=
 		(pcm_info->buffer_len - pcm_info->byte_offset)) {
