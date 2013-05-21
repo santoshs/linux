@@ -1917,9 +1917,13 @@ static int sh_dmae_runtime_suspend(struct device *dev)
 static int sh_dmae_runtime_resume(struct device *dev)
 {
 	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
-	if (shdev && shdev->clk)
+	if (shdev == NULL || shdev->clk == NULL) {
+		return -ENODEV;
+	}
+	else {
 		clk_enable(shdev->clk);
-	return sh_dmae_rst(shdev);
+		return sh_dmae_rst(shdev);
+	}
 }
 
 #ifdef CONFIG_PM

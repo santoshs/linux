@@ -3197,12 +3197,12 @@ static ssize_t menu_sensitivity_show(struct device *dev, struct device_attribute
 	enable_irq(misc_touch_dev->irq);
 	up(&misc_touch_dev->work_proceedure_lock);
 
-	sprintf(buf, "%d\n", val);
-
-	return;
+	ret = sprintf(buf, "%d\n", val);
+	return ret;
 
 err_out:
-	sprintf(buf, "%s", "abnormal");
+	ret = sprintf(buf, "%s", "abnormal");
+	return ret;
 }
 
 static ssize_t back_sensitivity_show(struct device *dev,
@@ -3235,12 +3235,12 @@ static ssize_t back_sensitivity_show(struct device *dev,
 	enable_irq(misc_touch_dev->irq);
 	up(&misc_touch_dev->work_proceedure_lock);
 
-	sprintf(buf, "%d\n", val);
-
-	return;
+	ret = sprintf(buf, "%d\n", val);
+	return ret;
 
 err_out:
-	sprintf(buf, "%s", "abnormal");
+	ret = sprintf(buf, "%s", "abnormal");
+	return ret;
 }
 
 static ssize_t touchkey_threshold_show(struct device *dev,
@@ -3253,11 +3253,11 @@ static ssize_t touchkey_threshold_show(struct device *dev,
 	char buff[16] = {0};
 	ret = ts_read_data(misc_touch_dev->client, ZINITIX_BUTTON_SENSITIVITY, (u8*)&threshold, 2);
 	if (ret < 0) {
-		sprintf(buf, "%s", "fail");
-		return;
+		ret = sprintf(buf, "%s", "fail");
+		return ret;
 	}
-	sprintf(buf, "%d\n", threshold);
-	return;
+	ret = sprintf(buf, "%d\n", threshold);
+	return ret;
 
 }
 #endif
@@ -3872,10 +3872,14 @@ static int zinitix_touch_probe(struct i2c_client *client,
 #ifdef	GPIO_TOUCH_IRQ
 	touch_dev->irq = GPIO_TOUCH_IRQ;
 #else
-	touch_dev->irq = gpio_to_irq(touch_dev->int_gpio_num);
-	if (touch_dev->irq < 0)
+	ret  = gpio_to_irq(touch_dev->int_gpio_num);
+	if (ret < 0) {
 		printk(KERN_INFO "error. gpio_to_irq(..) function is not \
 			supported? you should define GPIO_TOUCH_IRQ.\n");
+		goto err_request_irq;
+	}
+	touch_dev->irq = ret ;
+
 #endif
 	zinitix_debug_msg("request irq (irq = %d, pin = %d) \n",
 		touch_dev->irq, touch_dev->int_gpio_num);

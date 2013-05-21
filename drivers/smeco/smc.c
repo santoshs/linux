@@ -1182,8 +1182,7 @@ uint8_t smc_channel_send_config( smc_channel_t* smc_channel, uint32_t configurat
     }
     else
     {
-        if( wait_reply )
-        {
+        if( wait_reply && reply_var) {
             uint32_t  timer_counter  = 0;
 
             SMC_TRACE_PRINTF_DEBUG("smc_channel_send_config: wait reply...");
@@ -1595,6 +1594,10 @@ uint8_t smc_send_crash_indication( smc_channel_t* smc_channel, char* crash_messa
         iCrashMessageLen += 14;
 
         crash_data_message = (char*)SMC_MALLOC(iCrashMessageLen);
+		if( crash_data_message == NULL ) {
+			ret_val = SMC_ERROR;
+			return ret_val;
+		}
 
         strcpy(crash_data_message+iIndex, SMC_CPU_NAME);
         iIndex += iCpuNameLen;
@@ -2879,7 +2882,7 @@ uint8_t smc_signal_add_handler( smc_signal_handler_t* signal_handler )
 
     signal_handler_count++;
 
-    signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(signal_handler_ptr_array) * signal_handler_count );
+    signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof( *signal_handler_ptr_array) * signal_handler_count );
 
     if( old_ptr_array )
     {
@@ -3063,7 +3066,7 @@ static uint8_t smc_channel_handle_sync( smc_channel_t* smc_channel, uint32_t syn
         }
         case SMC_MSG_FLAG_SYNC_INFO_RESP:
         {
-            if( !SMC_CHANNEL_STATE_SET_SYNC_SENT( smc_channel->state ) )
+            if( NULL == SMC_CHANNEL_STATE_SET_SYNC_SENT( smc_channel->state ) )
             {
                 SMC_TRACE_PRINTF_DEBUG("smc_channel_handle_sync(ch %d, 0x%08X): ====> Received RESP without REQ, setting state synchronized anyway", smc_channel->id,(uint32_t)smc_channel);
             }
@@ -3507,7 +3510,7 @@ uint8_t smc_shared_variable_add( smc_shared_variable_address_info* shm_var_info 
 
     g_smc_shared_variable_address_info_count++;
 
-    g_smc_shared_variable_address_info_array = (smc_shared_variable_address_info **)SMC_MALLOC( sizeof(smc_shared_variable_address_info) * g_smc_shared_variable_address_info_count );
+    g_smc_shared_variable_address_info_array = (smc_shared_variable_address_info **)SMC_MALLOC( sizeof(*g_smc_shared_variable_address_info_array) * g_smc_shared_variable_address_info_count );
 
     if( old_ptr_array )
     {
