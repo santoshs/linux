@@ -124,6 +124,7 @@ spinlock_t lock_log;
 
 #define RCU_MERAM_STPSEQ_NORMAL	(0)
 #define RCU_MERAM_STPSEQ_FORCE	(1)
+#define RCU_MERAM_STP_FORCE	(2)
 
 #define RCU_IPMMU_IMCTCR1	(0x00)
 #define RCU_IPMMU_IMCTCR2	(0x04)
@@ -483,6 +484,7 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 {
 	u32 reg_set = 0x20;		/* NORMAL */
 	u32 read_reg = 0;
+	u32 reg_actst1;
 	if (mode)
 		reg_set = 0x60;		/* FORCE */
 	if ((SH_RCU_MODE_IMAGE == pcdev->image_mode) && (!pcdev->output_ext)) {
@@ -490,14 +492,40 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL_C, reg_set);
 		return;
 	}
+	reg_actst1 = meram_read(pcdev, RCU_MERAM_ACTST1);
+	reg_actst1 &= (3 << (RCU_MERAM_CH(pcdev->meram_ch) - 32));
 
 	if (RCU_MERAM_FRAMEA == pcdev->meram_frame) {
+		if ((RCU_MERAM_STP_FORCE == mode) && (reg_actst1 & 0x1)) {
+			dev_warn(pcdev->icd->parent,
+				"MERAM FORCE NoAct %s :"
+				"  ACTST1[%08x] "
+				"    CTRL[%08x] "
+				"  CTRL_C[%08x]\n",
+				pcdev->meram_frame ? "B" : "A",
+				meram_read(pcdev, RCU_MERAM_ACTST1),
+				meram_ch_read(pcdev, RCU_MERAM_CTRL),
+				meram_ch_read(pcdev, RCU_MERAM_CTRL_C));
+			return;
+		}
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL, reg_set);
 		read_reg = meram_ch_read(pcdev, RCU_MERAM_CTRL_C);
 		if (read_reg & 0x60)
 			meram_ch_write(pcdev, RCU_MERAM_CTRL_C,
 				read_reg | 0x60);
 	} else {
+		if ((RCU_MERAM_STP_FORCE == mode) && (reg_actst1 & 0x2)) {
+			dev_warn(pcdev->icd->parent,
+				"MERAM FORCE NoAct %s :"
+				"  ACTST1[%08x] "
+				"    CTRL[%08x] "
+				"  CTRL_C[%08x]\n",
+				pcdev->meram_frame ? "B" : "A",
+				meram_read(pcdev, RCU_MERAM_ACTST1),
+				meram_ch_read(pcdev, RCU_MERAM_CTRL),
+				meram_ch_read(pcdev, RCU_MERAM_CTRL_C));
+			return;
+		}
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL_C, reg_set);
 		read_reg = meram_ch_read(pcdev, RCU_MERAM_CTRL);
 		if (read_reg & 0x60)
@@ -924,7 +952,7 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 				"MERAM stop %s-MODE,FRAME-%s\n",
 				pcdev->image_mode ? "DATA" : "IMAGE",
 				pcdev->meram_frame ? "B" : "A");
-			meram_stop_seq(pcdev, RCU_MERAM_STPSEQ_NORMAL);
+			meram_stop_seq(pcdev, RCU_MERAM_STPSEQ_FORCE);
 			dev_geo(pcdev->icd->parent, "%s:meram clear\n",
 				__func__);
 		}
@@ -1434,7 +1462,7 @@ static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 
 	if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
 		u32 reg_actst1;
-		meram_stop_seq(pcdev, RCU_MERAM_STPSEQ_FORCE);
+		meram_stop_seq(pcdev, RCU_MERAM_STP_FORCE);
 		dev_geo(pcdev->icd->parent, "%s:meram stop\n", __func__);
 		for (i = 0; i < 10000; i++) {
 			reg_actst1 = meram_read(pcdev, RCU_MERAM_ACTST1);
