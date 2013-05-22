@@ -431,8 +431,9 @@ static long d2153_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case D2153_IOCTL_READ_REG:
 		if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 			return -EFAULT;
-
-		ret = d2153_read(d2153, reg.reg, 1, &reg_val);
+		if (reg.reg >= 0x100)
+			return -EINVAL;
+		ret = d2153_read(d2153, (u8)reg.reg, 1, &reg_val);
 		reg.val = (unsigned short)reg_val;
 		if (copy_to_user((pmu_reg *)arg, &reg, sizeof(pmu_reg)) != 0)
 			return -EFAULT;
@@ -441,7 +442,9 @@ static long d2153_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case D2153_IOCTL_WRITE_REG:
 		if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 			return -EFAULT;
-		ret = d2153_write(d2153, reg.reg, 1, (u8 *)&reg.val);
+		if (reg.reg >= 0x100)
+			return -EINVAL;
+		ret = d2153_write(d2153, (u8)reg.reg, 1, (u8 *)&reg.val);
 		break;
 
 	default:
