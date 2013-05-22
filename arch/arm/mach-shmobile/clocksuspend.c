@@ -2181,105 +2181,120 @@ static int clk_debugfs_register_one(unsigned int index)
 		return -ENOMEM;
 	array_dent[index] = d;
 
-	d = debugfs_create_u8("i_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("i_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].i_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("zg_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("zg_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zg_clk);
 	if (!d) {
 		err = -ENOMEM;
-	goto err_out;
+		goto err_out;
 	}
 
-	d = debugfs_create_u8("b_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("b_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].b_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("m1_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("m1_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].m1_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("m3_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("m3_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].m3_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("m5_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("m5_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].m5_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("z_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("z_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].z_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("ztr_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("ztr_clk", (S_IRUSR | S_IWUSR | S_IRGRP |
+			S_IROTH), array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].ztr_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("zt_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("zt_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zt_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("zx_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("zx_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zx_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("hp_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("hp_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].hp_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("zs_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("zs_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zs_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("zb_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("zb_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zb_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u32("zb3_freq", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u32("zb3_freq", (S_IRUSR | S_IWUSR | S_IRGRP |
+			S_IROTH), array_dent[index],
 			(u32 *)&__shmobile_freq_modes_es2_x[index].zb3_freq);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("pll0", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("pll0", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].pll0);
 	if (!d) {
 		err = -ENOMEM;
