@@ -767,12 +767,21 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	d2153_aad_ex->headset_dev = device_create(d2153_aad_ex->audio_class,
 						NULL, client->dev.devt,
 						NULL, "earjack");
-	device_create_file(d2153_aad_ex->headset_dev,
+	ret = device_create_file(d2153_aad_ex->headset_dev,
 			&headset_Attrs[STATE]);
-	device_create_file(d2153_aad_ex->headset_dev,
+	if (0 != ret)
+		dlg_err("[%s] : device_create_file(STATE)= %d\n",
+			__func__, ret);
+	ret = device_create_file(d2153_aad_ex->headset_dev,
 			&headset_Attrs[KEY_STATE]);
-	device_create_file(d2153_aad_ex->headset_dev,
+	if (0 != ret)
+		dlg_err("[%s] : device_create_file(KEY_STATE)= %d\n",
+			__func__, ret);
+	ret = device_create_file(d2153_aad_ex->headset_dev,
 			&headset_Attrs[ADC]);
+	if (0 != ret)
+		dlg_err("[%s] : device_create_file(ADC)= %d\n",
+			__func__, ret);
 	dlg_info("--------------------------------------------+++++++\n");
 	d2153_register_irq(d2153_aad->d2153_codec->d2153_pmic,
 			D2153_IRQ_EACCDET, d2153_button_handler, 0,

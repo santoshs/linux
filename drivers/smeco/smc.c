@@ -2231,7 +2231,6 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                                     SMC_TRACE_PRINTF_ERROR("smc_channel_interrupt_handler: channel %d: SMC_MSG_FLAG_SHM_VAR_ADDRESS_REQ, No memory for shared variable name", smc_channel->id);
                                 }
 
-
                                 userdata_free.flags     = SMC_MSG_FLAG_FREE_MEM_MDB;
                                 userdata_free.userdata1 = userdata.userdata1;
                                 userdata_free.userdata2 = userdata.userdata2;
@@ -2622,16 +2621,12 @@ uint8_t smc_add_channel(smc_t* smc_instance, smc_channel_t* smc_channel, smc_cha
     uint8_t           ret_val           = SMC_OK;
     smc_channel_t**   old_channel_array = NULL;
     smc_shm_config_t* channel_shm       = NULL;
-    //smc_lock_t*       local_lock        = NULL;
     smc_semaphore_t*  local_mutex        = NULL;
 
     assert( smc_instance != NULL );
     assert( smc_channel_conf != NULL );
 
     SMC_TRACE_PRINTF_DEBUG("smc_add_channel: channel 0x%08X to SMC instance 0x%08X starts...", (uint32_t)smc_channel, (uint32_t)smc_instance);
-
-    //local_lock = get_local_lock_smc_channel();
-    //SMC_LOCK_IRQ( local_lock );
 
     local_mutex = get_local_mutex_smc_channel();
     SMC_LOCK_MUTEX( local_mutex );
@@ -3619,6 +3614,8 @@ void smc_instance_dump(smc_t* smc_instance)
             SMC_TRACE_PRINTF_ALWAYS("SMC:     Out of MDB mem send %d times, Fifo buffer delivered %d, lost %d, buffered %d bytes",
                     channel->dropped_packets_mdb_out, channel->send_packets_fifo_buffer,channel->dropped_packets_fifo_buffer,
                     channel->fifo_buffer_copied_total);
+
+            SMC_TRACE_PRINTF_ALWAYS("SMC:     TX queue peak %d, RX queue peak %d", channel->tx_queue_peak, channel->rx_queue_peak );
 
             /* Dump the FIFO, SIGNAL and MDB data */
 
