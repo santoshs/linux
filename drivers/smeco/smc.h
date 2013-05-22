@@ -14,6 +14,10 @@
 /*
 Change history:
 
+Version:       51   25-Apr-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.51
+
 Version:       50   25-Apr-2013     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.50
