@@ -183,6 +183,13 @@ typedef struct {
 	unsigned int	map_id;
 } rtds_memory_rcv_data;
 
+struct rtds_mem_dump_info {
+	struct list_head list;
+	unsigned int tgid;
+	unsigned int size;
+	struct task_struct *task_info;
+};
+
 #ifdef RTDS_SUPPORT_CMA
 typedef struct {
 	struct list_head	list_head;
