@@ -22,7 +22,8 @@
 #include <mach/setup-u2ion.h>
 
 #if defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) /* Gardalte, Logan */
+	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
+	/* Gardalte, Logan */
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
 	defined(CONFIG_SOC_CAMERA_SR030PC50) /* Select by board Rev */
 struct i2c_board_info i2c_cameras[] = {
@@ -213,7 +214,8 @@ int camera_init(void)
 	printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 
 #if defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) /* Gardalte, Logan */
+	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
+	/* Gardalte, Logan */
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
 	defined(CONFIG_SOC_CAMERA_SR030PC50) /* Select by board Rev */
 	csi20_info.clients[0].lanes = 0x3;
@@ -1143,7 +1145,7 @@ int SR130PC20_power(struct device *dev, int power_on)
 		if (IS_ERR(regulator_io))
 			return -1;
 		regulator_set_voltage(regulator_io, 1800000, 1800000);
-		
+
 		regulator_enable(regulator_io);
 		regulator_put(regulator_io);
 		mdelay(1);
@@ -1153,7 +1155,7 @@ int SR130PC20_power(struct device *dev, int power_on)
 		if (IS_ERR(regulator_a))
 			return -1;
 		regulator_set_voltage(regulator_a, 2800000, 2800000);
-		
+
 		regulator_enable(regulator_a);
 		regulator_put(regulator_a);
 		mdelay(1);

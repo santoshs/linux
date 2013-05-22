@@ -1,7 +1,7 @@
 #ifdef CONFIG_MACH_GARDALTE
 #include "board-gardalte.h"
 #endif
-#ifdef CONFIG_MACH_LOGANLTE
+#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
 #include "board-loganlte.h"
 #endif
 #ifdef CONFIG_MACH_LT02LTE
