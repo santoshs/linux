@@ -61,7 +61,7 @@ static int bcm4334_bt_rfkill_set_power(void *data, bool blocked)
 {
 	// rfkill_ops callback. Turn transmitter on when blocked is false
 	static int rfkill_pwr_init = 1; 
-	printk("%s: %s\n", __func__, (blocked ? "off" : "on" ));
+	printk(KERN_DEBUG "%s: %s\n", __func__, (blocked ? "off" : "on" ));
 	
 	if (!blocked) {
 #if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
@@ -93,7 +93,7 @@ static const struct rfkill_ops bcm4334_bt_rfkill_ops = {
 
 static void set_wake_locked(int wake)
 {
-	printk("%s: %s\n", __func__, (wake ? "lock" : "unlock"));
+	printk(KERN_DEBUG "%s: %s\n", __func__, (wake ? "lock" : "unlock"));
 	bt_lpm.wake = wake;
 
 	if (!wake)
@@ -112,7 +112,7 @@ static enum hrtimer_restart enter_lpm(struct hrtimer *timer) {
 
 #ifdef BT_LPM_ENABLE
 void bcm_bt_lpm_exit_lpm_locked(struct uart_port *uport) {
-	printk("Yang bcm_bt_lpm_exit_lpm_locked uport : 0x%p\n", uport);
+//	printk("Yang bcm_bt_lpm_exit_lpm_locked uport : 0x%p\n", uport);
 	bt_lpm.uport = uport;
 
 	hrtimer_try_to_cancel(&bt_lpm.enter_lpm_timer);
@@ -127,7 +127,7 @@ EXPORT_SYMBOL(bcm_bt_lpm_exit_lpm_locked);
 
 static void update_host_wake_locked(int host_wake)
 {
-	printk("%s: %s\n", __func__, (host_wake ? "lock" : "unlock"));
+	printk(KERN_DEBUG "%s: %s\n", __func__, (host_wake ? "lock" : "unlock"));
 
 	if (host_wake == bt_lpm.host_wake)
 		return;
@@ -149,12 +149,12 @@ static irqreturn_t host_wake_isr(int irq, void *dev)
 	int host_wake;
 	unsigned long flags;
 
-	printk("%s: irq number = %i\n", __func__, irq);
+	printk(KERN_DEBUG "%s: irq number = %i\n", __func__, irq);
 
 	host_wake = gpio_get_value(BT_HOST_WAKE_GPIO);
 	irq_set_irq_type(irq, host_wake ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH);
 
-  printk("Yang host_wake_isr bt_lpm.uport : 0x%p\n", bt_lpm.uport);
+//  printk("Yang host_wake_isr bt_lpm.uport : 0x%p\n", bt_lpm.uport);
   
 	if (!bt_lpm.uport) {
 		bt_lpm.host_wake = host_wake;
@@ -175,7 +175,7 @@ static int bcm_bt_lpm_init(struct platform_device *pdev)
 	int ret;
 	int rc;
 
-	printk("%s: Enter\n", __func__);
+	printk(KERN_ALERT "%s: Enter\n", __func__);
 
 	rc = gpio_request(BT_WAKE_GPIO, "bcm4334_wake_gpio");
 	if (unlikely(rc)) {
@@ -231,7 +231,7 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 	int ret = 0;
 	int rc = -EINVAL;
 
-	printk("%s: Enter\n", __func__);
+	printk(KERN_ALERT "%s: Enter\n", __func__);
 
 	rc = gpio_request(BT_REG_GPIO, "bcm4334_nshutdown_gpio");
 	if (unlikely(rc))
@@ -257,7 +257,7 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	printk("%s: RFKILL Alloc Done\n", __func__);
+	printk(KERN_ALERT "%s: RFKILL Alloc Done\n", __func__);
 
 	rfkill_init_sw_state(bt_rfkill, 0);//Set BT_EN default to low
 	rc = rfkill_register(bt_rfkill);
@@ -271,7 +271,7 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	printk("%s: RFKILL registered\n", __func__);
+	printk(KERN_ALERT "%s: RFKILL registered\n", __func__);
 
 	rfkill_set_states(bt_rfkill, true, false);
 	bcm4334_bt_rfkill_set_power(NULL, true);
@@ -286,10 +286,10 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 #if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 		gpio_free(BT_RESET_GPIO);
 #endif
-		printk("%s: bcm_lpm_init Failed ! err = %d\n", __func__, ret);
+		printk(KERN_ERR "%s: bcm_lpm_init Failed ! err = %d\n", __func__, ret);
 	}
 #endif
-	printk("%s: Done\n", __func__);
+	printk(KERN_ALERT "%s: Done\n", __func__);
 	
 	return ret;
 }
@@ -316,7 +316,7 @@ int bcm4430_bluetooth_suspend(struct platform_device *pdev, pm_message_t state)
 	int irq = gpio_to_irq(BT_HOST_WAKE_GPIO);
 	int host_wake;
 
-	printk("%s: Enter\n", __func__);
+	printk(KERN_ALERT "%s: Enter\n", __func__);
 
 	disable_irq(irq);
 	host_wake = gpio_get_value(BT_HOST_WAKE_GPIO);
@@ -333,7 +333,7 @@ int bcm4430_bluetooth_resume(struct platform_device *pdev)
 {
 	int irq = gpio_to_irq(BT_HOST_WAKE_GPIO);
 	
-	printk("%s: Enter\n", __func__);
+	printk(KERN_ALERT "%s: Enter\n", __func__);
 	
 	enable_irq(irq);
 	return 0;
