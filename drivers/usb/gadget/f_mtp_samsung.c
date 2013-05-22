@@ -55,7 +55,9 @@
 #include "f_mtp.h"
 #include "gadget_chips.h"
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) 
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
+	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
+	defined(CONFIG_MACH_LOGANLTE_LATIN)
 /*#ifdef CONFIG_MACH_U2EVM*/
 #include <linux/clk.h>
 #include <linux/sh_clk.h>
@@ -500,8 +502,9 @@ static int mtpg_open(struct inode *ip, struct file *fp)
 
 	the_mtpg->error = 0;
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) 
-/*#ifdef CONFIG_MACH_U2EVM*/
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
+	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
+	defined(CONFIG_MACH_LOGANLTE_LATIN)
 	{
 		int ret = stop_cpufreq();
 		DBG(the_mtpg->cdev, "%s(): stop_cpufreq\n", __func__);
@@ -1109,7 +1112,9 @@ static int mtpg_release_device(struct inode *ip, struct file *fp)
 	if (the_mtpg != NULL)
 		_unlock(&the_mtpg->open_excl);
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) 
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
+	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
+	defined(CONFIG_MACH_LOGANLTE_LATIN)
 /*#ifdef CONFIG_MACH_U2EVM*/
 	if (!dfs_started) {
 		start_cpufreq();
@@ -1370,7 +1375,7 @@ static int mtpg_function_set_alt(struct usb_function *f,
 		return ret;
 	}
 	dev->int_in->driver_data = dev;
-	
+
 
 	if (dev->bulk_in->driver_data)
 		usb_ep_disable(dev->bulk_in);
@@ -1379,7 +1384,7 @@ static int mtpg_function_set_alt(struct usb_function *f,
 	if (ret)
 		return ret;
 	ret = usb_ep_enable(dev->bulk_in);
-		
+
 	if (ret) {
 		usb_ep_disable(dev->bulk_in);
 		dev->bulk_in->driver_data = NULL;
@@ -1391,12 +1396,12 @@ static int mtpg_function_set_alt(struct usb_function *f,
 
 	if (dev->bulk_out->driver_data)
 		usb_ep_disable(dev->bulk_out);
-		
+
 	ret = config_ep_by_speed(cdev->gadget, f, dev->bulk_out);
 	if (ret)
 		return ret;
 	ret = usb_ep_enable(dev->bulk_out);
-	
+
 	if (ret) {
 		usb_ep_disable(dev->bulk_out);
 		dev->bulk_out->driver_data = NULL;

@@ -28,7 +28,7 @@
 #include <mach/common.h>
 
 #include <linux/k3dh.h>
-#include <linux/k3dh_dev.h> 
+#include <linux/k3dh_dev.h>
 #include <linux/pm.h>
 #include <linux/regulator/consumer.h>
 
@@ -57,9 +57,9 @@
 #if defined(CONFIG_SENSORS_ACC_FILTER)
  // coefficients for filter
 #define ORDER   2
-#define COEFFA0                      ( 100000)
+#define COEFFA0                      (100000)
 #define COEFFA1                      (-153840)
-#define COEFFA2                      ( 62650) 
+#define COEFFA2                      (62650)
 
 #define COEFFB0                      (   2200)
 #define COEFFB1                      (   4410)
@@ -95,27 +95,27 @@ struct k3dh_acc {
 struct k3dh_data {
 	struct i2c_client *client;
 	struct miscdevice k3dh_device;
-	struct input_dev *acc_input_dev;    
+	struct input_dev *acc_input_dev;
 	struct mutex read_lock;
 	struct mutex write_lock;
     	struct mutex power_lock;
 	struct k3dh_acc cal_data;
-	u8 state;    
+	u8 state;
 	u8 ctrl_reg1_shadow;
 	atomic_t opened; /* opened implies enabled */
         s8 orientation[9];
 
 #if defined(CONFIG_SENSORS_ACC_FILTER)
-	struct work_struct read_work; 
+	struct work_struct read_work;
 	struct workqueue_struct *read_workqueue;
 	struct hrtimer timer;
 	ktime_t device_polling_delay;
     	unsigned int hrtimer_delay_usec;
-        
+
 	int xyz[3];
 	bool reset_filter;
 	bool enabled_filter;
-#endif    
+#endif
 };
 
 #if defined(CONFIG_SENSORS_CORE)
@@ -170,7 +170,7 @@ static int k3dh_acc_i2c_write(char *buf, int len)
 			.buf	= buf,
 		}
 	};
-	
+
 	for (i = 0; i < K3DH_RETRY_COUNT; i++) {
 		if (i2c_transfer(k3dh_client->adapter, msg, 1) >= 0) {
 			break;
@@ -210,7 +210,7 @@ static void k3dh_acc_filter(struct k3dh_acc *acc)
 
         g_k3dh->xyz[0] = acc->x;
         g_k3dh->xyz[1] = acc->y;
-        g_k3dh->xyz[2] = acc->z;        
+        g_k3dh->xyz[2] = acc->z;
 
 	if (g_k3dh->reset_filter)
 	{
@@ -266,7 +266,7 @@ static void k3dh_acc_filter(struct k3dh_acc *acc)
 
         acc->x = g_k3dh->xyz[0];
         acc->y = g_k3dh->xyz[1];
-        acc->z = g_k3dh->xyz[2];       
+        acc->z = g_k3dh->xyz[2];
 
 	currin++;
 	if (currin == INBUFSIZE)
@@ -284,13 +284,13 @@ static int k3dh_read_accel_raw_xyz(struct k3dh_acc *acc)
 	int err;
 	unsigned char acc_data[6] = {0};
 	s16 temp;
-    
+
 	acc_data[0] = OUT_X_L | AC; /* read from OUT_X_L to OUT_Z_H by auto-inc */
 	err = k3dh_acc_i2c_read(acc_data, 6);
 	if (err < 0)
 	{
-		pr_err("k3dh_read_accel_raw_xyz() failed\n");        
-		return err;    
+		pr_err("k3dh_read_accel_raw_xyz() failed\n");
+		return err;
 	}
 
 	acc->x = (acc_data[1] << 8) | acc_data[0];
@@ -332,27 +332,26 @@ static int k3dh_read_accel_xyz(struct k3dh_acc *acc)
 
 	err = k3dh_read_accel_raw_xyz(acc);
 	if (err < 0) {
-		pr_err("k3dh_read_accel_xyz() failed\n");
-		return err;
+			pr_err("k3dh_read_accel_xyz() failed\n");
+			return err;
 	}
-
 	acc->x -= g_k3dh->cal_data.x;
 	acc->y -= g_k3dh->cal_data.y;
 	acc->z -= g_k3dh->cal_data.z;
 
-        g_acc.x = acc->x;
-        g_acc.y = acc->y;
-        g_acc.z = acc->z;
+	g_acc.x = acc->x;
+	g_acc.y = acc->y;
+	g_acc.z = acc->z;
 
 	return err;
 }
 
-#if defined(CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A) 
+#if defined(CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A)
 static atomic_t flgEna;
 static atomic_t delay;
 
 int accsns_get_acceleration_data(int *xyz)
-{    
+{
 	struct k3dh_acc acc;
 	int err = -1;
 
@@ -361,12 +360,12 @@ int accsns_get_acceleration_data(int *xyz)
 #if defined(CONFIG_SENSORS_ACC_12BIT)
         xyz[0] = (int)(acc.x);
         xyz[1] = (int)(acc.y);
-        xyz[2] = (int)(acc.z);               
+        xyz[2] = (int)(acc.z);
 #else
         xyz[0] = ((int)(acc.x)*4);   // raw * 4
         xyz[1] = ((int)(acc.y)*4);
         xyz[2] = ((int)(acc.z)*4);
-#endif        
+#endif
 
 	ACCDBG("[K3DH] Acc_I2C, x:%d, y:%d, z:%d\n", xyz[0], xyz[1], xyz[2]);
 
@@ -376,7 +375,7 @@ int accsns_get_acceleration_data(int *xyz)
 void accsns_activate(int flgatm, int flg, int dtime)
 {
     unsigned char acc_data[2] = {0};
-        
+
     printk(KERN_INFO "[K3DH] accsns_activate : flgatm=%d, flg=%d, dtime=%d\n", flgatm, flg, dtime);
 
     if (flg != 0) flg = 1;
@@ -387,17 +386,17 @@ void accsns_activate(int flgatm, int flg, int dtime)
             acc_data[0] = CTRL_REG1;
             acc_data[1] = PM_OFF;
             if(k3dh_acc_i2c_write(acc_data, 2) !=0)
-                printk(KERN_ERR "[%s] Change to Suspend Mode is failed\n",__FUNCTION__);  
-            
+                printk(KERN_ERR "[%s] Change to Suspend Mode is failed\n",__FUNCTION__);
+
             g_k3dh->state = 0;
-            
+
 #if defined(CONFIG_SENSORS_ACC_FILTER)
             hrtimer_cancel(&g_k3dh->timer);
             cancel_work_sync(&g_k3dh->read_work);
 #endif
             acc_mode_cnt=0;
     }
-    else 
+    else
     {
             acc_data[0] = CTRL_REG1;
 #if defined(CONFIG_SENSORS_ACC_FILTER)
@@ -406,13 +405,15 @@ void accsns_activate(int flgatm, int flg, int dtime)
             acc_data[1] = DEFAULT_POWER_ON_SETTING;
 #endif
             if(k3dh_acc_i2c_write(acc_data, 2) !=0)
-                printk(KERN_ERR "[%s] Change to Normal Mode(CTRL_REG1) is failed\n",__FUNCTION__);  
+				printk(KERN_ERR "[%s] Change to Normal Mode(CTRL_REG1) is failed\n",
+						__FUNCTION__);
 
 #if defined(CONFIG_SENSORS_ACC_12BIT)
             acc_data[0] = CTRL_REG4;
             acc_data[1] = CTRL_REG4_HR;
             if(k3dh_acc_i2c_write(acc_data, 2) !=0)
-                printk(KERN_ERR "[%s] Change to Normal Mode(CTRL_REG4) is failed\n",__FUNCTION__);  
+				printk(KERN_ERR "[%s] Change to Normal Mode(CTRL_REG4) is failed\n",
+						__FUNCTION__);
 #endif
 
             g_k3dh->state |= ACC_ENABLED;
@@ -424,13 +425,14 @@ void accsns_activate(int flgatm, int flg, int dtime)
 
             if(!acc_mode_cnt)
             {
-                printk(KERN_INFO "[K3DH] accsns_activate : (%d,%d,%d)\n", g_k3dh->cal_data.x, g_k3dh->cal_data.y, g_k3dh->cal_data.z);
+				printk(KERN_INFO "[K3DH] accsns_activate : (%d,%d,%d)\n",
+					g_k3dh->cal_data.x, g_k3dh->cal_data.y, g_k3dh->cal_data.z);
                 acc_mode_cnt++;
             }
     }
 
     mdelay(2);
-    
+
     if (flgatm) {
         atomic_set(&flgEna, flg);
         atomic_set(&delay, dtime);
@@ -470,7 +472,7 @@ static int k3dh_open_calibration(void)
 
 	cal_filp = filp_open(CALIBRATION_FILE_PATH, O_RDONLY, 0660);
 	if (IS_ERR(cal_filp)) {
-            printk(KERN_INFO "[K3DH] %s: no calibration file\n", __func__);        
+            printk(KERN_INFO "[K3DH] %s: no calibration file\n", __func__);
             err = PTR_ERR(cal_filp);
             if (err != -ENOENT)
                 pr_err("%s: Can't open calibration file= %d\n", __func__, err);
@@ -486,14 +488,15 @@ static int k3dh_open_calibration(void)
                 err = -EIO;
             }
 
-            printk(KERN_INFO "%s: (%d,%d,%d)\n", __func__, g_k3dh->cal_data.x, g_k3dh->cal_data.y, g_k3dh->cal_data.z);
+			printk(KERN_INFO "%s: (%d,%d,%d)\n", __func__, g_k3dh->cal_data.x,
+					 g_k3dh->cal_data.y, g_k3dh->cal_data.z);
 
         }
 
-        if(cal_filp) 
+        if(cal_filp)
             filp_close(cal_filp, NULL);
-	set_fs(old_fs);    
-     
+	set_fs(old_fs);
+
 	return err;
 }
 
@@ -517,28 +520,28 @@ static int k3dh_do_calibration(void)
             sum[1] += data.y;
             sum[2] += data.z;
 
-            ACCDBG("[K3DH] calibration sum data (%d,%d,%d)\n", sum[0], sum[1], sum[2]);        
+            ACCDBG("[K3DH] calibration sum data (%d,%d,%d)\n", sum[0], sum[1], sum[2]);
 	}
 
 	g_k3dh->cal_data.x = sum[0] / CALIBRATION_DATA_AMOUNT;      //K3DH(12bit) 0+-154, K3DM(8bit) 0+-12
 	g_k3dh->cal_data.y = sum[1] / CALIBRATION_DATA_AMOUNT;      //K3DH(12bit) 0+-154, K3DM(8bit) 0+-12
 
-        if(sum[2] >= 0) {    
-#if defined(CONFIG_SENSORS_ACC_12BIT)	
+        if(sum[2] >= 0) {
+#if defined(CONFIG_SENSORS_ACC_12BIT)
             g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) - 1024;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16
-#else	
-            g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) - 64;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16	
-#endif       
-        } else {
-#if defined(CONFIG_SENSORS_ACC_12BIT)	
-            g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) + 1024;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16
-#else	
-            g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) + 64;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16	
+#else
+            g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) - 64;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16
 #endif
-        } 
+        } else {
+#if defined(CONFIG_SENSORS_ACC_12BIT)
+            g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) + 1024;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16
+#else
+            g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) + 64;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16
+#endif
+        }
 
 	printk(KERN_INFO "%s: cal data (%d,%d,%d)\n", __func__,	g_k3dh->cal_data.x, g_k3dh->cal_data.y, g_k3dh->cal_data.z);
-        
+
 	return err;
 }
 
@@ -564,7 +567,7 @@ static int k3dh_do_calibration_fs(int enable)
             sum[1] += data.y;
             sum[2] += data.z;
 
-            ACCDBG("[K3DH] calibration sum data (%d,%d,%d)\n", sum[0], sum[1], sum[2]);        
+            ACCDBG("[K3DH] calibration sum data (%d,%d,%d)\n", sum[0], sum[1], sum[2]);
 	}
 
 	if (enable) {
@@ -574,14 +577,14 @@ static int k3dh_do_calibration_fs(int enable)
                 if(sum[2] >= 0) {
 #if defined(CONFIG_SENSORS_ACC_12BIT)
                     g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) - 1024;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16
-#else	
-                    g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) - 64;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16	
+#else
+                    g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) - 64;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16
 #endif
                 } else {
-#if defined(CONFIG_SENSORS_ACC_12BIT)	
+#if defined(CONFIG_SENSORS_ACC_12BIT)
                     g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) + 1024;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16
-#else	
-                    g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) + 64;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16	
+#else
+                    g_k3dh->cal_data.z = (sum[2] / CALIBRATION_DATA_AMOUNT) + 64;       //K3DH(12bit) 1024 +-226, K3DM(8bit) 64+-16
 #endif
                 }
 
@@ -596,8 +599,8 @@ static int k3dh_do_calibration_fs(int enable)
 
 	cal_filp = filp_open(CALIBRATION_FILE_PATH, O_CREAT |O_TRUNC | O_WRONLY | O_SYNC, 0660);
 	if (IS_ERR(cal_filp)) {
-            err = PTR_ERR(cal_filp);        
-            pr_err("%s: Can't open calibration file= %d\n", __func__, err);        
+            err = PTR_ERR(cal_filp);
+            pr_err("%s: Can't open calibration file= %d\n", __func__, err);
             set_fs(old_fs);
             return err;
 	}
@@ -605,19 +608,19 @@ static int k3dh_do_calibration_fs(int enable)
         if (cal_filp && cal_filp->f_op && cal_filp->f_op->write){
             ret = cal_filp->f_op->write(cal_filp,(char *)(&g_k3dh->cal_data), 3 * sizeof(s16), &cal_filp->f_pos);
             if (ret != 3 * sizeof(s16)) {
-                pr_err("%s: Can't write the cal data to file = %d\n", __func__, ret);        
+                pr_err("%s: Can't write the cal data to file = %d\n", __func__, ret);
                 err = -EIO;
             }
         }
         else{
-                pr_err("%s: (cal_filp && cal_filp->f_op && cal_filp->f_op->write)= 0\n", __func__);        
-                err = -EIO;                
+                pr_err("%s: (cal_filp && cal_filp->f_op && cal_filp->f_op->write)= 0\n", __func__);
+                err = -EIO;
         }
 
-        if(cal_filp) 
+        if(cal_filp)
             filp_close(cal_filp, NULL);
 	set_fs(old_fs);
-       
+
 	return err;
 }
 
@@ -625,7 +628,7 @@ static int k3dh_do_calibration_fs(int enable)
 /*  open command for K3DH device file  */
 static int k3dh_open(struct inode *inode, struct file *file)
 {
-	return nonseekable_open(inode, file);	
+	return nonseekable_open(inode, file);
 }
 
 /*  release command for K3DH device file */
@@ -690,7 +693,7 @@ static long k3dh_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int err = 0;
 	struct k3dh_data *k3dh = file->private_data;
-	struct k3dh_acc data = { 0, };    
+	struct k3dh_acc data = { 0, };
 	s64 delay_ns;
 
 	/* cmd mapping */
@@ -702,14 +705,14 @@ static long k3dh_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		err = k3dh_set_delay(k3dh, delay_ns);
 		break;
 	case K3DH_IOCTL_GET_DELAY:
-		printk(KERN_INFO "[K3DH] K3DH_IOCTL_GET_DELAY\n");        
+		printk(KERN_INFO "[K3DH] K3DH_IOCTL_GET_DELAY\n");
 		delay_ns = k3dh_get_delay(k3dh);
 		if (put_user(delay_ns, (s64 __user *)arg))
 			return -EFAULT;
 		break;
 
 	case K3DH_IOCTL_SET_CALIBRATION:
-		printk(KERN_INFO "[K3DH] K3DH_IOCTL_SET_CALIBRATION\n");                
+		printk(KERN_INFO "[K3DH] K3DH_IOCTL_SET_CALIBRATION\n");
 		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
 			return -EFAULT;
                 err = k3dh_open_calibration();
@@ -717,7 +720,7 @@ static long k3dh_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			printk(KERN_INFO "[K3DH] k3dh_open_calibration() failed\n");
 		break;
 	case K3DH_IOCTL_GET_CALIBRATION:
-		printk(KERN_INFO "[K3DH] K3DH_IOCTL_GET_CALIBRATION\n");      
+		printk(KERN_INFO "[K3DH] K3DH_IOCTL_GET_CALIBRATION\n");
             	data.x = g_k3dh->cal_data.x;
             	data.y = g_k3dh->cal_data.y;
             	data.z = g_k3dh->cal_data.z;
@@ -725,16 +728,16 @@ static long k3dh_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		break;
 	case K3DH_IOCTL_DO_CALIBRATION:
-		printk(KERN_INFO "[K3DH] K3DH_IOCTL_DO_CALIBRATION\n");      
+		printk(KERN_INFO "[K3DH] K3DH_IOCTL_DO_CALIBRATION\n");
                 k3dh_do_calibration();
             	data.x = g_k3dh->cal_data.x;
             	data.y = g_k3dh->cal_data.y;
             	data.z = g_k3dh->cal_data.z;
 		if (copy_to_user((void __user *)arg, &data, sizeof(data)))
 			return -EFAULT;
-		break;       
+		break;
 	case K3DH_IOCTL_READ_ACCEL_XYZ:
-		printk(KERN_INFO "[K3DH] K3DH_IOCTL_READ_ACCEL_XYZ\n");                
+		printk(KERN_INFO "[K3DH] K3DH_IOCTL_READ_ACCEL_XYZ\n");
 		err = k3dh_read_accel_xyz(&data);
 		if (err)
 			break;
@@ -756,7 +759,7 @@ static int k3dh_suspend(struct device *dev)
         acc_data[0] = CTRL_REG1;
         acc_data[1] = PM_OFF;
         if(k3dh_acc_i2c_write(acc_data, 2) !=0)
-            printk(KERN_ERR "[%s] Change to Suspend Mode is failed\n",__FUNCTION__);  
+            printk(KERN_ERR "[%s] Change to Suspend Mode is failed\n",__FUNCTION__);
 
 	printk(KERN_INFO "[K3DH] [%s] K3DH !!suspend mode!!\n",__FUNCTION__);
 	return 0;
@@ -769,7 +772,7 @@ static int k3dh_resume(struct device *dev)
         acc_data[0] = CTRL_REG1;
         acc_data[1] = DEFAULT_POWER_ON_SETTING;
         if(k3dh_acc_i2c_write(acc_data, 2) !=0)
-            printk(KERN_ERR "[%s] Change to Normal Mode is failed\n",__FUNCTION__);  
+            printk(KERN_ERR "[%s] Change to Normal Mode is failed\n",__FUNCTION__);
 
 	printk(KERN_INFO "[K3DH] [%s] K3DH !!resume mode!!\n",__FUNCTION__);
 	return 0;
@@ -787,7 +790,7 @@ static ssize_t k3dh_fs_read(struct device *dev, struct device_attribute *attr, c
 	int count = 0;
 	struct k3dh_acc acc = { 0, };
 
-	if (g_k3dh->state & ACC_ENABLED)     
+	if (g_k3dh->state & ACC_ENABLED)
 	{
             acc.x = g_acc.x;
             acc.y = g_acc.y;
@@ -796,7 +799,7 @@ static ssize_t k3dh_fs_read(struct device *dev, struct device_attribute *attr, c
         else
         {
 	    k3dh_read_accel_xyz(&acc);
-        }  
+        }
 
 	count = sprintf(buf,"%d,%d,%d\n", acc.x, acc.y, acc.z );
 
@@ -814,7 +817,7 @@ static ssize_t accel_calibration_show(struct device *dev,struct device_attribute
             isCalibration = 0;
         else
             isCalibration = 1;
-        
+
 	count= sprintf(buf, "%d\n", isCalibration);
 	return count;
 }
@@ -874,7 +877,7 @@ static ssize_t acc_enable_show(struct device *dev, struct device_attribute *attr
 static ssize_t acc_enable_store(struct device *dev,struct device_attribute *attr, const char *buf, size_t size)
 {
 	bool new_value;
-    
+
 	if (sysfs_streq(buf, "1"))
 		new_value = true;
 	else if (sysfs_streq(buf, "0"))
@@ -930,7 +933,7 @@ void k3dh_shutdown(struct i2c_client *client)
 static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct k3dh_data *k3dh;
-	struct input_dev *input_dev;    
+	struct input_dev *input_dev;
     	struct k3dh_platform_data *platform_data;
 	int err, tempvalue;
     	int ii = 0;
@@ -958,14 +961,14 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	err = i2c_master_send(client, (char*)&tempvalue, 1);
 	if(err < 0)
 	{
-		printk(KERN_ERR "k3dh_probe : i2c_master_send [%d]\n", err);			
+		printk(KERN_ERR "k3dh_probe : i2c_master_send [%d]\n", err);
 	}
-    
+
 	err = i2c_master_recv(client, (char*)&tempvalue, 1);
 	if(err < 0)
 	{
-		printk(KERN_ERR "k3dh_probe : i2c_master_recv [%d]\n", err);			
-	}       
+		printk(KERN_ERR "k3dh_probe : i2c_master_recv [%d]\n", err);
+	}
 
 	if((tempvalue&0x00FF) == 0x0033)  // changed for K3DM.
 		printk(KERN_INFO "KR3DM I2C driver registered 0x%x!\n", tempvalue);
@@ -982,7 +985,7 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	k3dh->k3dh_device.fops = &k3dh_fops;
 
         g_k3dh = k3dh;
-        
+
 #if defined(CONFIG_SENSORS_ACC_FILTER)
 	hrtimer_init(&g_k3dh->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	g_k3dh->hrtimer_delay_usec = 10526; //Fs=95Hz
@@ -995,17 +998,17 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		err = -ENOMEM;
 		printk(KERN_ERR "cannot create workqueue read_wq: %d\n", err);
     		goto exit;
-	}    
+	}
 	/* Accelerometer Software Filter */
 	g_k3dh->reset_filter = true;
 	g_k3dh->enabled_filter = true;
     	printk(KERN_INFO "[K3DH] Enabled Accelerometer Software Filtering!\n");
 #endif
-        
+
     	mutex_init(&g_k3dh->read_lock);
 	mutex_init(&g_k3dh->write_lock);
 	mutex_init(&g_k3dh->power_lock);
-	atomic_set(&g_k3dh->opened, 0);  
+	atomic_set(&g_k3dh->opened, 0);
 
 	err = misc_register(&k3dh->k3dh_device);
 	if (err) {
@@ -1018,12 +1021,12 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if (!input_dev) {
 		printk(KERN_ERR "%s: could not allocate input device\n", __func__);
 		err = -ENOMEM;
-		goto err_input_allocate_device_light;        
+		goto err_input_allocate_device_light;
 	}
 	input_set_drvdata(input_dev, g_k3dh);
 	input_dev->name = "accelerometer_sensor";
 
-	set_bit(EV_REL, input_dev->evbit);	
+	set_bit(EV_REL, input_dev->evbit);
 	/* 32768 == 1g, range -4g ~ +4g */
 	/* acceleration x-axis */
 	input_set_capability(input_dev, EV_REL, REL_X);
@@ -1053,13 +1056,13 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	/* initialized sensor orientation */
 	/* temporary for rev0.1 and 0.2 */
-#if defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
         if (u2_get_board_rev() < 2) {
-#endif		
+#endif
         for (ii = 0; ii < 9; ii++){
         	g_k3dh->orientation[ii] = platform_data->orientation[ii];
         }
-#if defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
 	}
 	else {
 		for (ii = 0; ii < 9; ii++) {
@@ -1074,23 +1077,23 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	/* initialized sensor cal data */
         g_k3dh->cal_data.x=0;
         g_k3dh->cal_data.y=0;
-        g_k3dh->cal_data.z=0;        
-        
+        g_k3dh->cal_data.z=0;
+
 	return 0;
 
 error_device:
-	input_unregister_device(input_dev);        
+	input_unregister_device(input_dev);
 err_input_register_device_light:
         input_free_device(input_dev);
-err_input_allocate_device_light:	
-	misc_deregister(&k3dh->k3dh_device);    
+err_input_allocate_device_light:
+	misc_deregister(&k3dh->k3dh_device);
 err_misc_register:
 	mutex_destroy(&k3dh->read_lock);
 	mutex_destroy(&k3dh->write_lock);
-	mutex_destroy(&k3dh->power_lock);    
+	mutex_destroy(&k3dh->power_lock);
 #if defined(CONFIG_SENSORS_ACC_FILTER)
         destroy_workqueue(k3dh->read_workqueue);
-#endif    
+#endif
 	kfree(k3dh);
 exit:
 	return err;
@@ -1101,13 +1104,13 @@ static int k3dh_remove(struct i2c_client *client)
 	struct k3dh_data *k3dh = i2c_get_clientdata(client);
 
 	sysfs_remove_group(&k3dh->acc_input_dev->dev.kobj, &acc_attribute_group);
-    
+
 	input_unregister_device(k3dh->acc_input_dev);
 
 	misc_deregister(&k3dh->k3dh_device);
 	mutex_destroy(&k3dh->read_lock);
 	mutex_destroy(&k3dh->write_lock);
-	mutex_destroy(&k3dh->power_lock);    
+	mutex_destroy(&k3dh->power_lock);
 #if defined(CONFIG_SENSORS_ACC_FILTER)
         hrtimer_cancel(&k3dh->timer);
         cancel_work_sync(&k3dh->read_work);
@@ -1136,7 +1139,7 @@ static struct i2c_driver k3dh_driver = {
 		.name = "k3dh",
 #if !defined(CONFIG_SENSORS_HSCDTD006A)  && !defined(CONFIG_SENSORS_HSCDTD008A)
                 .pm = &k3dh_pm_ops,
-#endif                
+#endif
 	},
 	.id_table = k3dh_id,
 	.probe = k3dh_probe,
@@ -1149,9 +1152,9 @@ static int __init k3dh_init(void)
 {
 	struct device *dev_t;
         int ret=0;
-	struct regulator *sensor3v0_regulator = NULL;    
-	struct regulator *sensor1v8_regulator = NULL;            
-        
+	struct regulator *sensor3v0_regulator = NULL;
+	struct regulator *sensor1v8_regulator = NULL;
+
     	printk(KERN_INFO "[K3DH] %s\n",__FUNCTION__);
 
 	/* regulator init */
@@ -1165,9 +1168,9 @@ static int __init k3dh_init(void)
             printk(KERN_INFO "[K3DH] regulator_enable : %d\n", ret);
             regulator_put(sensor3v0_regulator);
             /*After Power Supply is supplied, about 1ms delay is required before issuing read/write commands */
-            mdelay(10);      
-    	}   
-	
+            mdelay(10);
+    	}
+
 	/* regulator init */
     	sensor1v8_regulator = regulator_get(NULL, "sensor_1v8");
     	if (IS_ERR(sensor1v8_regulator)){
@@ -1179,8 +1182,8 @@ static int __init k3dh_init(void)
             printk(KERN_INFO "[K3DH] regulator_enable : %d\n", ret);
             regulator_put(sensor1v8_regulator);
             /*After Power Supply is supplied, about 1ms delay is required before issuing read/write commands */
-            mdelay(10);      
-    	}   
+            mdelay(10);
+    	}
 
 
 #if defined(CONFIG_SENSORS_CORE)
@@ -1191,21 +1194,21 @@ static int __init k3dh_init(void)
 	if (device_create_file(dev_t, &dev_attr_calibration) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_calibration.attr.name);
 
-	if (IS_ERR(dev_t)) 
+	if (IS_ERR(dev_t))
 	{
             return PTR_ERR(dev_t);
 	}
-#endif  
-       
+#endif
+
 	return i2c_add_driver(&k3dh_driver);
 }
 
 static void __exit k3dh_exit(void)
 {
-    	printk(KERN_INFO "[K3DH] %s\n",__FUNCTION__);    
-        
+    	printk(KERN_INFO "[K3DH] %s\n",__FUNCTION__);
+
 	i2c_del_driver(&k3dh_driver);
-#if defined(CONFIG_SENSORS_CORE)    
+#if defined(CONFIG_SENSORS_CORE)
     	device_destroy(sensors_class, 0);
 #endif
 }
