@@ -236,9 +236,9 @@ static struct sw_fence_handle *fence_get_handle(void)
 	handle = kmalloc(sizeof(struct sw_fence_handle), GFP_KERNEL);
 	if (handle == NULL) {
 		/* no memory */
-		printk_err2("memory allocatioin failed.\n");
+		printk_err2("memory allocation failed.\n");
 	} else if (do_sw_sync_timeline_create == NULL) {
-		/* no API availabel */
+		/* no API available */
 		printk_err2("sw_sync_timeline_create not available.\n");
 
 		kfree(handle);
