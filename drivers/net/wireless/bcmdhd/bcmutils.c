@@ -1592,8 +1592,9 @@ bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 	uint32 bit;
 	const char* name;
 
-    if(len >= 2 && buf)
-     { 
+        if (len < 2 || !buf)
+           return 0;
+
 	buf[0] = '\0';
 
 	for (i = 0; flags != 0; i++) {
@@ -1631,9 +1632,6 @@ bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 	}
        
 	return (int)(p - buf);
-     }
-     else 
-        return 0;
 }
 
 /* print bytes formatted as hex to a string. return the resulting string length */
