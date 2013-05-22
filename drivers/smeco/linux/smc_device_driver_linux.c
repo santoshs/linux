@@ -485,11 +485,12 @@ static int smc_net_device_driver_close(struct net_device* device)
 
 static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* device)
 {
-    int                       ret_val      = SMC_DRIVER_ERROR;
-    smc_device_driver_priv_t* smc_net_dev  = NULL;
-    smc_t*                    smc_instance = NULL;
-    uint8_t                   drop_packet  = 0;
-    smc_channel_t*            smc_channel  = NULL;
+    int                       ret_val           = SMC_DRIVER_ERROR;
+    smc_device_driver_priv_t* smc_net_dev       = NULL;
+    smc_t*                    smc_instance      = NULL;
+    uint8_t                   drop_packet       = 0;
+    smc_channel_t*            smc_channel       = NULL;
+    uint16_t                  skb_queue_mapping = 0xFF;
 
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
     struct netdev_queue*      tx_queue     = NULL;
@@ -507,7 +508,7 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
     {
         if (skb->queue_mapping < smc_instance->smc_channel_list_count)
         {
-            uint16_t        skb_queue_mapping = skb->queue_mapping;
+            skb_queue_mapping = skb->queue_mapping;
 
             smc_channel = SMC_CHANNEL_GET(smc_instance, skb_queue_mapping);
 
@@ -767,25 +768,23 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
 
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
 
-        /* TODO LOCK */
-
             /* Check if the TX queue is empty */
-        tx_queue = netdev_get_tx_queue(skb->dev, 0);
+        tx_queue = netdev_get_tx_queue(device, 0);
         tx_queue_len = qdisc_qlen(tx_queue->qdisc);
 
-        SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_xmit: channel %d: wake unlock device TX queue len %d", skb->queue_mapping, tx_queue_len);
+        SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_xmit: channel %d: wake unlock device TX queue len %d", skb_queue_mapping, tx_queue_len);
 
         if( tx_queue_len == 0 )
         {
             if( smc_channel->smc_tx_wakelock != NULL )
             {
-                SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: wake_unlock 0x%08X", (uint32_t)smc_channel->smc_tx_wakelock );
+                SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: channel %d: wake_unlock 0x%08X", skb_queue_mapping, (uint32_t)smc_channel->smc_tx_wakelock );
                 wake_unlock( (struct wake_lock*)smc_channel->smc_tx_wakelock );
             }
         }
         else
         {
-            SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: channel %d: wake_lock not unlocked: device TX queue len %d", skb->queue_mapping, tx_queue_len);
+            SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: channel %d: wake_lock not unlocked: device TX queue len %d", skb_queue_mapping, tx_queue_len);
 
             if( (tx_queue_len+1) > smc_channel->tx_queue_peak )
             {
@@ -793,7 +792,6 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
             }
         }
 
-        /* TODO UNLOCK */
 #endif
         return ret_val;
      }
@@ -845,19 +843,17 @@ DROP_PACKET:
 
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
 
-    /* TODO LOCK */
-
         /* Check if the TX queue is empty */
-    tx_queue = netdev_get_tx_queue(skb->dev, 0);
+    tx_queue = netdev_get_tx_queue(device, 0);
     tx_queue_len = qdisc_qlen(tx_queue->qdisc);
 
-    SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_xmit: channel %d: wake unlock device TX queue len %d", skb->queue_mapping, tx_queue_len);
+    SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_xmit: channel %d: wake unlock device TX queue len %d", skb_queue_mapping, tx_queue_len);
 
     if( tx_queue_len == 0 )
     {
         if( smc_channel->smc_tx_wakelock != NULL )
         {
-            SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: wake_unlock 0x%08X", (uint32_t)smc_channel->smc_tx_wakelock );
+            SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: channel %d: wake_unlock 0x%08X", skb_queue_mapping, (uint32_t)smc_channel->smc_tx_wakelock );
             wake_unlock( (struct wake_lock*)smc_channel->smc_tx_wakelock );
         }
     }
@@ -869,7 +865,6 @@ DROP_PACKET:
         }
     }
 
-    /* TODO UNLOCK */
 #endif
 
     ret_val = SMC_DRIVER_ERROR;
