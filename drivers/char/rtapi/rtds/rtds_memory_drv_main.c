@@ -953,7 +953,7 @@ static int rtds_get_cmdline(
 
 error:
 	size = sprintf(buf, "unknown");
-	if (!IS_ERR(fp))
+	if (fp && !IS_ERR(fp))
 		filp_close(fp, NULL);
 	return size;
 }
