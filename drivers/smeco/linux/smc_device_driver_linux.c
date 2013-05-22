@@ -581,8 +581,7 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                         assert(0);
                     }
 #endif
-                    if (smc_net_dev->smc_dev_config->driver_modify_send_data && smc_net_dev->smc_dev_config)
-                    {
+                    if (smc_net_dev->smc_dev_config != NULL && smc_net_dev->smc_dev_config->driver_modify_send_data != NULL ) {
                         SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: upper layer wants to modify send packet");
                         smc_net_dev->smc_dev_config->driver_modify_send_data(skb, &userdata);
                     }
@@ -932,15 +931,13 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
         uint32_t        lb_data_len  = 0;
         uint32_t        lb_rounds    = 0;
 
-        smc_instance = smc_net_dev->smc_instance;
+		if ( NULL != smc_net_dev )
+	        smc_instance = smc_net_dev->smc_instance;
+
         if( smc_instance != NULL )
-        {
 	        smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc->if_channel_id);
-        }
         else
-        {
             ret_val = SMC_DRIVER_ERROR;
-        }
 
         lb_data_len = if_req_smc->if_loopback_payload_length;
         lb_rounds   = if_req_smc->if_loopback_rounds;

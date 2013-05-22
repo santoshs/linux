@@ -482,10 +482,11 @@ static void comp_tpu_close(struct work_struct *work)
 	} else { /* in suspend state */
 		ret = -EBUSY;
 	}
-
-	work_arg->respond->result = ret;
-	/* complete processing of Workqueue */
-	up(&work_arg->respond->respond_comp);
+	if (NULL != work_arg) {
+		work_arg->respond->result = ret;
+ 	/* complete processing of Workqueue */
+		up(&work_arg->respond->respond_comp);
+	}
 }
 
 /*

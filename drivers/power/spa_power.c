@@ -1845,10 +1845,6 @@ static void spa_delayed_init_work(struct work_struct *work)
 	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 	ps = power_supply_get_by_name("battery");
 
-	if (NULL == spa_power_iter) {
-		pr_spa_dbg(LEVEL1, "%s : spa_power_iter is NULL\n", __func__);
-		return;
-	}
 	if (ps == NULL) {
 		pr_spa_dbg(LEVEL2, "%s : waiting spa_ps\n", __func__);
 		schedule_delayed_work(&spa_power_iter->delayed_init_work, msecs_to_jiffies(50));
