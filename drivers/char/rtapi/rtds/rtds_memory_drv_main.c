@@ -29,6 +29,10 @@
 #include <linux/completion.h>
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
+#include <linux/jiffies.h>
+#include <linux/proc_fs.h>
+#include <linux/sched.h>
+#include <linux/seq_file.h>
 
 #include <system_memory.h>
 #include "log_kernel.h"
@@ -79,10 +83,19 @@ spinlock_t			g_rtds_memory_lock_map_rtmem;
 struct list_head		g_rtds_memory_list_reg_phymem;
 struct semaphore		g_rtds_memory_phy_mem;
 struct semaphore		g_rtds_memory_send_sem;
+long				g_rtds_memory_sem_jiffies;
+static struct proc_dir_entry	*g_rtds_memory_proc_entry;
+static struct proc_dir_entry	*g_rtds_memory_proc_mem_info;
+static struct proc_dir_entry	*g_rtds_memory_proc_mpro;
+
 #ifdef RTDS_SUPPORT_CMA
 spinlock_t			g_rtds_memory_lock_cma;
 struct list_head		g_rtds_memory_list_cma;
 #endif
+
+static int rtds_mem_procfile_read(char *page, char **start, off_t off,
+				int count, int *eof, void *data);
+static int rtds_get_cmdline(pid_t pid, char *buf, int len);
 /*****************************************************************************
  * Function   : rtds_memory_drv_open
  * Description: This function open RTDS MEMORY driver.
@@ -459,9 +472,8 @@ long rtds_memory_drv_ioctl(
 		break;
 	}
 
-	if (SMAP_OK != ret) {
+	if (SMAP_OK != ret)
 		MSG_ERROR("[RTDSK]ERR| ioctl function error\n");
-	}
 
 	MSG_MED("[RTDSK]OUT|[%s]ret = %d\n", __func__, ret);
 	return ret;
@@ -691,6 +703,262 @@ int rtds_memory_thread_apmem_rttrig(
 	return ret;
 }
 
+static int rtds_mem_procfile_read(
+	char *page, char **start, off_t off, int count, int *eof, void *data)
+{
+	rtds_memory_app_memory_table *m_table = NULL;
+	struct list_head l_list;
+	struct rtds_mem_dump_info *dump_list;
+	struct rtds_mem_dump_info *next;
+	bool find;
+	unsigned int sum = 0;
+	char comm[256];
+	char *cmdline = comm;
+	int n;
+
+	INIT_LIST_HEAD(&l_list);
+	RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
+
+	list_for_each_entry(m_table,
+				&g_rtds_memory_list_shared_mem, list_head) {
+		find = false;
+		list_for_each_entry(dump_list, &l_list, list) {
+			if (m_table->task_info->tgid == dump_list->tgid) {
+				dump_list->size += m_table->memory_size;
+				find = true;
+				break;
+			}
+		}
+#if 1 /* VSS */
+		if (!find) {
+#else /* RSS */
+		if ((!find) &&
+		    ((m_table->event == RTDS_MEM_RT_CREATE_EVENT) ||
+		    (m_table->event == RTDS_MEM_MAP_PNC_EVENT) ||
+		    (m_table->event == RTDS_MEM_MAP_PNC_NMA_EVENT))) {
+#endif
+			dump_list = kmalloc(sizeof(struct rtds_mem_dump_info),
+					    GFP_KERNEL);
+			if (NULL == dump_list)
+				goto error;
+			dump_list->size = m_table->memory_size;
+			dump_list->tgid = m_table->task_info->tgid;
+			dump_list->task_info = m_table->task_info;
+			if ((m_table->rt_nc_addr) &&
+			    (m_table->event != RTDS_MEM_MAP_EVENT))
+				dump_list->size += m_table->memory_size;
+			list_add_tail(&(dump_list->list), &l_list);
+		}
+	}
+
+	up(&g_rtds_memory_shared_mem);
+
+	/* show dump info */
+	count = snprintf(page, PAGE_SIZE, "%-4s %-7s %s\n",
+			"TGID", "SIZE", "NAME");
+	if (count < 0)
+		goto error;
+	list_for_each_entry_safe(dump_list, next, &l_list, list) {
+
+		if (rtds_get_cmdline(dump_list->tgid, comm, sizeof(comm)))
+			cmdline = comm;
+		else
+			cmdline = dump_list->task_info->comm;
+
+		n = snprintf(page + count,
+			     PAGE_SIZE - count,
+			     "%4d %6dK %s\n",
+			     (u32)dump_list->tgid,
+			     (dump_list->size / SZ_1K),
+			     cmdline);
+		if (n < 0)
+			goto error;
+		count += n;
+		sum += dump_list->size;
+		list_del(&(dump_list->list));
+		kfree(dump_list);
+	}
+	n = snprintf(page + count, PAGE_SIZE - count, "%-4s-%-8s-%s\n",
+			"----", "--------", "----");
+	if (n < 0)
+		goto error;
+	count += n;
+	n = snprintf(page + count, PAGE_SIZE - count, "%-4s %6dK %s\n",
+			"", (sum / SZ_1K), "TOTAL");
+	if (n < 0)
+		goto error;
+	count += n;
+
+	return count;
+error:
+	list_for_each_entry_safe(dump_list, next, &l_list, list) {
+		list_del(&(dump_list->list));
+		kfree(dump_list);
+	}
+	return count;
+}
+
+
+static int rtds_mem_procinfo_mpro_open(
+	struct inode *inode, struct file *file);
+static void *mproinfo_s_start(
+	struct seq_file *m, loff_t *pos);
+static void *mproinfo_s_next(struct seq_file *m, void *p, loff_t *pos);
+static void mproinfo_s_stop(struct seq_file *m, void *p);
+static int mproinfo_s_show(struct seq_file *m, void *p);
+
+
+static const struct file_operations g_procinfo_mpro_op = {
+	.open		= rtds_mem_procinfo_mpro_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
+static const struct seq_operations g_rtds_mem_mpro_seq_op = {
+	.start	= mproinfo_s_start,
+	.next	= mproinfo_s_next,
+	.stop	= mproinfo_s_stop,
+	.show	= mproinfo_s_show,
+};
+
+static int rtds_mem_procinfo_mpro_open(
+	struct inode *inode, struct file *file)
+{
+	return seq_open(file, &g_rtds_mem_mpro_seq_op);
+}
+
+static void *mproinfo_s_start(
+	struct seq_file *m, loff_t *pos)
+{
+	rtds_memory_app_memory_table *m_table;
+	struct list_head *list;
+	int i;
+
+	MSG_MED("[%s]%d\n", __func__, (u32)*pos);
+
+	if (*pos == 0)
+		seq_printf(m, "%-4s %-4s %-3s %-10s %-10s %-10s %-7s %s\n",
+			 "PID", "TGID", "ID", "WB_ADDR", "NC_ADDR",
+			 "PHY_ADDR", "SIZE", "NAME");
+
+	RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
+
+	if (list_empty(&g_rtds_memory_list_shared_mem))
+		return NULL;
+
+	list = g_rtds_memory_list_shared_mem.next;
+
+	m_table = list_entry(list,
+			     rtds_memory_app_memory_table,
+			     list_head);
+	for (i = 0; i < *pos; i++) {
+		m_table = list_entry(list,
+				     rtds_memory_app_memory_table,
+				     list_head);
+		if ((u32)m_table == (u32)&g_rtds_memory_list_shared_mem)
+			return NULL;
+		list = m_table->list_head.next;
+	}
+
+	return m_table;
+}
+
+static void *mproinfo_s_next(struct seq_file *m, void *p, loff_t *pos)
+{
+	rtds_memory_app_memory_table *m_table;
+	struct list_head *list;
+
+	++*pos;
+	m_table = (rtds_memory_app_memory_table *)p;
+	list = m_table->list_head.next;
+
+	if ((u32)list == (u32)&g_rtds_memory_list_shared_mem) {
+		MSG_MED("[%s]END!!\n", __func__);
+		return NULL;
+	}
+	m_table = list_entry(list,
+			     rtds_memory_app_memory_table,
+			     list_head);
+
+	return m_table;
+}
+
+static void mproinfo_s_stop(struct seq_file *m, void *p)
+{
+	MSG_MED("[%s]\n", __func__);
+	up(&g_rtds_memory_shared_mem);
+}
+
+static int mproinfo_s_show(struct seq_file *m, void *p)
+{
+	rtds_memory_app_memory_table *m_table;
+	char comm[256];
+	char *cmdline = comm;
+	unsigned int phys_addr;
+	unsigned int nc_addr;
+	unsigned int nc_mem_size = 0;
+
+	m_table = (rtds_memory_app_memory_table *)p;
+	if (rtds_get_cmdline(m_table->task_info->pid, comm, sizeof(comm)))
+		cmdline = comm;
+	else
+		cmdline = m_table->task_info->comm;
+
+	if (m_table->event == RTDS_MEM_MAP_EVENT) {
+		nc_addr = 0;
+		phys_addr = m_table->rt_nc_addr;
+	} else {
+		nc_addr = m_table->rt_nc_addr;
+		phys_addr = m_table->phys_addr;
+	}
+
+	if ((m_table->rt_nc_addr) &&
+	    (m_table->event != RTDS_MEM_MAP_EVENT))
+		nc_mem_size = m_table->memory_size;
+
+	seq_printf(m, "%4d %4d %3d 0x%08x 0x%08x 0x%08x %6dK %s\n",
+			(u32)m_table->task_info->pid,
+			(u32)m_table->task_info->tgid,
+			m_table->apmem_id,
+			(u32)m_table->rt_wb_addr,
+			(u32)nc_addr,
+			(u32)phys_addr,
+			(u32)((m_table->memory_size + nc_mem_size) / SZ_1K),
+			cmdline);
+	return 0;
+}
+
+static int rtds_get_cmdline(
+	pid_t pid, char *buf, int len
+)
+{
+	char cmdline_name[30];
+	struct file *fp = NULL;
+	unsigned int size;
+
+	if (len <= 0)
+		goto error;
+
+	if (sprintf(cmdline_name, "/proc/%d/cmdline", pid) < 0)
+		goto error;
+
+	fp = filp_open(cmdline_name, O_RDONLY, 0);
+	if (IS_ERR(fp))
+		goto error;
+
+	size = kernel_read(fp, 0, buf, len);
+	filp_close(fp, NULL);
+	return size;
+
+error:
+	size = sprintf(buf, "unknown");
+	if (fp && !IS_ERR(fp))
+		filp_close(fp, NULL);
+	return size;
+}
+
+
 /*****************************************************************************
  * Function   : rtds_memory_init_module
  * Description: This function initialise RTDS MEMORY driver.
@@ -790,6 +1058,9 @@ int rtds_memory_init_module(
 	init_MUTEX(&g_rtds_memory_shared_mem);
 	init_MUTEX(&g_rtds_memory_phy_mem);
 	init_MUTEX(&g_rtds_memory_send_sem);
+
+	/* Convert timeout value */
+	g_rtds_memory_sem_jiffies = msecs_to_jiffies(RTDS_MEM_WAIT_TIMEOUT);
 
 	/* Get section info */
 	section.section_header = &section_header;
@@ -897,6 +1168,43 @@ int rtds_memory_init_module(
 		goto out;
 	}
 
+	g_rtds_memory_proc_entry = NULL;
+	g_rtds_memory_proc_mem_info = NULL;
+	g_rtds_memory_proc_mpro = NULL;
+	/* 0644: S_IRUSR | S_IWUSR| S_IRGRP| S_IROTH */
+	g_rtds_memory_proc_entry =
+		proc_mkdir(RTDS_MEMORY_DRIVER_NAME, NULL);
+	if (!g_rtds_memory_proc_entry) {
+		MSG_ERROR("[RTDSK]ERR|L.%d Error creating proc entry\n",
+			  __LINE__);
+		goto out;
+	}
+
+	g_rtds_memory_proc_mem_info =
+		create_proc_entry("mem_info",
+				  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+				  g_rtds_memory_proc_entry);
+	if (!g_rtds_memory_proc_mem_info) {
+		MSG_ERROR("[RTDSK]ERR|L.%d Error creating proc entry\n",
+			  __LINE__);
+		goto out;
+	}
+
+	g_rtds_memory_proc_mem_info->read_proc = rtds_mem_procfile_read;
+	g_rtds_memory_proc_mem_info->write_proc = NULL;
+
+	g_rtds_memory_proc_mpro =
+		create_proc_entry("maps",
+				  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+				  g_rtds_memory_proc_entry);
+	if (!g_rtds_memory_proc_mpro) {
+		MSG_ERROR("[RTDSK]ERR|L.%d Error creating proc entry\n",
+			  __LINE__);
+		goto out;
+	}
+
+	g_rtds_memory_proc_mpro->proc_fops = &g_procinfo_mpro_op;
+
 	MSG_HIGH("[RTDSK]OUT|[%s]ret = SMAP_OK\n", __func__);
 
 	return SMAP_OK;
@@ -909,6 +1217,10 @@ out:
 	ret = misc_deregister(&g_rtds_memory_device);
 	if (0 != ret)
 		MSG_ERROR("[RTDSK]ERR| misc_deregister failed ret[%d]\n", ret);
+	if (g_rtds_memory_proc_mem_info)
+		remove_proc_entry("mem_info", g_rtds_memory_proc_entry);
+	if (g_rtds_memory_proc_entry)
+		remove_proc_entry(RTDS_MEMORY_DRIVER_NAME, NULL);
 
 	MSG_HIGH("[RTDSK]OUT|[%s]ret = SMAP_NG\n", __func__);
 
@@ -933,9 +1245,8 @@ void rtds_memory_exit_module(
 
 	/* Stop asynchronous thread */
 	ret = kthread_stop(g_rtds_memory_thread_info);
-	if (0 != ret) {
+	if (0 != ret)
 		MSG_ERROR("[RTDSK]ERR| kthread_stop failed ret[%d]\n", ret);
-	}
 
 	/* Cleanup iccom driver handle */
 	iccom_cleanup.handle = g_rtds_memory_iccom_handle;
@@ -943,9 +1254,12 @@ void rtds_memory_exit_module(
 
 	/* Unregister device driver */
 	ret = misc_deregister(&g_rtds_memory_device);
-	if (0 != ret) {
+	if (0 != ret)
 		MSG_ERROR("[RTDSK]ERR| misc_deregister failed ret[%d]\n", ret);
-	}
+
+	remove_proc_entry("mem_info", g_rtds_memory_proc_entry);
+	remove_proc_entry("maps", g_rtds_memory_proc_entry);
+	remove_proc_entry(RTDS_MEMORY_DRIVER_NAME, NULL);
 
 	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 
