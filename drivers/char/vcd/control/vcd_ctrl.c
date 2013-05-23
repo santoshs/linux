@@ -647,6 +647,7 @@ int vcd_ctrl_start_record(struct vcd_record_option *option)
 
 	if (VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type) {
 		ret = VCD_ERR_BUSY;
+		goto rtn;
 	} else {
 		/* execute spuv function */
 		ret = vcd_spuv_start_record(option);
@@ -766,6 +767,7 @@ int vcd_ctrl_start_playback(struct vcd_playback_option *option)
 
 	if (VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type) {
 		ret = VCD_ERR_BUSY;
+		goto rtn;
 	} else {
 		/* execute spuv function */
 		ret = vcd_spuv_start_playback(option, g_vcd_ctrl_call_kind);
@@ -932,32 +934,19 @@ void vcd_ctrl_rec_trigger(void)
 
 	active_feature = vcd_ctrl_func_get_active_feature();
 
-	/* VoIP UL path route */
 	if ((VCD_CTRL_FUNC_FEATURE_CALL & active_feature) &&
 		(VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type)) {
-		if ((VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) &&
-			!(VCD_CTRL_FUNC_FEATURE_RECORD & active_feature)) {
-			/* VoIP + Playback */
-			vcd_spuv_voip_ul_playback(g_vcd_ctrl_playback_mode);
-		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
-			!(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
-			/* VoIP + Record */
-		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
-			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
-			/* VoIP + Playback + Record */
-		} else {
-			/* VoIP only */
-			vcd_spuv_voip_ul(&buf_size);
-		}
+		/* VoIP UL path route */
+		vcd_spuv_voip_ul(&buf_size);
 		/* update VoIP UL buffer ID */
 		vcd_spuv_update_voip_ul_buffer_id();
 		/* notification buffer update */
 		vcd_voip_ul_callback(buf_size);
-	} else { /* Normal record route */
-		if (VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) {
-			/* notification buffer update */
-			vcd_complete_buffer();
-		}
+	} else if (VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) {
+		/* notification buffer update */
+		vcd_complete_buffer();
+	} else {
+		/* record is not active */
 	}
 
 	vcd_pr_end_control_function();
@@ -984,23 +973,7 @@ void vcd_ctrl_play_trigger(void)
 	if ((VCD_CTRL_FUNC_FEATURE_CALL & active_feature) &&
 		(VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type)) {
 		/* VoIP DL path route */
-
-		if ((VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) &&
-			!(VCD_CTRL_FUNC_FEATURE_RECORD & active_feature)) {
-			/* VoIP + Playback */
-			vcd_spuv_voip_dl_playback(g_vcd_ctrl_playback_mode);
-			/* notification buffer update */
-			vcd_beginning_buffer();
-		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
-			!(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
-			/* VoIP + Record */
-		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
-			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
-			/* VoIP + Playback + Record */
-		} else {
-			/* VoIP only */
-			vcd_spuv_voip_dl(&buf_size);
-		}
+		vcd_spuv_voip_dl(&buf_size);
 		/* update VoIP DL buffer ID */
 		vcd_spuv_update_voip_dl_buffer_id();
 		/* notification buffer update */

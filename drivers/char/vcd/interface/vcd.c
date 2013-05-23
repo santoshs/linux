@@ -515,7 +515,6 @@ void vcd_release_semaphore(void)
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	invalid argument.
- * @retval	VCD_ERR_NOT_SUPPORT	chip revision error.
  * @retval	others		result of called function.
  */
 int vcd_execute(const struct vcd_execute_command *args)

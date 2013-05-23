@@ -219,18 +219,6 @@
 			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00036000)
 #define SPUV_FUNC_SDRAM_VOIP_UL_BUFFER_1	( \
 			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00036800)
-#define SPUV_FUNC_SDRAM_VOIP_RECORD_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00037000)
-#define SPUV_FUNC_SDRAM_VOIP_RECORD_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00037280)
-#define SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_0	( \
-			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00037800)
-#define SPUV_FUNC_SDRAM_VOIP_PLAYBACK_BUFFER_1	( \
-			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00037A80)
-#define SPUV_FUNC_SDRAM_VOIP_MUTE_BUFFER	( \
-			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00038000)
-#define SPUV_FUNC_SDRAM_VOIP_MIXING_BUFFER	( \
-			SPUV_FUNC_SDRAM_CACHE_AREA_TOP + 0x00039000)
 
 /* spuv physical memory configuration mapping */
 #define SPUV_FUNC_DATA_RAM_SIZE		0x00040000
@@ -695,14 +683,7 @@ extern int vcd_spuv_func_resampler_close(void);
 extern void vcd_spuv_func_pt_playback(void);
 
 extern void vcd_spuv_func_voip_ul(unsigned int *buf_size);
-extern void vcd_spuv_func_voip_ul_playback_mode0(void);
-extern void vcd_spuv_func_voip_ul_playback_mode1(void);
-extern void vcd_spuv_func_voip_ul_playback_mode2(void);
-
 extern void vcd_spuv_func_voip_dl(unsigned int *buf_size);
-extern void vcd_spuv_func_voip_dl_playback_mode0(void);
-extern void vcd_spuv_func_voip_dl_playback_mode1(void);
-extern void vcd_spuv_func_voip_dl_playback_mode2(void);
 
 extern void vcd_spuv_func_init_playback_buffer_id(void);
 extern void vcd_spuv_func_init_record_buffer_id(void);
