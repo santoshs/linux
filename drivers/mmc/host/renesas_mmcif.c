@@ -1184,7 +1184,7 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 					| MMC_CAP_ERASE;
 	if (pd->caps)
 		mmc->caps |= pd->caps;
-	mmc->max_segs = 32;
+	mmc->max_segs = 128;
 	mmc->max_blk_size = 512;
 	mmc->max_req_size = PAGE_CACHE_SIZE * mmc->max_segs;
 	mmc->max_blk_count = mmc->max_req_size / mmc->max_blk_size;
