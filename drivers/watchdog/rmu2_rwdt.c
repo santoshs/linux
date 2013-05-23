@@ -24,6 +24,7 @@
 #include <mach/r8a7373.h>
 #include <linux/cpumask.h>
 #include <linux/delay.h>
+#include <linux/sched.h>
 #include <linux/rmu2_cmt15.h>
 #include <mach/sbsc.h>
 
@@ -854,6 +855,23 @@ void rmu2_rwdt_software_reset(void)
 
 	hwspin_unlock(r8a7373_hwlock_sysc);
 }
+
+#ifndef CONFIG_LOCKUP_DETECTOR
+void touch_softlockup_watchdog(void)
+{
+	rmu2_cmt_clear();
+	rmu2_rwdt_cntclear();
+}
+
+void touch_all_softlockup_watchdogs(void)
+{
+	touch_softlockup_watchdog();
+}
+
+void lockup_detector_init(void)
+{
+}
+#endif
 
 subsys_initcall(rmu2_rwdt_init);
 module_exit(rmu2_rwdt_exit);
