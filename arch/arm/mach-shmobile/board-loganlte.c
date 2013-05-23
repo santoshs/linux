@@ -74,7 +74,6 @@
 #if defined(CONFIG_SND_SOC_SH4_FSI)
 #include <mach/setup-u2audio.h>
 #endif /* CONFIG_SND_SOC_SH4_FSI */
-#include <sound/a2220.h>
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
 #include <linux/leds-regulator.h>
@@ -239,12 +238,6 @@ static struct platform_device board_bcmbt_lpm_device = {
 };
 #endif
 
-struct a2220_platform_data a2220_data = {
-	.a2220_hw_init = NULL,
-	.gpio_reset = GPIO_PORT44,
-	.gpio_wakeup = GPIO_PORT26,
-};
-
 struct fm34_platform_data fm34_data = {
 	.set_mclk = NULL,
 	.gpio_pwdn = GPIO_PORT26,
@@ -324,10 +317,6 @@ static struct platform_device key_backlight_device = {
 
 
 static struct i2c_board_info i2cm_devices_d2153[] = {
-	{
-		I2C_BOARD_INFO("audience_a2220", 0x3E),
-		.platform_data = &a2220_data,
-	},
 	{
 		I2C_BOARD_INFO(FM34_MODULE_NAME, 0x60),
 		.platform_data = &fm34_data,
@@ -562,10 +551,6 @@ static void __init board_init(void)
 #if defined(CONFIG_SND_SOC_SH4_FSI)
 	u2audio_init(u2_board_rev);
 #endif /* CONFIG_SND_SOC_SH4_FSI */
-
-	gpio_request(GPIO_PORT24, NULL);
-	gpio_direction_input(GPIO_PORT24);
-	gpio_pull_down_port(GPIO_PORT24);
 
 #ifndef CONFIG_ARM_TZ
 	r8a7373_l2cache_init();
