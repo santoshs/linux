@@ -826,16 +826,11 @@ int sec_hal_rpc_init(void);
 static int sec_hal_pdev_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct resource* mem;
 	sec_hal_init_info_t rt_init;
 
-	SEC_HAL_TRACE_ENTRY();
+	(void) pdev;
 
-	if (NULL == (mem = platform_get_resource(
-					pdev, IORESOURCE_MEM, 0))) {
-		SEC_HAL_TRACE_EXIT_INFO("faulty arguments, aborting!");
-		return -ENOMEM;
-	}
+	SEC_HAL_TRACE_ENTRY();
 
 	ret = sec_hal_icram0_init();
 	if (ret)
