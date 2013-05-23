@@ -202,7 +202,6 @@ static int spa_batt_set_property(struct power_supply *batt,
 						break;
 
 				case POWER_SUPPLY_PROP_MODEL_NAME:
-						memset (spa_ps_iter->model,'\0',sizeof(spa_ps_iter->model));
 						strncpy(spa_ps_iter->model, propval->strval, SPA_MODEL_NAME_LEN);
 						break;
 
