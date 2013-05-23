@@ -28,7 +28,10 @@
 #include <crypto/algapi.h>
 
 #include <linux/device-mapper.h>
-
+#if defined(CONFIG_CPU_FREQ)
+#include <mach/pm.h>
+static int dfs_disable=0;
+#endif
 #define DM_MSG_PREFIX "crypt"
 
 /*
@@ -268,6 +271,12 @@ static int crypt_iv_essiv_init(struct crypt_config *cc)
 	if (err)
 		return err;
 
+#if defined(CONFIG_CPU_FREQ)
+	  if (stop_cpufreq())
+                dfs_disable = 1;
+        else
+                dfs_disable = 0;
+#endif
 	for_each_possible_cpu(cpu) {
 		essiv_tfm = per_cpu_ptr(cc->cpu, cpu)->iv_private,
 
@@ -277,6 +286,12 @@ static int crypt_iv_essiv_init(struct crypt_config *cc)
 			return err;
 	}
 
+#if defined(CONFIG_CPU_FREQ)
+       if (dfs_disable  == 1) {
+                start_cpufreq();
+                dfs_disable = 0;
+        }
+#endif
 	return 0;
 }
 
@@ -290,6 +305,12 @@ static int crypt_iv_essiv_wipe(struct crypt_config *cc)
 
 	memset(essiv->salt, 0, salt_size);
 
+#if defined(CONFIG_CPU_FREQ)
+        if (stop_cpufreq())
+                dfs_disable = 1;
+        else
+                dfs_disable = 0;
+#endif
 	for_each_possible_cpu(cpu) {
 		essiv_tfm = per_cpu_ptr(cc->cpu, cpu)->iv_private;
 		r = crypto_cipher_setkey(essiv_tfm, essiv->salt, salt_size);
@@ -297,6 +318,12 @@ static int crypt_iv_essiv_wipe(struct crypt_config *cc)
 			err = r;
 	}
 
+#if defined(CONFIG_CPU_FREQ)
+	if (dfs_disable  == 1) {
+                start_cpufreq();
+                dfs_disable = 0;
+        }
+#endif
 	return err;
 }
 
@@ -346,6 +373,12 @@ static void crypt_iv_essiv_dtr(struct crypt_config *cc)
 	kzfree(essiv->salt);
 	essiv->salt = NULL;
 
+#if defined(CONFIG_CPU_FREQ)
+	if (stop_cpufreq())
+                dfs_disable = 1;
+        else
+                dfs_disable = 0;
+#endif
 	for_each_possible_cpu(cpu) {
 		cpu_cc = per_cpu_ptr(cc->cpu, cpu);
 		essiv_tfm = cpu_cc->iv_private;
@@ -355,6 +388,13 @@ static void crypt_iv_essiv_dtr(struct crypt_config *cc)
 
 		cpu_cc->iv_private = NULL;
 	}
+
+#if defined(CONFIG_CPU_FREQ)
+	if (dfs_disable  == 1) {
+                start_cpufreq();
+                dfs_disable = 0;
+        }
+#endif
 }
 
 static int crypt_iv_essiv_ctr(struct crypt_config *cc, struct dm_target *ti,
@@ -369,6 +409,13 @@ static int crypt_iv_essiv_ctr(struct crypt_config *cc, struct dm_target *ti,
 		ti->error = "Digest algorithm missing for ESSIV mode";
 		return -EINVAL;
 	}
+
+#if defined(CONFIG_CPU_FREQ)
+        if (stop_cpufreq())
+                dfs_disable = 1;
+        else
+                dfs_disable = 0;
+#endif
 
 	/* Allocate hash algorithm */
 	hash_tfm = crypto_alloc_hash(opts, 0, CRYPTO_ALG_ASYNC);
@@ -397,7 +444,12 @@ static int crypt_iv_essiv_ctr(struct crypt_config *cc, struct dm_target *ti,
 		}
 		per_cpu_ptr(cc->cpu, cpu)->iv_private = essiv_tfm;
 	}
-
+#if defined(CONFIG_CPU_FREQ)
+        if (dfs_disable  == 1) {
+                start_cpufreq();
+                dfs_disable = 0;
+        }
+#endif
 	return 0;
 
 bad:
@@ -1311,6 +1363,12 @@ static int crypt_setkey_allcpus(struct crypt_config *cc)
 	unsigned subkey_size = cc->key_size >> ilog2(cc->tfms_count);
 	int cpu, err = 0, i, r;
 
+#if defined(CONFIG_CPU_FREQ)
+	if (stop_cpufreq())
+                dfs_disable = 1;
+        else
+                dfs_disable = 0;
+#endif
 	for_each_possible_cpu(cpu) {
 		for (i = 0; i < cc->tfms_count; i++) {
 			r = crypto_ablkcipher_setkey(per_cpu_ptr(cc->cpu, cpu)->tfms[i],
@@ -1319,7 +1377,12 @@ static int crypt_setkey_allcpus(struct crypt_config *cc)
 				err = r;
 		}
 	}
-
+#if defined(CONFIG_CPU_FREQ)
+        if (dfs_disable  == 1) {
+                start_cpufreq();
+                dfs_disable = 0;
+        }
+#endif
 	return err;
 }
 
@@ -1374,13 +1437,26 @@ static void crypt_dtr(struct dm_target *ti)
 	if (cc->crypt_queue)
 		destroy_workqueue(cc->crypt_queue);
 
-	if (cc->cpu)
+	if (cc->cpu) {
+#if defined(CONFIG_CPU_FREQ)
+	if (stop_cpufreq())
+                dfs_disable = 1;
+        else
+                dfs_disable = 0;
+#endif
 		for_each_possible_cpu(cpu) {
 			cpu_cc = per_cpu_ptr(cc->cpu, cpu);
 			if (cpu_cc->req)
 				mempool_free(cpu_cc->req, cc->req_pool);
 			crypt_free_tfms(cc, cpu);
 		}
+#if defined(CONFIG_CPU_FREQ)
+        if (dfs_disable  == 1) {
+                start_cpufreq();
+                dfs_disable = 0;
+        }
+#endif
+	}
 
 	if (cc->bs)
 		bioset_free(cc->bs);
@@ -1488,6 +1564,13 @@ static int crypt_ctr_cipher(struct dm_target *ti,
 		goto bad_mem;
 	}
 
+#if defined(CONFIG_CPU_FREQ)
+	if (stop_cpufreq())
+                dfs_disable = 1;
+        else
+                dfs_disable = 0;
+#endif
+
 	/* Allocate cipher */
 	for_each_possible_cpu(cpu) {
 		ret = crypt_alloc_tfms(cc, cpu, cipher_api);
@@ -1497,6 +1580,13 @@ static int crypt_ctr_cipher(struct dm_target *ti,
 		}
 	}
 
+#if defined(CONFIG_CPU_FREQ)
+        if (dfs_disable  == 1) {
+                start_cpufreq();
+                dfs_disable = 0;
+        }
+
+#endif
 	/* Initialize and set key */
 	ret = crypt_set_key(cc, key);
 	if (ret < 0) {
