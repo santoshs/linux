@@ -264,20 +264,24 @@ static void tsu6712_push_queue(struct interrupt_element* val)
 	if(__MUIC_INTERRUPT_QUEUE_INDEX >= 10)
 	{
 		pr_err("%s : index overflow %d\n", __func__, __MUIC_INTERRUPT_QUEUE_INDEX);
-		__MUIC_INTERRUPT_QUEUE_INDEX = -1;
-	}
+		__MUIC_INTERRUPT_QUEUE_INDEX = 0;
+		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].intr = val->intr;
+		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].dev = val->dev;
+		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].adc = val->adc;
 
-	__MUIC_INTERRUPT_QUEUE_INDEX++;
-	__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].intr = val->intr;
-	__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].dev = val->dev;
-	__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].adc = val->adc;
+	} else {
+		__MUIC_INTERRUPT_QUEUE_INDEX++;
+		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].intr = val->intr;
+		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].dev = val->dev;
+		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].adc = val->adc;
+		}
 	mutex_unlock(&__MUIC_INTERRUPT_QUEUE_LOCK);
 }
 #endif
 
 static int tsu6712_write_reg(struct i2c_client *client, u8 reg, u8 data)
 {
-	int ret;
+	int ret = 0;
 	u8 buf[2];
 	struct i2c_msg msg[1];
 
@@ -305,7 +309,7 @@ static int tsu6712_write_reg(struct i2c_client *client, u8 reg, u8 data)
 
 static int tsu6712_read_reg(struct i2c_client *client, u8 reg, u8 *data)
 {
-	int ret;
+	int ret = 0;
 	u8 buf[1];
 	u8 regtemp;
 	struct i2c_msg msg[2];
@@ -340,7 +344,7 @@ static int tsu6712_read_reg(struct i2c_client *client, u8 reg, u8 *data)
 
 static int tsu6712_read_word_reg(struct i2c_client *client, u8 reg, int *data)
 {
-	int ret;
+	int ret = 0;
 	u8 data1, data2;
 	ret = tsu6712_read_reg(client, reg, &data1);
 	if (ret < 0) {
@@ -419,11 +423,21 @@ static void tsu6712_usb_cdp_cb(bool attached)
 
 	switch (set_cable_status) {
 	case CABLE_TYPE_USB:
-		spa_event_handler(SPA_EVT_CHARGER, (void*) POWER_SUPPLY_TYPE_USB);
+		pr_info("USB CDP attached : MUIC send switch state 100");
+		usb_uart_switch_state = 100;
+		send_usb_insert_event(1);
+		pr_info("%s USB CDP attached\n", __func__);
+		spa_event_handler(SPA_EVT_CHARGER, (void *) POWER_SUPPLY_TYPE_USB_CDP);
+		switch_set_state(&switch_usb_uart, 100);
 		break;
 
 	case CABLE_TYPE_NONE:
-		spa_event_handler(SPA_EVT_CHARGER, (void*) POWER_SUPPLY_TYPE_BATTERY);
+		pr_info("USB detached : MUIC send switch state 101");
+		usb_uart_switch_state = 101;
+		send_usb_insert_event(0);
+		pr_info("%s USB CDP removed\n", __func__);
+		spa_event_handler(SPA_EVT_CHARGER, (void *) POWER_SUPPLY_TYPE_BATTERY);
+		switch_set_state(&switch_usb_uart, 101);
 		break;
 	default:
 		break;
@@ -490,12 +504,12 @@ static void tsu6712_usb_cb(bool attached)
 static void tsu6712_charger_cb(bool attached)
 {
 	pr_info("tsu6712_charger_cb attached %d\n", attached);
-
 	set_cable_status = attached ? CABLE_TYPE_AC : CABLE_TYPE_NONE;
 
 	switch (set_cable_status) {
 	case CABLE_TYPE_AC:
 		spa_event_handler(SPA_EVT_CHARGER, (void*) POWER_SUPPLY_TYPE_USB_DCP);
+		send_usb_insert_event(0);
 		pr_info("%s TA attached\n",__func__);
 		break;
 	case CABLE_TYPE_NONE:
@@ -665,9 +679,6 @@ struct device_attribute *attr,
 
 	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
 
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
-
 	return snprintf(buf, 13, "CONTROL: %02x\n", value);
 }
 
@@ -680,8 +691,6 @@ struct device_attribute *attr,
 	u8 value;
 
 	tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	return snprintf(buf, 11, "DEVICE_TYPE: %02x\n", value);
 }
@@ -694,8 +703,6 @@ struct device_attribute *attr, char *buf)
 	u8 value;
 
 	tsu6712_read_reg(client,TSU6712_REG_MANSW1,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	if (value == SW_VAUDIO)
 		return snprintf(buf, 7, "VAUDIO\n");
@@ -722,8 +729,6 @@ struct device_attribute *attr,
 	int ret;
 
 	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	if ((value & ~CON_MANUAL_SW) !=	(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
 		return 0;
@@ -848,6 +853,7 @@ static ssize_t tsu6712_show_UUS_state(struct device *dev,
 
 /* AT-ISI Separation starts */
 extern int stop_isi;
+static int isi_mode; /* initialized to 0 */
 char at_isi_mode[100] = {0};
 
 static ssize_t ld_show_mode(struct device *dev,
@@ -877,6 +883,7 @@ ssize_t ld_set_manualsw(struct device *dev,
 		switch_set_state(&switch_usb_uart, SWITCH_AT);
 
 		stop_isi = 1;
+		isi_mode = 0;
 	}
 	if (0 == strncmp(buf, "switch isi", 10)) {
 		printk(" ld_set_manualsw switch isi\n");
@@ -884,6 +891,7 @@ ssize_t ld_set_manualsw(struct device *dev,
 		strcpy((char *)at_isi_mode, "isi");
 		switch_set_state(&switch_usb_uart, SWITCH_ISI);
 		stop_isi = 0;
+		isi_mode = 1;
 	}
 	return count;
 }
@@ -928,11 +936,11 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	}
 
 	if (strstr(at_isi_switch_buf, "\r\n"))
-		printk("###WIPRO### r n\n");
+		printk("###TEST0### r n\n");
 	else if (strstr(at_isi_switch_buf, "\t\n"))
-		printk("###WIPRO### t n\n");
+		printk("###TEST1### t n\n");
 	else if (strstr(at_isi_switch_buf, "\n"))
-		printk("###WIPRO### n\n");
+		printk("###TEST2### n\n");
 
 	ptr = strstr(atbuf, at_isi_switch_buf);
 	ptr2 = strstr(atmodechanbuf, at_isi_switch_buf);
@@ -953,12 +961,22 @@ ssize_t ld_set_switch_buf(struct device *dev,
 		return MUSB_IC_UART_AT_MODE_MODECHAN;
 	} else if (strstr(at_isi_switch_buf, "AT+ISISTART") != NULL ||
 		   strstr(at_isi_switch_buf, "AT+MODECHAN=0,0") != NULL) {
-		KERNEL_LOG = 0;
+		/*do not switch to isi mode if isi mode already set*/
+		if (isi_mode == 0) {
+			KERNEL_LOG = 0;
+			memset(at_isi_switch_buf, 0, 400);
+			ld_set_manualsw(NULL, NULL, isi_cmd_buf,
+				strlen(isi_cmd_buf));
+			return count;
+		}
+	}
+	/* this sends response if at+isistart is given in isi mode */
+	if (strstr(at_isi_switch_buf, "AT+ISISTART\r") != NULL ||
+		strstr(at_isi_switch_buf, "AT+MODECHAN=0,0\r") != NULL) {
 		memset(at_isi_switch_buf, 0, 400);
 		ld_set_manualsw(NULL, NULL, isi_cmd_buf, strlen(isi_cmd_buf));
-		return count;
+		return MUSB_IC_UART_INVALID_MODE;
 	}
-
 	if (error != 0) {
 		count = MUSB_IC_UART_INVALID_MODE;
 		memset(at_isi_switch_buf, 0, 400);
@@ -1060,8 +1078,6 @@ void tsu6712_manual_switching(int path)
 	int ret;
 
 	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	if ((value & ~CON_MANUAL_SW) !=	(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
 		return;
@@ -1593,6 +1609,12 @@ static int tsu6712_suspend(struct i2c_client *client,
 
 static int tsu6712_resume(struct i2c_client *client)
 {
+	struct tsu6712_usbsw *usbsw = i2c_get_clientdata(client);
+	pr_info("In tsu6712_resume \n");
+	if ((usbsw->dev1 & DEV_T1_UART_MASK) || (usbsw->dev2 & DEV_T2_UART_MASK)) {
+		if (!wake_lock_active(&acc_wakelock))
+			wake_lock(&acc_wakelock);
+	}
 	return 0;
 }
 
@@ -1629,7 +1651,7 @@ static void __exit tsu6712_exit(void)
 	i2c_del_driver(&tsu6712_i2c_driver);
 }
 
-module_init(tsu6712_init);
+late_initcall(tsu6712_init);
 module_exit(tsu6712_exit);
 
 MODULE_AUTHOR("SAMSUNG");
