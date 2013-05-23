@@ -543,6 +543,29 @@ error:
 }
 
 /*!
+  @brief	Copy process.
+
+  @param	to [i] Dest ptr.
+  @param	from [i] Source ptr.
+  @param	len [i] Size.
+
+  @return	.
+
+  @note		.
+*/
+static inline void audio_test_strncpy(char *to, const char *from, size_t len)
+{
+	audio_test_log_efunc("");
+	if (len > 0) {
+		strncpy(to, from, len);
+		*(to + len - 1)  = '\0';
+	} else {
+		audio_test_log_err("Length error ! len[%d]", len);
+	}
+	audio_test_log_rfunc("");
+}
+
+/*!
   @brief	Process of starting SCUW loopback.
 			[AudioIC->FSI->SCUW->FSI->AudioIC].
 
@@ -1051,7 +1074,7 @@ static void audio_test_proc_get_pcmname(
 {
 	audio_test_log_efunc("");
 
-	strncpy(pcm->pcmname,
+	audio_test_strncpy(pcm->pcmname,
 		audio_test_pcmname[pcm->pcmdirection][pcm->pcmtype],
 		AUDIO_TEST_PCMNAME_MAX_LEN);
 
@@ -1076,9 +1099,10 @@ static int audio_test_proc_set_pcmname(
 	audio_test_log_efunc("");
 
 	if (AUDIO_TEST_DRV_PCMSTATE_OPEN == pcm->pcmstate)
-		strncpy(audio_test_pcmname[pcm->pcmdirection][pcm->pcmtype],
-						pcm->pcmname,
-						AUDIO_TEST_PCMNAME_MAX_LEN);
+		audio_test_strncpy(
+			audio_test_pcmname[pcm->pcmdirection][pcm->pcmtype],
+			pcm->pcmname,
+			AUDIO_TEST_PCMNAME_MAX_LEN);
 	else
 		audio_test_pcmname[pcm->pcmdirection][pcm->pcmtype][0] = '\0';
 
@@ -1845,8 +1869,7 @@ static int audio_test_proc_log_write(struct file *filp, const char *buffer,
 
 	temp = kmalloc(count, GFP_KERNEL);
 	memset(temp, 0, count);
-	strncpy(temp, buffer, count);
-	temp[count-1] = '\0';
+	audio_test_strncpy(temp, buffer, count);
 	ret = kstrtoint(temp, 0, &in);
 	kfree(temp);
 
@@ -1964,6 +1987,7 @@ long audio_test_ioctl(struct file *filp, u_int cmd, u_long arg)
 	audio_test_log_efunc("filp[%p] cmd[0x%x]", filp, cmd);
 
 	memset(&data, 0, sizeof(data));
+	memset(&pcmdata, 0, sizeof(pcmdata));
 
 	if (!access_ok(VERIFY_WRITE, (void __user *)arg,
 					_IOC_SIZE(cmd))) {

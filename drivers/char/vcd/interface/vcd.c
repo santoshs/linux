@@ -947,8 +947,7 @@ static int vcd_set_call_mode(void *arg)
 		goto rtn;
 	}
 
-	if ((VCD_LOOPBACK_MODE_INTERFACE > option.loopback_mode) ||
-		(VCD_LOOPBACK_MODE_DELAY  < option.loopback_mode)) {
+	if (VCD_LOOPBACK_MODE_DELAY  < option.loopback_mode) {
 		vcd_pr_err("parameter error. option.loopback_mode[%d].\n",
 						option.loopback_mode);
 		ret = VCD_ERR_PARAM;
@@ -2650,7 +2649,7 @@ rtn:
 static unsigned int vcd_fops_poll
 (struct file *fp, struct poll_table_struct *wait)
 {
-	unsigned int	retmask = 0;
+	unsigned int retmask = 0;
 
 	vcd_pr_start_interface_function();
 
