@@ -33,57 +33,9 @@
 
 #include <linux/sysfs.h>
 #include <linux/proc_fs.h>
-
-#ifdef CONFIG_PMIC_INTERFACE
-#include <linux/pmic/pmic-tps80032.h>
-#include <linux/pmic/pmic.h>
-#endif
-#include <linux/d2153/core.h>
-
 struct class *gps_class;
 
 #define FUNC2_MODE_SCIFB 0x02
-
-static ssize_t GNSS_NRST_value_show(struct device *dev,
-                                    struct device_attribute *attr, char *buf)
-{
-        int value = gpio_get_value(GPIO_PORT10);
-
-        return sprintf(buf, "%d\n", value);
-}
-
-static ssize_t GNSS_NRST_value_store(struct device *dev,
-                                     struct device_attribute *attr,
-                                     const char *buf, size_t count)
-{
-        long value;
-        int  ret;
-
-        ret = strict_strtol(buf, 0, &value);
-        if (ret < 0)
-                return ret;
-
-#ifdef CONFIG_MFD_D2153
-                if (1 == value)
-                        d2153_clk32k_enable(1);         /* on */
-                else
-                        d2153_clk32k_enable(0);         /* off */
-#endif /* CONFIG_MFD_D2153 */
-#if defined(CONFIG_PMIC_INTERFACE)
-                if (1 == value)
-                        pmic_clk32k_enable(CLK32KG, TPS80032_STATE_ON);
-                else
-                        pmic_clk32k_enable(CLK32KG, TPS80032_STATE_OFF);
-#endif /* CONFIG_PMIC_INTERFACE */
-
-        printk(KERN_ALERT "%s: %ld\n", __func__, value);
-
-        gpio_set_value(GPIO_PORT10, value);
-
-        return count;
-}
-
-DEVICE_ATTR(value_nrst, 0644, GNSS_NRST_value_show, GNSS_NRST_value_store);
 
 static ssize_t GNSS_EN_value_show(struct device *dev,
                                 struct device_attribute *attr, char *buf)
@@ -117,15 +69,6 @@ static ssize_t GNSS_EN_value_store(struct device *dev,
 }
 
 DEVICE_ATTR(value_en, 0644, GNSS_EN_value_show, GNSS_EN_value_store);
-
-static const struct attribute *GNSS_NRST_attrs[] = {
-        &dev_attr_value_nrst.attr,
-        NULL,
-};
-
-static const struct attribute_group GNSS_NRST_attr_group = {
-        .attrs = (struct attribute **) GNSS_NRST_attrs,
-};
 
 static const struct attribute *GNSS_EN_attrs[] = {
         &dev_attr_value_en.attr,
