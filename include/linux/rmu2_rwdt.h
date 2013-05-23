@@ -85,9 +85,21 @@
 /* default starting cpu number */
 #define DEFAULT_CPU_NUMBER	0U
 
+#ifdef CONFIG_RMU2_RWDT
 int rmu2_rwdt_cntclear(void);
 int rmu2_rwdt_stop(void);
+#else
+static inline int rmu2_rwdt_cntclear(void)
+{
+	return 0;
+}
+static inline int rmu2_rwdt_stop(void)
+{
+	return 0;
+}
+#endif
 void rmu2_rwdt_software_reset(void);
+
 #endif  /* _LINUX_RWDT_H */
 
 /* End of File */
