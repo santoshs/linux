@@ -128,7 +128,7 @@ static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
 }
 
 static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
-			   struct v4l2_mbus_framefmt *mf)
+			struct v4l2_mbus_framefmt *mf)
 {
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 	struct sh_csi2_pdata *pdata = priv->pdev->dev.platform_data;
@@ -243,7 +243,7 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
  * error out.
  */
 static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
-			 struct v4l2_mbus_framefmt *mf)
+			struct v4l2_mbus_framefmt *mf)
 {
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 	u32 tmp = (priv->client->channel & 3) << 8;
@@ -294,7 +294,7 @@ static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
 }
 
 static int sh_csi2_g_mbus_config(struct v4l2_subdev *sd,
-				 struct v4l2_mbus_config *cfg)
+				struct v4l2_mbus_config *cfg)
 {
 	cfg->flags = V4L2_MBUS_PCLK_SAMPLE_RISING |
 		V4L2_MBUS_HSYNC_ACTIVE_HIGH | V4L2_MBUS_VSYNC_ACTIVE_HIGH |
@@ -305,13 +305,13 @@ static int sh_csi2_g_mbus_config(struct v4l2_subdev *sd,
 }
 
 static int sh_csi2_s_mbus_config(struct v4l2_subdev *sd,
-				 const struct v4l2_mbus_config *cfg)
+				const struct v4l2_mbus_config *cfg)
 {
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 	struct soc_camera_device *icd = v4l2_get_subdev_hostdata(sd);
 	struct v4l2_subdev *client_sd = soc_camera_to_subdev(icd);
 	struct v4l2_mbus_config client_cfg = {.type = V4L2_MBUS_CSI2,
-					      .flags = priv->mipi_flags};
+						.flags = priv->mipi_flags};
 
 	return v4l2_subdev_call(client_sd, video, s_mbus_config, &client_cfg);
 }
@@ -450,7 +450,7 @@ static int sh_csi2_client_connect(struct sh_csi2 *priv)
 		common_flags = csi2_flags;
 	else if (!ret)
 		common_flags = soc_mbus_config_compatible(&cfg,
-							  csi2_flags);
+							csi2_flags);
 	else
 		common_flags = 0;
 
@@ -552,7 +552,7 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	v4l2_set_subdevdata(&priv->subdev, &pdev->dev);
 
 	snprintf(priv->subdev.name, V4L2_SUBDEV_NAME_SIZE, "%s.mipi-csi",
-		 dev_name(pdata->v4l2_dev->dev));
+			dev_name(pdata->v4l2_dev->dev));
 	ret = v4l2_device_register_subdev(pdata->v4l2_dev, &priv->subdev);
 	dev_dbg(&pdev->dev,
 		"%s(%p): ret(register_subdev) = %d\n", __func__, priv, ret);
