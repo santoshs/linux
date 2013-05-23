@@ -101,7 +101,7 @@ void
 l2mux_stat_dowork(struct work_struct *work)
 {
 	int err;
-	struct l2mux_stat_info 	*info =
+	struct l2mux_stat_info *info =
 	container_of(work, struct l2mux_stat_info, l2mux_stat_work);
 
 	struct net_device *dev = info->dev;
@@ -110,10 +110,9 @@ l2mux_stat_dowork(struct work_struct *work)
 
 		err = device_create_file(&dev->dev, &l2mux_dev_attrs[0]);
 
-		if (err == 0) {
-
+		if (err == 0)
 			l2mux_sinf.l2mux_traces_activation_done = 1;
-		} else
+		else
 			printk(KERN_ERR "l2mux cannot create device file");
 	}
 }
@@ -560,6 +559,11 @@ l2mux_skb_tx(struct sk_buff *skb, struct net_device *dev)
 	unsigned          l3pid;
 	unsigned	  l3len;
 #endif /* ACTIVATE_L2MUX_STAT */
+
+	if(unlikely(!skb)) {
+		printk(KERN_ERR "L2MUX TX skb invalid\n");
+		return -EINVAL;
+	}
 
 	/* Packet type ETH_P_XXX */
 	type = ntohs(skb->protocol);

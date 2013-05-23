@@ -48,7 +48,8 @@
 #define MHI_L3_MHDP_DL		0x07
 #define MHI_L3_MHDP_UL		0x08
 #define MHI_L3_AUX_HOST		0x09
-#define MHI_L3_IMS		0x0D
+#define MHI_L3_IMS              0x0D
+#define MHI_L3_OEM_CP      	0x0E
 #define MHI_L3_THERMAL		0xC1
 #define MHI_L3_MHDP_UDP_FILTER	0xFC
 #define MHI_L3_HIGH_PRIO_TEST	0xFD
