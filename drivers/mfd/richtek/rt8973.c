@@ -94,6 +94,7 @@ __weak int KERNEL_LOG;
 #define ID_UNKNOW 5
 #define ID_OTG  6
 #define ID_JIG_UART 7
+#define ID_USB_CDP 8
 
 #define MAX_DCDT_retry 2
 static char * devices_name[] = { "NONE",
@@ -445,6 +446,25 @@ static void usb_attach(uint8_t attached)
 		switch_set_state(&switch_usb_uart,101);
     }
 }
+
+static void usb_cdp_attach(uint8_t attached)
+{
+        printk(attached ? "USB CDP attached\n" : "USB CDP detached\n");
+        set_cable_status = attached ? CABLE_TYPE_USB : CABLE_TYPE_NONE;
+        if ( attached ) {
+		usb_uart_switch_state = 100;
+                send_usb_insert_event(1);
+                spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB_CDP);
+		switch_set_state(&switch_usb_uart,100);
+        }
+        else {
+		usb_uart_switch_state = 101;
+                send_usb_insert_event(0);
+                spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
+		switch_set_state(&switch_usb_uart,101);
+    }
+}
+
 static void uart_attach(uint8_t attached)
 {
 	printk(attached?"UART attached\n":"UART detached\n");
@@ -466,6 +486,7 @@ static void charger_attach(uint8_t attached)
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 	if (attached) {
 		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB_DCP);
+		send_usb_insert_event(0);
 	}
 	else {
 		spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
@@ -523,6 +544,7 @@ static void set_usb_power(uint8_t on)
 
 static struct rtmus_platform_data __initdata rtmus_pdata = {
     .usb_callback = &usb_attach,
+    .usb_cdp_callback = &usb_cdp_attach,
     .uart_callback = &uart_attach,
     .charger_callback = &charger_attach,
     .jig_callback = &jig_attach,
@@ -534,7 +556,7 @@ static struct rtmus_platform_data __initdata rtmus_pdata = {
 #endif
     .over_voltage_callback = &over_voltage,
     .usb_power = &set_usb_power,
-	.ex_init = rt8973_ex_init,
+    .ex_init = rt8973_ex_init,
 };
 #endif
 
@@ -844,12 +866,26 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
     }
     if (regIntFlag&RT8973_INT_CHGDET_MASK)
     {
-        if (regDev1&0x70) //0x40 / 0x20 / 0x10
-        {
-            pDrvData->accessory_id = ID_CHARGER;
-            if (platform_data.charger_callback)
-                platform_data.charger_callback(RT8973_ATTACHED);
-            return;
+	INFO("regDev1 = 0x%x;regDev2=0x%x\n",regDev1,regDev2);
+	if (regDev1&0x20) //0x20
+	{
+		INFO("USB CDP connected!\n");
+		pDrvData->accessory_id = ID_USB_CDP;
+		if (platform_data.usb_cdp_callback)
+			platform_data.usb_cdp_callback(RT8973_ATTACHED);
+		if (pDrvData->operating_mode)
+		{
+			I2CWByte(RT8973_REG_MANUAL_SW1,0x24);
+		}
+		return;
+	}
+	else if (regDev1&0x50) //0x40 / 0x10
+	{
+		INFO("DCP/TA connected!\n");
+		pDrvData->accessory_id = ID_CHARGER;
+		if (platform_data.charger_callback)
+			platform_data.charger_callback(RT8973_ATTACHED);
+		return;
         }
         INFO("Unkown event!!\n");
         return;
@@ -1166,6 +1202,10 @@ inline void do_detach_work(int32_t regIntFlag)
         if (platform_data.usb_callback)
             platform_data.usb_callback(RT8973_DETACHED);
         break;
+	case ID_USB_CDP:
+	if (platform_data.usb_cdp_callback)
+	platform_data.usb_cdp_callback(RT8973_DETACHED);
+	break;
         case ID_UART:
         if (platform_data.uart_callback) {
             platform_data.uart_callback(RT8973_DETACHED);
