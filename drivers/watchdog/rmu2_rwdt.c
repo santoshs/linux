@@ -150,7 +150,6 @@ static struct miscdevice rwdt_mdev = {
  */
 int rmu2_rwdt_cntclear(void)
 {
-	int ret = 0;
 	unsigned int base;
 	struct resource *r;
 	u8 reg8;
@@ -158,11 +157,7 @@ int rmu2_rwdt_cntclear(void)
 
 	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
 	if (NULL == r) {
-		ret = -ENOMEM;
-		printk(KERN_ERR
-		"%s:%d platform_get_resource failed err=%d\n",
-		__func__, __LINE__, ret);
-		return ret;
+		return -ENOMEM;
 	}
 	base = r->start;
 
@@ -170,7 +165,7 @@ int rmu2_rwdt_cntclear(void)
 	reg8 = __raw_readb(base + RWTCSRA);
 	wrflg = ((u32)reg8 >> 5) & 0x01U;
 	if (0U == wrflg) {
-		RWDT_DEBUG(KERN_DEBUG "Clear the watchdog counter!!\n");
+		/*RWDT_DEBUG(KERN_DEBUG "Clear the watchdog counter!!\n");*/
 		__raw_writel(RESCNT_CLEAR_DATA, base + RWTCNT_OFFSET);
 		return 0;
 	} else {
@@ -263,7 +258,7 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 		break;
 	}
 #endif
-	RWDT_DEBUG("START < %s >\n", __func__);
+	printk(KERN_INFO "START < %s >\n", __func__);
 
 #ifdef CONFIG_IRQ_TRACE
 	{

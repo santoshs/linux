@@ -218,15 +218,15 @@ static void rmu2_cmt_start(void)
 
 	__raw_writel(1, CMSTR15);
 
-	printk(KERN_ALERT "< %s >CMCLKE=%08x\n", __func__,
+	printk(KERN_INFO "< %s >CMCLKE=%08x\n", __func__,
 					__raw_readl(CMCLKE));
-	printk(KERN_ALERT "< %s >CMSTR15=%08x\n", __func__,
+	printk(KERN_INFO "< %s >CMSTR15=%08x\n", __func__,
 					__raw_readl(CMSTR15));
-	printk(KERN_ALERT "< %s >CMCSR15=%08x\n", __func__,
+	printk(KERN_INFO "< %s >CMCSR15=%08x\n", __func__,
 					__raw_readl(CMCSR15));
-	printk(KERN_ALERT "< %s >CMCNT15=%08x\n", __func__,
+	printk(KERN_INFO "< %s >CMCNT15=%08x\n", __func__,
 					__raw_readl(CMCNT15));
-	printk(KERN_ALERT "< %s >CMCOR15=%08x\n", __func__,
+	printk(KERN_INFO "< %s >CMCOR15=%08x\n", __func__,
 					__raw_readl(CMCOR15));
 }
 
@@ -278,7 +278,7 @@ void rmu2_cmt_clear(void)
 	} while (wrflg != 0x00 && i < 0xffffffff);
 
 	__raw_writel(1, CMSTR15);       /* Enable counting again */
-	printk(KERN_INFO "START < %s >\n", __func__);
+	/*printk(KERN_INFO "START < %s >\n", __func__);*/
 }
 
 /*
@@ -393,7 +393,7 @@ static void rmu2_cmt_init_irq(void)
 {
 	int ret = 0;
 	unsigned int irq;
-	printk(KERN_ALERT "START < %s >\n", __func__);
+	printk(KERN_INFO "START < %s >\n", __func__);
 
 	irq = gic_spi(CMT15_SPI);
 	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
