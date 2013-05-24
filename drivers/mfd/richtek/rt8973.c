@@ -1237,6 +1237,7 @@ inline void do_detach_work(int32_t regIntFlag)
             regCtrl1 |= 0x04; // Automatically Contrl
             I2CWByte(RT8973_REG_CONTROL_1,regCtrl1);
         }
+	break;
         default:
         INFO("Unknown accessory detach\n");
         ;
