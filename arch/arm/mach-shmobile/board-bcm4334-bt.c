@@ -213,7 +213,7 @@ static int bcm_bt_lpm_init(struct platform_device *pdev)
 	gpio_direction_output(BT_WAKE_GPIO, 0);
 	gpio_direction_input(BT_HOST_WAKE_GPIO);
 
-	*((volatile u8 *)BT_WAKE_GPIO_CR) = 0x90; /* Config BT IRQ with PD output*/
+//	*((volatile u8 *)BT_WAKE_GPIO_CR) = 0x90; /* Config BT IRQ with PD output*/
 	
 	snprintf(bt_lpm.wake_lock_name, sizeof(bt_lpm.wake_lock_name),
 			"BTLowPower");
