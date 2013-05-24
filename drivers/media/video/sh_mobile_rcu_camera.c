@@ -493,10 +493,11 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 		return;
 	}
 	reg_actst1 = meram_read(pcdev, RCU_MERAM_ACTST1);
-	reg_actst1 &= (3 << (RCU_MERAM_CH(pcdev->meram_ch) - 32));
+	reg_actst1 =
+		(0x3 & (reg_actst1 >> (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
 
 	if (RCU_MERAM_FRAMEA == pcdev->meram_frame) {
-		if ((RCU_MERAM_STP_FORCE == mode) && (reg_actst1 & 0x1)) {
+		if ((RCU_MERAM_STP_FORCE == mode) && !(reg_actst1 & 0x1)) {
 			dev_warn(pcdev->icd->parent,
 				"MERAM FORCE NoAct %s :"
 				"  ACTST1[%08x] "
@@ -514,7 +515,7 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 			meram_ch_write(pcdev, RCU_MERAM_CTRL_C,
 				read_reg | 0x60);
 	} else {
-		if ((RCU_MERAM_STP_FORCE == mode) && (reg_actst1 & 0x2)) {
+		if ((RCU_MERAM_STP_FORCE == mode) && !(reg_actst1 & 0x2)) {
 			dev_warn(pcdev->icd->parent,
 				"MERAM FORCE NoAct %s :"
 				"  ACTST1[%08x] "
