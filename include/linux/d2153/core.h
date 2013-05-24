@@ -62,7 +62,7 @@ typedef struct {
 } pmu_reg;
 
 /*
- * DA1980 Number of Interrupts
+ * D2153 Number of Interrupts
  */
 enum D2153_IRQ {
 	// EVENT_A register IRQ
@@ -265,5 +265,13 @@ void 	d2153_system_poweroff(void);
 void 	d2153_set_mctl_enable(void);
 void d2153_clk32k_enable(int onoff);
 extern struct d2153_platform_data d2153_pdata;
+
+/* HW Sem*/
+int  d2153_hw_sem_reset_init(void);
+int  d2153_hw_sem_reset_deinit(void);
+int  d2153_get_i2c_hwsem(void);
+int  d2153_get_adc_hwsem(void);
+void d2153_put_i2c_hwsem(void);
+void d2153_put_adc_hwsem(void);
 
 #endif /* __D2153_LEOPARD_CORE_H_ */
