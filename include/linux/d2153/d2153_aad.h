@@ -22,8 +22,6 @@
 /* PMIC related includes */
 #include <linux/d2153/core.h>
 
-//#define D2153_JACK_DETECT
-
 /*
  * D2153 AAD register space
  */
@@ -95,6 +93,7 @@
 #define D2153_GPIO_DEBOUNCE_TIME_SHORT (1000)  /*1ms*/
 
 #define D2153_AAD_BUTTON_DEBOUNCE_MS 50
+#define D2153_AAD_BUTTON_SLEEP_DEBOUNCE_MS 10
 #define D2153_AAD_JACKOUT_DEBOUNCE_MS 100
 #define D2153_AAD_JACK_DEBOUNCE_MS 400
 
@@ -122,6 +121,7 @@
 
 #define D2153_AA_Silicon	0x00
 #define D2153_AB_Silicon	0x10
+#define D2153_AC_Silicon	0x20
 
 /* Structure to encapsulate button press ADC value ranges */
 struct button_resistance {
@@ -157,13 +157,13 @@ struct d2153_aad_priv {
 	struct d2153_switch_data switch_data;
 	struct delayed_work	jack_monitor_work;
 	struct delayed_work	button_monitor_work;
-	unsigned int first_check_done;
 	unsigned int g_det_irq;
 	u8 chip_rev;
 	bool l_det_status;
 	int jack_debounce_ms;
 	int jackout_debounce_ms;
 	int button_debounce_ms;
+	int button_sleep_debounce_ms;
 	bool codec_detect_enable;	/* d2153 detect configuration */
 	bool gpio_detect_enable;	/* gpio detect configuration */
 	int gpio_port;			/* gpio port for jack detect */

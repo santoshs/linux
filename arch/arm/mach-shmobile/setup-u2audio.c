@@ -66,6 +66,10 @@ void u2audio_gpio_init(void)
 	gpio_request(GPIO_FN_FSIAOLR, "sound");
 	gpio_request(GPIO_FN_FSIAOSLD, "sound");
 
+	gpio_pull_off_port(GPIO_PORT263);
+	gpio_pull_off_port(GPIO_PORT264);
+	gpio_pull_off_port(GPIO_PORT265);
+
 	gpio_request(GPIO_FN_FSIBISLD, "sound");
 	gpio_request(GPIO_FN_FSIBOBT, "sound");
 	gpio_request(GPIO_FN_FSIBOLR, "sound");
@@ -92,7 +96,8 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 	int debounce_ms;
 
 #if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
-	if (RLTE_BOARD_REV_0_1 < u2_board_rev) {
+	if ((RLTE_BOARD_REV_0_1 < u2_board_rev) &&
+		(RLTE_BOARD_REV_0_4 > u2_board_rev)) {
 		d2153_pdata.audio.aad_codec_detect_enable = true;
 		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
 		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
@@ -117,6 +122,8 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 						D2153_AAD_JACKOUT_DEBOUNCE_MS;
 	d2153_pdata.audio.aad_button_debounce_ms =
 						D2153_AAD_BUTTON_DEBOUNCE_MS;
+	d2153_pdata.audio.aad_button_sleep_debounce_ms =
+					D2153_AAD_BUTTON_SLEEP_DEBOUNCE_MS;
 	d2153_pdata.audio.aad_gpio_detect_enable = true;
 	d2153_pdata.audio.aad_gpio_port = GPIO_PORT7;
 

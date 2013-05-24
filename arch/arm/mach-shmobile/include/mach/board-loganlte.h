@@ -57,6 +57,8 @@
 #define RLTE_BOARD_REV_0_0	0
 #define RLTE_BOARD_REV_0_1	1
 #define RLTE_BOARD_REV_0_2	2
+#define RLTE_BOARD_REV_0_3	3
+#define RLTE_BOARD_REV_0_4	4
 
 /**
  * ION
