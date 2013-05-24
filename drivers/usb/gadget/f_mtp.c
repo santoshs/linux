@@ -40,8 +40,6 @@
 #include <linux/sh_clk.h>
 #include <mach/pm.h>
 
-static int dfs_started = -1;
-
 #define MTP_BULK_BUFFER_SIZE       16384
 #define INTR_BUFFER_SIZE           28
 
@@ -657,6 +655,9 @@ static void send_file_work(struct work_struct *data)
 
 	DBG(cdev, "send_file_work(%lld %lld)\n", offset, count);
 
+#ifdef CONFIG_USB_R8A66597
+	usb_request_high_cpufreq();
+#endif
 	if (dev->xfer_send_header) {
 		hdr_size = sizeof(struct mtp_data_header);
 		count += hdr_size;
@@ -732,6 +733,9 @@ static void send_file_work(struct work_struct *data)
 	if (req)
 		mtp_req_put(dev, &dev->tx_idle, req);
 
+#ifdef CONFIG_USB_R8A66597
+	 usb_release_high_cpufreq();
+#endif
 	DBG(cdev, "send_file_work returning %d\n", r);
 	/* write the result */
 	dev->xfer_result = r;
@@ -759,6 +763,9 @@ static void receive_file_work(struct work_struct *data)
 
 	DBG(cdev, "receive_file_work(%lld)\n", count);
 
+#ifdef CONFIG_USB_R8A66597
+	usb_request_high_cpufreq();
+#endif
 	while (count > 0 || write_req) {
 		if (count > 0) {
 			/* queue a request */
@@ -819,7 +826,9 @@ static void receive_file_work(struct work_struct *data)
 			read_req = NULL;
 		}
 	}
-
+#ifdef CONFIG_USB_R8A66597
+	usb_release_high_cpufreq();
+#endif
 	DBG(cdev, "receive_file_work returning %d\n", r);
 	/* write the result */
 	dev->xfer_result = r;
@@ -962,7 +971,6 @@ out:
 
 static int mtp_open(struct inode *ip, struct file *fp)
 {
-	int ret = 0;
 	printk(KERN_INFO "mtp_open\n");
 	if (mtp_lock(&_mtp_dev->open_excl))
 		return -EBUSY;
@@ -972,15 +980,6 @@ static int mtp_open(struct inode *ip, struct file *fp)
 		_mtp_dev->state = STATE_READY;
 
 	fp->private_data = _mtp_dev;
-	ret = stop_cpufreq();
-	DBG(_mtp_dev->cdev, "%s(): stop_cpufreq\n", __func__);
-	if (ret) {
-		dfs_started = 1;
-		ERROR(_mtp_dev->cdev, "%s(): error<%d>! stop_cpufreq\n",
-			__func__, ret);
-	} else
-		dfs_started = 0;
-
 	return 0;
 }
 
@@ -989,13 +988,6 @@ static int mtp_release(struct inode *ip, struct file *fp)
 	printk(KERN_INFO "mtp_release\n");
 
 	mtp_unlock(&_mtp_dev->open_excl);
-
-	if (!dfs_started) {
-		start_cpufreq();
-		DBG(_mtp_dev->cdev, "%s(): start_cpufreq\n", __func__);
-		dfs_started = 1;
-	}
-
 	return 0;
 }
 
