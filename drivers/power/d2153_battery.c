@@ -27,13 +27,9 @@
 #include <linux/wakelock.h>
 #include <linux/gpio.h>
 
-#include <linux/atomic.h>
-#include <mach/r8a7373.h>
 #include <linux/io.h>
 #include <mach/common.h>
 #include <linux/jiffies.h>
-#include <linux/hwspinlock.h>
-#include <linux/kthread.h>
 #include <linux/spa_power.h>
 
 #include "linux/err.h"
@@ -123,12 +119,6 @@ static const char __initdata d2153_battery_banner[] = \
 /* static void d2153_external_event_handler(int category, int event); */
 static int  d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channel);
 static int  d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel channel);
-
-/* Static Variable Declaration */
-struct hwspinlock *r8a73734_hwlock_pmic_d2153;
-static wait_queue_head_t d2153_modem_reset_event;
-static struct task_struct *d2153_modem_reset_thread;
-static atomic_t modem_reset_handing = ATOMIC_INIT(0);
 
 static struct d2153_battery *gbat = NULL;
 static u8  is_called_by_ticker = 0;
@@ -302,251 +292,6 @@ static u16 adc_diff_charge[]                    = {  60,   60,  200,  210,  225,
 
 static u16 adc2soc_lut_length = (u16)sizeof(adc2soc_lut.soc)/sizeof(u16);
 static u16 adc2vbat_lut_length = (u16)sizeof(adc2vbat_lut.offset)/sizeof(u16);
-
-/*
- * d2153_get_hw_sem_timeout() - lock an hwspinlock with timeout limit
- * @hwlock: the hwspinlock to be locked
- * @timeout: timeout value in msecs
- */
-static int d2153_get_hwsem_timeout(struct hwspinlock *hwlock,
-		unsigned int time_out)
-{
-	int ret;
-	unsigned long expire;
-
-	expire = msecs_to_jiffies(time_out) + jiffies;
-
-	for (;;) {
-		/* Try to take the hwspinlock */
-		ret = hwspin_trylock_nospin(hwlock);
-		if (ret == 0)
-			break;
-
-		/*
-		 * The lock is already taken, try again
-		 */
-		if (time_is_before_eq_jiffies(expire))
-			return -ETIMEDOUT;
-
-		/*
-		 * Wait 1 millisecond for another round
-		 */
-		mdelay(1);
-	}
-
-	return ret;
-}
-
-/*
- * d2153_force_release_hwsem() - force to release hw semaphore
- * @hwsem_id: Hardware semaphore ID
-		0x01: AP Realtime side
- *		0x40: AP System side
- *		0x93: Baseband side
- * return: void
- */
-static void d2153_force_release_hwsem(u8 hwsem_id)
-{
-	void *ptr;
-	u32 value = 0;
-	unsigned long expire = msecs_to_jiffies(5) + jiffies;
-
-	/*Check input hwsem_id*/
-	switch (hwsem_id) {
-		case RT_CPU_SIDE:
-		case SYS_CPU_SIDE:
-		case BB_CPU_SIDE:
-			break;
-		default:
-			return;
-	}
-
-	ptr = ioremap(HPB_SEM_PMICPhys, 4);
-	value = ioread32(ptr);
-	iounmap(ptr);
-
-	dlg_info("%s: ID (0x%x) is using HW semaphore\n", \
-			__func__, value >> 24);
-
-	if ((value >> 24) != hwsem_id)
-		return;
-
-	/*enable master access*/
-	ptr = ioremap(HPB_SEM_MPACCTLPhys, 4);
-	for (;;) {
-
-		/* Try to enable master access */
-		iowrite32(0xC0000000, ptr);
-		value = ioread32(ptr);
-		if (value == 0xC0000000) {
-			iounmap(ptr);
-			break;
-		}
-
-		/*
-		 * Cannot enable master access, try again
-		 */
-		if (time_is_before_eq_jiffies(expire)) {
-			iounmap(ptr);
-			return;
-		}
-
-		/*
-		 * Wait 50 nanosecond for another round
-		 */
-		ndelay(50);
-	}
-
-	/*Force clear HW sem*/
-	expire = msecs_to_jiffies(5) + jiffies;
-
-	ptr = ioremap(HPB_SEM_PMICPhys, 4);
-	for (;;) {
-		/* Try to force clear HW sem */
-		iowrite32(0, ptr);
-		value = ioread32(ptr);
-		if (value == 0x0) {
-			iounmap(ptr);
-			dlg_err("%s: Force to release HW sem from ID 0x%x) successful\n",
-				__func__, hwsem_id);
-			break;
-		}
-
-		/*
-		 * Cannot force clear HW sem, try again
-		 */
-		if (time_is_before_eq_jiffies(expire)) {
-			iounmap(ptr);
-			dlg_err(
-				"%s: Fail to release HW sem from ID (0x%x)\n",
-					__func__, hwsem_id);
-			break;
-		}
-
-		/*
-		 * Wait 50 nanosecond for another round
-		 */
-		ndelay(50);
-	}
-
-	/*Disable master access*/
-	expire = msecs_to_jiffies(5) + jiffies;
-	ptr = ioremap(HPB_SEM_MPACCTLPhys, 4);
-	for (;;) {
-		/* Try to disable master access */
-		iowrite32(0, ptr);
-		value = ioread32(ptr);
-		if (value == 0x0) {
-			iounmap(ptr);
-			break;
-		}
-
-		/*
-		 * Cannot disable master access, try again
-		 */
-		if (time_is_before_eq_jiffies(expire)) {
-			iounmap(ptr);
-			return;
-		}
-
-		/*
-		 * Wait 50 nanosecond for another round
-		 */
-		ndelay(50);
-	}
-}
-
-/*
- * d2153_force_release_swsem() - force to release sw semaphore
- * @swsem_id: Software semaphore ID
-		0x01: AP Realtime side
- *		0x40: AP System side
- *		0x93: Baseband side
- * return: void
- */
-static void d2153_force_release_swsem(u8 swsem_id)
-{
-	u32 lock_id;
-	unsigned long expire = msecs_to_jiffies(10) + jiffies;
-
-	/*Check input swsem_id*/
-	switch (swsem_id) {
-	case RT_CPU_SIDE:
-	case SYS_CPU_SIDE:
-	case BB_CPU_SIDE:
-		break;
-	default:
-		return;
-	}
-
-	/* Check which CPU (Real time or Baseband or System) is using SW sem*/
-	lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic_d2153);
-
-	dlg_info("%s: ID (0x%x) is using SW semaphore\n", \
-				__func__, lock_id);
-
-	if (lock_id != swsem_id)
-		return;
-
-	for (;;) {
-		/* Try to force to unlock SW sem*/
-		hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
-		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic_d2153);
-		if (lock_id == 0) {
-			dlg_err(
-		"%s: Forcing to release SW sem from ID (0x%x) is successful\n",
-				__func__, swsem_id);
-			break;
-		}
-
-		/*
-		 * Cannot force to unlock SW sem, try again
-		 */
-		if (time_is_before_eq_jiffies(expire)) {
-			dlg_err(
-				"%s: Fail to release HW sem from ID (0x%x)\n",
-					__func__, swsem_id);
-			return;
-		}
-
-		/*
-		 * Wait 100 nanosecond for another round
-		 */
-		ndelay(100);
-	}
-
-}
-
-/*
- * d2153_handle_modem_reset: Handle modem reset
- * return: void
- */
-void d2153_handle_modem_reset(void)
-{
-	atomic_set(&modem_reset_handing, 1);
-	wake_up_interruptible(&d2153_modem_reset_event);
-}
-EXPORT_SYMBOL(d2153_handle_modem_reset);
-
-
-/*
- * d2153_modem_thread: start thread to handle modem reset
- * @ptr:
- * return: 0
- */
-static int d2153_modem_thread(void *ptr)
-{
-	while (!kthread_should_stop()) {
-		wait_event_interruptible(d2153_modem_reset_event,
-					atomic_read(&modem_reset_handing));
-
-		d2153_force_release_hwsem(BB_CPU_SIDE);
-		d2153_force_release_swsem(BB_CPU_SIDE);
-
-		atomic_set(&modem_reset_handing, 0);
-	}
-	return 0;
-}
 
 /*
  * Name : chk_lut
@@ -1016,14 +761,14 @@ static int d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channe
 		return -EINVAL;
 	}
 
-	ret = d2153_get_hwsem_timeout(r8a73734_hwlock_pmic_d2153, CONST_HPB_WAIT);
+	mutex_lock(&pbat->meoc_lock);
 
+	ret = d2153_get_adc_hwsem();
 	if (ret < 0) {
+			mutex_unlock(&pbat->meoc_lock);
 			pr_err("%s:lock is already taken.\n", __func__);
 			return -EBUSY;
 	}
-
-	mutex_lock(&pbat->meoc_lock);
 
 	pbat_data->adc_res[channel].is_adc_eoc = FALSE;
 	pbat_data->adc_res[channel].read_adc = 0;
@@ -1056,9 +801,8 @@ static int d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channe
 			(adc_cont_inven[channel].adc_lsb_mask == ADC_RES_MASK_MSB ? 4 : 0)));
 
 out:
+	d2153_put_adc_hwsem();
 	mutex_unlock(&pbat->meoc_lock);
-
-	hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
 
 	return ret;
 }
@@ -1074,14 +818,15 @@ static int d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel chan
 	struct d2153_battery_data *pbat_data = &pbat->battery_data;
 	struct d2153 *d2153 = pbat->pd2153;
 
-	ret = d2153_get_hwsem_timeout(r8a73734_hwlock_pmic_d2153, CONST_HPB_WAIT);
 
+	mutex_lock(&pbat->meoc_lock);
+
+	ret = d2153_get_adc_hwsem();
 	if (ret < 0) {
+			mutex_unlock(&pbat->meoc_lock);
 			pr_err("%s:lock is already taken.\n", __func__);
 			return -EBUSY;
 	}
-
-	mutex_lock(&pbat->meoc_lock);
 
 	pbat_data->adc_res[channel].is_adc_eoc = FALSE;
 	pbat_data->adc_res[channel].read_adc = 0;
@@ -1117,15 +862,14 @@ static int d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel chan
 		flag = pbat_data->adc_res[channel].is_adc_eoc;
 	} while(retries-- && (flag == FALSE));
 
+out:
+	d2153_put_adc_hwsem();
+	mutex_unlock(&pbat->meoc_lock);
+
 	if(flag == FALSE) {
 		pr_warn("%s. Failed manual ADC conversion. channel(%d)\n", __func__, channel);
 		ret = -EIO;
 	}
-
-out:
-	mutex_unlock(&pbat->meoc_lock);
-
-	hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
 
 	return ret;
 }
@@ -1851,9 +1595,7 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 		return;
 	}
 
-	mutex_lock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	ret = d2153_read_voltage(pbat,ps);
-	mutex_unlock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	if(ret < 0)
 	{
 		pr_err("%s. Read voltage ADC failure\n", __func__);
@@ -1932,9 +1674,7 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
 	struct d2153_battery *pbat = container_of(work, struct d2153_battery, monitor_temp_work.work);
 	int ret;
 
-	mutex_lock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	ret = d2153_read_temperature(pbat);
-	mutex_unlock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	if(ret < 0) {
 		pr_err("%s. Failed to read_temperature\n", __func__);
 		schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_FAST);
@@ -2005,19 +1745,12 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 {
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_battery *pbat = &d2153->batt;
-	int ret;
 
 	pr_info("Start %s\n", __func__);
 
 	if(unlikely(!pbat)) {
 		pr_err("%s. Invalid platform data\n", __func__);
 		return -EINVAL;
-	}
-
-	r8a73734_hwlock_pmic_d2153 = hwspin_lock_request_specific(SMGP000);
-	if (r8a73734_hwlock_pmic_d2153 == NULL) {
-		pr_err("%s Unable to register hw spinlock for pmic driver\n",__func__);
-		return -EIO;
 	}
 
 	gbat = pbat;
@@ -2044,16 +1777,6 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, 1);
 
-	/* Init thread to handle modem reset */
-	init_waitqueue_head(&d2153_modem_reset_event);
-	d2153_modem_reset_thread = kthread_run(d2153_modem_thread,
-					NULL, "d2153_modem_reset_thread");
-	if (NULL == d2153_modem_reset_thread) {
-		ret = -ENOMEM;
-		dlg_err("%s:%d d2153_modem_reset_thread failed\n",\
-				__func__, __LINE__);
-		goto err_default;
-	}
 	pr_info("# D2153 Battery driver information \n");
 	pr_info("# MAX_ADD_DIS_PERCENT_FOR_WEIGHT2 = %d\n",   MAX_ADD_DIS_PERCENT_FOR_WEIGHT2);
 	pr_info("# MAX_ADD_DIS_PERCENT_FOR_WEIGHT1 = %d\n",   MAX_ADD_DIS_PERCENT_FOR_WEIGHT1);
@@ -2064,12 +1787,6 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 	pr_info("%s. End...\n", __func__);
 
 	return 0;
-
-err_default:
-	kfree(pbat);
-
-	return ret;
-
 }
 
 
@@ -2157,7 +1874,7 @@ static __devexit int d2153_battery_remove(struct platform_device *pdev)
 	d2153_free_irq(d2153, D2153_IRQ_ETBAT2);
 #endif /* D2153_REG_TBAT2_IRQ */
 
-	hwspin_lock_free(r8a73734_hwlock_pmic_d2153);
+	d2153_put_adc_hwsem ();
 
 	return 0;
 }

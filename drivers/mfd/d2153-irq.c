@@ -202,7 +202,6 @@ static irqreturn_t d2153_irq(int irq, void *data)
 	struct d2153_irq_data *pIrq;
 	int i;
 
-	mutex_lock(&d2153->d2153_audio_ldo_mutex);
 	memset(&read_done, 0, sizeof(read_done));
 
 	for (i = 0; i < ARRAY_SIZE(d2153_irqs); i++) {
@@ -222,7 +221,6 @@ static irqreturn_t d2153_irq(int irq, void *data)
 			d2153_set_bits(d2153, D2153_EVENT_A_REG + pIrq->reg, d2153_irqs[i].mask);
 		}
 	}
-	mutex_unlock(&d2153->d2153_audio_ldo_mutex);
 	return IRQ_HANDLED;
 }
 
