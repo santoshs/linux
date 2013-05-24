@@ -117,7 +117,7 @@ static int __devinit rt_cma_drv_probe(struct platform_device *pdev)
 
 	switch (pdev->id) {
 	case OMX_MDL_ID:
-	case HDMI_MDL_ID:
+	case DISPLAY_MDL_ID:
 		rt_cma_dev[pdev->id] = &pdev->dev;
 		MSG_LOW("[CMA DRV]   | id:%d dev:0x%08x\n",
 			pdev->id, (u32)rt_cma_dev[pdev->id]);

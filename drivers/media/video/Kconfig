@@ -992,7 +992,7 @@ config SOC_CAMERA_SR030PC50_TUNING
 	depends on SOC_CAMERA_SR030PC50 && I2C
 	help
 	  This driver supports SR030PC50 tuning cameras from Samsung
-	  
+
 config SOC_CAMERA_SR200PC20M
 	tristate "sr200pc20m support"
 	depends on SOC_CAMERA && I2C
@@ -1036,7 +1036,7 @@ config SOC_CAMERA_SR130PC20_TUNING
 	tristate "sr130pc20 tuning support"
 	depends on SOC_CAMERA_SR130PC20 && I2C
 	help
-	  This driver supports SR130PC20 tuning cameras from Samsung	  
+	  This driver supports SR130PC20 tuning cameras from Samsung
 
 config SOC_CAMERA_MT9M001
 	tristate "mt9m001 support"

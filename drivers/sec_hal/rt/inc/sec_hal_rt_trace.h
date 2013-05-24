@@ -75,7 +75,12 @@ do{SEC_HAL_TRACE_ALLOC(k_val, lit)\
    SEC_HAL_TRACE_FUNCTION(SEC_HAL_TRACE_LEVEL2 "%s[%i,%i]:%s: %s == %s\n",\
    MODNAME, current->tgid, current->pid, __FUNCTION__, k_val, str);}while(0)
 
-#define SEC_HAL_TRACE_SECMSG(msg_ptr, res_buff) /* NOT IMPL, YET. */
+uint32_t sec_trace_msg_to_string(const void *msg, char *out_str);
+#define SEC_HAL_TRACE_SECMSG(msg_ptr, res) \
+do{char sec_hal_trace_buffer[SEC_HAL_TRACE_BUFFER_SIZE];\
+   sprintf(sec_hal_trace_buffer, "SEC_MSG:");\
+   res = sec_trace_msg_to_string(msg_ptr, sec_hal_trace_buffer+8);\
+   SEC_HAL_TRACE_FUNCTION("%s\n", sec_hal_trace_buffer);}while(0)
 
 #elif(defined(SEC_HAL_TRACE_TO_STDOUT) && \
      !defined(SEC_HAL_TRACE_LOCAL_DISABLE))
@@ -136,7 +141,12 @@ do{SEC_HAL_TRACE_ALLOC(k_val, lit)\
    __FUNCTION__, k_val, str);\
    SEC_HAL_TRACE_FUNCTION("%s", sec_hal_trace_buffer);}while(0)
 
-#define SEC_HAL_TRACE_SECMSG(msg_ptr, res_buff) /* NOT IMPL, YET. */
+uint32_t sec_trace_msg_to_string(const void *msg, char *out_str);
+#define SEC_HAL_TRACE_SECMSG(msg_ptr, res) \
+do{char sec_hal_trace_buffer[SEC_HAL_TRACE_BUFFER_SIZE];\
+   sprintf(sec_hal_trace_buffer, "SEC_MSG:");\
+   res = sec_trace_msg_to_string(msg_ptr, sec_hal_trace_buffer+8);\
+   SEC_HAL_TRACE_FUNCTION("%s\n", sec_hal_trace_buffer);}while(0)
 
 #else /* (defined SEC_HAL_TRACE_TO_KERNEL) */
 
@@ -155,7 +165,7 @@ do{SEC_HAL_TRACE_ALLOC(k_val, lit)\
 #define SEC_HAL_TRACE_INT(lit, integer) do{}while(0)
 #define SEC_HAL_TRACE_HEX(lit, hex) do{}while(0)
 #define SEC_HAL_TRACE_STR(lit, str) do{}while(0)
-#define SEC_HAL_TRACE_SECMSG(msg_ptr, res_buff)
+#define SEC_HAL_TRACE_SECMSG(msg_ptr, res)
 
 #endif /* (defined SEC_HAL_TRACE_TO_KERNEL) */
 

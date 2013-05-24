@@ -273,6 +273,7 @@ rtn:
 int vcd_ctrl_stop_vcd(void)
 {
 	unsigned int active_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+	unsigned int init_feature = VCD_CTRL_FUNC_FEATURE_NONE;
 
 	vcd_pr_start_control_function();
 
@@ -320,7 +321,12 @@ int vcd_ctrl_stop_vcd(void)
 #endif /* __VCD_PROC_IF_ENABLE__ */
 
 	/* update active status */
-	vcd_ctrl_func_unset_active_feature(~VCD_CTRL_FUNC_FEATURE_AMHAL_STOP);
+	init_feature = ~(VCD_CTRL_FUNC_FEATURE_AMHAL_STOP |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_SPUV |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_PCM |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_DIAMOND);
+
+	vcd_ctrl_func_unset_active_feature(init_feature);
 
 rtn:
 	/* semaphore end */
@@ -639,15 +645,15 @@ int vcd_ctrl_start_record(struct vcd_record_option *option)
 		goto rtn;
 	}
 
-	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
+	if (VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type) {
+		ret = VCD_ERR_BUSY;
+	} else {
 		/* execute spuv function */
 		ret = vcd_spuv_start_record(option);
 		if (VCD_ERR_NONE != ret) {
 			vcd_pr_err("start record error[%d].\n", ret);
 			goto rtn;
 		}
-	} else {
-		ret = VCD_ERR_BUSY;
 	}
 
 	/* update active status */
@@ -681,17 +687,11 @@ int vcd_ctrl_stop_record(void)
 		goto rtn;
 	}
 
-	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
-		/* execute spuv function */
-		ret = vcd_spuv_stop_record();
-		if (VCD_ERR_NONE != ret) {
-			vcd_pr_err("stop record error[%d].\n", ret);
-			/* update result */
-			ret = VCD_ERR_NONE;
-		}
-	} else {
-		/* clear record mode */
-		g_vcd_ctrl_record_mode = 0;
+	/* execute spuv function */
+	ret = vcd_spuv_stop_record();
+	if (VCD_ERR_NONE != ret) {
+		vcd_pr_err("stop record error[%d].\n", ret);
+		/* update result */
 		ret = VCD_ERR_NONE;
 	}
 
@@ -764,15 +764,15 @@ int vcd_ctrl_start_playback(struct vcd_playback_option *option)
 	/* stop stored timer */
 	vcd_ctrl_stop_stored_playback_timer();
 
-	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
+	if (VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type) {
+		ret = VCD_ERR_BUSY;
+	} else {
 		/* execute spuv function */
 		ret = vcd_spuv_start_playback(option, g_vcd_ctrl_call_kind);
 		if (VCD_ERR_NONE != ret) {
 			vcd_pr_err("start playback error[%d].\n", ret);
 			goto rtn;
 		}
-	} else {
-		ret = VCD_ERR_BUSY;
 	}
 
 	/* update active status */
@@ -813,17 +813,11 @@ int vcd_ctrl_stop_playback(void)
 		goto rtn;
 	}
 
-	if (VCD_CALL_TYPE_CS == g_vcd_ctrl_call_type) {
-		/* execute spuv function */
-		ret = vcd_spuv_stop_playback();
-		if (VCD_ERR_NONE != ret) {
-			vcd_pr_err("stop playback error[%d].\n", ret);
-			/* update result */
-			ret = VCD_ERR_NONE;
-		}
-	} else {
-		/* clear playback mode */
-		g_vcd_ctrl_playback_mode = 0;
+	/* execute spuv function */
+	ret = vcd_spuv_stop_playback();
+	if (VCD_ERR_NONE != ret) {
+		vcd_pr_err("stop playback error[%d].\n", ret);
+		/* update result */
 		ret = VCD_ERR_NONE;
 	}
 
@@ -1804,6 +1798,8 @@ void vcd_ctrl_calc_trigger_stop(void)
  */
 static int vcd_ctrl_error_stop_vcd(void)
 {
+	unsigned int init_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+
 	vcd_pr_start_control_function();
 
 	/* execute spuv function */
@@ -1821,7 +1817,12 @@ static int vcd_ctrl_error_stop_vcd(void)
 #endif /* __VCD_PROC_IF_ENABLE__ */
 
 	/* update active status */
-	vcd_ctrl_func_unset_active_feature(~VCD_CTRL_FUNC_FEATURE_AMHAL_STOP);
+	init_feature = ~(VCD_CTRL_FUNC_FEATURE_AMHAL_STOP |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_SPUV |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_PCM |
+			VCD_CTRL_FUNC_FEATURE_SET_BINARY_DIAMOND);
+
+	vcd_ctrl_func_unset_active_feature(init_feature);
 
 	vcd_pr_end_control_function("g_vcd_ctrl_result[%d].\n",
 		g_vcd_ctrl_result);

@@ -14,6 +14,22 @@
 /*
 Change history:
 
+Version:       50   25-Apr-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.50
+
+Version:       49   12-Apr-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.49
+
+Version:       48   10-Apr-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.48
+
+Version:       47   18-Mar-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.47
+
 Version:       46   15-Mar-2013     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.46
@@ -179,7 +195,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.46"
+#define SMC_SW_VERSION  "0.0.50"
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -562,6 +578,8 @@ typedef struct _smc_channel_t
     uint32_t                            dropped_packets_fifo_buffer;
     uint32_t                            send_packets_fifo_buffer;
     uint32_t                            fifo_buffer_copied_total;
+
+    uint32_t                            wakelock_timeout_ms;              /* Timeout in milliseconds to keep UE wake after handling a message */
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
     struct _smc_dma_t*                  smc_dma;

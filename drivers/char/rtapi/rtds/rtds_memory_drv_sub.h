@@ -22,10 +22,10 @@
 
 /* ******************************* CONSTANTS ******************************** */
 /* CACHE Parameters */
-#define RTDS_MEM_CACHE_MASK		(~L_PTE_MT_MASK)
-#define RTDS_MEM_WRITE_BACK		(L_PTE_MT_WRITEBACK)
+#define RTDS_MEM_CACHE_MASK	(~L_PTE_MT_MASK)
+#define RTDS_MEM_WRITE_BACK	(L_PTE_MT_WRITEBACK)
 #define RTDS_MEM_WRITE_THROUGH	(L_PTE_MT_WRITETHROUGH)
-#define RTDS_MEM_NONCACHE		(L_PTE_MT_BUFFERABLE)
+#define RTDS_MEM_NONCACHE	(L_PTE_MT_BUFFERABLE)
 #define RTDS_MEM_BUF_NONCACHE	(L_PTE_MT_WRITEALLOC)
 
 #define RTDS_MEMORY_PROTECT_WB	((PAGE_KERNEL & RTDS_MEM_CACHE_MASK) | RTDS_MEM_WRITE_BACK)
@@ -66,7 +66,7 @@ enum {
 #endif
 
 #define RTDS_MEM_ATTR_PUBLIC	0x00000000
-#define RTDS_MEM_ATTR_MEDIA		0x00000001
+#define RTDS_MEM_ATTR_MEDIA	0x00000001
 
 /* Receive event from RT domain */
 enum {
@@ -123,20 +123,27 @@ enum {
 	RTDS_MEM_RT_EVENT_MAP,
 	RTDS_MEM_RT_EVENT_UNMAP
 };
+
+enum {
+	RTDS_MEM_ID_GRAPHICS = 1,
+	RTDS_MEM_ID_HDMI,
+	RTDS_MEM_ID_GRAPHICS_WITH_HDMI
+};
 #endif
 
 /* ****************************** STRUCTURE ******************************* */
 typedef struct {
 	struct list_head	queue_header;	/* queue head */
-	unsigned int		event;			/* Receive event */
-	unsigned int		mem_size;		/* Memory size */
-	unsigned int		rt_cache;		/* RT domain cache type */
-	unsigned int		rt_trigger;		/* RT trigger identifier */
-	unsigned int		apmem_id;		/* App shared memory ID */
+	unsigned int		event;		/* Receive event */
+	unsigned int		mem_size;	/* Memory size */
+	unsigned int		rt_cache;	/* RT domain cache type */
+	unsigned int		rt_trigger;	/* RT trigger identifier */
+	unsigned int		apmem_id;	/* App shared memory ID */
 	unsigned int		phys_addr;
 	unsigned int		mem_attr;
-	unsigned char		*leak_data;		/* Memory leak data */
-	unsigned int		leak_size;		/* Memory leak data size */
+	unsigned char		*leak_data;	/* Memory leak data */
+	unsigned int		leak_size;	/* Memory leak data size */
+	unsigned int		map_id;
 } rtds_memory_rcv_event_queue;
 
 
@@ -148,12 +155,12 @@ typedef struct {
 
 typedef struct {
 	struct list_head	queue_header;	/* queue head */
-	unsigned int		mem_size;		/* Memory size */
-	struct page			*page;			/* page descriptor */
-	unsigned long		app_addr;		/* App address */
-	unsigned long		app_cache;		/* App cahce type */
-	struct page			**pages;		/* page descriptor */
-	struct task_struct	*task_info;		/* Task info */
+	unsigned int		mem_size;	/* Memory size */
+	struct page		*page;		/* page descriptor */
+	unsigned long		app_addr;	/* App address */
+	unsigned long		app_cache;	/* App cahce type */
+	struct page		**pages;	/* page descriptor */
+	struct task_struct	*task_info;	/* Task info */
 } rtds_memory_create_queue;
 
 typedef struct {
@@ -173,24 +180,25 @@ typedef struct {
 	unsigned int	mem_attr;
 	unsigned char	*leak_data;
 	unsigned int	leak_size;
+	unsigned int	map_id;
 } rtds_memory_rcv_data;
 
 #ifdef RTDS_SUPPORT_CMA
 typedef struct {
 	struct list_head	list_head;
-	struct page			*pages;
+	struct page		*pages;
 	unsigned int		phy_addr;
 	unsigned int		mem_size;
 	unsigned int		mem_attr;
 	struct task_struct	*task_info;
-	int					id;
+	int			id;
 } rtds_memory_cma_list;
 #endif
 
 /* ****************************** PROTOTYPE ******************************* */
 
 int rtds_memory_drv_init_mpro(
-	struct file			*fp
+	struct file	*fp
 );
 
 void rtds_memory_init_data(
@@ -205,7 +213,7 @@ int rtds_memory_ioctl_init_data(
 );
 
 void rtds_memory_check_shared_apmem(
-	struct file					*fp,
+	struct file			*fp,
 	rtds_memory_mapping_data	*map_data
 );
 
@@ -238,21 +246,21 @@ int rtds_memory_close_kernel_shared_apmem(
 );
 
 int rtds_memory_ioctl_open_apmem(
-	struct file					*fp,
-	char __user					*buffer,
-	size_t						buf_size,
+	struct file			*fp,
+	char __user			*buffer,
+	size_t				buf_size,
 	rtds_memory_mapping_data	*map_data
 );
 
 int rtds_memory_open_shared_apmem(
-	struct file					*fp,
+	struct file			*fp,
 	rtds_memory_apmem_info		*mem_info,
 	rtds_memory_mapping_data	*map_data
 );
 
 int rtds_memory_map_shared_apmem(
-	struct file						*fp,
-	rtds_memory_mapping_data		*map_data,
+	struct file			*fp,
+	rtds_memory_mapping_data	*map_data,
 	rtds_memory_app_memory_table	*mem_table
 );
 
@@ -286,11 +294,11 @@ int rtds_memory_delete_shared_apmem(
 
 
 void rtds_memory_rcv_comp_notice(
-	void			*user_data,
-	int				result_code,
-	int				function_id,
+	void		*user_data,
+	int		result_code,
+	int		function_id,
 	unsigned char	*data_addr,
-	int				data_len
+	int		data_len
 );
 
 int rtds_memory_put_recv_queue(
@@ -321,10 +329,10 @@ int rtds_memory_unmap_mpro(
 );
 
 int rtds_memory_map_pnc_mpro(
-	unsigned int		app_addr,
-	unsigned int		map_size,
+	unsigned int			app_addr,
+	unsigned int			map_size,
 	struct page			**pages,
-	unsigned int		rt_cache,
+	unsigned int			rt_cache,
 	rtds_memory_drv_app_mem_info	*mem_info
 );
 
@@ -334,34 +342,34 @@ int rtds_memory_unmap_pnc_mpro(
 );
 
 int rtds_memory_map_pnc_nma_mpro(
-	unsigned int		map_size,
-	struct page			**pages,
-	unsigned int		*rt_addr_wb
+	unsigned int	map_size,
+	struct page	**pages,
+	unsigned int	*rt_addr_wb
 );
 
 int rtds_memory_ioctl_map_mpro(
-	char __user		*buffer,
-	size_t			cnt
+	char __user	*buffer,
+	size_t		cnt
 );
 
 int rtds_memory_ioctl_unmap_mpro(
-	char __user		*buffer,
-	size_t			cnt
+	char __user	*buffer,
+	size_t		cnt
 );
 
 int rtds_memory_ioctl_map_pnc_mpro(
-	char __user		*buffer,
-	size_t			cnt
+	char __user	*buffer,
+	size_t		cnt
 );
 
 int rtds_memory_ioctl_unmap_pnc_mpro(
-	char __user		*buffer,
-	size_t			cnt
+	char __user	*buffer,
+	size_t		cnt
 );
 
 int rtds_memory_ioctl_map_pnc_nma_mpro(
-	char __user		*buffer,
-	size_t			cnt
+	char __user	*buffer,
+	size_t		cnt
 );
 
 void rtds_memory_drv_close_vma(
@@ -370,7 +378,7 @@ void rtds_memory_drv_close_vma(
 
 int rtds_memory_create_page_frame(
 	unsigned int	page_num,
-	struct page		**pages,
+	struct page	**pages,
 	rtds_memory_create_queue	*create_list
 );
 
@@ -381,7 +389,7 @@ void rtds_memory_do_unmap(
 
 void rtds_memory_flush_mmu(
 	struct vm_area_struct	*vm_area,
-	unsigned long			address
+	unsigned long		address
 );
 
 void rtds_memory_free_page_frame(
@@ -402,9 +410,9 @@ int rtds_memory_share_kernel_shared_apmem(
 );
 
 int rtds_memory_share_shared_apmem(
-	struct file						*fp,
-	unsigned int					apmem_id,
-	rtds_memory_mapping_data		*map_data
+	struct file			*fp,
+	unsigned int			apmem_id,
+	rtds_memory_mapping_data	*map_data
 );
 
 void rtds_memory_flush_l2cache(
@@ -422,22 +430,22 @@ void rtds_memory_flush_cache_all(
 );
 
 int rtds_memory_put_create_mem_list(
-	unsigned int		app_addr,
-	unsigned int		mem_size,
-	struct page			**page,
-	unsigned long		app_cache
+	unsigned int	app_addr,
+	unsigned int	mem_size,
+	struct page	**page,
+	unsigned long	app_cache
 );
 
 int rtds_memory_get_create_mem_list(
-	unsigned int		app_addr,
-	struct page			*page,
-	unsigned int		*mem_size
+	unsigned int	app_addr,
+	struct page	*page,
+	unsigned int	*mem_size
 );
 
 int rtds_memory_reg_kernel_phymem(
-	unsigned long			phy_addr,
-	unsigned long			map_size,
-	unsigned long			rt_addr
+	unsigned long	phy_addr,
+	unsigned long	map_size,
+	unsigned long	rt_addr
 );
 
 int rtds_memory_unreg_kernel_phymem(
@@ -472,45 +480,45 @@ int rtds_memory_ioctl_change_phymem_address(
 );
 
 int rtds_memory_ioctl_close_apmem(
-	char __user			*buffer,
-	size_t				buf_size
+	char __user	*buffer,
+	size_t		buf_size
 );
 
 int rtds_memory_ioctl_share_apmem(
-	struct file				*fp,
-	char __user				*buffer,
-	size_t					buf_size,
+	struct file			*fp,
+	char __user			*buffer,
+	size_t				buf_size,
 	rtds_memory_mapping_data	*map_data
 );
 
 int rtds_memory_ioctl_cache_flush(
-	char __user				*buffer,
-	size_t					buf_size
+	char __user	*buffer,
+	size_t		buf_size
 );
 
 int rtds_memory_ioctl_cache_clear(
-	char __user				*buffer,
-	size_t					buf_size
+	char __user	*buffer,
+	size_t		buf_size
 );
 
 int rtds_memory_ioctl_get_memsize(
-	char __user				*buffer,
-	size_t					buf_size
+	char __user	*buffer,
+	size_t		buf_size
 );
 
 int rtds_memory_ioctl_get_pagesinfo(
-	char __user				*buffer,
-	size_t					buf_size
+	char __user	*buffer,
+	size_t		buf_size
 );
 
 void rtds_memory_send_error_msg(
 	rtds_memory_app_memory_table	*mem_table,
-	int								err_code
+	int				err_code
 );
 
 void rtds_memory_close_apmem(
-	unsigned int		app_addr,
-	unsigned int		mem_size
+	unsigned int	app_addr,
+	unsigned int	mem_size
 );
 
 void rtds_memory_leak_check_page_frame(
@@ -540,24 +548,24 @@ int rtds_memory_delete_rttrig_leak_memory(
 
 #ifdef RTDS_SUPPORT_CMA
 int rtds_memory_ioctl_alloc_cma(
-	struct file				*fp,
-	char __user				*buffer,
-	size_t					buf_size
+	struct file	*fp,
+	char __user	*buffer,
+	size_t		buf_size
 );
 
 int rtds_memory_ioctl_free_cma(
-	char __user				*buffer,
-	size_t					buf_size
+	char __user	*buffer,
+	size_t		buf_size
 );
 
 int rtds_memory_ioctl_map_mpro_ma(
-	char __user				*buffer,
-	size_t					buf_size
+	char __user	*buffer,
+	size_t		buf_size
 );
 
 int rtds_memory_ioctl_unmap_mpro_ma(
-	char __user				*buffer,
-	size_t					buf_size
+	char __user	*buffer,
+	size_t		buf_size
 );
 
 int rtds_memory_alloc_cma(
@@ -574,9 +582,9 @@ int rtds_memory_free_cma(
 );
 
 int rtds_memory_map_mpro_ma(
-	unsigned int					app_addr,
-	unsigned int					map_size,
-	unsigned int					rt_cache,
+	unsigned int			app_addr,
+	unsigned int			map_size,
+	unsigned int			rt_cache,
 	rtds_memory_drv_app_mem_info	*mem_info
 );
 
@@ -587,8 +595,8 @@ int rtds_memory_unmap_mpro_ma(
 );
 
 int rtds_memory_map_shared_apmem_ctg(
-	struct file						*fp,
-	rtds_memory_mapping_data		*map_data,
+	struct file			*fp,
+	rtds_memory_mapping_data	*map_data,
 	rtds_memory_app_memory_table	*mem_table
 );
 
@@ -598,7 +606,7 @@ void rtds_memory_unmap_shared_apmem(
 
 int rtds_memory_open_rttrig_cma(
 	unsigned int	mem_size,
-	unsigned int	rt_cache,
+	unsigned int	map_id,
 	unsigned int	mem_attr,
 	unsigned int	rt_trigger
 );
@@ -619,8 +627,8 @@ int rtds_memory_unmap_rttrig_shared_apmem(
 );
 
 int rtds_memory_get_rcv_data(
-	unsigned char			*data_addr,
-	int						data_len,
+	unsigned char		*data_addr,
+	int			data_len,
 	rtds_memory_rcv_data	*rcv_data
 );
 

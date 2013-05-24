@@ -117,6 +117,7 @@
 /* Command register A */
 #define ALLOW_VOLATILE_WRITE	(1<<7)
 #define FAST_CHARGE				(1<<6)
+#define OTG_EN					(1<<4)
 #define CHG_ENABLE				(1<<1)
 
 /* Command register B */

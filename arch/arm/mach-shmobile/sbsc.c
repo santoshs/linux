@@ -196,6 +196,27 @@ unsigned int shmobile_get_pll_reprogram(void)
 
 }
 
+static int shmobile_hwspin_lock_timeout(
+	struct hwspinlock *hwlock, unsigned int timeout)
+{
+	int ret;
+	unsigned long expire;
+	unsigned long cnt;
+
+	expire = timeout * 1000;
+	for (cnt = 0; cnt < expire; cnt++) {
+		/* Try to take the hwspinlock */
+		ret = __hwspin_trylock(hwlock, 0, NULL);
+		if (ret == 0)
+			return 0;
+		/*
+		 * -EBUSY, to retry again Wait 1us.
+		 */
+		udelay(1);
+	}
+	return -ETIMEDOUT;
+}
+
 int shmobile_acquire_cpg_lock(unsigned long *flags)
 {
 	int ret = 0;
@@ -208,7 +229,8 @@ int shmobile_acquire_cpg_lock(unsigned long *flags)
 		return 0;
 
 	if (!is_suspend_setclock)
-		ret = hwspin_lock_timeout(sw_cpg_lock, LOCK_TIME_OUT_MS);
+		ret = shmobile_hwspin_lock_timeout(sw_cpg_lock,
+							LOCK_TIME_OUT_MS);
 	else
 		ret = hwspin_trylock_nospin(sw_cpg_lock);
 

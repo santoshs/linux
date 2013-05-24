@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_linux.c 394921 2013-04-04 06:53:21Z $
+ * $Id: dhd_linux.c 397039 2013-04-17 02:55:22Z $
  */
 
 #include <typedefs.h>
@@ -633,7 +633,7 @@ void dhd_enable_packet_filter(int value, dhd_pub_t *dhd)
 	    (dhd_support_sta_mode(dhd) && !dhd->dhcp_in_progress)))
 	    {
 		for (i = 0; i < dhd->pktfilter_count; i++) {
-#ifdef PASS_ARP_PACKET
+#if !defined(GAN_LITE_NAT_KEEPALIVE_FILTER) && defined(PASS_ARP_PACKET)
 			if (value && (i == dhd->pktfilter_count -1) &&
 				!(dhd->op_mode & (DHD_FLAG_P2P_GC_MODE | DHD_FLAG_P2P_GO_MODE))) {
 				DHD_TRACE_HW4(("Do not turn on ARP white list pkt filter:"
@@ -641,7 +641,7 @@ void dhd_enable_packet_filter(int value, dhd_pub_t *dhd)
 					value, i, dhd->op_mode));
 				continue;
 			}
-#endif
+#endif /* !GAN_LITE_NAT_KEEPALIVE_FILTER && PASS_ARP_PACKET */
 			dhd_pktfilter_offload_enable(dhd, dhd->pktfilter[i],
 				value, dhd_master_mode);
 		}
@@ -2747,9 +2747,11 @@ dhd_stop(struct net_device *net)
 		 * For CFG80211: Clean up all the left over virtual interfaces
 		 * when the primary Interface is brought down. [ifconfig wlan0 down]
 		 */
-		if ((dhd->dhd_state & DHD_ATTACH_STATE_ADD_IF) &&
-			(dhd->dhd_state & DHD_ATTACH_STATE_CFG80211)) {
-			dhd_cleanup_virt_ifaces(dhd);
+		if (!dhd_download_fw_on_driverload) {
+			if ((dhd->dhd_state & DHD_ATTACH_STATE_ADD_IF) &&
+				(dhd->dhd_state & DHD_ATTACH_STATE_CFG80211)) {
+				dhd_cleanup_virt_ifaces(dhd);
+			}
 		}
 	}
 #endif
@@ -3897,7 +3899,10 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #endif /* defined(KEEP_ALIVE) */
 
 	bcm_mkiovar("buf_key_b4_m4", (char *)&buf_key_b4_m4, 4, iovbuf, sizeof(iovbuf));
-	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf,
+		sizeof(iovbuf), TRUE, 0)) < 0) {
+		DHD_ERROR(("%s buf_key_b4_m4 set failed %d\n", __FUNCTION__, ret));
+	}
 
 	/* Read event_msgs mask */
 	bcm_mkiovar("event_msgs", eventmask, WL_EVENTING_MASK_LEN, iovbuf, sizeof(iovbuf));
@@ -4022,10 +4027,10 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	dhd->pktfilter_count = 5;
 	dhd->pktfilter[4] = "104 0 0 0 0xFFFFFF 0x01005E";
 #endif
-#endif /* GAN_LITE_NAT_KEEPALIVE_FILTER */
 #ifdef PASS_ARP_PACKET
 	dhd->pktfilter[dhd->pktfilter_count++] = "105 0 0 12 0xFFFF 0x0806";
 #endif
+#endif /* GAN_LITE_NAT_KEEPALIVE_FILTER */
 #endif /* CUSTOMER_HW4 */
 	dhd_set_packet_filter(dhd);
 

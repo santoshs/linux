@@ -51,10 +51,9 @@
 #define D2153_CODEC_I2C_ADDR			(0x30 >> 1)   // 0x18
 #define D2153_AAD_I2C_ADDR				(0x32 >> 1)   // 0x19
 
-#define D2153_IOCTL_READ_REG  0xc0025083
-#define D2153_IOCTL_WRITE_REG 0x40025084
+#define D2153_IOCTL_READ_REG  			0xc0025083
+#define D2153_IOCTL_WRITE_REG 			0x40025084
 
-#define __CONFIG_LEOPARD_BATTERY
 
 typedef struct {
 	unsigned long reg;
@@ -62,7 +61,7 @@ typedef struct {
 } pmu_reg;
 
 /*
- * DA1980 Number of Interrupts
+ * D2153 Number of Interrupts
  */
 enum D2153_IRQ {
 	// EVENT_A register IRQ
@@ -220,9 +219,9 @@ struct d2153 {
 
 	struct d2153_platform_data *pdata;
 	struct mutex d2153_io_mutex;
+	struct mutex d2153_audio_ldo_mutex;
 
 	struct delayed_work     vdd_fault_work;
-	struct mutex d2153_audio_ldo_mutex;
 };
 
 /*

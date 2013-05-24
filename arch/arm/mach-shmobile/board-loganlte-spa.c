@@ -57,7 +57,7 @@ static struct spa_temp_tb batt_temp_tb[] = {
 
 struct spa_power_data spa_power_pdata = {
 	.charger_name = "spa_agent_chrg",
-	.eoc_current = 150,
+	.eoc_current = 180,
 	.recharge_voltage = 4300,
 	.charging_cur_usb = 500,
 	.charging_cur_wall = 1200,
@@ -66,7 +66,7 @@ struct spa_power_data spa_power_pdata = {
 	.suspend_temp_cold = -50,
 	.recovery_temp_cold = 0,
 	.charge_timer_limit = CHARGE_TIMER_6HOUR,
-	//.backcharging_time = 3,
+	.backcharging_time = 30,
 	.regulated_vol = 4350,
 	.batt_temp_tb = &batt_temp_tb[0],
 	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb),

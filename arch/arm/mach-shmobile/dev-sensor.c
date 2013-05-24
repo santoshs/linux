@@ -124,9 +124,9 @@ static struct k3dh_platform_data k3dh_platform_data = {
 static struct hscd_i2c_platform_data hscd_i2c_platform_data = {
 	.orientation = {
 #if defined (CONFIG_MACH_LOGANLTE)
-	0, 1, 0,
 	-1, 0, 0,
-	0, 0, 1
+	0, 1, 0,
+	0, 0, -1
 #elif defined (CONFIG_MACH_LT02LTE)
 	1, 0, 0,
 	0, -1, 0,

@@ -32,6 +32,7 @@
 #include <linux/semaphore.h>
 #include <rtapi/system_standby.h>
 #include "mfis_private.h"
+#include <mach/r8a7373.h>
 
 #if RTPM_PF_CUSTOM
 #include <mach/pm.h>
@@ -47,8 +48,6 @@ static struct semaphore a3r_power_sem;
 #include <mach/irqs.h>
 #define	GIC_MFIS			(126)
 #define	IRQ_MFIS			(gic_spi(GIC_MFIS))
-#define	REG_SYSC_PSTR		((unsigned long)0xE6180080)
-#define	REG_CPGA_MSTPSR0	((unsigned long)0xE6150030)
 #define	CLOCK_TLB_IC_OC	((unsigned long)0xE0000000)
 
 struct mfis_early_suspend_tbl {
@@ -166,7 +165,7 @@ static int mfis_suspend_noirq(struct device *dev)
 		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 #if (EARLYSUSPEND_STANDBY == 1) && (RTPM_PF_CUSTOM == 1)
-	if (POWER_A3R & readl(REG_SYSC_PSTR)) {
+	if (POWER_A3R & readl(SYSC_PSTR)) {
 		dev_name = domain_name;
 
 		ret = power_domain_devices(dev_name, dev_img, &dev_cnt);
@@ -250,7 +249,7 @@ static int mfis_resume_noirq(struct device *dev)
 		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 #if EARLYSUSPEND_STANDBY
-	if (CLOCK_TLB_IC_OC == (readl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
+	if (CLOCK_TLB_IC_OC == (readl(MSTPSR0Phys) & CLOCK_TLB_IC_OC)) {
 #endif /* EARLYSUSPEND_STANDBY */
 		clk_enable(clk_data);
 
@@ -491,7 +490,7 @@ int mfis_drv_suspend(void)
 	if (0 != down_timeout(&mfis_sem, jiffies))
 		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
-	if (POWER_A3R & readl(REG_SYSC_PSTR)) {
+	if (POWER_A3R & readl(SYSC_PSTR)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
 
 		early_suspend_phase_flag = 1;
@@ -517,7 +516,7 @@ int mfis_drv_resume(void)
 	if (0 != down_timeout(&mfis_sem, jiffies))
 		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
-	if (CLOCK_TLB_IC_OC == (readl(REG_CPGA_MSTPSR0) & CLOCK_TLB_IC_OC)) {
+	if (CLOCK_TLB_IC_OC == (readl(MSTPSR0Phys) & CLOCK_TLB_IC_OC)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
 
 		late_resume_phase_flag = 1;

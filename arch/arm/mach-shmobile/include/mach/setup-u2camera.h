@@ -7,7 +7,7 @@
 
 extern struct platform_device camera_devices[];
 
-int camera_init(unsigned int);
+int camera_init(void);
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
 int S5K4ECGX_power(struct device *dev, int power_on);
 #endif

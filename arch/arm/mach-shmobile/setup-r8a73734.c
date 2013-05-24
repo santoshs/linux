@@ -1565,7 +1565,7 @@ void __init r8a73734_add_standard_devices(void)
 			ARRAY_SIZE(r8a73734_early_devices));
 //ES2.0 change start
 
-	if(u2_get_board_rev() >= 5) {
+	if (u2_get_board_rev() >= RLTE_BOARD_REV_0_5) {
 		platform_add_devices(r8a73734_late_devices_es20_d2153,
 				ARRAY_SIZE(r8a73734_late_devices_es20_d2153));
 	} else {
@@ -1582,7 +1582,7 @@ void __init r8a73734_add_standard_devices(void)
 	if( is_es20() )
 	{
 		printk("Loading ES20 late devices...\n");
-		if(u2_get_board_rev() >= 5) {
+		if (u2_get_board_rev() >= RLTE_BOARD_REV_0_5) {
 			platform_add_devices(r8a73734_late_devices_es20_d2153,
 				ARRAY_SIZE(r8a73734_late_devices_es20_d2153));
 		} else {

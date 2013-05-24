@@ -12,16 +12,6 @@
 
 static struct kobject *memlog_kobj;
 
-/* Use SDRAM */
-#define CPU0_PROC_SIZE			0x00000400
-#define CPU1_PROC_SIZE			0x00000400
-#define CPU0_IRQ_SIZE			0x00000400
-#define CPU1_IRQ_SIZE			0x00000400
-#define CPU0_FUNC_SIZE			0x00000400
-#define CPU1_FUNC_SIZE			0x00000400
-#define CPU0_DUMP_SIZE			0x00000400
-#define CPU1_DUMP_SIZE			0x00000400
-
 #define CMCNT0					0xE6130014
 
 static char *logdata;

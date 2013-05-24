@@ -26,7 +26,7 @@
 
 enum {
 	OMX_MDL_ID = 0,
-	HDMI_MDL_ID,
+	DISPLAY_MDL_ID,
 	CMA_DEV_CNT
 };
 

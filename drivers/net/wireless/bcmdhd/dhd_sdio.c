@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_sdio.c 394918 2013-04-04 06:36:07Z $
+ * $Id: dhd_sdio.c 398870 2013-04-26 09:42:18Z $
  */
 
 #include <typedefs.h>
@@ -1541,10 +1541,10 @@ dhdsdio_func_blocksize(dhd_pub_t *dhd, int function_num, int block_size)
 void
 dhd_enable_oob_intr(struct dhd_bus *bus, bool enable)
 {
-#if defined(HW_OOB)
-	bcmsdh_enable_hw_oob_intr(bus->sdh, enable);
-#elif defined(BCMSPI_ANDROID)
+#if defined(BCMSPI_ANDROID)
 	bcmsdh_intr_enable(bus->sdh);
+#elif defined(HW_OOB)
+	bcmsdh_enable_hw_oob_intr(bus->sdh, enable);
 #else
 	sdpcmd_regs_t *regs = bus->regs;
 	uint retries = 0;
@@ -1581,6 +1581,7 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 	uint16 len, pad1 = 0;
 	uint32 swheader;
 	uint retries = 0;
+	uint32 real_pad = 0;
 	bcmsdh_info_t *sdh;
 	void *new;
 	int i;
@@ -1727,6 +1728,7 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 	} else
 #endif /* BCMSDIOH_TXGLOM */
 	{
+	uint32 act_len = len;
 	/* Software tag: channel, sequence number, data offset */
 	swheader = ((chan << SDPCM_CHANNEL_SHIFT) & SDPCM_CHANNEL_MASK) | bus->tx_seq |
 	        (((pad1 + SDPCM_HDRLEN) << SDPCM_DOFFSET_SHIFT) & SDPCM_DOFFSET_MASK);
@@ -1770,6 +1772,17 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 		else
 			DHD_ERROR(("%s: sending unrounded %d-byte packet\n", __FUNCTION__, len));
 #endif
+	}
+	real_pad = len - act_len;
+	if (PKTTAILROOM(osh, pkt) < real_pad) {
+		DHD_INFO(("%s 3: insufficient tailroom %d for %d real_pad\n",
+		__FUNCTION__, (int)PKTTAILROOM(osh, pkt), real_pad));
+		if (PKTPADTAILROOM(osh, pkt, real_pad)) {
+			DHD_ERROR(("padding error size %d\n", real_pad));
+			ret = BCME_NOMEM;
+			goto done;
+		} else
+			PKTSETLEN(osh, pkt, act_len);
 	}
 	}
 

@@ -26,16 +26,14 @@
 #define D2153_REG_TBAT2_IRQ
 #define CONFIG_D2153_EOC_CTRL
 #define CONFIG_D2153_SOC_GO_DOWN_IN_CHG
-
+#define CONFIG_D2153_DEBUG_FEATURE
 #define D2153_MANUAL_READ_RETRIES			(5)
 #define ADC2TEMP_LUT_SIZE					(22)
-#define ADC2SOC_LUT_SIZE					(14)
 #define ADC2VBAT_LUT_SIZE					(10)
 #define D2153_ADC_RESOLUTION				(10)
 
 #define AVG_SIZE							(16)
 #define AVG_SHIFT							(4)
-#define MAX_INIT_TRIES              		(AVG_SIZE + 5)
 
 #define DEGREEK_FOR_DEGREEC_0				(273)
 
@@ -49,38 +47,33 @@
 #define BAT_LOW_MID_TEMPERATURE				C2K(-100)
 #define BAT_LOW_LOW_TEMPERATURE				C2K(-200)
 
-#define BAT_CHARGE_START_TIMER				0
-#define BAT_CHARGE_RESTART_TIMER			1
-
-#define BAT_CHARGE_TIMER_90MIN				(HZ*60*90)
-#define BAT_CHARGE_TIMER_5HOUR				(HZ*60*60*5)
-#define BAT_CHARGE_TIMER_6HOUR				(HZ*60*60*6)
-#define BAT_CHARGE_TIMER_8HOUR				(HZ*60*60*8)
-#define	BAT_CHARGE_TIMER_10HOUR				(HZ*60*60*10)
-
-#define BAT_RECHARGE_CHECK_TIMER_30SEC		(HZ*30)
-
-#define BAT_END_OF_CHARGE_NONE				(0 << 0)
-#define BAT_END_OF_CHARGE_BY_FULL			(1 << 0)
-#define BAT_END_OF_CHARGE_BY_TEMPERATURE	(1 << 1)
-#define BAT_END_OF_CHARGE_BY_TIMER			(1 << 2)
-#define BAT_END_OF_CHARGE_BY_OVP			(1 << 3) 
-#define BAT_END_OF_CHARGE_BY_VF_OPEN		(1 << 4)
-#define BAT_END_OF_CHARGE_BY_QUICKSTART		(1 << 5)
-
 #define BAT_CAPACITY_1300MA					(1300)
 #define BAT_CAPACITY_1500MA					(1500)
 #define BAT_CAPACITY_1800MA					(1800)
 #define BAT_CAPACITY_2000MA					(2000)
+#define BAT_CAPACITY_2100MA					(2100)
 #define BAT_CAPACITY_4500MA					(4500)
 #define BAT_CAPACITY_7000MA					(7000)
 
 #define USED_BATTERY_CAPACITY				BAT_CAPACITY_1800MA
 
+#if USED_BATTERY_CAPACITY == BAT_CAPACITY_1800MA
+#define CONFIG_SOC_LUT_15STEPS
+#elif USED_BATTERY_CAPACITY == BAT_CAPACITY_2100MA
+#define CONFIG_SOC_LUT_15STEPS
+#else
+#undef  CONFIG_SOC_LUT_15STEPS
+#endif
+
+#ifdef CONFIG_SOC_LUT_15STEPS
+#define ADC2SOC_LUT_SIZE					(15)
+#else
+#define ADC2SOC_LUT_SIZE					(14)
+#endif
+
 #define D2153_VOLTAGE_MONITOR_START			(HZ*1)
 #define D2153_VOLTAGE_MONITOR_NORMAL		(HZ*10)
 #define D2153_VOLTAGE_MONITOR_FAST			(HZ*3)
-// Unused. #define D2083_VOLTAGE_MONITOR_FAST_USB		(HZ*5)
 
 #define D2153_TEMPERATURE_MONITOR_START		(HZ*1)
 #define D2153_TEMPERATURE_MONITOR_NORMAL	(HZ*10)
@@ -92,31 +85,10 @@
 
 #define BAT_VOLTAGE_ADC_DIVISION			(1700)
 
-#define BAT_VOLTAGE_ADC_HIGH_IDX			(8)  // 4.20 ~ 4.10V ; 0.2
-#define BAT_VOLTAGE_ADC_HIMID_IDX			(7)  // 4.09 ~ 4.00V ; 0.1
-#define BAT_VOLTAGE_ADC_MIDDLE_IDX			(5)  // 3.99 ~ 3.80V ; 0.1
-#define BAT_VOLTAGE_ADC_MIDLOW_IDX			(3)  // 3.79 ~ 3.60V ; 0.09
-#define BAT_VOLTAGE_ADC_LOW_IDX             (0)  // 3.59 ~ 3.40V ; 0.3
-
 #define BAT_POWER_OFF_VOLTAGE				(3400)
-#define BAT_CHARGING_RESTART_VOLTAGE		(4140)
-
-#define CHARGING_STOP_HIGH_TEMPERATURE		600  // 60 C
-#define CHARGING_RESTART_HIGH_TEMPERATURE	400  // 40 C
-#define CHARGING_STOP_LOW_TEMPERATURE		-50  // -5 C
-#define CHARGING_RESTART_LOW_TEMPERATURE	0
-
-#define D2153_CATEGORY_DEVICE				0
-#define D2153_CATEGORY_BATTERY				1
-
-#define SOC_ADJUSET_OFFSET					(2)
-#define CHARGE_SPEED_ADC_OFFSET				(2) // (5)
 
 #define D2153_CHARGE_CV_ADC_LEVEL		    (3380)
 #define FULLY_CHARGED_ADC_LEVEL			    (3465)
-
-#define D2153_FIRST_LOW_BAT_NOTIFY			(15)
-#define D2153_SECOND_LOW_BAT_NOTIFY			(3)
 
 #define D2153_CAL_HIGH_VOLT					(4200)
 #define D2153_CAL_LOW_VOLT					(3400)
@@ -125,19 +97,7 @@
 #define D2153_BASE_3P4V_ADC                 (1581)
 #define D2153_CAL_MAX_OFFSET				(10)
 
-#define D2153_OFFSET_DIVIDER_VLOW			(75)
-#define D2153_OFFSET_DIVIDER_LLOW			(65)
-#define D2153_OFFSET_DIVIDER_LOW			(55)
-
-#define D2153_OFFSET_VLOW					(75)
-#define D2153_OFFSET_LLOW					(95)
-#define D2153_OFFSET_LOW					(115)
-
-#define D2153_DEFAULT_ITER					(1)
-#define D2153_VLOW_ITER						(3)
-#define D2153_LLOW_ITER						(4)
-#define D2153_LOW_ITER						(5)
-
+/* for Hardware semaphore */
 #define CONST_HPB_WAIT						(100) //25
 #define RT_CPU_SIDE							(0x01)
 #define SYS_CPU_SIDE						(0x40)
@@ -177,8 +137,8 @@ enum {
 #ifdef CONFIG_D2153_EOC_CTRL
 enum {
 	D2153_BAT_CHG_START = 0,
-	D2153_BAT_CHG_FRST_FULL,    //EOC 180mA
-	D2153_BAT_CHG_BACKCHG_FULL, //EOC 60mA
+	D2153_BAT_CHG_FRST_FULL,
+	D2153_BAT_CHG_BACKCHG_FULL,
 	D2153_BAT_RECHG_FULL,
 	D2153_BAT_CHG_MAX,
 };
@@ -203,6 +163,11 @@ typedef enum d2153_adc_mode {
 struct adc_man_res {
 	u16 read_adc;
 	u8  is_adc_eoc;
+};
+
+struct init_drop_table {
+	u16	init_avg_adc;
+	u16 compensate_offset;
 };
 
 struct adc2temp_lookuptbl {
@@ -249,9 +214,6 @@ struct d2153_battery_data {
 	u32 sum_voltage_adc;
 	int sum_total_adc;
 
-	// from bootloader
-	u32 baseline_voltage;
-
 	// for temperature
 	u32	current_temp_adc;
 	u32 current_rf_temp_adc;
@@ -263,9 +225,6 @@ struct d2153_battery_data {
 	
 	u32	soc;
 	u32 prev_soc;
-
-	u32 anto_soc;
-	u32 anto_prev_soc;
 
 	int battery_technology;
 	int battery_present;

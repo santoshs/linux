@@ -17,6 +17,9 @@
  *
  */
 
+/* #define DEBUG */
+/* #define VERBOSE_DEBUG */
+
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -60,6 +63,7 @@
 #include "rndis.c"
 #include "f_phonet.c"
 #include "u_ether.c"
+#include <linux/usb/gadget_cust.h>
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -245,9 +249,9 @@ static void android_work(struct work_struct *data)
 
 		kobject_uevent_env(&dev->dev->kobj, KOBJ_CHANGE, uevent_envp);
 		last_uevent = next_state;
-		pr_info("%s: sent uevent %s\n", __func__, uevent_envp[0]);
+		NPRINTK("uevent : %s\n", uevent_envp[0]);
 	} else {
-		pr_info("%s: did not send uevent (%d %d %p)\n", __func__,
+		NPRINTK("uevent NOT sent (%d %d %p)\n",
 			 dev->connected, dev->sw_connected, cdev->config);
 	}
 }
@@ -442,6 +446,7 @@ static int
 adb_function_init(struct android_usb_function *f,
 		struct usb_composite_dev *cdev)
 {
+	NPRINTK("\n");
 	f->config = kzalloc(sizeof(struct adb_data), GFP_KERNEL);
 	if (!f->config)
 		return -ENOMEM;
@@ -535,6 +540,7 @@ static int
 acm_function_init(struct android_usb_function *f,
 		struct usb_composite_dev *cdev)
 {
+	NPRINTK("\n");
 	f->config = kzalloc(sizeof(struct acm_function_config), GFP_KERNEL);
 	if (!f->config)
 		return -ENOMEM;
@@ -610,6 +616,7 @@ static int
 mtp_function_init(struct android_usb_function *f,
 		struct usb_composite_dev *cdev)
 {
+	NPRINTK("\n");
 	return mtp_setup();
 }
 
@@ -681,6 +688,7 @@ static int
 rndis_function_init(struct android_usb_function *f,
 		struct usb_composite_dev *cdev)
 {
+	NPRINTK("\n");
 	f->config = kzalloc(sizeof(struct rndis_function_config), GFP_KERNEL);
 	if (!f->config)
 		return -ENOMEM;
@@ -868,6 +876,7 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	struct fsg_common *common;
 	int err;
 
+	NPRINTK("\n");
 	config = kzalloc(sizeof(struct mass_storage_function_config),
 								GFP_KERNEL);
 	if (!config)
@@ -949,6 +958,7 @@ static struct android_usb_function mass_storage_function = {
 static int accessory_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
+	NPRINTK("\n");
 	return acc_setup();
 }
 
@@ -1234,6 +1244,7 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 	INIT_LIST_HEAD(&dev->enabled_functions);
 
 	strlcpy(buf, buff, sizeof(buf));
+	NPRINTK("%s\n", buf);
 	b = strim(buf);
 
 	while (b) {
@@ -1299,6 +1310,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	mutex_lock(&dev->mutex);
 
 	sscanf(buff, "%d", &enabled);
+	NPRINTK("Enable(%d)\n", enabled);
 	if (cdev->gadget)
 		usb_gadget_vbus_connect(cdev->gadget);
 	if (enabled && !dev->enabled) {
@@ -1419,7 +1431,7 @@ static ssize_t usb_drvstr_store(struct device *pdev, struct device_attribute *at
 	unsigned char value= 0x00;  
 	sscanf(buff, "%x", (unsigned int*)&value);
 	
-	if((value >= 0x40) || (value <= 0x4F))
+	if((value >= 0x40) && (value <= 0x4F))
 		tusb_drive_event(WRITE_OP, &value);	
 	else
 		return -ENODEV;
@@ -1499,6 +1511,7 @@ static int android_bind(struct usb_composite_dev *cdev)
 	 * Start disconnected. Userspace will connect the gadget once
 	 * it is done configuring the functions.
 	 */
+	NPRINTK("USB Core - Off\n");
 	usb_gadget_disconnect(gadget);
 
 	ret = android_init_functions(dev->functions, cdev);
@@ -1661,7 +1674,8 @@ static int __init init(void)
 {
 	struct android_dev *dev;
 	int err;
-
+	
+	NPRINTK("Android Gadget Start\n");
 	android_class = class_create(THIS_MODULE, "android_usb");
 	if (IS_ERR(android_class))
 		return PTR_ERR(android_class);

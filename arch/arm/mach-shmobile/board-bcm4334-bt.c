@@ -213,7 +213,7 @@ static int bcm_bt_lpm_init(struct platform_device *pdev)
 	gpio_direction_output(BT_WAKE_GPIO, 0);
 	gpio_direction_input(BT_HOST_WAKE_GPIO);
 
-	*((volatile u8 *)BT_WAKE_GPIO_CR) = 0x90; /* Config BT IRQ with PD output*/
+	*((volatile u8 *)BT_WAKE_GPIO_CR) = 0x10; /* Config BT IRQ with output*/
 	
 	snprintf(bt_lpm.wake_lock_name, sizeof(bt_lpm.wake_lock_name),
 			"BTLowPower");
@@ -244,6 +244,7 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 	gpio_direction_output(BT_REG_GPIO, 1);
 #if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 	gpio_direction_output(BT_RESET_GPIO, 0);
+	gpio_pull_off_port(BT_RESET_GPIO);
 #endif
 	bt_rfkill = rfkill_alloc("bcm4334 Bluetooth", &pdev->dev,
 				RFKILL_TYPE_BLUETOOTH, &bcm4334_bt_rfkill_ops,

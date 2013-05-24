@@ -43,6 +43,7 @@
 #include <linux/sh_clk.h>
 #include <linux/spinlock.h>
 #include <linux/earlysuspend.h>
+#include <linux/semaphore.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-dev.h>
@@ -66,9 +67,6 @@ EXPORT_SYMBOL(sec_sub_cam_dev);
 
 static bool rear_flash_state;
 static int (*rear_flash_set)(int, int);
-static bool is_suspend_status;
-static bool is_rcu_add_device;
-static bool is_early_suspend;
 static bool dump_addr_flg;
 
 #define SH_RCU_DUMP_LOG_ENABLE
@@ -126,6 +124,7 @@ spinlock_t lock_log;
 
 #define RCU_MERAM_STPSEQ_NORMAL	(0)
 #define RCU_MERAM_STPSEQ_FORCE	(1)
+#define RCU_MERAM_STP_FORCE	(2)
 
 #define RCU_IPMMU_IMCTCR1	(0x00)
 #define RCU_IPMMU_IMCTCR2	(0x04)
@@ -134,6 +133,9 @@ spinlock_t lock_log;
 #define RCU_IPMMU_IMASID	(0x10)
 #define RCU_IPMMU_IMTTBR	(0x14)
 #define RCU_IPMMU_IMTTBCR	(0x18)
+
+#define RCU_LATE_RESUME_WAIT_MSEC	(5000)
+#define RCU_EARLY_SUSPEND_POLLING_MSEC	(500)
 
 #define RCU_POWAREA_MNG_ENABLE
 
@@ -155,6 +157,9 @@ spinlock_t lock_log;
 #define ROUNDDOWN(size, X)	(0 == (X) ? (size) : ((size) / (X)) * (X))
 
 #define PRINT_FOURCC(fourcc)	(fourcc) & 0xff, ((fourcc) >> 8) & 0xff, ((fourcc) >> 16) & 0xff, ((fourcc) >> 24) & 0xff
+
+#define init_MUTEX(sem) sema_init(sem, 1)
+#define init_MUTEX_LOCKED(sem) sema_init(sem, 0)
 
 /* register offsets for r8a73734 */
 
@@ -405,6 +410,15 @@ struct sh_mobile_rcu_dev {
 
 	unsigned int mmap_size;
 	struct page **mmap_pages;
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend rcu_suspend_pm;
+	struct semaphore sem_rcu_early_suspend;
+	struct semaphore sem_rcu_late_resume;
+	struct semaphore sem_rcu_state;
+	bool rcu_add_device_state;
+	bool rcu_early_suspend_state;
+#endif /* CONFIG_HAS_EARLYSUSPEND */
 };
 
 struct sh_mobile_rcu_cam {
@@ -470,6 +484,7 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 {
 	u32 reg_set = 0x20;		/* NORMAL */
 	u32 read_reg = 0;
+	u32 reg_actst1;
 	if (mode)
 		reg_set = 0x60;		/* FORCE */
 	if ((SH_RCU_MODE_IMAGE == pcdev->image_mode) && (!pcdev->output_ext)) {
@@ -477,14 +492,41 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL_C, reg_set);
 		return;
 	}
+	reg_actst1 = meram_read(pcdev, RCU_MERAM_ACTST1);
+	reg_actst1 = (3 & (reg_actst1 >> (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
+
 
 	if (RCU_MERAM_FRAMEA == pcdev->meram_frame) {
+		if ((RCU_MERAM_STP_FORCE == mode) && !(reg_actst1 & 0x1)) {
+			dev_warn(pcdev->icd->parent,
+				"MERAM FORCE NoAct %s :"
+				"  ACTST1[%08x] "
+				"    CTRL[%08x] "
+				"  CTRL_C[%08x]\n",
+				pcdev->meram_frame ? "B" : "A",
+				meram_read(pcdev, RCU_MERAM_ACTST1),
+				meram_ch_read(pcdev, RCU_MERAM_CTRL),
+				meram_ch_read(pcdev, RCU_MERAM_CTRL_C));
+			return;
+		}
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL, reg_set);
 		read_reg = meram_ch_read(pcdev, RCU_MERAM_CTRL_C);
 		if (read_reg & 0x60)
 			meram_ch_write(pcdev, RCU_MERAM_CTRL_C,
 				read_reg | 0x60);
 	} else {
+		if ((RCU_MERAM_STP_FORCE == mode) && !(reg_actst1 & 0x2)) {
+			dev_warn(pcdev->icd->parent,
+				"MERAM FORCE NoAct %s :"
+				"  ACTST1[%08x] "
+				"    CTRL[%08x] "
+				"  CTRL_C[%08x]\n",
+				pcdev->meram_frame ? "B" : "A",
+				meram_read(pcdev, RCU_MERAM_ACTST1),
+				meram_ch_read(pcdev, RCU_MERAM_CTRL),
+				meram_ch_read(pcdev, RCU_MERAM_CTRL_C));
+			return;
+		}
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL_C, reg_set);
 		read_reg = meram_ch_read(pcdev, RCU_MERAM_CTRL);
 		if (read_reg & 0x60)
@@ -825,6 +867,33 @@ static void sh_mobile_rcu_dump_reg(struct sh_mobile_rcu_dev *pcdev)
 	}
 }
 
+static bool sh_mobile_rcu_intr_log(struct sh_mobile_rcu_dev *pcdev, u32 err,
+	char *log)
+{
+	bool is_log = false;
+	bool is_cdtof = false;
+	bool is_dfo = false;
+	bool is_vbp = false;
+	if (err & RCU_RCETCR_CDTOF) {
+		is_cdtof = true;
+		is_log = true;
+	}
+	if (err & RCU_RCETCR_DFO) {
+		is_dfo = true;
+		is_log = true;
+	}
+	if (err & RCU_RCETCR_VBP)
+		is_vbp = true;
+
+	dev_err(pcdev->icd->parent, "%s Interrupt[%08x]%s%s%s\n",
+		log, err,
+		is_cdtof ? " CDTOF(error)" : "",
+		is_dfo ? " DFO(error)" : "",
+		is_vbp ? " VBP" : "");
+
+	return is_log;
+}
+
 /*
  * return value doesn't reflex the success/failure to queue the new buffer,
  * but rather the status of the previous buffer.
@@ -835,6 +904,7 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 	u32 status, rcamcr, rceier;
 	int ret = 0;
 	struct soc_camera_device *icd = pcdev->icd;
+	bool is_log = false;
 	/*
 	 * The hardware is _very_ picky about this sequence. Especially
 	 * the RCU_RCETCR_MAGIC value. It seems like we need to acknowledge
@@ -870,25 +940,24 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 	 * this interrupt is generated.
 	 */
 	if (status & RCU_RCETCR_ERR_MASK) {
-		dev_err(pcdev->icd->parent,
-			"Error interrupt occurred! RCETCR=0x%08X\n", status);
+		is_log = sh_mobile_rcu_intr_log(pcdev, status, "capture");
 
+		if (is_log)
 		sh_mobile_rcu_dump_reg(pcdev);
 
 		sh_mobile_rcu_soft_reset(pcdev);
 
 		if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
-			dev_err(pcdev->icd->parent,
-				"MERAM Closing is moved after Soft Reset for "
-				"Error interrupt RCETCR=0x%08X\n", status);
+			sh_mobile_rcu_intr_log(pcdev, status, "capture MERAM");
 			dev_err(pcdev->icd->parent,
 				"MERAM stop %s-MODE,FRAME-%s\n",
 				pcdev->image_mode ? "DATA" : "IMAGE",
 				pcdev->meram_frame ? "B" : "A");
-			meram_stop_seq(pcdev, RCU_MERAM_STPSEQ_NORMAL);
+			meram_stop_seq(pcdev, RCU_MERAM_STPSEQ_FORCE);
 			dev_geo(pcdev->icd->parent, "%s:meram clear\n",
 				__func__);
 		}
+		if (is_log)
 		sh_mobile_rcu_dump_reg(pcdev);
 		ret = -EIO;
 	}
@@ -1394,7 +1463,7 @@ static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 
 	if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
 		u32 reg_actst1;
-		meram_stop_seq(pcdev, RCU_MERAM_STPSEQ_FORCE);
+		meram_stop_seq(pcdev, RCU_MERAM_STP_FORCE);
 		dev_geo(pcdev->icd->parent, "%s:meram stop\n", __func__);
 		for (i = 0; i < 10000; i++) {
 			reg_actst1 = meram_read(pcdev, RCU_MERAM_ACTST1);
@@ -1478,10 +1547,8 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 
 			if (regRCETCR & RCU_RCETCR_ERR_MASK) {
 				/* Skip MERAM clear in error case */
-				dev_err(pcdev->icd->parent,
-				"Error interrupt occurred! RCETCR=0x%08X :"
-				" Skip MERAM clear routine!!\n",
-				regRCETCR);
+				sh_mobile_rcu_intr_log(pcdev, regRCETCR,
+					"Skip MERAM clear routine!!");
 			} else {
 				if (SH_RCU_OUTPUT_SDRAM
 						!= pcdev->output_meram) {
@@ -1534,9 +1601,7 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 				RCU_RCETCR_MASK_MEM_ISP2;
 			rcu_write(pcdev, RCETCR,
 				~(regRCETCR & RCU_RCETCR_MASK_MEM_ISP2));
-			dev_err(pcdev->icd->parent,
-				"pre Error interrupt occurred! RCETCR=0x%08X\n",
-				regRCETCR);
+			sh_mobile_rcu_intr_log(pcdev, regRCETCR, "pre Error");
 		} else {
 			rcu_write(pcdev, RCETCR, ~RCU_RCETCR_MAGIC);
 			dev_err(pcdev->icd->parent,
@@ -1612,19 +1677,24 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 		return ret;
 	}
 
-	if (is_early_suspend) {
-		int cnt = 0;
-		while (!is_suspend_status) {
-			usleep_range(100000, 100000);
-			cnt++;
-			if (cnt > 30) {
-				printk(KERN_ALERT"%s wait timeout\n",
-					__func__);
-				break;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	if (down_interruptible(&pcdev->sem_rcu_state))
+		dev_err(pcdev->ici.v4l2_dev.dev,
+			"%s down_interruptible -ERESTARTSYS\n", __func__);
+	pcdev->rcu_add_device_state = true;
+	if (pcdev->rcu_early_suspend_state) {
+		up(&pcdev->sem_rcu_state);
+		ret = down_timeout(&pcdev->sem_rcu_late_resume,
+			msecs_to_jiffies(RCU_LATE_RESUME_WAIT_MSEC));
+		if (ret) {
+			dev_err(pcdev->ici.v4l2_dev.dev,
+				"%s timeout ret=%d\n", __func__, ret);
+			return ret;
 			}
+	} else {
+		up(&pcdev->sem_rcu_state);
 		}
-	}
-	is_rcu_add_device = true;
+#endif /* CONFIG_HAS_EARLYSUSPEND */
 
 	dev_info(icd->parent,
 		 "SuperH Mobile RCU driver attached to camera %d\n",
@@ -1706,8 +1776,15 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 		 "SuperH Mobile RCU driver detached from camera %d\n",
 		 icd->devnum);
 
-	is_rcu_add_device = false;
-	is_suspend_status = false;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	if (down_interruptible(&pcdev->sem_rcu_state))
+		dev_err(pcdev->ici.v4l2_dev.dev,
+			"%s down_interruptible -ERESTARTSYS\n", __func__);
+	pcdev->rcu_add_device_state = false;
+	if (pcdev->rcu_early_suspend_state)
+		up(&pcdev->sem_rcu_early_suspend);
+	up(&pcdev->sem_rcu_state);
+#endif /* CONFIG_HAS_EARLYSUSPEND */
 
 	kfree(pcdev->mmap_pages);
 	pcdev->mmap_pages = NULL;
@@ -2917,6 +2994,7 @@ void sh_mobile_rcu_flash(int led)
 		rear_flash_set(set_state, SH_RCU_LED_MODE_PRE);
 	return;
 }
+
 void sh_mobile_rcu_init_dumplog(void)
 {
 #ifdef SH_RCU_DUMP_LOG_ENABLE
@@ -3076,14 +3154,13 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		kfree(pcdev->mmap_pages);
 		pcdev->mmap_pages = NULL;
 
-		ret = copy_from_user(mmap_page_info,
+		if (copy_from_user(mmap_page_info,
 			(int __user *)ctrl->value,
-			sizeof(mmap_page_info));
-		if (0 != ret) {
+				sizeof(mmap_page_info))) {
 			dev_err(icd->parent,
 				"%s:copy_from_user error(%d)\n",
 				__func__, ret);
-			return ret;
+			return -EIO;
 		}
 
 		page_num = (mmap_page_info[0] + PAGE_SIZE - 1)
@@ -3096,16 +3173,16 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 				__func__);
 			return -1;
 		}
-		ret = copy_from_user(pcdev->mmap_pages,
+
+		if (copy_from_user(pcdev->mmap_pages,
 			(int __user *)mmap_page_info[1],
-			page_num * sizeof(struct page *));
-		if (0 != ret) {
+				page_num * sizeof(struct page *))) {
 			dev_err(icd->parent,
 				"%s:copy_from_user error(%d)\n",
 				__func__, ret);
 			kfree(pcdev->mmap_pages);
 			pcdev->mmap_pages = NULL;
-			return ret;
+			return -EIO;
 		}
 		pcdev->mmap_size = page_num;
 		return 0;
@@ -3154,6 +3231,53 @@ static int bus_notify(struct notifier_block *nb,
 	}
 	return NOTIFY_DONE;
 }
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void sh_mobile_rcu_early_suspend(struct early_suspend *h)
+{
+	struct sh_mobile_rcu_dev *pcdev;
+	int ret;
+
+	pcdev = container_of(h, struct sh_mobile_rcu_dev, rcu_suspend_pm);
+
+	if (down_interruptible(&pcdev->sem_rcu_state))
+		dev_err(pcdev->ici.v4l2_dev.dev,
+			"%s down_interruptible -ERESTARTSYS\n", __func__);
+	pcdev->rcu_early_suspend_state = true;
+	if (pcdev->rcu_add_device_state) {
+		up(&pcdev->sem_rcu_state);
+		while (1) {
+			ret = down_timeout(&pcdev->sem_rcu_early_suspend,
+				msecs_to_jiffies(
+					RCU_EARLY_SUSPEND_POLLING_MSEC));
+			if (ret)
+				dev_err(pcdev->ici.v4l2_dev.dev,
+					"%s timeout ret=%d\n", __func__, ret);
+			else
+				break;
+		}
+	} else {
+		up(&pcdev->sem_rcu_state);
+	}
+	return;
+}
+
+static void sh_mobile_rcu_late_resume(struct early_suspend *h)
+{
+	struct sh_mobile_rcu_dev *pcdev;
+
+	pcdev = container_of(h, struct sh_mobile_rcu_dev, rcu_suspend_pm);
+
+	if (down_interruptible(&pcdev->sem_rcu_state))
+		dev_err(pcdev->ici.v4l2_dev.dev,
+			"%s down_interruptible -ERESTARTSYS\n", __func__);
+	pcdev->rcu_early_suspend_state = false;
+	if (pcdev->rcu_add_device_state)
+		up(&pcdev->sem_rcu_late_resume);
+	up(&pcdev->sem_rcu_state);
+	return;
+}
+#endif /* CONFIG_HAS_EARLYSUSPEND */
 
 static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 {
@@ -3245,6 +3369,20 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 		goto exit_iounmap;
 	}
 	pcdev->ipmmu = base;
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	pcdev->rcu_suspend_pm.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING + 1;
+	pcdev->rcu_suspend_pm.suspend = sh_mobile_rcu_early_suspend;
+	pcdev->rcu_suspend_pm.resume = sh_mobile_rcu_late_resume;
+	register_early_suspend(&pcdev->rcu_suspend_pm);
+
+	pcdev->rcu_add_device_state = false;
+	pcdev->rcu_early_suspend_state = false;
+
+	init_MUTEX_LOCKED(&pcdev->sem_rcu_early_suspend);
+	init_MUTEX_LOCKED(&pcdev->sem_rcu_late_resume);
+	init_MUTEX(&pcdev->sem_rcu_state);
+#endif /* CONFIG_HAS_EARLYSUSPEND */
 
 	pcdev->video_limit = 0; /* only enabled if second resource exists */
 	pcdev->image_mode = SH_RCU_MODE_DATA;
@@ -3424,6 +3562,9 @@ static int __devexit sh_mobile_rcu_remove(struct platform_device *pdev)
 
 	dev_geo(&pdev->dev, "%s():\n", __func__);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&pcdev->rcu_suspend_pm);
+#endif /* CONFIG_HAS_EARLYSUSPEND */
 	soc_camera_host_unregister(soc_host);
 	pm_runtime_disable(&pdev->dev);
 	if (platform_get_resource(pdev, IORESOURCE_MEM, 1))
@@ -3472,8 +3613,7 @@ static int sh_mobile_rcu_runtime_suspend(struct device *dev)
 	 */
 
 	if (NULL == pcdev) {
-		dev_err(pcdev->icd->parent,
-			"%s, pcdev is NULL\n", __func__);
+		printk(KERN_ERR "%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
@@ -3510,8 +3650,7 @@ static int sh_mobile_rcu_runtime_resume(struct device *dev)
 	pcdev = dev_get_drvdata(dev);
 
 	if (NULL == pcdev) {
-		dev_err(pcdev->icd->parent,
-			"%s, pcdev is NULL\n", __func__);
+		printk(KERN_ERR "%s, pcdev is NULL\n", __func__);
 		return 0;
 	}
 
@@ -3547,39 +3686,6 @@ static const struct dev_pm_ops sh_mobile_rcu_dev_pm_ops = {
 	.runtime_resume = sh_mobile_rcu_runtime_resume,
 };
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void sh_mobile_rcu_early_suspend(struct early_suspend *h)
-{
-	if (is_rcu_add_device) {
-		int cnt = 0;
-		while (is_suspend_status) {
-			usleep_range(100000, 100000);
-			cnt++;
-			if (cnt > 30) {
-				printk(KERN_ALERT"%s wait timeout\n",
-					__func__);
-				break;
-			}
-		}
-	}
-	is_early_suspend = true;
-	return;
-}
-
-static void sh_mobile_rcu_late_resume(struct early_suspend *h)
-{
-	is_early_suspend = false;
-	is_suspend_status = true;
-	return;
-}
-
-static  struct early_suspend    early_suspend = {
-	.level		= EARLY_SUSPEND_LEVEL_STOP_DRAWING + 1,
-	.suspend	= sh_mobile_rcu_early_suspend,
-	.resume		= sh_mobile_rcu_late_resume,
-};
-#endif /* CONFIG_HAS_EARLYSUSPEND */
-
 static struct platform_driver sh_mobile_rcu_driver = {
 	.driver		= {
 		.name	= "sh_mobile_rcu",
@@ -3597,9 +3703,6 @@ static int __init sh_mobile_rcu_init(void)
 	sec_sub_cam_dev = NULL;
 	rear_flash_state = true;
 	rear_flash_set = NULL;
-	is_suspend_status = false;
-	is_rcu_add_device = false;
-	is_early_suspend = false;
 	dump_addr_flg = false;
 #ifdef SH_RCU_DUMP_LOG_ENABLE
 	dumplog_order = 0;
@@ -3610,9 +3713,6 @@ static int __init sh_mobile_rcu_init(void)
 	dumplog_cnt_idx = NULL;
 #endif /* SH_RCU_DUMP_LOG_ENABLE */
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	register_early_suspend(&early_suspend);
-#endif /* CONFIG_HAS_EARLYSUSPEND */
 	/* Whatever return code */
 	request_module("sh_mobile_csi2");
 	return platform_driver_register(&sh_mobile_rcu_driver);
@@ -3620,9 +3720,6 @@ static int __init sh_mobile_rcu_init(void)
 
 static void __exit sh_mobile_rcu_exit(void)
 {
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	unregister_early_suspend(&early_suspend);
-#endif /* CONFIG_HAS_EARLYSUSPEND */
 	platform_driver_unregister(&sh_mobile_rcu_driver);
 }
 

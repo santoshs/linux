@@ -931,7 +931,7 @@ static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	clk_enable(host->hclk);
 
-	if(wakeup_from_suspend_emmc == 1){
+	if (wakeup_from_suspend_emmc == 1) {
 		udelay(EMMC_CLK_CMD_DELAY);
 		wakeup_from_suspend_emmc = 0;
 	}
@@ -1052,7 +1052,8 @@ static irqreturn_t sh_mmcif_intr(int irq, void *dev_id)
 	u32 state;
 	int err = 0;
 
-	state = sh_mmcif_readl(host->addr, MMCIF_CE_INT);
+	state = sh_mmcif_readl(host->addr, MMCIF_CE_INT)
+		& sh_mmcif_readl(host->addr, MMCIF_CE_INT_MASK);
 
 	if (state & INT_ERR_STS) {
 		/* error interrupts - process first */
@@ -1093,7 +1094,7 @@ static irqreturn_t sh_mmcif_intr(int irq, void *dev_id)
 		host->sd_error = true;
 		dev_err(&host->pd->dev, "int err state = %08x\n", state);
 	}
-	if (state & ~(INT_CMD12RBE | INT_CMD12CRE)) {
+	if (state) {
 		if (host->dma_active &&
 		    (state & (INT_CRCSTO | INT_WDATTO | INT_RDATTO)))
 			complete(&host->dma_complete);

@@ -1,7 +1,7 @@
 /*
  * Driver for Samsung SR030PC50 VGA Camera
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -121,7 +121,9 @@ static inline int sr030pc50_write(struct i2c_client *client,
 	}
 
 	while (retry_count--) {
-		*(unsigned long *)buf = cpu_to_be16(packet);
+		/**(unsigned short *)buf = cpu_to_be16(packet);*/
+		buf[0] = (unsigned char)(packet >> 8) & 0xFF;
+		buf[1] = (unsigned char)(packet >> 0);
 		err = i2c_transfer(client->adapter, &msg, 1);
 		if (likely(err == 1))
 			break;

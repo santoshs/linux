@@ -18,6 +18,8 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 
+#include <linux/usb/gadget_cust.h>
+
 #include "u_serial.h"
 #include "gadget_chips.h"
 
@@ -572,6 +574,8 @@ static void acm_connect(struct gserial *port)
 {
 	struct f_acm		*acm = port_to_acm(port);
 
+	NPRINTK("\n");
+
 	acm->serial_state |= ACM_CTRL_DSR | ACM_CTRL_DCD;
 	acm_notify_serial_state(acm);
 }
@@ -580,6 +584,7 @@ static void acm_disconnect(struct gserial *port)
 {
 	struct f_acm		*acm = port_to_acm(port);
 
+        NPRINTK("\n");
 	acm->serial_state &= ~(ACM_CTRL_DSR | ACM_CTRL_DCD);
 	acm_notify_serial_state(acm);
 }

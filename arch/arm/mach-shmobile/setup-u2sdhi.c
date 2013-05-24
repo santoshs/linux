@@ -19,11 +19,12 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
 	struct regulator *regulator;
 	int ret = 0;
+	int regulator_voltage = 0;
 
 	switch (state) {
 	case RENESAS_SDHI_POWER_ON:
 		printk(KERN_INFO"RENESAS_SDHI_POWER_ON:%s\n", __func__);
-		regulator = regulator_get(NULL, "vio_sd");
+		regulator = regulator_get(NULL, "vsd");
 		if (IS_ERR(regulator))
 			return;
 
@@ -34,7 +35,7 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 		regulator_put(regulator);
 
-		regulator = regulator_get(NULL, "vsd");
+		regulator = regulator_get(NULL, "vio_sd");
 		if (IS_ERR(regulator))
 			return;
 
@@ -86,9 +87,44 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		case RENESAS_SDHI_SIGNAL_V330:
 			printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V330:%s\n", __func__);
 
+		regulator = regulator_get(NULL, "vsd");
+		if (IS_ERR(regulator))
+			return;
+
+		regulator_voltage = regulator_get_voltage(regulator);
+		printk(KERN_INFO"vsd voltage = %d\n", regulator_voltage);
+		if (regulator_voltage != E3_3_V) {
+			printk(KERN_INFO"vsd change as %duV\n", E3_3_V);
+
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
+
+		ret = regulator_set_voltage(regulator, E3_3_V, E3_3_V);
+		if (ret)
+			printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
+							__func__, ret);
+
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+								__func__, ret);
+		}
+
+		regulator_put(regulator);
+
 		regulator = regulator_get(NULL, "vio_sd");
 		if (IS_ERR(regulator))
 			return;
+
+		regulator_voltage = regulator_get_voltage(regulator);
+		printk(KERN_INFO"vio_sd voltage= %d\n", regulator_voltage);
+		if (regulator_voltage != E3_3_V) {
+			printk(KERN_INFO"vio_sd change as %duV\n", E3_3_V);
+
 
 		if (regulator_is_enabled(regulator)) {
 			ret = regulator_disable(regulator);
@@ -102,66 +138,25 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 			printk(KERN_INFO"%s: err vio_sd set voltage ret=%d\n",
 							__func__, ret);
 
-		ret = regulator_enable(regulator);
-		if (ret)
-			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
-							__func__, ret);
-
-		regulator_put(regulator);
-
-		regulator = regulator_get(NULL, "vsd");
-		if (IS_ERR(regulator))
-			return;
-
-		if (regulator_is_enabled(regulator)) {
-			ret = regulator_disable(regulator);
+			ret = regulator_enable(regulator);
 			if (ret)
-				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
-							__func__ , ret);
+				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+								__func__, ret);
 		}
-
-		ret = regulator_set_voltage(regulator, E3_3_V, E3_3_V);
-		if (ret)
-			printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
-							__func__, ret);
-
-		ret = regulator_enable(regulator);
-		if (ret)
-			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
-							__func__, ret);
-
 		regulator_put(regulator);
 		break;
 		case RENESAS_SDHI_SIGNAL_V180:
 			printk(KERN_INFO"RENESAS_SDHI_SIGNAL_V180:%s\n", __func__);
 
-		regulator = regulator_get(NULL, "vio_sd");
-		if (IS_ERR(regulator))
-			return;
-
-		if (regulator_is_enabled(regulator)) {
-			ret = regulator_disable(regulator);
-			if (ret)
-				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
-							__func__ , ret);
-		}
-
-		ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
-		if (ret)
-			printk(KERN_INFO "%s: err vio_sd set voltage ret=%d\n",
-							__func__, ret);
-
-		ret = regulator_enable(regulator);
-		if (ret)
-			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
-							__func__, ret);
-
-		regulator_put(regulator);
-
 		regulator = regulator_get(NULL, "vsd");
 		if (IS_ERR(regulator))
 			return;
 
+		regulator_voltage = regulator_get_voltage(regulator);
+		printk(KERN_INFO"vsd voltage = %d\n", regulator_voltage);
+		if (regulator_voltage != E1_8_V) {
+			printk(KERN_INFO"vsd change as %duV\n", E1_8_V);
+
 		if (regulator_is_enabled(regulator)) {
 			ret = regulator_disable(regulator);
 			if (ret)
@@ -171,13 +166,43 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 		ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
 		if (ret)
-			printk(KERN_INFO"%s: err vsd set voltage ret=%d\n",
+			printk(KERN_INFO "%s: err vsd set voltage ret=%d\n",
 							__func__, ret);
 
-		ret = regulator_enable(regulator);
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+								__func__, ret);
+		}
+
+		regulator_put(regulator);
+
+		regulator = regulator_get(NULL, "vio_sd");
+		if (IS_ERR(regulator))
+			return;
+
+		regulator_voltage = regulator_get_voltage(regulator);
+		printk(KERN_INFO"vio_sd voltage = %d\n", regulator_voltage);
+		if (regulator_voltage != E1_8_V) {
+			printk(KERN_INFO"vio_sd change as %duV\n", E1_8_V);
+
+		if (regulator_is_enabled(regulator)) {
+			ret = regulator_disable(regulator);
+			if (ret)
+				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+							__func__ , ret);
+		}
+
+		ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
 		if (ret)
-			printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+			printk(KERN_INFO"%s: err vio_sd set voltage ret=%d\n",
 							__func__, ret);
+
+			ret = regulator_enable(regulator);
+			if (ret)
+				printk(KERN_INFO"%s: err regulator_enable ret=%d\n",
+								__func__, ret);
+		}
 
 		regulator_put(regulator);
 		break;
@@ -225,12 +250,12 @@ static void sdhi0_set_dma(struct platform_device *pdev, int size)
 
 static struct portn_gpio_setting_info sdhi0_gpio_setting_info[] = {
 	[0] = {
-		.flag = 1,
+		.flag = 0,
 		.port = GPIO_PORT327,
 		.active = {
-			.port_fn	= GPIO_PORT327,
+			.port_fn	= GPIO_FN_SDHICD0,
 			.pull		= PORTn_CR_PULL_NOT_SET,
-			.direction	= PORTn_CR_DIRECTION_INPUT,
+			.direction	= PORTn_CR_DIRECTION_NOT_SET,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
 		.inactive = {

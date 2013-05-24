@@ -51,7 +51,7 @@ uint32_t sec_hal_pm_coma_entry_init(void)
 	uint32_t cpu;
 
 	for_each_possible_cpu(cpu) {
-		msg_data_size[cpu] = sec_msg_param_size(sizeof(uint32_t)*4);
+		msg_data_size[cpu] = sec_msg_param_size(sizeof(uint32_t))*4;
 		in_msg[cpu] = sec_msg_alloc(&in_handle[cpu],
 			msg_data_size[cpu],
 			SEC_MSG_OBJECT_ID_NONE,
@@ -126,10 +126,11 @@ uint32_t sec_hal_pm_coma_entry(
 	LOCAL_RMB();
 	if (SEC_ROM_RET_OK != ssa_disp_status
 		|| SEC_MSG_STATUS_OK != sec_msg_status
-		|| SEC_SERV_STATUS_OK != sec_serv_status)
+		|| SEC_SERV_STATUS_OK != sec_serv_status) {
+		printk(KERN_WARNING "[%s] returned a fail!! serv == %d", __func__, sec_serv_status);
 		sec_hal_status = SEC_HAL_RES_FAIL;
+	}
 
-	printk(KERN_INFO "[%s] is returned!! ", __func__);
 	return sec_hal_status;
 }
 
@@ -365,7 +366,7 @@ uint32_t sec_hal_pm_l2_enable(uint32_t spinlock_phys_addr)
 	sec_msg_handle_t out_handle;
 
 	/* allocate memory, from ICRAM, for msgs to be sent to TZ */
-	msg_data_size = sec_msg_param_size(sizeof(uint32_t)*3);
+	msg_data_size = sec_msg_param_size(sizeof(uint32_t))*3;
 	in_msg = sec_msg_alloc(&in_handle,
 		msg_data_size,
 		SEC_MSG_OBJECT_ID_NONE,

@@ -699,15 +699,15 @@ static int gp2a_prox_probe(struct i2c_client *client,const struct i2c_device_id 
             
 	gp2a_data->irq = gpio_to_irq(gp2a_data->irq_gpio);
     
-        irq_set_irq_type(gp2a_data->irq, IRQ_TYPE_EDGE_FALLING);	
-	if( (ret = request_irq(gp2a_data->irq, gp2a_irq_handler,IRQF_DISABLED | IRQF_NO_SUSPEND , "proximity_int", NULL )) )
-	{
-		error("GP2A request_irq failed IRQ_NO:%d", gp2a_data->irq);
+	ret= request_threaded_irq(gp2a_data->irq, NULL, gp2a_irq_handler, IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND, "proximity_int", gp2a_data);
+	if (unlikely(ret < 0)) {
+		error("%s: request_irq(%d) failed for gpio %d (%d)\n", __func__, gp2a_data->irq, gp2a_data->irq_gpio, ret);
 		goto DESTROY_WORK_QUEUE;
+	} else {
+            printk(KERN_INFO "[GP2A] request_irq success IRQ_NO:%d, GPIO:%d", gp2a_data->irq, gp2a_data->irq_gpio);
 	} 
-	else {
-		printk(KERN_INFO "[GP2A] request_irq success IRQ_NO:%d", gp2a_data->irq);
-	}
+	
+        enable_irq_wake(gp2a_data->irq);
 	
 	/*Device Initialisation with recommended register values from datasheet*/
 	

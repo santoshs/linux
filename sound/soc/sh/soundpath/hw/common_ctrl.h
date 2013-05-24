@@ -22,10 +22,8 @@
 /*
  * COMMON Registers
  */
-#define CPG_PHY_BASE		(0xE6150000)
 #define CPG_REG_MAX		(0x01FF)
 
-#define CPG_PHY_BASE_SRST	(0xE6158000)
 #define CPG_REG_MAX_SRST	(0x01CC)
 
 #define GPIO_PHY_BASE		(0xE6058000)

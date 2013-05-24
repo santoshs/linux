@@ -1,7 +1,7 @@
 /*
  * Function        : share memory management for SH Mobile
  *
- * Copyright (C) 2011-2012 Renesas Electronics Corporation
+ * Copyright (C) 2011-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -84,15 +84,15 @@ static const char *get_RTAPImsg_memory(int rc)
 #if DEBUG_RTAPI_ARGUMENT
 static void dump_system_memory_ap_open(system_mem_ap_open *op)
 {
-	printk_lowdbg("system_memory_ap_open "
+	printk_lowdbg("system_memory_ap_open " \
 		"handle:%p aparea_size:0%x cache_kind:%d\n",
 		op->handle, op->aparea_size, op->cache_kind);
 }
 
 static void dump_system_memory_rt_map_pnc(system_mem_rt_map_pnc *mpnc)
 {
-	printk_lowdbg("system_memory_rt_map_pnc "
-		"handle:%p apaddr:0%x map_size:0x%x "
+	printk_lowdbg("system_memory_rt_map_pnc " \
+		"handle:%p apaddr:0%x map_size:0x%x " \
 		"pages:%p rtcache_kind:%d\n",
 		mpnc->handle, mpnc->apaddr, mpnc->map_size,
 		mpnc->pages, mpnc->rtcache_kind);
@@ -100,14 +100,14 @@ static void dump_system_memory_rt_map_pnc(system_mem_rt_map_pnc *mpnc)
 
 static void dump_system_memory_ap_close(system_mem_ap_close *clo)
 {
-	printk_lowdbg("system_memory_ap_close "
+	printk_lowdbg("system_memory_ap_close " \
 		"handle:%p apaddr:0%x pages:%p\n",
 		clo->handle, clo->apaddr, clo->pages);
 }
 
 static void dump_system_memory_ap_alloc(system_mem_ap_alloc *aloc)
 {
-	printk_lowdbg("system_memory_ap_alloc "
+	printk_lowdbg("system_memory_ap_alloc " \
 		"handle:%p apaddr:0%x apmem_handle:%p\n",
 		aloc->handle, aloc->alloc_size, aloc->apmem_handle);
 }
@@ -115,7 +115,7 @@ static void dump_system_memory_ap_alloc(system_mem_ap_alloc *aloc)
 static void dump_system_memory_ap_share_mem_offset(
 	system_mem_ap_share_mem_offset * ofs)
 {
-	printk_lowdbg("system_memory_ap_share_mem_offset "
+	printk_lowdbg("system_memory_ap_share_mem_offset " \
 		"handle:%p apmem_handle:%p apmem_apaddr:0x%x\n",
 		ofs->handle, ofs->apmem_handle, ofs->apmem_apaddr);
 }
@@ -123,8 +123,8 @@ static void dump_system_memory_ap_share_mem_offset(
 static void dump_system_memory_ap_change_rtaddr(
 	system_mem_ap_change_rtaddr * adr)
 {
-	printk_lowdbg("system_memory_ap_change_rtaddr "
-		"handle:%p cache_kind:%d, "
+	printk_lowdbg("system_memory_ap_change_rtaddr " \
+		"handle:%p cache_kind:%d, " \
 		"apmem_handle:%p apmem_apaddr:0x%x\n",
 		adr->handle, adr->cache_kind,
 		adr->apmem_handle, adr->apmem_apaddr);
@@ -132,42 +132,42 @@ static void dump_system_memory_ap_change_rtaddr(
 
 static void dump_system_memory_ap_free(system_mem_ap_free *fre)
 {
-	printk_lowdbg("system_memory_ap_free "
+	printk_lowdbg("system_memory_ap_free " \
 		"handle:%p apmem_handle:%p apmem_apaddr:0x%x\n",
 		fre->handle, fre->apmem_handle, fre->apmem_apaddr);
 }
 
 static void dump_system_memory_rt_unmap_pnc(system_mem_rt_unmap_pnc *upnc)
 {
-	printk_lowdbg("system_memory_rt_unmap_pnc "
+	printk_lowdbg("system_memory_rt_unmap_pnc " \
 		"handle:%p apmem_handle:%p\n",
 		upnc->handle, upnc->apmem_handle);
 }
 
 static void dump_system_memory_ap_share_area(system_mem_ap_share_area *area)
 {
-	printk_lowdbg("system_memory_ap_share_area "
+	printk_lowdbg("system_memory_ap_share_area " \
 		"handle:%p apmem_id:%d\n",
 		area->handle, area->apmem_id);
 }
 
 static void dump_system_memory_ap_share_mem(system_mem_ap_share_mem *mem)
 {
-	printk_lowdbg("system_memory_ap_share_mem "
+	printk_lowdbg("system_memory_ap_share_mem " \
 		"handle:%p apmem_handle:%p\n",
 		mem->handle, mem->apmem_handle);
 }
 
 static void dump_system_memory_rt_map(system_mem_rt_map *map)
 {
-	printk_lowdbg("system_memory_rt_map "
+	printk_lowdbg("system_memory_rt_map " \
 		"handle:%p phys_addr:0x%x map_size:0x%x\n",
 		map->handle, map->phys_addr, map->map_size);
 }
 
 static void dump_system_memory_rt_unmap(system_mem_rt_unmap *umap)
 {
-	printk_lowdbg("system_memory_rt_unmap "
+	printk_lowdbg("system_memory_rt_unmap " \
 		"handle:%p rtaddr:0x%x map_size:0x%x\n",
 		umap->handle, umap->rtaddr, umap->map_size);
 }
@@ -195,8 +195,8 @@ static void sh_mobile_appmem_dump_appshare_list(void)
 
 		mem = list_entry((void *)list, struct appmem_handle, list);
 
-		printk_dbg(1, "  memhandle:%p app_id:0x%x offset:0x%x key:%s"
-			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d "
+		printk_dbg(1, "  memhandle:%p app_id:0x%x offset:0x%x key:%s" \
+			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d " \
 			"apaddr:0x%x pages:%p\n",
 			mem->memhandle, mem->app_id, mem->offset, mem->key,
 			mem->size, mem->vaddr, mem->rtaddr, mem->ref_count,
@@ -342,7 +342,7 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		system_mem_ap_change_rtaddr adr;
 
 		adr.handle       = handle;
-		adr.cache_kind   = RT_MEMORY_NONCACHE;
+		adr.cache_kind   = RT_MEMORY_WRITEBACK;
 		adr.apmem_handle = memhandle;
 		adr.apmem_apaddr = (unsigned int)vadr;
 		rc = system_memory_ap_change_rtaddr(&adr);
@@ -386,8 +386,8 @@ struct appmem_handle *sh_mobile_appmem_alloc(int size, char *key)
 		mem->op_pages  = op_pages;
 
 		printk_dbg(2, "open appshare memory.\n");
-		printk_dbg(2, "  memhandle:%p app_id:0x%x offset:0x%x key:%s"
-			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d "
+		printk_dbg(2, "  memhandle:%p app_id:0x%x offset:0x%x key:%s" \
+			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d " \
 			"apaddr:0x%x pages:%p\n",
 			mem->memhandle, mem->app_id, mem->offset, mem->key,
 			mem->size, mem->vaddr, mem->rtaddr, mem->ref_count,
@@ -610,8 +610,8 @@ struct appmem_handle *sh_mobile_appmem_share(int appid, char *key)
 		mem->op_pages  = op_pages;
 
 		printk_dbg(2, "share appshare memory.\n");
-		printk_dbg(2, "  memhandle:%p app_id:0x%x offset:0x%x key:%s"
-			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d "
+		printk_dbg(2, "  memhandle:%p app_id:0x%x offset:0x%x key:%s" \
+			"size:0x%x vaddr:%p rtaddr:0x%lx ref_count:%d " \
 			"apaddr:0x%x pages:%p\n",
 			mem->memhandle, mem->app_id, mem->offset, mem->key,
 			mem->size, mem->vaddr, mem->rtaddr, mem->ref_count,
@@ -1054,7 +1054,7 @@ struct rtmem_phys_handle *sh_mobile_rtmem_physarea_register(
 		map.map_size  = size;
 		map.rtaddr    = 0;
 
-		printk_dbg(1, "system_memory_rt_map "
+		printk_dbg(1, "system_memory_rt_map " \
 			"handle:%p phys_addr:0x%x map_size:0x%x\n",
 				map.handle, map.phys_addr, map.map_size);
 
@@ -1104,14 +1104,14 @@ err_exit:
 			unmap.rtaddr   = rtaddr;
 			unmap.map_size = size;
 
-			printk_dbg(1, "system_memory_rt_unmap "
+			printk_dbg(1, "system_memory_rt_unmap " \
 				"handle:%p rtaddr:0x%x map_size:0x%x\n",
 				unmap.handle, unmap.rtaddr, unmap.map_size);
 
 			rc = system_memory_rt_unmap(&unmap);
 
 			if (rc != SMAP_LIB_MEMORY_OK) {
-				printk_err("system_memory_rt_unmap "
+				printk_err("system_memory_rt_unmap " \
 					"return by %d %s.\n", rc,
 					get_RTAPImsg_memory(rc));
 #if DEBUG_RTAPI_ARGUMENT
@@ -1196,14 +1196,14 @@ void sh_mobile_rtmem_physarea_unregister(
 		unmap.rtaddr   = mem->rt_addr;
 		unmap.map_size = mem->size;
 
-		printk_dbg(1, "system_memory_rt_unmap "
+		printk_dbg(1, "system_memory_rt_unmap " \
 			"handle:%p rtaddr:0x%x map_size:0x%x\n",
 			unmap.handle, unmap.rtaddr, unmap.map_size);
 
 		rc = system_memory_rt_unmap(&unmap);
 
 		if (rc != SMAP_LIB_MEMORY_OK) {
-			printk_err("system_memory_rt_unmap "
+			printk_err("system_memory_rt_unmap " \
 				"return by %d %s.\n", rc,
 				get_RTAPImsg_memory(rc));
 #if DEBUG_RTAPI_ARGUMENT
@@ -1274,7 +1274,7 @@ unsigned long sh_mobile_rtmem_conv_phys2rtmem(
 		printk_dbg(1, "physical address:0x%lx not registered.\n",
 			phys_addr);
 	} else {
-		printk_dbg(1, "physical address 0x%lx convert to "
+		printk_dbg(1, "physical address 0x%lx convert to " \
 			"RT address 0x%lx\n",
 			phys_addr, rt_addr);
 	}
@@ -1327,7 +1327,7 @@ unsigned long sh_mobile_rtmem_conv_rt2physmem(
 		printk_dbg(1, "RT address:0x%lx not registered.\n",
 			phys_addr);
 	} else {
-		printk_dbg(1, "RT address 0x%lx convert to "
+		printk_dbg(1, "RT address 0x%lx convert to " \
 			"physical address 0x%lx\n",
 			rt_addr, phys_addr);
 	}

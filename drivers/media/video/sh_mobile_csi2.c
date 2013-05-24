@@ -591,6 +591,10 @@ static __devexit int sh_csi2_remove(struct platform_device *pdev)
 	struct sh_csi2 *priv = platform_get_drvdata(pdev);
 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
+	if (!res) {
+		printk(KERN_ERR "platform_get_resource is NULL.\n");
+		return -ENOMEM;
+	}
 	v4l2_device_unregister_subdev(&priv->subdev);
 	pm_runtime_disable(&pdev->dev);
 	iounmap(priv->base);

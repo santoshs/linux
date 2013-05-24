@@ -62,6 +62,7 @@ static uint32_t g_rpc_handler;
 static uint32_t g_coma_params[4] = {0};
 static uint32_t g_memcpy_params[3] = {0};
 static uint32_t g_a3sp_state_info[2] = {};
+static void *sec_msg_ptr = 0;
 
 /* const data */
 static const uint8_t k_auth_data[DATA_SIZE_MAX] =
@@ -260,6 +261,14 @@ typedef struct
 
 /* ****************************************************************************
 ** ***************************************************************************/
+uint32_t raw_pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...);
+uint32_t raw_pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
+{
+	return 0;
+}
+
+/* ****************************************************************************
+** ***************************************************************************/
 uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...);
 uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
 {
@@ -277,6 +286,8 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
     sec_msg_in_msg = va_arg(list, sec_msg_t*);
     sec_msg_open(&out_handle, (sec_msg_t *)SEC_HAL_MEM_PHY2VIR_FUNC(sec_msg_out_msg));
     sec_msg_open(&in_handle, (sec_msg_t *)SEC_HAL_MEM_PHY2VIR_FUNC(sec_msg_in_msg));
+
+
 
     switch(service_id)
     {
@@ -509,28 +520,39 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
             uint32_t st[2] = {0}, commit_id_len = 0, reset_info_len = 0;
             uint64_t commit_id;
             commit_id = 0x123456789abcdef;
-
+#if 0
+            sec_msg_handle_t dummy;
+            if (sec_msg_ptr == 0)
+                sec_msg_ptr = sec_msg_alloc(&dummy, 1024, 0, 0, 0);
+#endif
             SEC_HAL_TRACE("SEC_SERV_RUNTIME_INIT");
             st[0] = sec_msg_param_read32(&in_handle, &commit_id_len);
-
             st[1] = sec_msg_param_read32(&in_handle, &reset_info_len);
-
             sec_msg_param_write32(&out_handle,
                     (SEC_MSG_STATUS_OK == st[0] &&
                      SEC_MSG_STATUS_OK == st[1]) ? g_status : SEC_SERV_STATUS_INVALID_INPUT, 0);
-
             sec_msg_param_write32(&out_handle,
                     sizeof(uint64_t), 0);
-
             sec_msg_param_write(&out_handle, &commit_id, sizeof(uint64_t), 0);
-
             sec_msg_param_write32(&out_handle, 3*sizeof(uint32_t), 0);
-
             sec_msg_param_write(&out_handle, k_reset_info, 3*sizeof(uint32_t), 0);
 
          } break;
         case SEC_SERV_SELFTEST:
         {
+#if 0
+            sec_msg_handle_t hnd;
+            callback cb = (callback)g_rpc_handler;
+            static const char *fmt = "%s > 0x%08X";
+            static const char *func = "function";
+            if (sec_msg_ptr && cb) {
+                sec_msg_open(&hnd, (sec_msg_t *)sec_msg_ptr);
+                sec_msg_param_write(&hnd, fmt, strlen(fmt)+1, 0);
+                sec_msg_param_write(&hnd, func, strlen(func)+1, 0);
+                sec_msg_param_write32(&hnd, 0x4411, 0);
+                (*cb)(SEC_SERV_RPC_TRACE, (uint32_t) sec_msg_ptr, 0, 0, 0);
+            }
+#endif
             SEC_HAL_TRACE("SEC_SERV_SELFTEST");
             /* write status */
             sec_msg_param_write32(&out_handle, g_status, 0);
@@ -1271,6 +1293,7 @@ uint32_t pub2sec_dispatcher(uint32_t service_id, uint32_t flags, ...)
         default:
         {
             SEC_HAL_TRACE("SSA_SEC_PUB_DISPATCHER:default");
+            (void) sec_msg_ptr;
             ret_status = SEC_ROM_RET_NON_SUPPORTED_SERV;
         } break;
     }

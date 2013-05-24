@@ -1265,7 +1265,7 @@ void Chip_HwInit(void)
 	#endif
 
 	/* reset CC4.2 from system domain */
-	pSRCR2 = (u32 *)IO_ADDRESS(0xE61580B0);
+	pSRCR2 = (u32 *)SRCR2;
 
 	/* Acquire HPB Semaphore lock */
 	CC42_DEBUG_PRINT("\n cc4.2_driver: Requesting HPB Semaphore\n");

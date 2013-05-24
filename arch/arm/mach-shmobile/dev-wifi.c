@@ -36,10 +36,6 @@
 
 #include <mach/dev-wifi.h>
 
-/* WLAN GPIO */
-#define GPIO_WLAN_PMENA 260
-#define GPIO_WLAN_IRQ 98
-	
 #ifdef CONFIG_BRCM_UNIFIED_DHD_SUPPORT
 
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
@@ -219,62 +215,14 @@ static int renesas_wifi_set_carddetect(int val)
 	if (wifi_status_cb) {
 		printk(KERN_ERR " %s CALLBACK NOT NULL\n",__FUNCTION__);	
 		wifi_status_cb(val, wifi_status_cb_devid);
-		printk(KERN_ERR " %s CALLBACK COMPLETE\n",__FUNCTION__);	
+		printk(KERN_ERR " %s CALLBACK COMPLETE\n",__FUNCTION__);
 	} else
 		pr_warning("%s: Nobody to notify\n", __func__);
-	
-/* Only for Broadcom BB
-	if(val==0)
-		bcm_sdiowl_term();
-*/
 
 	return 0;
 }
 
 static int renesas_wifi_power_state;
-
-struct fixed_voltage_data {
-	struct regulator_desc desc;
-	struct regulator_dev *dev;
-	int microvolts;
-	int gpio;
-	unsigned startup_delay;
-	bool enable_high;
-	bool is_enabled;
-};
-
-#if 0 // for omap
-static struct regulator_consumer_supply renesas_vmmc5_supply = {
-	.supply = "vmmc",
-	.dev_name = "omap_hsmmc.4",
-};
-
-static struct regulator_init_data renesas_vmmc5 = {
-	.constraints = {
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-	},
-	.num_consumer_supplies = 1,
-	.consumer_supplies = &renesas_vmmc5_supply,
-};
-
-static struct fixed_voltage_config renesas_vwlan = {
-	.supply_name = "vwl1271",
-	.microvolts = 2000000, /* 2.0V */
-	.gpio = GPIO_WLAN_PMENA,
-	.startup_delay = 70000, /* 70msec */
-	.enable_high = 1,
-	.enabled_at_boot = 0,
-	.init_data = &renesas_vmmc5,
-};
-
-static struct platform_device omap_vwlan_device = {
-	.name		= "reg-fixed-voltage",
-	.id		= 1,
-	.dev = {
-		.platform_data = &renesas_vwlan,
-	},
-};
-#endif
 
 static int renesas_wifi_power(int on)
 {
@@ -282,7 +230,7 @@ static int renesas_wifi_power(int on)
 
 	pr_debug("%s: %d\n", __func__, on);
 	mdelay(100);
-	gpio_set_value(GPIO_WLAN_PMENA, on);
+	gpio_set_value(GPIO_WLAN_REG_ON, on);
 	mdelay(200);
 
 /* Only for Broadcom BB
@@ -424,11 +372,7 @@ static void *renesas_wifi_get_country_code(char *ccode)
 static struct resource renesas_wifi_resources[] = {
 	[0] = {
 		.name		= "bcmdhd_wlan_irq",
-		//.start		= 42,
-		//.end		= 42,
-		//.start		= gpio_to_irq(GPIO_WLAN_IRQ),	//PORT98
-		//.end		= gpio_to_irq(GPIO_WLAN_IRQ),	//PORT98
-		.flags          	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE | IORESOURCE_IRQ_SHAREABLE,
+		.flags		= IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
 	},
 };
 
@@ -464,20 +408,22 @@ static void __init renesas_wlan_gpio(void)
 {
 	pr_debug("%s: start\n", __func__);
 
-	/* GPIO requests for EN and IRQ*/
-	gpio_request(GPIO_WLAN_PMENA, "wl_reset");
-	gpio_direction_output(GPIO_WLAN_PMENA, 0);
+	/* Init irq number*/
+	renesas_wifi_resources[0].start=gpio_to_irq(GPIO_WLAN_OOB_IRQ);
+	renesas_wifi_resources[0].end=gpio_to_irq(GPIO_WLAN_OOB_IRQ);
 
-	gpio_request(GPIO_WLAN_IRQ, "wl_host_wake");
-	gpio_direction_input(GPIO_WLAN_IRQ);
+	/* GPIO requests for EN and IRQ*/
+	gpio_request(GPIO_WLAN_REG_ON, "wl_reg_on");
+	gpio_direction_output(GPIO_WLAN_REG_ON, 0);
+
+	gpio_request(GPIO_WLAN_OOB_IRQ, "wl_host_wake");
+	gpio_direction_input(GPIO_WLAN_OOB_IRQ);
 
 	/* IRQ debounce */
-//SBSIM : Can't catch oob interrupt
-//	gpio_set_debounce(GPIO_WLAN_IRQ, 1000);	/* 1msec */
+	//gpio_set_debounce(GPIO_WLAN_IRQ, 1000);	/* 1msec */
 
 	/* PD configuration */
-	#define GPIO_WLAN_IRQ_CR 	0xE6051062
-	*((volatile u8 *)GPIO_WLAN_IRQ_CR) = 0xA0;
+	__raw_writeb(0xA0, WLAN_OOB_IRQ_CR);
 }
 
 int __init renesas_wlan_init(void)
@@ -488,10 +434,6 @@ int __init renesas_wlan_init(void)
 	/* Init gpio */
 	renesas_wlan_gpio();
 	printk(KERN_ERR " %s Calling GPIO INIT DONE !\n",__FUNCTION__);
-
-	/* Init irq number*/
-	renesas_wifi_resources[0].start=gpio_to_irq(GPIO_WLAN_IRQ);
-	renesas_wifi_resources[0].end=gpio_to_irq(GPIO_WLAN_IRQ);
 
 #ifdef CONFIG_BROADCOM_WIFI_RESERVED_MEM
 	renesas_init_wifi_mem();

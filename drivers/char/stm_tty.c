@@ -25,7 +25,7 @@
 #include <linux/clk.h>
 #include <linux/console.h>
 #include <asm/hardware/coresight.h>
-
+#include <mach/r8a7373.h>
 MODULE_DESCRIPTION("STM TTY Driver");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("1.0");
@@ -52,7 +52,6 @@ static uint32_t stm_channel_end;
 
 static int is_debug_enabled(void)
 {
-#define DBGREG1		IO_ADDRESS(0xE6100020)
 	uint32_t val;
 
 	val = __raw_readl(DBGREG1);
@@ -72,7 +71,7 @@ inline void __iomem *get_stm(uint32_t channel)
 {
 	void __iomem *stm = NULL;
 
-	if ((channel < 0) || (channel > stm_channel_end) || !stm_prt_reg)
+	if ((channel > stm_channel_end) || !stm_prt_reg)
 		return NULL;
 
 	stm = stm_prt_reg + STM_PORT_SIZE*channel;

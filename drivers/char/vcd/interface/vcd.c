@@ -549,7 +549,7 @@ int vcd_execute(const struct vcd_execute_command *args)
 	ret = VCD_ERR_PARAM;
 
 rtn:
-	vcd_pr_end_if_user("ret[%d] args->command[%d].\n", ret, args->command);
+	vcd_pr_end_if_user("ret[%d].\n", ret);
 
 	/* semaphore end */
 	up(&g_vcd_semaphore);
@@ -601,7 +601,7 @@ int vcd_execute_test_call(const struct vcd_execute_command *args)
 	ret = VCD_ERR_PARAM;
 
 rtn:
-	vcd_pr_end_if_user("ret[%d] args->command[%d].\n", ret, args->command);
+	vcd_pr_end_if_user("ret[%d].\n", ret);
 
 	/* semaphore end */
 	up(&g_vcd_semaphore);
@@ -938,8 +938,7 @@ static int vcd_set_call_mode(void *arg)
 	vcd_pr_interface_info("option.loopback_mode[%d].\n",
 					option.loopback_mode);
 
-	if ((VCD_CALL_KIND_CALL > option.call_kind) ||
-		(VCD_CALL_KIND_VIF_LB  < option.call_kind)) {
+	if (VCD_CALL_KIND_VIF_LB  < option.call_kind) {
 		vcd_pr_err("parameter error. option.call_kind[%d].\n",
 						option.call_kind);
 		ret = VCD_ERR_PARAM;
@@ -996,8 +995,7 @@ static int vcd_start_record(void *arg)
 	vcd_pr_interface_info("option.complete_buffer[%p].\n",
 		option.complete_buffer);
 
-	if ((VCD_RECORD_MODE_0 > option.mode) ||
-		(VCD_RECORD_MODE_2  < option.mode)) {
+	if (VCD_RECORD_MODE_2  < option.mode) {
 		vcd_pr_err("parameter error. option.mode[%d].\n", option.mode);
 		ret = VCD_ERR_PARAM;
 		goto rtn;
@@ -1079,8 +1077,7 @@ static int vcd_start_playback(void *arg)
 	vcd_pr_interface_info("option.beginning_buffer[%p].\n",
 					option.beginning_buffer);
 
-	if ((VCD_PLAYBACK_MODE_0 > option.mode) ||
-		(VCD_PLAYBACK_MODE_2  < option.mode)) {
+	if (VCD_PLAYBACK_MODE_2  < option.mode) {
 		vcd_pr_err("parameter error. option.mode[%d].\n", option.mode);
 		ret = VCD_ERR_PARAM;
 		goto rtn;
@@ -1603,7 +1600,7 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 	}
 
 	/* copy from user */
-	if (copy_from_user(proc_buf, (void __user *)buffer, len)) {
+	if (copy_from_user((void *)proc_buf, (void __user *)buffer, len)) {
 		vcd_pr_err("copy_from_user failed.\n");
 		goto rtn;
 	}
@@ -1722,7 +1719,7 @@ static int vcd_write_log_level(struct file *filp, const char *buffer,
 	}
 
 	/* copy from user */
-	if (copy_from_user(proc_buf, (void __user *)buffer, len)) {
+	if (copy_from_user((void *)proc_buf, (void __user *)buffer, len)) {
 		vcd_pr_err("copy_from_user failed.\n");
 		goto rtn;
 	}
@@ -1809,7 +1806,7 @@ static int vcd_write_exec_func(struct file *filp, const char *buffer,
 	}
 
 	/* copy from user */
-	if (copy_from_user(proc_buf, (void __user *)buffer, len)) {
+	if (copy_from_user((void *)proc_buf, (void __user *)buffer, len)) {
 		vcd_pr_err("copy_from_user failed.\n");
 		goto rtn;
 	}

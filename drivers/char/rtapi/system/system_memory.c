@@ -2,7 +2,7 @@
  * system_memory.c
  *	 System memory manager device driver API function file.
  *
- * Copyright (C) 2012 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -951,7 +951,7 @@ EXPORT_SYMBOL(system_memory_ap_buffer_flush);
  * Returns	  : apmem_id				-   shared area ID
  *******************************************************************************/
 unsigned int system_memory_ap_get_apmem_id(
-	 system_mem_ap_get_apmem_id *ap_get_apmem_id
+	system_mem_ap_get_apmem_id *ap_get_apmem_id
 )
 {
 	rtds_memory_shared_info *apmem_handle;
@@ -1893,14 +1893,18 @@ int system_memory_reg_phymem(
 
 	if (NULL == reg_phymem) {
 		MSG_ERROR("[RTAPIK]ERR|[%s]reg_phymem NULL\n", __func__);
+		MSG_HIGH("[RTAPIK]OUT|[%s] ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 	if ((NULL == reg_phymem->handle) ||
 		(0 == reg_phymem->phys_addr) ||
-	    (0 == reg_phymem->map_size)) {
+		(0 == reg_phymem->map_size)) {
 		MSG_ERROR("[RTAPIK]ERR|[%s]reg_phymem->handle    = 0x%08X\n", __func__, (u32)reg_phymem->handle);
 		MSG_ERROR("[RTAPIK]ERR|[%s]reg_phymem->phys_addr = 0x%08X\n", __func__, reg_phymem->phys_addr);
 		MSG_ERROR("[RTAPIK]ERR|[%s]reg_phymem->map_size  = 0x%08X\n", __func__, reg_phymem->map_size);
+		MSG_HIGH("[RTAPIK]OUT|[%s] ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 
@@ -1951,14 +1955,18 @@ int system_memory_unreg_phymem(
 
 	if (NULL == unreg_phymem) {
 		MSG_ERROR("[RTAPIK]ERR|[%s]unreg_phymem NULL\n", __func__);
+		MSG_HIGH("[RTAPIK]OUT|[%s] ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 	if ((NULL == unreg_phymem->handle) ||
 		(0 == unreg_phymem->phys_addr) ||
-	    (0 == unreg_phymem->map_size)) {
+		(0 == unreg_phymem->map_size)) {
 		MSG_ERROR("[RTAPIK]ERR|[%s]unreg_phymem->handle    = 0x%08X\n", __func__, (u32)unreg_phymem->handle);
 		MSG_ERROR("[RTAPIK]ERR|[%s]unreg_phymem->phys_addr = 0x%08X\n", __func__, unreg_phymem->phys_addr);
 		MSG_ERROR("[RTAPIK]ERR|[%s]unreg_phymem->map_size  = 0x%08X\n", __func__, unreg_phymem->map_size);
+		MSG_HIGH("[RTAPIK]OUT|[%s] ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 	rtds_drv_map.handle   = unreg_phymem->handle;
@@ -2006,12 +2014,16 @@ int system_memory_phy_change_rtaddr(
 
 	if (NULL == phy_change_rtaddr) {
 		MSG_ERROR("[RTAPIK]ERR|[%s]phy_change_rtaddr NULL\n", __func__);
+		MSG_HIGH("[RTAPIK]OUT|[%s] ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 	if ((NULL == phy_change_rtaddr->handle) ||
 		(0 == phy_change_rtaddr->phys_addr)) {
 		MSG_ERROR("[RTAPIK]ERR|[%s]phy_change_rtaddr->handle    = 0x%08X\n", __func__, (u32)phy_change_rtaddr->handle);
 		MSG_ERROR("[RTAPIK]ERR|[%s]phy_change_rtaddr->phys_addr = 0x%08X\n", __func__, phy_change_rtaddr->phys_addr);
+		MSG_HIGH("[RTAPIK]OUT|[%s] ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 
@@ -2061,13 +2073,15 @@ int system_memory_meram_alloc(
 	MSG_HIGH("[RTAPIK]IN |[%s]\n", __func__);
 
 	if (NULL == meram_alloc) {
-		MSG_HIGH("[RTAPIK]>%s ret_code = %d\n", __func__, ret_code);
+		MSG_HIGH("[RTAPIK]>%s ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 
 	if ((NULL == meram_alloc->handle) ||
-		 (0 == meram_alloc->alloc_size)) {
-		MSG_HIGH("[RTAPIK]>%s ret_code = %d\n", __func__, ret_code);
+		(0 == meram_alloc->alloc_size)) {
+		MSG_HIGH("[RTAPIK]>%s ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 
@@ -2118,12 +2132,14 @@ int system_memory_meram_free(
 	MSG_HIGH("[RTAPIK]IN |[%s]\n", __func__);
 
 	if (NULL == meram_free) {
-		MSG_HIGH("[RTAPIK]>%s ret_code = %d\n", __func__, ret_code);
+		MSG_HIGH("[RTAPIK]>%s ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 
 	if (NULL == meram_free->handle) {
-		MSG_HIGH("[RTAPIK]>%s ret_code = %d\n", __func__, ret_code);
+		MSG_HIGH("[RTAPIK]>%s ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 	send_cmd.handle	  = ((mem_rtapi_info_handle *)meram_free->handle)->iccom_handle;
@@ -2166,6 +2182,8 @@ int system_memory_phy_change_rtpmbaddr(
 	MSG_HIGH("[RTAPIK]IN |[%s]\n", __func__);
 
 	if (NULL == phy_change_rtaddr) {
+		MSG_HIGH("[RTAPIK]OUT|[%s] ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 
@@ -2175,6 +2193,8 @@ int system_memory_phy_change_rtpmbaddr(
 	rtds_change_addr.chg_addr = 0;
 	ret_code = rtds_memory_drv_phy_to_rtpmb_address(&rtds_change_addr);
 	if (ret_code != SMAP_OK) {
+		MSG_HIGH("[RTAPIK]OUT|[%s] ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 
@@ -2195,6 +2215,8 @@ int system_memory_rtpmb_change_phyaddr(
 	MSG_HIGH("[RTAPIK]IN |[%s]\n", __func__);
 
 	if (NULL == rt_change_phyaddr) {
+		MSG_HIGH("[RTAPIK]OUT|[%s] ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 	/* change address logical to physical */
@@ -2203,6 +2225,8 @@ int system_memory_rtpmb_change_phyaddr(
 	rtds_change_addr.chg_addr = 0;
 	ret_code = rtds_memory_drv_rtpmb_to_phy_address(&rtds_change_addr);
 	if (ret_code != SMAP_OK) {
+		MSG_HIGH("[RTAPIK]OUT|[%s] ret_code = %d\n",
+			__func__, SMAP_LIB_MEMORY_PARA_NG);
 		return SMAP_LIB_MEMORY_PARA_NG;
 	}
 

@@ -29,7 +29,7 @@
 #include <linux/hw_breakpoint.h>
 #include <linux/smp.h>
 #include <linux/export.h>
-
+#include <mach/r8a7373.h>
 #include <asm/cacheflush.h>
 #include <asm/cputype.h>
 #include <asm/current.h>
@@ -38,7 +38,6 @@
 #include <asm/traps.h>
 #include <asm/io.h>
 
-#define DBGREG1 0xE6100020
 
 /* Breakpoint currently in use for each BRP. */
 static DEFINE_PER_CPU(struct perf_event *, bp_on_reg[ARM_MAX_BRP]);

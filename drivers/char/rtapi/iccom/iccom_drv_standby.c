@@ -2,7 +2,7 @@
  * iccom_drv_standby.c
  *	 Inter Core Communication Standby API function file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -33,7 +33,7 @@
 /******************************************************************************/
 int iccom_drv_disable_standby(iccom_drv_disable_standby_param *iccom_disable_standby)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	if (NULL == iccom_disable_standby) {
 		MSG_HIGH("[ICCOMK]OUT|[%s] ret_code = SMAP_PARA_NG\n", __func__);
 		return SMAP_PARA_NG;
@@ -43,7 +43,7 @@ int iccom_drv_disable_standby(iccom_drv_disable_standby_param *iccom_disable_sta
 		return SMAP_PARA_NG;
 	}
 	iccom_rtctl_standby_ng();
-	MSG_HIGH("[ICCOMK]OUT|[%s] ret_code = SMAP_OK\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s] ret_code = SMAP_OK\n", __func__);
 	return SMAP_OK;
 }
 EXPORT_SYMBOL(iccom_drv_disable_standby);
@@ -54,7 +54,7 @@ EXPORT_SYMBOL(iccom_drv_disable_standby);
 /******************************************************************************/
 int iccom_drv_enable_standby(iccom_drv_enable_standby_param *iccom_standby_eneble)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	if (NULL == iccom_standby_eneble) {
 		MSG_HIGH("[ICCOMK]OUT|[%s] ret_code = NULL(SMAP_PARA_NG)\n", __func__);
 		return SMAP_PARA_NG;
@@ -64,7 +64,7 @@ int iccom_drv_enable_standby(iccom_drv_enable_standby_param *iccom_standby_enebl
 		return SMAP_PARA_NG;
 	}
 	iccom_rtctl_standby_ng_cancel();
-	MSG_HIGH("[ICCOMK]OUT|[%s] ret_code = SMAP_OK\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s] ret_code = SMAP_OK\n", __func__);
 	return SMAP_OK;
 }
 EXPORT_SYMBOL(iccom_drv_enable_standby);
@@ -75,7 +75,7 @@ EXPORT_SYMBOL(iccom_drv_enable_standby);
 /******************************************************************************/
 int iccom_drv_set_lcd_state(iccom_drv_lcd_state_param *iccom_lcd_state)
 {
-	MSG_HIGH("[ICCOMK]IN |[%s]\n", __func__);
+	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 	if (NULL == iccom_lcd_state) {
 		MSG_HIGH("[ICCOMK]OUT|[%s] ret_code = NULL (SMAP_PARA_NG)\n", __func__);
 		return SMAP_PARA_NG;
@@ -90,7 +90,7 @@ int iccom_drv_set_lcd_state(iccom_drv_lcd_state_param *iccom_lcd_state)
 		return SMAP_PARA_NG;
 	}
 	iccom_rtctl_set_lcd_status(iccom_lcd_state->handle, iccom_lcd_state->lcd_state);
-	MSG_HIGH("[ICCOMK]OUT|[%s] ret_code = SMAP_OK\n", __func__);
+	MSG_MED("[ICCOMK]OUT|[%s] ret_code = SMAP_OK\n", __func__);
 	return SMAP_OK;
 }
 EXPORT_SYMBOL(iccom_drv_set_lcd_state);

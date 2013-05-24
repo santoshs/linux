@@ -79,6 +79,9 @@ typedef struct
     uint8_t           protocol;
     uint16_t          fifo_full_check_timeout_usec;     /* Timeout in microseconds for timer to check if FIFO full situation is over */
     uint8_t           trace_features;                   /* Slave  Runtime trace features: SMC_TRACE_HISTORY_MESSAGE_SEND, SMC_TRACE_HISTORY_MESSAGE_RECEIVE */
+
+    uint32_t          wakelock_timeout_ms;              /* Timeout in milliseconds to keep UE wake after handling a message */
+
 } smc_channel_conf_t;
 
 
@@ -145,6 +148,8 @@ typedef struct _smc_instance_conf_channel_t
     uint8_t  wake_lock_flags_slave;                 /* Wakelock policy in slave side  */
     uint8_t  fill1;
 
+    uint32_t wakelock_timeout_ms;                   /* Timeout in milliseconds to keep UE wake after handling a message */
+
 } smc_instance_conf_channel_t;
 
 
@@ -178,6 +183,8 @@ typedef struct _smc_instance_conf_t
     uint8_t  fill3;
     uint8_t  fill2;
     uint8_t  fill1;
+
+
 
 } smc_instance_conf_t;
 

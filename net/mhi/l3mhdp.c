@@ -42,6 +42,7 @@
 #include <net/ipv6.h>
 #include <linux/udp.h>
 #include <net/mhi/sock.h>
+#include <linux/wakelock.h>
 
 #ifdef CONFIG_MHDP_BONDING_SUPPORT
 #define MHDP_BONDING_SUPPORT
@@ -123,7 +124,9 @@ struct mhdp_net {
 	struct napi_struct	napi;
 	struct sk_buff_head	skb_list;
 #endif /*#ifdef MHDP_USE_NAPI*/
-
+	int wake_lock_time;
+	struct wake_lock wakelock;
+	spinlock_t wl_lock;
 };
 
 struct packet_info {
@@ -150,6 +153,16 @@ static int mhdp_netdev_event(struct notifier_block *this,
 static void tx_timer_timeout(unsigned long arg);
 
 
+static ssize_t mhdp_write_wakelock_value(struct device *dev,
+					struct device_attribute *attr,
+						const char *buf,
+						size_t count);
+static ssize_t mhdp_read_wakelock_value(struct device *dev,
+					struct device_attribute *attr,
+					char *buf);
+
+
+
 #ifdef MHDP_USE_NAPI
 
 static int mhdp_poll(struct napi_struct *napi, int budget);
@@ -163,6 +176,15 @@ static int  mhdp_net_id __read_mostly;
 
 static struct notifier_block mhdp_netdev_notifier = {
 	.notifier_call = mhdp_netdev_event,
+};
+
+
+static struct device_attribute mhdpwl_dev_attrs[] = {
+	__ATTR(mhdp_wakelock_time,
+			S_IRUGO | S_IWUSR,
+			mhdp_read_wakelock_value,
+			mhdp_write_wakelock_value),
+	__ATTR_NULL,
 };
 
 /*** Funtions ***/
@@ -208,13 +230,18 @@ __print_skb_content(struct sk_buff *skb, const char *tag)
 }
 #endif
 
-
+/**
+ * mhdp_net_dev - Get mhdp_net structure of mhdp tunnel
+ */
 static inline struct mhdp_net *
 mhdp_net_dev(struct net_device *dev)
 {
 	return net_generic(dev_net(dev), mhdp_net_id);
 }
 
+/**
+ * mhdp_tunnel_init - Initialize MHDP tunnel
+ */
 static void
 mhdp_tunnel_init(struct net_device *dev,
 		 struct mhdp_tunnel_parm *parms,
@@ -227,6 +254,8 @@ mhdp_tunnel_init(struct net_device *dev,
 
 	tunnel->next = mhdpn->tunnels;
 	mhdpn->tunnels = tunnel;
+	spin_lock_init(&mhdpn->wl_lock);
+
 
 	tunnel->dev         = dev;
 	tunnel->master_dev  = master_dev;
@@ -238,6 +267,9 @@ mhdp_tunnel_init(struct net_device *dev,
 	spin_lock_init (&tunnel->timer_lock);
 }
 
+/**
+ * mhdp_tunnel_destroy - Destroy MHDP tunnel
+ */
 static void
 mhdp_tunnel_destroy(struct net_device *dev)
 {
@@ -246,6 +278,9 @@ mhdp_tunnel_destroy(struct net_device *dev)
 	unregister_netdevice(dev);
 }
 
+/**
+ * mhdp_destroy_tunnels - Initialize all MHDP tunnels
+ */
 static void
 mhdp_destroy_tunnels(struct mhdp_net *mhdpn)
 {
@@ -257,6 +292,9 @@ mhdp_destroy_tunnels(struct mhdp_net *mhdpn)
 	mhdpn->tunnels = NULL;
 }
 
+/**
+ * mhdp_locate_tunnel - Retrieve MHDP tunnel thanks to PDN
+ */
 static struct mhdp_tunnel *
 mhdp_locate_tunnel(struct mhdp_net *mhdpn, int pdn_id)
 {
@@ -269,6 +307,9 @@ mhdp_locate_tunnel(struct mhdp_net *mhdpn, int pdn_id)
 	return NULL;
 }
 
+/**
+ * mhdp_add_tunnel - Add MHDP tunnel
+ */
 static struct net_device *
 mhdp_add_tunnel(struct net *net, struct mhdp_tunnel_parm *parms)
 {
@@ -310,6 +351,89 @@ err_reg_dev:
 err_alloc_dev:
 	return NULL;
 }
+
+/**
+ * mhdp_write_wakelock_value - store the wakelock value in mhdp
+ * @dev: Device to be created
+ * @attr: attribute of sysfs
+ * @buf: output stringwait
+ */
+static ssize_t
+mhdp_write_wakelock_value(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	int retval = count;
+	unsigned long flags;
+	struct mhdp_net *mhdpn = dev_get_drvdata(dev);
+	long int time;
+
+	if (kstrtol(buf, 10, &time)) {
+		EPRINTK("%s cannot access to wake lock time", __func__);
+		return -EINVAL;
+	}
+	spin_lock_irqsave(&mhdpn->wl_lock, flags);
+	mhdpn->wake_lock_time = (int)time;
+	spin_unlock_irqrestore(&mhdpn->wl_lock, flags);
+
+	DPRINTK("%s wake_lock_time = %d\n",
+				__func__,
+				mhdpn->wake_lock_time);
+
+	if ((wake_lock_active(&mhdpn->wakelock)) &&
+		(mhdpn->wake_lock_time <= 0)) {
+
+		wake_unlock(&mhdpn->wakelock);
+
+	} else if ((wake_lock_active(&mhdpn->wakelock)) &&
+			(mhdpn->wake_lock_time > 0)) {
+
+		wake_lock_timeout(&mhdpn->wakelock,
+					mhdpn->wake_lock_time * HZ);
+	}
+	return retval;
+}
+/**
+ * mhdp_read_wakelock_value - read the wakelock value in mhdp
+ * @dev: Device to be created
+ * @attr: attribute of sysfs
+ * @buf: output stringwait
+ */
+static ssize_t
+mhdp_read_wakelock_value(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct mhdp_net *mhdpn = dev_get_drvdata(dev);
+
+	if (mhdpn)
+		return sprintf(buf, "%d\n", mhdpn->wake_lock_time);
+
+	return sprintf(buf, "%d\n", 0);
+}
+
+
+/**
+ * mmhdp_check_wake_lock - check the wakelock state and restart wake lock if any
+ * @dev: net Device pointer
+ */
+void mhdp_check_wake_lock(struct net_device *dev)
+{
+	unsigned long flags;
+	struct mhdp_net *mhdpn = mhdp_net_dev(dev);
+
+	spin_lock_irqsave(&mhdpn->wl_lock, flags);
+
+	if (mhdpn->wake_lock_time != 0) {
+
+		spin_unlock_irqrestore(&mhdpn->wl_lock, flags);
+
+		wake_lock_timeout(&mhdpn->wakelock,
+					mhdpn->wake_lock_time * HZ);
+	} else {
+		spin_unlock_irqrestore(&mhdpn->wl_lock, flags);
+	}
+}
+
 
 static void
 mhdp_set_udp_filter(struct mhdp_net *mhdpn,
@@ -444,7 +568,7 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 					(unsigned int)(
 						(unsigned char *)udphdr -
 						(unsigned char *)ipv6header);
-				printk("MHDP_FILTER: IPv6 packet filtered out");
+				DPRINTK("MHDP_FILTER: IPv6 packet filtered out");
 			}
 			else
 			{
@@ -479,7 +603,9 @@ error:
 
 	return ret;
 }
-
+/**
+ * mhdp_netdev_ioctl - I/O control on mhdp tunnel
+ */
 static int
 mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
@@ -583,6 +709,9 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	return err;
 }
 
+/**
+ * mhdp_netdev_change_mtu - Change mhdp tunnel MTU
+ */
 static int
 mhdp_netdev_change_mtu(struct net_device *dev, int new_mtu)
 {
@@ -594,13 +723,19 @@ mhdp_netdev_change_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
+/**
+ * mhdp_netdev_uninit - Un initialize mhdp tunnel
+ */
 static void
 mhdp_netdev_uninit(struct net_device *dev)
 {
 	dev_put(dev);
 }
 
-
+/**
+ * mhdp_submit_queued_skb - Submit packets to master netdev (IPC)
+ Packets can be concatenated or not
+ */
 static void
 mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 {
@@ -646,7 +781,10 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 		}
 	}
 }
-
+/**
+ * mhdp_netdev_rx - Received packets from master netdev (IPC)
+  Packets can be concatenated or not
+ */
 static int
 mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 {
@@ -662,6 +800,9 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 	int has_frag = skb_shinfo(skb)->nr_frags;
 	uint32_t packet_count;
 	unsigned char ip_ver;
+
+
+	mhdp_check_wake_lock(dev);
 
 	if (has_frag) {
 		frag = &skb_shinfo(skb)->frags[0];
@@ -859,6 +1000,10 @@ mhdp_netdev_rx_napi(struct sk_buff *skb, struct net_device *dev)
 
 #endif /*MHDP_USE_NAPI*/
 
+/**
+ * tx_timer_timeout - Timer expiration function for TX packet concatenation
+  => will then call mhdp_submit_queued_skb to pass concatenated packets to IPC
+ */
 static void tx_timer_timeout(unsigned long arg)
 {
     struct mhdp_tunnel *tunnel = (struct mhdp_tunnel *) arg;
@@ -870,7 +1015,14 @@ static void tx_timer_timeout(unsigned long arg)
     spin_unlock(&tunnel->timer_lock);
 }
 
-
+/**
+ * mhdp_netdev_xmit - Hard xmit function of MHDP tunnel net dev
+  if TX packet doezn't fit in max MHDP frame length, send previous
+	MHDP frame asap else concatenate TX packet.
+  If nb concatenated packets reach max MHDP packets, send current
+	MHDP frame asap else start TX timer (if no further packets
+	to be transmitted, MHDP frame will be send on timer expiry)
+ */
 static int
 mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 {
@@ -880,6 +1032,9 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct page *page = NULL;
 	int i;
 	int packet_count, offset, len;
+
+
+	mhdp_check_wake_lock(dev);
 
 	spin_lock(&tunnel->timer_lock);
 
@@ -1036,6 +1191,9 @@ tx_error:
 }
 
 
+/**
+ * mhdp_netdev_event -  Catch MHDP tunnel net dev states
+ */
 static int
 mhdp_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
 {
@@ -1101,6 +1259,10 @@ static const struct net_device_ops mhdp_netdev_ops = {
 	.ndo_change_mtu	= mhdp_netdev_change_mtu,
 };
 
+
+/**
+ * mhdp_netdev_setup -  Setup MHDP tunnel
+ */
 static void mhdp_netdev_setup(struct net_device *dev)
 {
 	dev->netdev_ops	= &mhdp_netdev_ops;
@@ -1127,6 +1289,9 @@ static void mhdp_netdev_setup(struct net_device *dev)
 
 }
 
+/**
+ * mhdp_init_net -  Initalize MHDP net structure
+ */
 static int __net_init mhdp_init_net(struct net *net)
 {
 	struct mhdp_net *mhdpn = net_generic(net, mhdp_net_id);
@@ -1160,10 +1325,25 @@ static int __net_init mhdp_init_net(struct net *net)
 
 #endif /*#ifdef MHDP_USE_NAPI*/
 
+	dev_set_drvdata(&mhdpn->ctl_dev->dev, mhdpn);
+	err = device_create_file(&mhdpn->ctl_dev->dev, &mhdpwl_dev_attrs[0]);
+
+	if (err)
+		printk(KERN_ERR "mhdp cannot create wakelock file");
+
+	mhdpn->wake_lock_time = 0;
+
+	wake_lock_init(&mhdpn->wakelock, WAKE_LOCK_SUSPEND,
+			"mhdp_wake_lock");
+
+
 
 	return 0;
 }
 
+/**
+ * mhdp_exit_net -  destroy MHDP net structure
+ */
 static void __net_exit mhdp_exit_net(struct net *net)
 {
 	struct mhdp_net *mhdpn = net_generic(net, mhdp_net_id);
@@ -1171,6 +1351,9 @@ static void __net_exit mhdp_exit_net(struct net *net)
 	rtnl_lock();
 	mhdp_destroy_tunnels(mhdpn);
 	unregister_netdevice(mhdpn->ctl_dev);
+	device_remove_file(&mhdpn->ctl_dev->dev, &mhdpwl_dev_attrs[0]);
+	wake_lock_destroy(&mhdpn->wakelock);
+
 	rtnl_unlock();
 }
 
@@ -1181,6 +1364,9 @@ static struct pernet_operations mhdp_net_ops = {
 	.size = sizeof(struct mhdp_net),
 };
 
+/**
+ * mhdp_init -  Initalize MHDP
+ */
 static int __init mhdp_init(void)
 {
 	int err;

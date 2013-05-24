@@ -627,7 +627,7 @@ struct hwspinlock *gen_sem1;
 /*SBSC clock (ZB3) table parameter*/
 struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 	[ZB3_FREQ_65] = {
-		.pll3multiplier_1 = 30, 
+		.pll3multiplier_1 = 30,
 		.zb3divider_1 = 12,
  		.pll3multiplier_2 = 40,
  		.zb3divider_2 = 16,
@@ -669,7 +669,7 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 		.freq = 97500,
 	},
 	[ZB3_FREQ_130] = {
-		.pll3multiplier_1 = 30, 
+		.pll3multiplier_1 = 30,
 		.zb3divider_1 = 6,
 		.pll3multiplier_2 = 40,
 		.zb3divider_2 = 8,
@@ -1115,7 +1115,7 @@ static unsigned int cpg_sbsc_decide_clock(unsigned int ape_freq_req)
 		if ((system_freq_req <= zb3_lut[i].freq)
 			&& (((pll_change == 0) &&
 			(zb3_lut[i].pll3multiplier_2 != 0))
-			|| ((pll_change == 1) && 
+			|| ((pll_change == 1) &&
 			((zb3_lut[i].pll3multiplier_2 != 0) || (zb3_lut[i].pll3multiplier_1 != 0))))) {
 			ret = i;
 			goto exit;
@@ -1136,9 +1136,6 @@ exit:
  * Return:
  *		void
  */
-#define CPG_PLL3CR_X40		(0x27000000)
-#define CPG_PLL3CR_X30		(0x1D000000)
-#define CPG_PLLECR_PLL3ST	(0x00000800)
 /*need to be called under semaphore/spinlock*/
 static void cpg_PLL3_change(unsigned int pll_multiplier)
 {
@@ -1151,7 +1148,7 @@ static void cpg_PLL3_change(unsigned int pll_multiplier)
 		return;
 
 	if (pll_multiplier == 40)
-		__raw_writel(CPG_PLL3CR_X40, PLL3CR);
+		__raw_writel(CPG_PLL3CR_1040MHZ, PLL3CR);
 	else if (pll_multiplier == 30)
 		__raw_writel(CPG_PLL3CR_X30, PLL3CR);
 
@@ -1203,9 +1200,9 @@ static int __cpg_set_sbsc_freq(unsigned int new_ape_freq)
 
 	/*first determine frequency*/
 	idx_newfreq = cpg_sbsc_decide_clock(new_ape_freq);
-	
-	if((shmobile_get_pll_reprogram() == 1) && (zb3_lut[idx_newfreq].zb3divider_1 !=0) 
-		&& (zb3_lut[idx_newfreq].pll3multiplier_1 !=0)) {	
+
+	if((shmobile_get_pll_reprogram() == 1) && (zb3_lut[idx_newfreq].zb3divider_1 !=0)
+		&& (zb3_lut[idx_newfreq].pll3multiplier_1 !=0)) {
 		zb3divider = zb3_lut[idx_newfreq].zb3divider_1;
 		pll3multiplier = zb3_lut[idx_newfreq].pll3multiplier_1;
 	} else {
@@ -1791,8 +1788,8 @@ int pm_setup_clock(void)
 	if (shmobile_chip_rev() >= ES_REV_2_0) {
 		__shmobile_freq_modes = __shmobile_freq_modes_es2_x;
 		__clk_hw_info = __clk_hw_info_es2_x;
-	} 
-	
+	}
+
 	shmobile_sbsc_init();
 	the_clock.zs_disabled_cnt = 0;
 	the_clock.hp_disabled_cnt = 0;
@@ -2184,105 +2181,120 @@ static int clk_debugfs_register_one(unsigned int index)
 		return -ENOMEM;
 	array_dent[index] = d;
 
-	d = debugfs_create_u8("i_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("i_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].i_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("zg_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("zg_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zg_clk);
 	if (!d) {
 		err = -ENOMEM;
 	goto err_out;
 	}
 
-	d = debugfs_create_u8("b_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("b_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].b_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("m1_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("m1_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].m1_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("m3_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("m3_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].m3_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("m5_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("m5_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].m5_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("z_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("z_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].z_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("ztr_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("ztr_clk", (S_IRUSR | S_IWUSR | S_IRGRP |
+			S_IROTH), array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].ztr_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("zt_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("zt_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zt_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("zx_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("zx_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zx_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("hp_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("hp_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].hp_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("zs_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("zs_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zs_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("zb_clk", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("zb_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zb_clk);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u32("zb3_freq", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u32("zb3_freq", (S_IRUSR | S_IWUSR | S_IRGRP |
+			S_IROTH), array_dent[index],
 			(u32 *)&__shmobile_freq_modes_es2_x[index].zb3_freq);
 	if (!d) {
 		err = -ENOMEM;
 		goto err_out;
 	}
 
-	d = debugfs_create_u8("pll0", S_IRWXUGO, array_dent[index],
+	d = debugfs_create_u8("pll0", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),
+			array_dent[index],
 			(u8 *)&__shmobile_freq_modes_es2_x[index].pll0);
 	if (!d) {
 		err = -ENOMEM;

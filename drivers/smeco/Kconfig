@@ -88,24 +88,6 @@ if SMECO_TEST
 		If this option is selected the SMeCo test application module is built in the package.
 endif
 
-  #
-  # Select U3 target (U3/U3CA)
-  #
-if ARCH_R8A73724
-
-choice
-	prompt "U3 target"
-	default SMECO_EOS3_U3
-	
-	config SMECO_EOS3_U3
-		boolean "EOS3 U3"
-		
-	config SMECO_EOS3_U3CA
-		boolean "EOS3 U3CA"	
-endchoice
-
-endif
-
 
 endif
 

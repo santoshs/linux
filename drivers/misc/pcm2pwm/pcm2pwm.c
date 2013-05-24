@@ -165,12 +165,12 @@ static struct pcm2pwm_port_info* pinfo;
 static int pcm2pwm_pf_probe(struct platform_device *pdev)
 {
 	pcm2pwm_platdevice.pdev = pdev;
-	pinfo = pdev->dev.platform_data; 
+	pinfo = pdev->dev.platform_data;
 
 	pcm2pwm_platdevice.port_func = pinfo->port_func ;
 	pcm2pwm_platdevice.func_name = pinfo->func_name ;
 
-	
+
 	pm_runtime_enable(&pdev->dev);
 	return 0;
 }
@@ -241,9 +241,9 @@ extern int pcm2pwm_open(void)
 	struct platform_device *pdev;
 	int ret;
 	u32 val32;
-	
+
 	wake_lock(&pcm2pwm_wakelock); /* prevent suspend state */
-	
+
 	if (pcm2pwm_suspend_state == SUSPEND) { /* in suspend state */
 		return  -EBUSY;
 	}
@@ -265,9 +265,9 @@ extern int pcm2pwm_open(void)
 
 	/* [W/A of ECR0292][Step1]
 		Set value "0" to SRT523 bit including the SRCR5 register */
-	val32 = __raw_readl(IO_ADDRESS(0xE61580C4));
+	val32 = __raw_readl(SRCR5);
 	val32 = val32 & 0xFF7FFFFF;
-	__raw_writel(val32, IO_ADDRESS(0xE61580C4));
+	__raw_writel(val32, SRCR5);
 
 	/* [W/A of ECR0292][Step2] Release module stop of PCM2PWM */
 	pcm2pwm_platdevice.clk_supply = clk_get(&pdev->dev, NULL);
@@ -286,9 +286,9 @@ extern int pcm2pwm_open(void)
 
 	/* [W/A of ECR0292][Step3]
 		Set value "1" to SRT523 bit including the SRCR5 register */
-	val32 = __raw_readl(IO_ADDRESS(0xE61580C4));
+	val32 = __raw_readl(SRCR5);
 	val32 = val32 | 0x00800000;
-	__raw_writel(val32, IO_ADDRESS(0xE61580C4));
+	__raw_writel(val32, SRCR5);
 
 	/* request extal2 clock */
 	pcm2pwm_platdevice.extal2_clk = clk_get(NULL, "extal2_clk");
@@ -406,9 +406,9 @@ extern int pcm2pwm_close(void)
 
 	/* [W/A of ECR0292] 3.
 		Set value "0" to SRT523 bit including the SRCR5 register.*/
-	val32 = __raw_readl(IO_ADDRESS(0xE61580C4));
+	val32 = __raw_readl(SRCR5);
 	val32 = val32 & 0xFF7FFFFF;
-	__raw_writel(val32, IO_ADDRESS(0xE61580C4));
+	__raw_writel(val32, SRCR5);
 
 	/* [W/A of ECR0292] 4. Set module stop of PCM2PWM */
 	/* disable clock supply form pcm2pwm */
@@ -504,7 +504,7 @@ extern int pcm2pwm_enable(enum pcm2pwm_request_state state,
 
 		/* Release PWMO function out PORT 228 */
 		gpio_free(pcm2pwm_platdevice.port_func);
-		
+
 		pcm2pwm_platdevice.state = PCM2PWM_STOP;
 		return 0;
 	}

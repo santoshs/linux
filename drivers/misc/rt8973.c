@@ -185,6 +185,7 @@ struct tsu6712_usbsw {
 	int				attached_accy;
 	int				mhl_ret;
 	int				vbus;
+	int				rev;
 };
 
 enum {
@@ -486,6 +487,7 @@ static void tsu6712_usb_cb(bool attached)
 	}
 }
 /*UUS - usb uart switch end */
+//#define FG_TEST
 
 static void tsu6712_charger_cb(bool attached)
 {
@@ -495,10 +497,19 @@ static void tsu6712_charger_cb(bool attached)
 
 	switch (set_cable_status) {
 	case CABLE_TYPE_AC:
+#ifdef FG_TEST
+		usb_uart_switch_state = 200;
+		switch_set_state(&switch_usb_uart,200);
+#endif
 		spa_event_handler(SPA_EVT_CHARGER, (void*) POWER_SUPPLY_TYPE_USB_DCP);
+		send_usb_insert_event(0);
 		pr_info("%s TA attached\n",__func__);
 		break;
 	case CABLE_TYPE_NONE:
+#ifdef FG_TEST
+		usb_uart_switch_state = 201;
+		switch_set_state(&switch_usb_uart,201);
+#endif
 		spa_event_handler(SPA_EVT_CHARGER, (void*) POWER_SUPPLY_TYPE_BATTERY);
 		pr_info("%s TA removed\n",__func__);
 		break;
@@ -515,7 +526,6 @@ static void tsu6712_jig_cb(bool attached)
 
 static void tsu6712_uart_cb(bool attached)
 {
-//	SPA_ACC_INFO_T acc_info;
 	pr_info("tsu6712_uart_cb attached %d\n", attached);
 	set_cable_status = CABLE_TYPE_NONE;
 
@@ -680,8 +690,6 @@ struct device_attribute *attr,
 	u8 value;
 
 	tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	return snprintf(buf, 11, "DEVICE_TYPE: %02x\n", value);
 }
@@ -694,8 +702,6 @@ struct device_attribute *attr, char *buf)
 	u8 value;
 
 	tsu6712_read_reg(client,TSU6712_REG_MANSW1,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	if (value == SW_VAUDIO)
 		return snprintf(buf, 7, "VAUDIO\n");
@@ -1159,8 +1165,10 @@ static void tsu6712_detect_dev(struct tsu6712_usbsw *usbsw, u32 device_type, u8 
 		else if (val1 & DEV_T1_UART_MASK || val2 & DEV_T2_UART_MASK) {
 			dev_info(&client->dev, "uart connect\n");
 			/* temp code for rt8973 bugs */
-			tsu6712_read_reg(client,TSU6712_REG_INT1_MASK, &IntrMask);
-			tsu6712_write_reg(client,TSU6712_REG_INT1_MASK, IntrMask|(1<<6)|(1<<0));
+			if(usbsw->rev < 1) {
+				tsu6712_read_reg(client,TSU6712_REG_INT1_MASK, &IntrMask);
+				tsu6712_write_reg(client,TSU6712_REG_INT1_MASK, IntrMask|(1<<6)|(1<<0));
+			}
 			if (pdata->uart_cb)
 				pdata->uart_cb(TSU6712_ATTACHED);
 		}/* CHARGER */
@@ -1198,7 +1206,8 @@ static void tsu6712_detect_dev(struct tsu6712_usbsw *usbsw, u32 device_type, u8 
 		else if (usbsw->dev1 & DEV_T1_UART_MASK ||usbsw->dev2 & DEV_T2_UART_MASK) {
 			dev_info(&client->dev, "uart disconnect\n");
 			/* temp code for rt8973 bugs */
-			tsu6712_write_reg(client,TSU6712_REG_INT1_MASK, IntrMask);
+			if(usbsw->rev < 1)
+				tsu6712_write_reg(client,TSU6712_REG_INT1_MASK, IntrMask);
 			if (pdata->uart_cb)
 				pdata->uart_cb(TSU6712_DETACHED);
 		}/* CHARGER */
@@ -1236,7 +1245,12 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	int ret;
 	pr_info("%s\n", __func__);
 
-#if 1 //// mUSB_temp_20130308
+	tsu6712_read_reg(client, TSU6712_REG_DEVID, &value);
+
+	usbsw->rev = (int)(value >> 3);
+
+	pr_info("rt8973 chip rev is %x",usbsw->rev);
+
 	tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
 
 	ctrl = value & ((~0x1) | (0x01<<3));
@@ -1244,34 +1258,6 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, ctrl);
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-#else
-	ret = tsu6712_write_reg(client,TSU6712_REG_INT1_MASK,0x5C);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	ret = tsu6712_write_reg(client,TSU6712_REG_INT2_MASK,0xF8);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	/* ADC Detect Time: 500ms */
-	ret = tsu6712_write_reg(client, TSU6712_REG_TIMING1, 0x0);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	ret = tsu6712_read_reg(client, TSU6712_REG_MANSW1, &value);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	usbsw->mansw = value;
-	if (usbsw->mansw)
-		ctrl &= ~CON_MANUAL_SW;	/* Manual Switching Mode */
-	else
-		ctrl &= ~(CON_INT_MASK);
-
-	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, ctrl);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-#endif
 }
 
 void muic_set_vbus(int vbus)

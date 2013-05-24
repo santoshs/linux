@@ -72,8 +72,8 @@ static void sec_power_off(void)
 #define REBOOT_MODE_UPLOAD	2
 #define REBOOT_MODE_CHARGING	3
 #define REBOOT_MODE_RECOVERY	4
-#define REBOOT_MODE_ARM11_FOTA	5
-#define REBOOT_MODE_CPREBOOT	6
+#define REBOOT_MODE_FOTA	5
+#define REBOOT_MODE_FOTA_BL	6
 
 #define REBOOT_SET_PREFIX	0xabc00000
 #define REBOOT_SET_STM		0x000c0000
@@ -105,10 +105,17 @@ static void sec_reboot(char str, const char *cmd)
 		unsigned long value;
 		if (!strcmp(cmd, "fota"))
 #if defined(CONFIG_SEC_DEBUG_INFORM)
-			sec_debug_inform_write(REBOOT_MODE_PREFIX | REBOOT_MODE_ARM11_FOTA, 3);
+			sec_debug_inform_write(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA, 3);
 #else
-			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_ARM11_FOTA,
+			writel(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA,
 			       BROADCOM_INFORM3);
+#endif
+		else if (!strcmp(cmd, "fota_bl"))
+#if defined(CONFIG_SEC_DEBUG_INFORM)
+					sec_debug_inform_write(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA_BL, 3);
+#else
+					writel(REBOOT_MODE_PREFIX | REBOOT_MODE_FOTA_BL,
+							 BROADCOM_INFORM3);
 #endif
 		else if (!strcmp(cmd, "recovery"))
 #if defined(CONFIG_SEC_DEBUG_INFORM)

@@ -30,14 +30,10 @@ Description :  File created
 #endif
 
 #include "smc_common_includes.h"
-
-#include "smc_conf.h"
 #include "smc_trace.h"
 #include "smc_fifo.h"
 #include "smc.h"
-#include "smc_conf.h"
 #include "smc_memory_mgmt.h"
-
 
 smc_shm_config_t* smc_shm_conf_create( void )
 {

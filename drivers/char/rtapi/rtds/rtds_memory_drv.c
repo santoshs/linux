@@ -52,19 +52,21 @@ void *rtds_memory_drv_init(
 {
 	rtds_memory_drv_handle	 *handle = NULL; /* RTDS MEMORY handle */
 
-	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]IN |[%s]\n", __func__);
 
 	/* Create RTDS MEMORY handle */
 	handle = rtds_memory_create_handle();
 
 	if (NULL == handle) {
-		MSG_ERROR("[RTDSK]ERR| rtds_memory_create_handle failed handle[NULL]\n");
+		MSG_ERROR("[RTDSK]ERR|" \
+			" rtds_memory_create_handle failed handle[NULL]\n");
 	} else {
 		/* Initialise handle info */
 		rtds_memory_init_data(handle);
 	}
 
-	MSG_HIGH("[RTDSK]OUT|[%s] handle[0x%08x]\n", __func__, (unsigned int)handle);
+	MSG_MED("[RTDSK]OUT|[%s] handle[0x%08x]\n",
+		__func__, (unsigned int)handle);
 
 	return (void *)handle;
 }
@@ -83,7 +85,7 @@ void rtds_memory_drv_cleanup(
 {
 	rtds_memory_drv_handle *handle;
 
-	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]IN |[%s]\n", __func__);
 
 	/* NULL check */
 	if (NULL == rtds_memory_cleanup) {
@@ -96,7 +98,7 @@ void rtds_memory_drv_cleanup(
 		rtds_memory_destroy_handle(handle);
 	}
 
-	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+	MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 
 	return;
 }
@@ -117,9 +119,12 @@ int rtds_memory_drv_open_apmem(
 {
 	int ret = SMAP_PARA_NG;
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
-	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", rtds_memory_open_mem->mem_size);
-	MSG_MED("[RTDSK]   |app_cache[0x%08X]\n", rtds_memory_open_mem->app_cache);
-	MSG_MED("[RTDSK]   |pages[0x%08X]\n", (unsigned int)rtds_memory_open_mem->pages);
+	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n",
+		rtds_memory_open_mem->mem_size);
+	MSG_MED("[RTDSK]   |app_cache[0x%08X]\n",
+		rtds_memory_open_mem->app_cache);
+	MSG_MED("[RTDSK]   |pages[0x%08X]\n",
+		(unsigned int)rtds_memory_open_mem->pages);
 
 	/* Paremeter check */
 	if (NULL == rtds_memory_open_mem) {
@@ -135,7 +140,8 @@ int rtds_memory_drv_open_apmem(
 	}
 
 	if (0 != (rtds_memory_open_mem->app_cache & RTDS_MEMORY_DRV_CACHE_MASK)) {
-		MSG_ERROR("[RTDSK]ERR| app_cache is 0x%08x\n", rtds_memory_open_mem->app_cache);
+		MSG_ERROR("[RTDSK]ERR| app_cache is 0x%08x\n",
+			rtds_memory_open_mem->app_cache);
 		MSG_HIGH("[RTDSK]OUT|[%s] ret=%d\n", __func__, ret);
 		return ret;
 	}
@@ -143,10 +149,13 @@ int rtds_memory_drv_open_apmem(
 	/* Create App shared memory in kernel space */
 	ret = rtds_memory_open_kernel_shared_apmem(rtds_memory_open_mem);
 	if (SMAP_OK != ret) {
-		MSG_ERROR("[RTDSK]ERR| rtds_memory_open_kernel_shared_apmem failed ret[%d]\n", ret);
+		MSG_ERROR("[RTDSK]ERR| rtds_memory_open_kernel" \
+			"_shared_apmem failed ret[%d]\n", ret);
 	} else {
-		MSG_MED("[RTDSK]   |app_addr[0x%08X]\n", rtds_memory_open_mem->app_addr);
-		MSG_MED("[RTDSK]   |pages[0x%08X]\n", (unsigned int)rtds_memory_open_mem->pages);
+		MSG_MED("[RTDSK]   |app_addr[0x%08X]\n",
+			rtds_memory_open_mem->app_addr);
+		MSG_MED("[RTDSK]   |pages[0x%08X]\n",
+			(unsigned int)rtds_memory_open_mem->pages);
 	}
 
 	MSG_HIGH("[RTDSK]OUT|[%s] ret=%d\n", __func__, ret);
@@ -170,8 +179,10 @@ int rtds_memory_drv_close_apmem(
 {
 	int ret = SMAP_PARA_NG;
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
-	MSG_MED("[RTDSK]   |app_addr[0x%08X]\n", rtds_memory_close_mem->app_addr);
-	MSG_MED("[RTDSK]   |pages[0x%08X]\n", (unsigned int)rtds_memory_close_mem->pages);
+	MSG_MED("[RTDSK]   |app_addr[0x%08X]\n",
+		rtds_memory_close_mem->app_addr);
+	MSG_MED("[RTDSK]   |pages[0x%08X]\n",
+		(unsigned int)rtds_memory_close_mem->pages);
 
 	/* Paremeter check */
 	if (NULL == rtds_memory_close_mem) {
@@ -195,7 +206,8 @@ int rtds_memory_drv_close_apmem(
 	/* Destroy App shared memory in kernel space */
 	ret = rtds_memory_close_kernel_shared_apmem(rtds_memory_close_mem);
 	if (SMAP_OK != ret) {
-		MSG_ERROR("[RTDSK]ERR| rtds_memory_close_kernel_shared_apmem failed ret[%d]\n", ret);
+		MSG_ERROR("[RTDSK]ERR| rtds_memory_close_kernel_" \
+			"shared_apmem failed ret[%d]\n", ret);
 	}
 
 	MSG_HIGH("[RTDSK]OUT|[%s] ret=%d\n", __func__, ret);
@@ -216,20 +228,20 @@ void rtds_memory_drv_flush_cache(
 	 unsigned int	size
 )
 {
-	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]IN |[%s]\n", __func__);
 	MSG_MED("[RTDSK]   |addr[0x%08X]\n", addr);
 	MSG_MED("[RTDSK]   |size[%d]\n", size);
 
 	/* Paremeter check */
 	if (0 == addr) {
 		MSG_ERROR("[RTDSK]ERR| addr is 0\n");
-		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+		MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 		return;
 	}
 
 	if (0 == size) {
 		MSG_ERROR("[RTDSK]ERR| size is 0\n");
-		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+		MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 		return;
 	}
 
@@ -238,12 +250,13 @@ void rtds_memory_drv_flush_cache(
 		rtds_memory_flush_cache_all();
 	} else {
 		/* Flushing a L1 cache in the specified range. */
-		dmac_flush_range((const void *)addr, (const void *)(addr + size));
+		dmac_flush_range((const void *)addr,
+				(const void *)(addr + size));
 		/* Flushing a L2 cache in the specified range. */
 		rtds_memory_flush_l2cache(addr, addr + size);
 	}
 
-	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+	MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 	return;
 }
 EXPORT_SYMBOL(rtds_memory_drv_flush_cache);
@@ -260,20 +273,20 @@ void rtds_memory_drv_inv_cache(
 	 unsigned int	size
 )
 {
-	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]IN |[%s]\n", __func__);
 	MSG_MED("[RTDSK]   |addr[0x%08X]\n", addr);
 	MSG_MED("[RTDSK]   |size[%d]\n", size);
 
 	/* Paremeter check */
 	if (0 == addr) {
 		MSG_ERROR("[RTDSK]ERR| addr is 0\n");
-		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+		MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 		return;
 	}
 
 	if (0 == size) {
 		MSG_ERROR("[RTDSK]ERR| size is 0\n");
-		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+		MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 		return;
 	}
 
@@ -287,7 +300,7 @@ void rtds_memory_drv_inv_cache(
 		rtds_memory_inv_l2cache(addr, addr + size);
 	}
 
-	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+	MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 	return;
 }
 EXPORT_SYMBOL(rtds_memory_drv_inv_cache);
@@ -305,15 +318,17 @@ int rtds_memory_drv_change_address(
 	rtds_memory_drv_change_addr_param	*rtds_memory_drv_change_addr
 )
 {
-	int						ret = SMAP_PARA_NG;
-	unsigned int			top_addr;
-	unsigned int			bottom_addr;
+	int			ret = SMAP_PARA_NG;
+	unsigned int		top_addr;
+	unsigned int		bottom_addr;
 	rtds_memory_drv_handle	*handle;
-	unsigned int			org_addr;
+	unsigned int		org_addr;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
-	MSG_MED("[RTDSK]   |handle [0x%08X]\n", (unsigned int)rtds_memory_drv_change_addr->handle);
-	MSG_MED("[RTDSK]   |addr_type [0x%08X]\n", rtds_memory_drv_change_addr->addr_type);
+	MSG_MED("[RTDSK]   |handle [0x%08X]\n",
+		(unsigned int)rtds_memory_drv_change_addr->handle);
+	MSG_MED("[RTDSK]   |addr_type [0x%08X]\n",
+		rtds_memory_drv_change_addr->addr_type);
 
 	/* Parameter check */
 	if (NULL == rtds_memory_drv_change_addr) {
@@ -323,16 +338,20 @@ int rtds_memory_drv_change_address(
 	}
 
 	if (NULL == rtds_memory_drv_change_addr->handle) {
-		MSG_ERROR("[RTDSK]ERR| rtds_memory_drv_change_addr->handle is NULL\n");
+		MSG_ERROR("[RTDSK]ERR|" \
+			" rtds_memory_drv_change_addr->handle is NULL\n");
 		MSG_HIGH("[RTDSK]OUT|[%s]ret = %d\n", __func__, ret);
 		return ret;
 	}
 
 	org_addr	= rtds_memory_drv_change_addr->org_addr;
 	handle		= rtds_memory_drv_change_addr->handle;
-	MSG_MED("[RTDSK]   |org_addr   [0x%08X]\n", rtds_memory_drv_change_addr->org_addr);
-	MSG_LOW("[RTDSK]   |handle->var_kernel_addr [0x%08X]\n", (unsigned int)handle->var_kernel_addr);
-	MSG_LOW("[RTDSK]   |handle->var_rt_addr_nc [0x%08X]\n", (unsigned int)handle->var_rt_addr_nc);
+	MSG_MED("[RTDSK]   |org_addr   [0x%08X]\n",
+		rtds_memory_drv_change_addr->org_addr);
+	MSG_LOW("[RTDSK]   |handle->var_kernel_addr [0x%08X]\n",
+		(unsigned int)handle->var_kernel_addr);
+	MSG_LOW("[RTDSK]   |handle->var_rt_addr_nc [0x%08X]\n",
+		(unsigned int)handle->var_rt_addr_nc);
 
 
 	switch (rtds_memory_drv_change_addr->addr_type) {
@@ -341,17 +360,18 @@ int rtds_memory_drv_change_address(
 		MSG_LOW("[RTDSK]   |RTDS_MEM_DRV_APP_MEM\n");
 
 		/* Check address range */
-		top_addr	= (unsigned int)handle->var_kernel_addr;
-		bottom_addr	= (unsigned int)handle->var_kernel_addr + handle->var_addr_size - 1;
+		top_addr = (unsigned int)handle->var_kernel_addr;
+		bottom_addr = (unsigned int)handle->var_kernel_addr
+				+ handle->var_addr_size - 1;
 
 		if ((org_addr < top_addr) || (org_addr > bottom_addr)) {
 			MSG_ERROR("[RTDSK]ERR| Address is out of range.\n");
 		} else {
 
-			/* Change logical address from App domain to RT domain */
+		/* Change logical address from App domain to RT domain */
 			rtds_memory_drv_change_addr->chg_addr = (unsigned int)handle->var_rt_addr_nc + (org_addr - top_addr);
 			MSG_MED("[RTDSK]   |[App->RT]chg_addr[0x%08X]\n",
-					rtds_memory_drv_change_addr->chg_addr);
+				rtds_memory_drv_change_addr->chg_addr);
 			ret = SMAP_OK;
 		}
 		break;
@@ -362,12 +382,13 @@ int rtds_memory_drv_change_address(
 
 		/* Check address range */
 		top_addr	= (unsigned int)handle->var_rt_addr_nc;
-		bottom_addr	= (unsigned int)handle->var_rt_addr_nc + handle->var_addr_size - 1;
+		bottom_addr	= (unsigned int)handle->var_rt_addr_nc +
+					handle->var_addr_size - 1;
 
 		if ((org_addr < top_addr) || (org_addr > bottom_addr)) {
 			MSG_ERROR("[RTDSK]ERR| Address is out of range.\n");
 		} else {
-			/* Change logical address from RT domain tp App domain */
+		/* Change logical address from RT domain tp App domain */
 			rtds_memory_drv_change_addr->chg_addr = (unsigned int)handle->var_kernel_addr + (org_addr - top_addr);
 			MSG_MED("[RTDSK]   |[RT->App]chg_addr[0x%08X]\n",
 					 rtds_memory_drv_change_addr->chg_addr);
@@ -400,7 +421,8 @@ int rtds_memory_drv_share_apmem(
 {
 	int ret = SMAP_PARA_NG;
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
-	MSG_MED("[RTDSK]   |apmem_id[0x%08X]\n", rtds_memory_share_mem->apmem_id);
+	MSG_MED("[RTDSK]   |apmem_id[0x%08X]\n",
+		rtds_memory_share_mem->apmem_id);
 
 	/* Paremeter check */
 	if (NULL == rtds_memory_share_mem) {
@@ -418,7 +440,8 @@ int rtds_memory_drv_share_apmem(
 	/* Share App shared memory in kernel space */
 	ret = rtds_memory_share_kernel_shared_apmem(rtds_memory_share_mem);
 	if (SMAP_OK != ret) {
-		MSG_ERROR("[RTDSK]ERR| rtds_memory_share_kernel_shared_apmem failed ret[%d]\n", ret);
+		MSG_ERROR("[RTDSK]ERR| rtds_memory_share_" \
+			"kernel_shared_apmem failed ret[%d]\n", ret);
 	}
 
 	MSG_HIGH("[RTDSK]OUT|[%s] ret=%d\n", __func__, ret);
@@ -440,7 +463,7 @@ rtds_memory_drv_handle *rtds_memory_create_handle(
 {
 	rtds_memory_drv_handle *handle = NULL; /* RTDS MEMORY handle */
 
-	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]IN |[%s]\n", __func__);
 
 	/* Allocate handle region from kernel memory */
 	handle = kmalloc(sizeof(*handle), GFP_KERNEL);
@@ -449,7 +472,8 @@ rtds_memory_drv_handle *rtds_memory_create_handle(
 		MSG_ERROR("[RTDSK]ERR| kmalloc() failed\n");
 	}
 
-	MSG_HIGH("[RTDSK]OUT|[%s] handle[0x%08x]\n", __func__, (unsigned int)handle);
+	MSG_MED("[RTDSK]OUT|[%s] handle[0x%08x]\n",
+		__func__, (unsigned int)handle);
 
 	return handle;
 }
@@ -466,7 +490,7 @@ void rtds_memory_destroy_handle(
 		rtds_memory_drv_handle	 *handle
 )
 {
-	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]IN |[%s]\n", __func__);
 
 	if (NULL == handle) {
 		MSG_ERROR("[RTDSK]handle is NULL.\n");
@@ -474,7 +498,7 @@ void rtds_memory_destroy_handle(
 		/* Release the allocated handle region from kernel memory */
 		kfree(handle);
 	}
-	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
+	MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 
 	return;
 }
@@ -501,6 +525,7 @@ int rtds_memory_drv_map(
 	/* Parameter check */
 	if (NULL == rtds_memory_map) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;
 	}
 
@@ -508,12 +533,14 @@ int rtds_memory_drv_map(
 		(0 == rtds_memory_map->phy_addr) ||
 		(0 == rtds_memory_map->mem_size)) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;
 	}
 
 	/* Map to RTDomain logic space */
-	ret_code = rtds_memory_map_mpro(rtds_memory_map->phy_addr, rtds_memory_map->mem_size,
-									(unsigned long *)&rtds_memory_map->app_addr);
+	ret_code = rtds_memory_map_mpro(rtds_memory_map->phy_addr,
+					rtds_memory_map->mem_size,
+			(unsigned long *)&rtds_memory_map->app_addr);
 
 	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 	return ret_code;
@@ -542,6 +569,7 @@ int rtds_memory_drv_unmap(
 	/* Parameter check */
 	if (NULL == rtds_memory_unmap) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;
 	}
 
@@ -549,11 +577,13 @@ int rtds_memory_drv_unmap(
 		(0 == rtds_memory_unmap->mem_size) ||
 		(0 == rtds_memory_unmap->app_addr)) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;
 	}
 
 	/* UNMap to RTDomain logic space */
-	ret_code = rtds_memory_unmap_mpro(rtds_memory_unmap->app_addr, rtds_memory_unmap->mem_size);
+	ret_code = rtds_memory_unmap_mpro(rtds_memory_unmap->app_addr,
+					rtds_memory_unmap->mem_size);
 
 	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 	return ret_code;
@@ -576,7 +606,7 @@ int rtds_memory_drv_map_pnc(
 	 rtds_memory_drv_map_pnc_param	*rtds_memory_map_pnc
 )
 {
-	int				ret_code = SMAP_PARA_NG;
+	int		ret_code = SMAP_PARA_NG;
 	unsigned int	cache_check;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
@@ -584,24 +614,28 @@ int rtds_memory_drv_map_pnc(
 	/* Parameter check */
 	if (NULL == rtds_memory_map_pnc) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;
 	}
 
 	cache_check = (RT_MEMORY_RTMAP_WB | RT_MEMORY_RTMAP_WBNC);
 	if ((NULL == rtds_memory_map_pnc->handle) ||
-		(0 == rtds_memory_map_pnc->app_addr)  ||
-		(0 == rtds_memory_map_pnc->map_size)  ||
-		(NULL == rtds_memory_map_pnc->pages)  ||
+		(0 == rtds_memory_map_pnc->app_addr) ||
+		(0 == rtds_memory_map_pnc->map_size) ||
+		(NULL == rtds_memory_map_pnc->pages) ||
 		(0 != (~cache_check & rtds_memory_map_pnc->rtcache_kind))
 	) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;
 	}
 
 	/* Map to RTDomain logic space */
-	ret_code = rtds_memory_map_pnc_mpro(rtds_memory_map_pnc->app_addr, rtds_memory_map_pnc->map_size,
-										rtds_memory_map_pnc->pages, rtds_memory_map_pnc->rtcache_kind,
-										(rtds_memory_drv_app_mem_info *)&rtds_memory_map_pnc->mem_info);
+	ret_code = rtds_memory_map_pnc_mpro(rtds_memory_map_pnc->app_addr,
+					    rtds_memory_map_pnc->map_size,
+					    rtds_memory_map_pnc->pages,
+					    rtds_memory_map_pnc->rtcache_kind,
+		(rtds_memory_drv_app_mem_info *)&rtds_memory_map_pnc->mem_info);
 
 	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 	return ret_code;
@@ -631,19 +665,22 @@ int rtds_memory_drv_unmap_pnc(
 	/* Parameter check */
 	if (NULL == rtds_memory_unmap_pnc) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;
 	}
 
 	if ((NULL == rtds_memory_unmap_pnc->handle) ||
-		(0 == rtds_memory_unmap_pnc->app_addr)  ||
+		(0 == rtds_memory_unmap_pnc->app_addr) ||
 		(0 == rtds_memory_unmap_pnc->apmem_id)
 	) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;
 	}
 
 	/* UNMap to RTDomain logic space */
-	ret_code = rtds_memory_unmap_pnc_mpro(rtds_memory_unmap_pnc->app_addr, rtds_memory_unmap_pnc->apmem_id);
+	ret_code = rtds_memory_unmap_pnc_mpro(rtds_memory_unmap_pnc->app_addr,
+					      rtds_memory_unmap_pnc->apmem_id);
 
 	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 	return ret_code;
@@ -668,22 +705,27 @@ int rtds_memory_drv_reg_phymem(
 
 	if (NULL == rtds_memory_map) {
 		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map NULL\n", __func__);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	if ((NULL == rtds_memory_map->handle) ||
 		(0 == rtds_memory_map->phy_addr) ||
 		(0 == rtds_memory_map->mem_size)) {
-		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->handle    = 0x%08X\n", __func__, (u32)rtds_memory_map->handle);
-		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->phy_addr = 0x%08X\n", __func__, rtds_memory_map->phy_addr);
-		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->mem_size  = 0x%08X\n", __func__, rtds_memory_map->mem_size);
+		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->handle   = 0x%08X\n",
+			__func__, (u32)rtds_memory_map->handle);
+		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->phy_addr = 0x%08X\n",
+			__func__, rtds_memory_map->phy_addr);
+		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->mem_size = 0x%08X\n",
+			__func__, rtds_memory_map->mem_size);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	ret_code = rtds_memory_reg_kernel_phymem(
-								rtds_memory_map->phy_addr,
-								rtds_memory_map->mem_size,
-								rtds_memory_map->app_addr);
+						rtds_memory_map->phy_addr,
+						rtds_memory_map->mem_size,
+						rtds_memory_map->app_addr);
 
 	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 	return ret_code;
@@ -708,22 +750,27 @@ int rtds_memory_drv_unreg_phymem(
 
 	if (NULL == rtds_memory_map) {
 		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map NULL\n", __func__);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	if ((NULL == rtds_memory_map->handle) ||
 		(0 == rtds_memory_map->phy_addr) ||
 		(0 == rtds_memory_map->mem_size)) {
-		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->handle    = 0x%08X\n", __func__, (u32)rtds_memory_map->handle);
-		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->phy_addr = 0x%08X\n", __func__, rtds_memory_map->phy_addr);
-		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->mem_size  = 0x%08X\n", __func__, rtds_memory_map->mem_size);
+		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->handle   = 0x%08X\n",
+			__func__, (u32)rtds_memory_map->handle);
+		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->phy_addr = 0x%08X\n",
+			__func__, rtds_memory_map->phy_addr);
+		MSG_ERROR("[RTDSK]ERR|[%s]rtds_memory_map->mem_size = 0x%08X\n",
+			__func__, rtds_memory_map->mem_size);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	ret_code = rtds_memory_unreg_kernel_phymem(
-								rtds_memory_map->phy_addr,
-								rtds_memory_map->mem_size,
-								rtds_memory_map->app_addr);
+						rtds_memory_map->phy_addr,
+						rtds_memory_map->mem_size,
+						rtds_memory_map->app_addr);
 
 	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 	return ret_code;
@@ -747,18 +794,23 @@ int rtds_memory_drv_phy_change_address(
 
 	if (NULL == phy_change_rtaddr) {
 		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr NULL\n", __func__);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	if ((NULL == phy_change_rtaddr->handle) ||
 		(0 == phy_change_rtaddr->org_addr)) {
-		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr->handle    = 0x%08X\n", __func__, (u32)phy_change_rtaddr->handle);
-		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr->org_addr = 0x%08X\n", __func__, phy_change_rtaddr->org_addr);
+		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr->handle = 0x%08X\n",
+			__func__, (u32)phy_change_rtaddr->handle);
+		MSG_ERROR("[RTDSK]ERR|" \
+			"[%s]phy_change_rtaddr->org_addr = 0x%08X\n",
+			__func__, phy_change_rtaddr->org_addr);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	ret_code = rtds_memory_change_kernel_phymem_address(
-								phy_change_rtaddr->org_addr,
+						phy_change_rtaddr->org_addr,
 				(unsigned long *)&phy_change_rtaddr->chg_addr);
 
 	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
@@ -783,16 +835,20 @@ int rtds_memory_drv_rtpmb_to_phy_address(
 
 	if (NULL == phy_change_rtaddr) {
 		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr NULL\n", __func__);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	if (0 == phy_change_rtaddr->org_addr) {
-		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr->org_addr = 0x%08X\n", __func__, phy_change_rtaddr->org_addr);
+		MSG_ERROR("[RTDSK]ERR|[%s]" \
+			"phy_change_rtaddr->org_addr = 0x%08X\n",
+			__func__, phy_change_rtaddr->org_addr);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	ret_code = rtds_memory_change_rtpmb_to_phy_address(
-								phy_change_rtaddr->org_addr,
+						phy_change_rtaddr->org_addr,
 				(unsigned long *)&phy_change_rtaddr->chg_addr);
 
 	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
@@ -817,16 +873,20 @@ int rtds_memory_drv_phy_to_rtpmb_address(
 
 	if (NULL == phy_change_rtaddr) {
 		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr NULL\n", __func__);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	if (0 == phy_change_rtaddr->org_addr) {
-		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr->org_addr = 0x%08X\n", __func__, phy_change_rtaddr->org_addr);
+		MSG_ERROR("[RTDSK]ERR|[%s]" \
+			"phy_change_rtaddr->org_addr = 0x%08X\n",
+			__func__, phy_change_rtaddr->org_addr);
+		MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	ret_code = rtds_memory_change_phy_to_rtpmb_address(
-								phy_change_rtaddr->org_addr,
+						phy_change_rtaddr->org_addr,
 				(unsigned long *)&phy_change_rtaddr->chg_addr);
 
 	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
@@ -847,23 +907,27 @@ int rtds_memory_drv_rtpmb_cache_address(
 {
 	int ret_code = SMAP_PARA_NG;
 
-	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
+	MSG_MED("[RTDSK]IN |[%s]\n", __func__);
 
 	if (NULL == phy_change_rtaddr) {
 		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr NULL\n", __func__);
+		MSG_MED("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	if (0 == phy_change_rtaddr->org_addr) {
-		MSG_ERROR("[RTDSK]ERR|[%s]phy_change_rtaddr->org_addr = 0x%08X\n", __func__, phy_change_rtaddr->org_addr);
+		MSG_ERROR("[RTDSK]ERR|[%s]" \
+			"phy_change_rtaddr->org_addr = 0x%08X\n",
+			__func__, phy_change_rtaddr->org_addr);
+		MSG_MED("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 		return ret_code;
 	}
 
 	ret_code = rtds_memory_change_rtpmb_cache_address(
-								phy_change_rtaddr->org_addr,
+						phy_change_rtaddr->org_addr,
 				(unsigned long *)&phy_change_rtaddr->chg_addr);
 
-	MSG_HIGH("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
+	MSG_MED("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
 	return ret_code;
 }
 EXPORT_SYMBOL(rtds_memory_drv_rtpmb_cache_address);
@@ -881,8 +945,8 @@ int rtds_memory_drv_map_pnc_nma(
 	 rtds_memory_drv_map_pnc_nma_param	*rtds_memory_map_pnc_nma
 )
 {
-	int				ret_code = SMAP_PARA_NG;
-	struct page		**k_pages;
+	int		ret_code = SMAP_PARA_NG;
+	struct page	**k_pages;
 	unsigned int	size;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
@@ -890,6 +954,7 @@ int rtds_memory_drv_map_pnc_nma(
 	/* Parameter check */
 	if (NULL == rtds_memory_map_pnc_nma) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;
 	}
 
@@ -898,6 +963,7 @@ int rtds_memory_drv_map_pnc_nma(
 		(NULL == rtds_memory_map_pnc_nma->pages)
 	) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
+		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;
 	}
 
@@ -914,8 +980,10 @@ int rtds_memory_drv_map_pnc_nma(
 	memcpy(k_pages, rtds_memory_map_pnc_nma->pages, size);
 
 	/* Map to RTDomain logic space */
-	ret_code = rtds_memory_map_pnc_nma_mpro(rtds_memory_map_pnc_nma->map_size,
-		k_pages, (unsigned int *)&rtds_memory_map_pnc_nma->rt_addr_wb);
+	ret_code = rtds_memory_map_pnc_nma_mpro(
+					rtds_memory_map_pnc_nma->map_size,
+					k_pages,
+			(unsigned int *)&rtds_memory_map_pnc_nma->rt_addr_wb);
 
 	MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 	return ret_code;

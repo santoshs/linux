@@ -246,7 +246,19 @@ Example:
 Example:
   # echo 31 > /sys/module/wakelock/parameters/debug_mask
   # echo wakelock > /sys/pmdbg/suspend
+------------
+[*] Enable dump suspend log
+- Write "enable_dump_suspend" to Idle sysfs file
+Example:
+  # echo enable_dump_suspend > /sys/pmdbg/suspend
 
+------------
+[*] Disable dump suspend log
+- Write "disable_dump_suspend" to Idle sysfs file
+Example:
+  # echo disable_dump_suspend > /sys/pmdbg/suspend
+
+------------
 ####################### Memory #################
 sysfs file: /sys/pmdbg/mem
 
@@ -317,3 +329,21 @@ Example:
   # echo monpin get > /sys/pmdbg/dbgpin
   # cat /sys/pmdbg/dbgpin
   Monitor pin: KEY
+
+####################### CPU #################
+sysfs file: /sys/pmdbg/cpu
+
+------------
+[*] Enable cpu profile log
+- Write "enable_cpu_profile" to Idle sysfs file
+- Get started in "MON_WAIT_TIME" mseconds
+Example:
+  # echo enable_cpu_profile > /sys/pmdbg/cpu
+
+------------
+[*] Disable cpu profile log
+- Write "disable_cpu_profile" to Idle sysfs file
+Example:
+  # echo disable_cpu_profile > /sys/pmdbg/cpu
+
+------------

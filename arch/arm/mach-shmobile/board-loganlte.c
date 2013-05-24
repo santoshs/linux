@@ -115,7 +115,6 @@
 #endif
 
 #define STBCHRB3  0xE6180043
-#define PHYFUNCTR IO_ADDRESS(0xe6890104) /* 16-bit */
 
 
 /* SBSC register address */
@@ -125,7 +124,7 @@
 #include <mach/sbsc.h>
 
 static int unused_gpios_logan_rev1[] = {
-				GPIO_PORT4, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
+				GPIO_PORT4, GPIO_PORT27, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
 				GPIO_PORT140, GPIO_PORT141, GPIO_PORT142, GPIO_PORT198,
 				GPIO_PORT200, GPIO_PORT201, GPIO_PORT219, GPIO_PORT224,
 				GPIO_PORT225, GPIO_PORT226, GPIO_PORT227, GPIO_PORT228,
@@ -143,7 +142,7 @@ static int unused_gpios_logan_rev1[] = {
 };
 
 static int unused_gpios_logan_rev2[] = {
-				GPIO_PORT4, GPIO_PORT21, GPIO_PORT26, GPIO_PORT36,
+				GPIO_PORT4, GPIO_PORT21, GPIO_PORT26, GPIO_PORT27, GPIO_PORT36,
 				GPIO_PORT44, GPIO_PORT46, GPIO_PORT86, GPIO_PORT87,
 				GPIO_PORT104, GPIO_PORT140, GPIO_PORT141, GPIO_PORT142,
 				GPIO_PORT198, GPIO_PORT199, GPIO_PORT200, GPIO_PORT201,
@@ -167,6 +166,8 @@ void (*shmobile_arch_reset)(char mode, const char *cmd);
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
+	unsigned int u2_board_rev = 0;
+	u2_board_rev = u2_get_board_rev();
 	count = snprintf(page, count, "%x", u2_board_rev);
 	return count;
 }
@@ -194,9 +195,9 @@ static struct bcmbt_rfkill_platform_data board_bcmbt_rfkill_cfg = {
 	.vreg_gpio    = BCMBT_VREG_GPIO,
 	.n_reset_gpio = BCMBT_N_RESET_GPIO,
 	/* CLK32 */
-	.aux0_gpio    = BCMBT_AUX0_GPIO,  
+	.aux0_gpio    = BCMBT_AUX0_GPIO,
 	/* UARTB_SEL, probably not required */
-	.aux1_gpio    = BCMBT_AUX1_GPIO,  
+	.aux1_gpio    = BCMBT_AUX1_GPIO,
 };
 
 static struct platform_device board_bcmbt_rfkill_device = {
@@ -292,6 +293,13 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 			.irq           = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
 	},
 #endif
+#if defined(CONFIG_RT8973)
+	{
+		I2C_BOARD_INFO("rt8973", 0x28>>1),
+		.platform_data = NULL,
+		.irq = irqpin2irq(GPIO_MUS_INT),
+	},
+#endif
 #if defined(CONFIG_CHARGER_SMB328A)
 	{
 		I2C_BOARD_INFO("smb328a", SMB327B_ADDRESS),
@@ -349,13 +357,13 @@ static void __init board_init(void)
 	int inx = 0;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-
-	u8 reg8 = __raw_readb(STBCHRB3);
+	unsigned int u2_board_rev = 0;
+	u8 reg8 = __raw_readb(STBCHRB3Phys);
 
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(CPG_PLL3CR));
+				__func__, __raw_readl(PLL3CR));
 		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
 		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
 		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
@@ -380,7 +388,9 @@ static void __init board_init(void)
 	r8a7373_pinmux_init();
 
 	/* set board version */
-	u2_board_rev = read_board_rev();
+	if (read_board_rev() < 0)
+		printk(KERN_WARNING "%s: Read board rev faild\n", __func__);
+	u2_board_rev = u2_get_board_rev();
 
 	create_proc_read_entry("board_revision", 0444, NULL,
 				proc_read_board_rev, NULL);
@@ -402,10 +412,12 @@ static void __init board_init(void)
 
 	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 
-	/* Init unused GPIOs */
-	if (u2_get_board_rev() <= 1) {
-		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
-			unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
+	if (u2_board_rev == RLTE_BOARD_REV_0_1) {
+		/* Init unused GPIOs */
+		if (u2_get_board_rev() <= 1) {
+			for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
+				unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
+		}
 	} else {
 		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev2); inx++)
 			unused_gpio_port_init(unused_gpios_logan_rev2[inx]);
@@ -495,6 +507,8 @@ static void __init board_init(void)
 		gpio_pull_off_port(GPIO_PORT327);
 		irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
 		gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
+		gpio_free(GPIO_PORT327);
+		gpio_request(GPIO_FN_SDHICD0, NULL);
 	}
 
 	/* ES2.0: SIM powers */
@@ -567,7 +581,7 @@ static void __init board_init(void)
 	l2x0_init_later();
 #endif
 
-	camera_init(u2_board_rev);
+	camera_init();
 
 	gpio_key_init(stm_select, u2_board_rev,
 			devices_stm_sdhi0,
@@ -597,7 +611,7 @@ static void __init board_init(void)
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if (u2_board_rev == 0) {
+	if (u2_board_rev == RLTE_BOARD_REV_0_0) {
 		int i;
 		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
 			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {

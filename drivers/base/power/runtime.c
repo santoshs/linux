@@ -440,7 +440,6 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 		goto repeat;
 	}
 
-	dev->power.deferred_resume = false;
 	if (dev->power.no_callbacks)
 		goto no_callback;	/* Assume success. */
 
@@ -523,6 +522,7 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 	wake_up_all(&dev->power.wait_queue);
 
 	if (dev->power.deferred_resume) {
+		dev->power.deferred_resume = false;
 		rpm_resume(dev, 0);
 		retval = -EAGAIN;
 		goto out;
@@ -688,6 +688,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
 				spin_lock(&dev->power.lock);
 			}
 #endif /* CONFIG_PDC */
+			retval = 1;
 			goto no_callback;	/* Assume success. */
 		}
 		spin_unlock(&dev->parent->power.lock);
@@ -793,7 +794,7 @@ static int rpm_resume(struct device *dev, int rpmflags)
 	}
 	wake_up_all(&dev->power.wait_queue);
 
-	if (!retval)
+	if (retval >= 0)
 		rpm_idle(dev, RPM_ASYNC);
 
  out:
@@ -1274,6 +1275,15 @@ void pm_runtime_enable(struct device *dev)
 	unsigned long flags;
 #ifdef CONFIG_PDC
 	struct power_domain_info *pdi = NULL;
+#endif /* CONFIG_PDC */
+
+	if (NULL == dev) {
+		printk(KERN_ERR "LINE %d, %s() : pointer is NULL.",
+			__LINE__, __func__);
+		return;
+	}
+
+#ifdef CONFIG_PDC
 	if (dev && dev_name(dev))
 		pdi = get_pdi(dev_name(dev));
 	if (NULL != pdi)

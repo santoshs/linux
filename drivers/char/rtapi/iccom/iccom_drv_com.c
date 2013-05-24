@@ -2,7 +2,7 @@
  * iccom_drv_com.c
  *	 Inter Core Communication driver common function file.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -75,6 +75,8 @@ iccom_drv_handle *iccom_create_handle(
 		}
 	} else {
 		MSG_ERROR("[ICCOMK]ERR| handle allocate error.\n");
+		MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
+		return (iccom_drv_handle *)NULL;
 	}
 
 	handle_list = kmalloc(sizeof(*handle_list), GFP_KERNEL);
@@ -82,6 +84,8 @@ iccom_drv_handle *iccom_create_handle(
 		MSG_ERROR("[ICCOMK]ERR| handle list allocate error.\n");
 		memset(handle, 0, alloc_size);
 		kfree(handle);
+		MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);
+		return (iccom_drv_handle *)NULL;
 	} else {
 		handle_list->handle = handle;
 

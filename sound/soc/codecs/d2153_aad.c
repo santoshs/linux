@@ -31,26 +31,10 @@
 #include <linux/d2153/d2153_codec.h>
 #include <linux/d2153/d2153_aad.h>
 
-#define D2153_AAD_MICBIAS_SETUP_TIME 50
-#ifdef D2153_JACK_DETECT
- #ifdef D2153_AAD_MICBIAS_SETUP_TIME
- #define D2153_AAD_JACK_DEBOUNCE_MS (400 - D2153_AAD_MICBIAS_SETUP_TIME)
- #else
- #define D2153_AAD_JACK_DEBOUNCE_MS 400
- #endif
-#else
-#define D2153_AAD_JACK_DEBOUNCE_MS 400
-#endif
-
-#define D2153_AAD_JACKOUT_DEBOUNCE_MS 100
-
-#define D2153_AAD_BUTTON_DEBOUNCE_MS 50
 #define D2153_AAD_DETECT_JACK_ADC 91
 #define D2153_AAD_CONNER_CASE_ADC 239
 #define D2153_GPIO_DEBOUNCE_TIME 4000 /* 4ms*/
 
-
-#define D2153_AAD_WATERDROP
 
 struct d2153_aad_priv *d2153_aad_ex;
 EXPORT_SYMBOL(d2153_aad_ex);
@@ -234,7 +218,6 @@ int d2153_aad_update_bits(struct i2c_client *client, u8 reg, u8 mask,
 }
 EXPORT_SYMBOL(d2153_aad_update_bits);
 
-#ifdef D2153_JACK_DETECT
 static irqreturn_t d2153_g_det_handler(int irq, void *data)
 {
 	struct d2153_aad_priv *d2153_aad = data;
@@ -242,19 +225,23 @@ static irqreturn_t d2153_g_det_handler(int irq, void *data)
 	dlg_info("[%s] start!\n",__func__);
 
 	if ( d2153_aad->switch_data.state != D2153_NO_JACK)
-	{
+	{	
+		cancel_delayed_work_sync(&d2153_aad->jack_monitor_work);
+		mutex_lock(&d2153_aad->d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
  		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
 		
-		cancel_delayed_work(&d2153_aad->jack_monitor_work);
+		dlg_info("[%s] BTN Disable !\n",__func__);
 		d2153_aad_write(client,D2153_ACCDET_CONFIG,0x08);
-		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACKOUT_DEBOUNCE_MS));
+		mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
+		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACKOUT_DEBOUNCE_MS)); 	
 	} else if(d2153_aad->l_det_status) {
-		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACK_DEBOUNCE_MS));
+		dlg_info("[%s] d2153_aad->l_det_status [%d]\n",__func__,d2153_aad->l_det_status);
+		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACK_DEBOUNCE_MS)); 	
 	}
 	return IRQ_HANDLED;
 }
-#endif
+
 
 /* IRQ handler for HW jack detection */
 static irqreturn_t d2153_jack_handler(int irq, void *data)
@@ -262,15 +249,11 @@ static irqreturn_t d2153_jack_handler(int irq, void *data)
 	struct d2153_aad_priv *d2153_aad = data;
 
 	wake_lock_timeout(&d2153_aad->wakeup, HZ * 10);
-	cancel_delayed_work(&d2153_aad->jack_monitor_work);
 	dlg_info("[%s] start!\n",__func__);
 
 	if ( d2153_aad->switch_data.state == D2153_NO_JACK){
  		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACK_DEBOUNCE_MS));
  	}else{
- 		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
-
 	 	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACKOUT_DEBOUNCE_MS)); 	
  	}
  	
@@ -285,38 +268,46 @@ static irqreturn_t d2153_button_handler(int irq, void *data)
 
 	wake_lock_timeout(&d2153_aad->wakeup, HZ * 10);
 
-	if (D2153_AA_Silicon == d2153_aad->chip_rev) 
-	{
-		if(d2153_aad->button.status == D2153_BUTTON_IGNORE)
-		{
+	if (D2153_AA_Silicon == d2153_aad->chip_rev) {
+		if (d2153_aad->button.status == D2153_BUTTON_IGNORE) {
 			d2153_aad->button.status = D2153_BUTTON_PRESS;
 			return IRQ_HANDLED;
 		}
 
-		if(d2153_aad->button.status == D2153_BUTTON_PRESS)
-		{
+		if (d2153_aad->button.status == D2153_BUTTON_PRESS) {
 			d2153_aad->button.status = D2153_BUTTON_RELEASE;
 			return IRQ_HANDLED;
 		}
 	}
-	
-	cancel_delayed_work(&d2153_aad->button_monitor_work);
-	schedule_delayed_work(&d2153_aad->button_monitor_work, msecs_to_jiffies(D2153_AAD_BUTTON_DEBOUNCE_MS));
-	
+
+	schedule_delayed_work(&d2153_aad->button_monitor_work,
+			msecs_to_jiffies(d2153_aad->button_debounce_ms));
+
 	return IRQ_HANDLED;
+}
+
+ssize_t d2153_aad_print_state(struct switch_dev *sdev, char *buf)
+{
+	struct d2153_switch_data *switch_data =
+		container_of(sdev, struct d2153_switch_data, sdev);
+	struct d2153_aad_priv *d2153_aad =
+		container_of(switch_data, struct d2153_aad_priv, switch_data);
+	wake_unlock(&d2153_aad->wakeup);
+	return sprintf(buf, "%d\n", sdev->state);
 }
 
 static int d2153_switch_dev_register(struct d2153_aad_priv *d2153_aad)
 {
 	int ret = 0;
-	dlg_info("[%s] start!\n",__func__);
+	dlg_info("[%s] start!\n", __func__);
 
 	d2153_aad->switch_data.sdev.name = "h2w";
 	d2153_aad->switch_data.sdev.state = 0;
 	d2153_aad->switch_data.state = 0;
 	d2153_aad->button.status=D2153_BUTTON_RELEASE;
+	d2153_aad->switch_data.sdev.print_state = d2153_aad_print_state;
 	ret = switch_dev_register(&d2153_aad->switch_data.sdev);
-	
+
 	return ret;
 }
 
@@ -324,7 +315,7 @@ static int d2153_hooksw_dev_register(struct i2c_client *client,
 				struct d2153_aad_priv *d2153_aad)
 {
 	int ret = 0;
-	dlg_info("[%s] start!\n",__func__);
+	dlg_info("[%s] start!\n", __func__);
 	d2153_aad->input_dev = input_allocate_device();
 	d2153_aad->input_dev->name = "d2153-aad";
 	d2153_aad->input_dev->id.bustype = BUS_I2C;
@@ -343,223 +334,133 @@ static int d2153_hooksw_dev_register(struct i2c_client *client,
 	return ret;
 }
 
-#ifdef D2153_JACK_DETECT
-static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
+static void d2153_aad_jackdet_monitor_timer_work(struct work_struct *work)
 {
-	struct d2153_aad_priv *d2153_aad = container_of(work, 
-									struct d2153_aad_priv, 
-									jack_monitor_work.work);
+	struct d2153_aad_priv *d2153_aad =
+		container_of(work, struct d2153_aad_priv,
+		jack_monitor_work.work);
 
 	struct i2c_client *client = d2153_aad->i2c_client;
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state;
-#ifdef D2153_AAD_WATERDROP	
 	int state_gpio;
-#endif
 
-	dlg_info("%s \n",__func__);
-	
-	if(d2153_aad->d2153_codec == NULL || d2153_aad->d2153_codec->codec_init ==0)
-	{
-		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(300));
+	dlg_info("[%s] start!\n", __func__);
+
+	if (d2153_aad->d2153_codec == NULL ||
+		d2153_aad->d2153_codec->codec_init == 0) {
+		schedule_delayed_work(&d2153_aad->jack_monitor_work,
+			msecs_to_jiffies(300));
 		return;
 	}
-	mutex_lock(&d2153_aad->d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
 	snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
-	msleep(D2153_AAD_MICBIAS_SETUP_TIME);
-	
+			D2153_MICBIAS1_CTRL,
+			D2153_MICBIAS_EN, D2153_MICBIAS_EN);
+
+	msleep(D2153_AAD_MICBIAS_SETUP_TIME_MS);
+
 	jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);	
-	dlg_info(" %s, JACK MODE = 0x%x \n",__func__,jack_mode);
-	
+	dlg_info(" %s, JACK MODE = 0x%x\n", __func__, jack_mode);
+
 	if (jack_mode & D2153_ACCDET_JACK_MODE_JACK) {
-
 		d2153_aad->l_det_status = true;
-			
-#ifdef D2153_AAD_WATERDROP
-		state_gpio = gpio_get_value(GPIO_PORT7);
-		if (state_gpio == 1) 
-		{
-			dlg_info(" %s, state_gpio = 0x%x \n",__func__,state_gpio);
-			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
-			state=D2153_NO_JACK;
 
-			if (d2153_aad->switch_data.state != state ) 
-			{	
-				d2153_aad->button.status = D2153_BUTTON_RELEASE;
-				dlg_info("%s Jack state = %d\n",__func__, state);
-				d2153_aad->d2153_codec->switch_state=state;
-				d2153_aad->switch_data.state = state;
-				switch_set_state(&d2153_aad->switch_data.sdev, state);
+		if (d2153_aad->gpio_detect_enable) {
+			state_gpio = gpio_get_value(d2153_aad->gpio_port);
+			if (state_gpio == 1) {
+				dlg_info(" %s, state_gpio = 0x%x\n",
+						__func__, state_gpio);
+				snd_soc_update_bits(
+						d2153_aad->d2153_codec->codec,
+						D2153_MICBIAS1_CTRL,
+						D2153_MICBIAS_EN, 0);
+				state = D2153_NO_JACK;
+
+				if (d2153_aad->switch_data.state != state) {
+					d2153_aad->button.status =
+							D2153_BUTTON_RELEASE;
+					dlg_info("%s Jack state = %d\n",
+							__func__, state);
+					d2153_aad->d2153_codec->switch_state =
+							state;
+					d2153_aad->switch_data.state =
+							state;
+					switch_set_state(
+						&d2153_aad->switch_data.sdev,
+						state);
+				}
+				return;
 			}
-			//schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(500));
-			mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);			
-			return;
 		}
-#endif	 
 		if (jack_mode & D2153_ACCDET_JACK_MODE_MIC) {
-			d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
-			dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
-			
-			dlg_info("%s JACK MODE! 4 Pole Heaset set \n",__func__);
-			state=D2153_HEADSET;	
-			//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-				//D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
-			d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
-		}	
-		else {
-			
-				d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);
-	
-				//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-					//D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
-					
-				if (D2153_AA_Silicon == d2153_aad->chip_rev)
-					d2153_aad_write(client,D2153_ACCDET_CFG4,0x17);
+			d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic,
+				D2153_IRQ_EACCDET);
+			dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET\n",
+				__func__);
+			dlg_info("%s JACK MODE! 4 Pole Heaset set\n",
+				__func__);
+			state = D2153_HEADSET;
+			d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x88);
+		} else {
+			d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x88);
+			if (D2153_AA_Silicon == d2153_aad->chip_rev)
+				d2153_aad_write(client,
+					D2153_ACCDET_CFG4, 0x17);
 
-				msleep(d2153_aad->button_detect_rate);
-				
-				btn_status = d2153_aad_read(client, D2153_ACCDET_STATUS);	
-				dlg_info("%s Heaset set ADC= %d  \n",__func__,btn_status);
+			msleep(d2153_aad->button_detect_rate);
 
-				if (D2153_AA_Silicon == d2153_aad->chip_rev) 
-					d2153_aad_update_bits(client, D2153_ACCDET_CFG4,
-						  D2153_ACCDET_ADC_COMP_OUT_INV, 0);
+			btn_status = d2153_aad_read(client,
+				D2153_ACCDET_STATUS);
+			dlg_info("%s Heaset set ADC= %d\n",
+				__func__, btn_status);
 
-				//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-					//D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
-				if(btn_status < D2153_AAD_DETECT_JACK_ADC)	{
-					dlg_info("%s ADC CHECK!! 3 Pole Heaset set2 \n",__func__);
-					d2153_aad_write(client,D2153_ACCDET_CONFIG,0x08);
-					state=D2153_HEADPHONE;
-					snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-						D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
-				}
-				else {
-					d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
-					dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
-					dlg_info("%s ADC CHECK!! 4 Pole Heaset set2 \n",__func__);
-					state=D2153_HEADSET;	
-					//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-						//D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
- 					d2153_aad_write(client,D2153_ACCDET_CONFIG,0x88);	
-				}
+			if (D2153_AA_Silicon == d2153_aad->chip_rev)
+				d2153_aad_update_bits(client,
+					D2153_ACCDET_CFG4,
+					D2153_ACCDET_ADC_COMP_OUT_INV,
+					0);
+
+			if (btn_status < D2153_AAD_DETECT_JACK_ADC) {
+				dlg_info("%s ADC CHECK!! 3 Pole Heaset set2\n",
+					__func__);
+				d2153_aad_write(client,
+					D2153_ACCDET_CONFIG, 0x08);
+				state = D2153_HEADPHONE;
+				snd_soc_update_bits(
+					d2153_aad->d2153_codec->codec,
+					D2153_MICBIAS1_CTRL,
+					D2153_MICBIAS_EN, 0);
+			} else {
+				d2153_unmask_irq(
+					d2153_aad->d2153_codec->d2153_pmic,
+					D2153_IRQ_EACCDET);
+				dlg_info("%s d2153_unmask_irq " \
+					"- D2153_IRQ_EACCDET\n", __func__);
+				dlg_info("%s ADC CHECK!! 4 Pole Heaset set2\n",
+					__func__);
+				state = D2153_HEADSET;
+				d2153_aad_write(client,
+					D2153_ACCDET_CONFIG, 0x88);
+			}
 	}
-	}
-	else {		
-		d2153_mask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
-		dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
-		dlg_info("%s Jack Pull Out ! \n",__func__);
+	} else {
+		d2153_mask_irq(d2153_aad->d2153_codec->d2153_pmic,
+			D2153_IRQ_EACCDET);
+		dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET\n",
+			__func__);
+		dlg_info("%s Jack Pull Out !\n", __func__);
 		state=D2153_NO_JACK;
 		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);
-		d2153_aad_write(client,D2153_ACCDET_CONFIG,0x08);
+			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN, 0);
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x08);
 		d2153_aad->l_det_status = false;
 	}
 
 	d2153_aad->button.status = D2153_BUTTON_RELEASE;
-	
-	if (d2153_aad->switch_data.state != state || d2153_aad->switch_data.state == D2153_NO_JACK) {	
-		dlg_info("%s Jack state = %d\n",__func__, state);
-		d2153_aad->d2153_codec->switch_state=state;
-		d2153_aad->switch_data.state = state;
-		switch_set_state(&d2153_aad->switch_data.sdev, state);
-	}
-	mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
 
-}
-#else
-static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
-{
-	struct d2153_aad_priv *d2153_aad = container_of(work, 
-									struct d2153_aad_priv, 
-									jack_monitor_work.work);
-
-	struct i2c_client *client = d2153_aad->i2c_client;
-	u8 jack_mode,btn_status;
-	int state = d2153_aad->switch_data.state,state_gpio;
-
-	dlg_info("%s disable D2153_JACK_DETECT\n",__func__);
-	if(d2153_aad->d2153_codec == NULL || d2153_aad->d2153_codec->codec_init ==0)
-	{
-		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(300));
-		return;
-	}
-	
-	state_gpio = gpio_get_value(GPIO_PORT7);
-	if(state_gpio == 0 && state != D2153_NO_JACK)
-		return;                 
-
-	mutex_lock(&d2153_aad->d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
-	if (state_gpio == 0) {
-		
-		jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);	
-
-		if (jack_mode & D2153_ACCDET_JACK_MODE_MIC) {
-			dlg_info("[%s] 4 Pole Heaset set \n",__func__);
-			state=D2153_HEADSET;	
-			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
-			d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
-
-			d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
-			dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
-			
-		}	
-		else {
-			d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);
-
-			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);
-				
-			if (D2153_AA_Silicon == d2153_aad->chip_rev)
-				d2153_aad_write(client,D2153_ACCDET_CFG4,0x17);
-
-			msleep(d2153_aad->button_detect_rate);
-
-			btn_status = d2153_aad_read(client, D2153_ACCDET_STATUS);	
-			dlg_info("%s Heaset set ADC= %d  \n",__func__,btn_status);
-
-			if (D2153_AA_Silicon == d2153_aad->chip_rev) 
-				d2153_aad_update_bits(client, D2153_ACCDET_CFG4,
-					  D2153_ACCDET_ADC_COMP_OUT_INV, 0);
-
-			if(btn_status < D2153_AAD_DETECT_JACK_ADC)	{
-				dlg_info("[%s] First 3 Pole Heaset set2 \n",__func__);
-
-			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
-				
-				d2153_aad_write(client,D2153_ACCDET_CONFIG,0x00);
-				state=D2153_HEADPHONE;
-			}
-			else {
-				d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
-				dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
-			
-				dlg_info("[%s] First 4 Pole Heaset set2 \n",__func__);
-				state=D2153_HEADSET;	
-				//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-				//	D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);	
-				d2153_aad_write(client,D2153_ACCDET_CONFIG,0x80);			
-			}	
-		}
-	}
-	else {	
-		d2153_mask_irq(d2153_aad->d2153_codec->d2153_pmic, D2153_IRQ_EACCDET);
-		dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET \n",__func__);
-		
-		dlg_info("%s Jack Pull Out ! \n",__func__);
-		state=D2153_NO_JACK;
-		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);
-		d2153_aad_write(client,D2153_ACCDET_CONFIG,0x00);
-	}
-
-	d2153_aad->button.status = D2153_BUTTON_RELEASE;
-	
-	if (d2153_aad->switch_data.state != state || d2153_aad->switch_data.state == D2153_NO_JACK) {	
+	if (d2153_aad->switch_data.state != state ||
+			d2153_aad->switch_data.state == D2153_NO_JACK) {
+		dlg_info("%s Jack state = %d\n", __func__, state);
 		d2153_aad->d2153_codec->switch_state=state;
 		d2153_aad->switch_data.state = state;
 		switch_set_state(&d2153_aad->switch_data.sdev, state);
@@ -571,135 +472,226 @@ static void d2153_aad_jack_monitor_timer_work(struct work_struct *work)
 	else
 		snd_soc_dapm_enable_pin(&d2153_aad->d2153_codec->codec->dapm,
 			"Headphone Enable");
-	mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);	
 }
 
-#endif
+static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
+{
+	struct d2153_aad_priv *d2153_aad =
+		container_of(work, struct d2153_aad_priv,
+		jack_monitor_work.work);
+
+	struct i2c_client *client = d2153_aad->i2c_client;
+	u8 jack_mode,btn_status;
+	int state = d2153_aad->switch_data.state,state_gpio;
+	dlg_info("[%s] start!\n", __func__);
+
+	if (d2153_aad->d2153_codec == NULL ||
+		d2153_aad->d2153_codec->codec_init == 0) {
+		schedule_delayed_work(&d2153_aad->jack_monitor_work,
+			msecs_to_jiffies(300));
+		return;
+	}
+
+	state_gpio = gpio_get_value(d2153_aad->gpio_port);
+	if (state_gpio == 0 && state != D2153_NO_JACK)
+		return;
+
+	if (state_gpio == 0) {
+		jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);
+
+		if (jack_mode & D2153_ACCDET_JACK_MODE_MIC) {
+			dlg_info("[%s] 4 Pole Heaset set\n", __func__);
+			state = D2153_HEADSET;
+			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+				D2153_MICBIAS1_CTRL,
+				D2153_MICBIAS_EN, D2153_MICBIAS_EN);
+			d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x80);
+
+			d2153_unmask_irq(d2153_aad->d2153_codec->d2153_pmic,
+				D2153_IRQ_EACCDET);
+			dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET\n",
+				__func__);
+		} else {
+			d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x80);
+
+			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+				D2153_MICBIAS1_CTRL,
+				D2153_MICBIAS_EN, D2153_MICBIAS_EN);
+
+			if (D2153_AA_Silicon == d2153_aad->chip_rev)
+				d2153_aad_write(client,
+					D2153_ACCDET_CFG4, 0x17);
+
+			msleep(d2153_aad->button_detect_rate);
+
+			btn_status = d2153_aad_read(client,
+					D2153_ACCDET_STATUS);
+			dlg_info("%s Heaset set ADC= %d\n",
+					__func__, btn_status);
+
+			if (D2153_AA_Silicon == d2153_aad->chip_rev)
+				d2153_aad_update_bits(client,
+					D2153_ACCDET_CFG4,
+					D2153_ACCDET_ADC_COMP_OUT_INV,
+					0);
+
+			if (btn_status < D2153_AAD_DETECT_JACK_ADC) {
+				dlg_info("[%s] First 3 Pole Heaset set2\n",
+					__func__);
+
+			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN, 0);
+
+				d2153_aad_write(client,
+					D2153_ACCDET_CONFIG, 0x00);
+				state = D2153_HEADPHONE;
+			} else {
+				d2153_unmask_irq(
+					d2153_aad->d2153_codec->d2153_pmic,
+					D2153_IRQ_EACCDET);
+				dlg_info("%s d2153_unmask_irq " \
+					"- D2153_IRQ_EACCDET\n", __func__);
+
+				dlg_info("[%s] First 4 Pole Heaset set2\n",
+					__func__);
+				state = D2153_HEADSET;
+				d2153_aad_write(client,
+					D2153_ACCDET_CONFIG, 0x80);
+			}
+		}
+	} else {
+		d2153_mask_irq(d2153_aad->d2153_codec->d2153_pmic,
+			D2153_IRQ_EACCDET);
+		dlg_info("%s d2153_unmask_irq - D2153_IRQ_EACCDET\n",
+			__func__);
+
+		dlg_info("%s Jack Pull Out !\n", __func__);
+		state = D2153_NO_JACK;
+		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN, 0);
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x00);
+	}
+
+	d2153_aad->button.status = D2153_BUTTON_RELEASE;
+
+	if (d2153_aad->switch_data.state != state ||
+		d2153_aad->switch_data.state == D2153_NO_JACK) {
+		d2153_aad->d2153_codec->switch_state=state;
+		d2153_aad->switch_data.state = state;
+		switch_set_state(&d2153_aad->switch_data.sdev, state);
+	}
+
+	if (state == D2153_NO_JACK)
+		snd_soc_dapm_disable_pin(&d2153_aad->d2153_codec->codec->dapm,
+			"Headphone Enable");
+	else
+		snd_soc_dapm_enable_pin(&d2153_aad->d2153_codec->codec->dapm,
+			"Headphone Enable");
+}
 
 static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 {
-	struct d2153_aad_priv *d2153_aad = container_of(work, 
-									struct d2153_aad_priv, 
-									button_monitor_work.work);
+	struct d2153_aad_priv *d2153_aad =
+		container_of(work, struct d2153_aad_priv,
+		button_monitor_work.work);
 	struct i2c_client *client = d2153_aad->i2c_client;
 	u8 btn_status;
-#ifdef D2153_JACK_DETECT
 	u8 jack_mode;
-#endif
-#ifndef D2153_JACK_DETECT
 	int state_gpio;
-#endif
+	u8 no_jack = 0;
 
-	dlg_info("[%s] start!\n",__func__);
-	if(d2153_aad->d2153_codec == NULL || d2153_aad->d2153_codec->codec_init ==0)
-	{
-		schedule_delayed_work(&d2153_aad->button_monitor_work, msecs_to_jiffies(300));
+	if (d2153_aad->d2153_codec == NULL ||
+		d2153_aad->d2153_codec->codec_init == 0) {
+		schedule_delayed_work(&d2153_aad->button_monitor_work,
+			msecs_to_jiffies(300));
 		return;
 	}
-	
-	if(d2153_aad->switch_data.state != D2153_HEADSET)
-	{	
+	if (d2153_aad->switch_data.state != D2153_HEADSET)
 		return;
-	}
 
-	mutex_lock(&d2153_aad->d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
-
-	//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-	//			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);		
-	if (D2153_AA_Silicon == d2153_aad->chip_rev)
-	{
-		d2153_aad_write(client,D2153_ACCDET_CFG4,0x17);
+	if (D2153_AA_Silicon == d2153_aad->chip_rev) {
+		d2153_aad_write(client, D2153_ACCDET_CFG4, 0x17);
 		d2153_aad->button.status = D2153_BUTTON_IGNORE;
 	}
 	msleep(d2153_aad->button_detect_rate);
-	btn_status = d2153_aad_read(client, D2153_ACCDET_STATUS);			
-	
-	dlg_info("%s btn = %d ! \n",__func__,btn_status);
+	btn_status = d2153_aad_read(client, D2153_ACCDET_STATUS);
 
-	if (D2153_AA_Silicon == d2153_aad->chip_rev) 
+	dlg_info("%s btn = %d !\n", __func__, btn_status);
+
+	if (D2153_AA_Silicon == d2153_aad->chip_rev)
 		d2153_aad_update_bits(client, D2153_ACCDET_CFG4,
-					  D2153_ACCDET_ADC_COMP_OUT_INV, 0);
+			D2153_ACCDET_ADC_COMP_OUT_INV, 0);
 
-	//snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-	//			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);
-	
 	if ((btn_status >= button_res_tbl[SEND_BUTTON].min_val) &&
 		(btn_status <= button_res_tbl[SEND_BUTTON].max_val)) {
-		
-		d2153_aad->button.key=KEY_MEDIA;
+
+		d2153_aad->button.key = KEY_MEDIA;
 		d2153_aad->button.status = D2153_BUTTON_PRESS;
 		input_event(d2153_aad->input_dev, EV_KEY,
-				d2153_aad->button.key, 1);
+			d2153_aad->button.key, 1);
 		input_sync(d2153_aad->input_dev);
 		dlg_info("%s event Send Press !\n", __func__);
-
 	} else if ((btn_status >= button_res_tbl[VOL_UP_BUTTON].min_val) &&
-		 (btn_status <= button_res_tbl[VOL_UP_BUTTON].max_val)) {
-	
-		d2153_aad->button.key=KEY_VOLUMEUP;
+		(btn_status <= button_res_tbl[VOL_UP_BUTTON].max_val)) {
+
+		d2153_aad->button.key = KEY_VOLUMEUP;
 		d2153_aad->button.status = D2153_BUTTON_PRESS;
 		input_event(d2153_aad->input_dev, EV_KEY,
-				d2153_aad->button.key, 1);
+			d2153_aad->button.key, 1);
 		input_sync(d2153_aad->input_dev);
 		dlg_info("%s event VOL UP Press !\n", __func__);
-	
 	} else if ((btn_status >= button_res_tbl[VOL_DN_BUTTON].min_val) &&
-		 (btn_status <= button_res_tbl[VOL_DN_BUTTON].max_val)) {
+		(btn_status <= button_res_tbl[VOL_DN_BUTTON].max_val)) {
 
-		d2153_aad->button.key=KEY_VOLUMEDOWN;
+		d2153_aad->button.key = KEY_VOLUMEDOWN;
 		d2153_aad->button.status = D2153_BUTTON_PRESS;
 		input_event(d2153_aad->input_dev, EV_KEY,
-				d2153_aad->button.key, 1);
+			d2153_aad->button.key, 1);
 		input_sync(d2153_aad->input_dev);
-		dlg_info("%s event VOL DOWN Press ! \n",__func__);
-	
-	}
-	else {
-
-		if(d2153_aad->button.status == D2153_BUTTON_PRESS)
-		{
+		dlg_info("%s event VOL DOWN Press !\n", __func__);
+	} else {
+		if (d2153_aad->button.status == D2153_BUTTON_PRESS) {
 			input_event(d2153_aad->input_dev, EV_KEY,
-					d2153_aad->button.key, 0);
+				d2153_aad->button.key, 0);
 			input_sync(d2153_aad->input_dev);
 			d2153_aad->button.status = D2153_BUTTON_RELEASE;
-			dlg_info("%s event Rel key=%d!\n",__func__,d2153_aad->button.key);
+			dlg_info("%s event Rel key=%d!\n", __func__,
+				d2153_aad->button.key);
 		}
 
-#ifdef D2153_JACK_DETECT
-		jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);
-		if((jack_mode & D2153_ACCDET_JACK_MODE_JACK) ==0)
-#else
-		state_gpio = gpio_get_value(GPIO_PORT7);
-		if (state_gpio == 1) 
-#endif
-		{
+		if (d2153_aad->codec_detect_enable) {
+			jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);
+			if (0 == (jack_mode & D2153_ACCDET_JACK_MODE_JACK))
+				no_jack = 1;
+		} else {
+			state_gpio = gpio_get_value(d2153_aad->gpio_port);
+			if (state_gpio == 1)
+				no_jack = 1;
+		}
+		if (no_jack) {
 			d2153_aad->switch_data.state = D2153_NO_JACK;
 			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);
-			switch_set_state(&d2153_aad->switch_data.sdev, d2153_aad->switch_data.state);
-			dlg_info("%s Jack Pull Out ! \n",__func__);
+			switch_set_state(&d2153_aad->switch_data.sdev,
+				d2153_aad->switch_data.state);
+			dlg_info("%s Jack Pull Out !\n", __func__);
 		}
 
 	}
-
-	mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
 }
 
 static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 					 const struct i2c_device_id *id)
 {
 	struct d2153_aad_priv *d2153_aad;
-#ifndef D2153_JACK_DETECT
-	int irq;
-#endif
 	int ret;
+	void *func;
 	u8 regval;
 #ifndef D2153_DEFAULT_SET_MICBIAS
 	struct d2153 *pmic;
 #endif	/* D2153_DEFAULT_SET_MICBIAS */
-	int status;
-	//int ret_createfile = 0; /* Function return value */
-	dlg_info("[%s] start!\n",__func__);
+	struct d2153_audio *audio;
+
 
 	d2153_aad = devm_kzalloc(&client->dev, sizeof(struct d2153_aad_priv),
 				 GFP_KERNEL);
@@ -728,78 +720,74 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 
 	d2153_aad_ex = d2153_aad;
 
-	INIT_DELAYED_WORK(&d2153_aad->jack_monitor_work, d2153_aad_jack_monitor_timer_work);
-	INIT_DELAYED_WORK(&d2153_aad->button_monitor_work, d2153_aad_button_monitor_timer_work);
+	audio = &(d2153_aad->d2153_codec->d2153_pmic->pdata->audio);
+	d2153_aad->button_debounce_ms = audio->aad_button_debounce_ms;
+	d2153_aad->jack_debounce_ms = audio->aad_jack_debounce_ms;
+	d2153_aad->jackout_debounce_ms = audio->aad_jackout_debounce_ms;
+	d2153_aad->codec_detect_enable = audio->aad_codec_detect_enable;
+	d2153_aad->gpio_detect_enable = audio->aad_gpio_detect_enable;
+	d2153_aad->gpio_port = audio->aad_gpio_port;
+
+	if (d2153_aad->codec_detect_enable)
+		func = d2153_aad_jackdet_monitor_timer_work;
+	else
+		func = d2153_aad_gpio_monitor_timer_work;
+
+	INIT_DELAYED_WORK(&d2153_aad->jack_monitor_work, func);
+	INIT_DELAYED_WORK(&d2153_aad->button_monitor_work,
+			d2153_aad_button_monitor_timer_work);
 
 	d2153_aad->button_detect_rate = 20;
 
 	/* Ensure jack & button detection is disabled, default to auto power */
-	d2153_aad_write(client, D2153_ACCDET_CONFIG,0x00); 	
+	d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x00);
 
-#ifdef D2153_JACK_DETECT
-	/* Register virtual IRQs with PMIC for jack & button detection */
-	d2153_register_irq(d2153_aad->d2153_codec->d2153_pmic,
-			   D2153_IRQ_EJACKDET, d2153_jack_handler, 0,
-			   "Jack detect", d2153_aad);
-
-	/* GPIO Interrupt for G-DET */ 
-	ret = gpio_request(GPIO_PORT7, "GPIO detect");
-	ret = gpio_direction_input(GPIO_PORT7);
-	gpio_pull_up_port(GPIO_PORT7);
-	status = gpio_set_debounce(GPIO_PORT7, D2153_GPIO_DEBOUNCE_TIME);	/* 4msec */
-	if (status < 0) {
- 		dlg_info("%s: gpio request failed \r\n", __func__);
- 		return -ENOMEM;
- 	}
-	d2153_aad->g_det_irq=gpio_to_irq(GPIO_PORT7);
-	dlg_info("[%s] : qpio_to_irq= %d  \n",__func__, d2153_aad->g_det_irq);
-	//ret=request_threaded_irq(irq, NULL, d2153_jack_handler,
-						//IRQF_TRIGGER_FALLING |IRQF_TRIGGER_RISING| IRQF_DISABLED, "Jack detect", d2153_aad);
-	ret=request_threaded_irq(d2153_aad->g_det_irq, NULL, d2153_g_det_handler,
-						IRQF_TRIGGER_FALLING |IRQF_TRIGGER_RISING| IRQF_DISABLED, "GPIO detect", d2153_aad);
-	dlg_info("[%s] : request_threaded_irq= %d  \n",__func__, ret);
-	enable_irq_wake(d2153_aad->g_det_irq);
-	
-#else
-	gpio_request(GPIO_PORT7, NULL);
-	gpio_direction_input(GPIO_PORT7);
-	gpio_pull_up_port(GPIO_PORT7);
-	gpio_set_debounce(GPIO_PORT7, 1000);	/* 1msec */
-	irq=gpio_to_irq(GPIO_PORT7);
-	status = gpio_set_debounce(GPIO_PORT7, D2153_GPIO_DEBOUNCE_TIME);
-	if (status < 0) {
- 		dlg_info("%s: gpio request failed \r\n", __func__);
- 		return -ENOMEM;
- 	}
-	
-	dlg_info("[%s] : qpio_to_irq= %d  \n",__func__, irq);
-	ret=request_threaded_irq(irq, NULL, d2153_jack_handler,
-						IRQF_TRIGGER_FALLING |IRQF_TRIGGER_RISING| IRQF_DISABLED, "Jack detect", d2153_aad);
-	dlg_info("[%s] : request_threaded_irq= %d  \n",__func__, ret);
-	enable_irq_wake(irq);
-#endif
+	if (d2153_aad->codec_detect_enable) {
+		/* Register virtual IRQs with PMIC */
+		/* for jack & button detection */
+		d2153_register_irq(d2153_aad->d2153_codec->d2153_pmic,
+				   D2153_IRQ_EJACKDET, d2153_jack_handler, 0,
+				   "Jack detect", d2153_aad);
+		func = d2153_g_det_handler;
+	} else {
+		func = d2153_jack_handler;
+	}
+	d2153_aad->g_det_irq = gpio_to_irq(d2153_aad->gpio_port);
+	dlg_info("[%s] : qpio_to_irq= %d\n", __func__, d2153_aad->g_det_irq);
+	ret = request_threaded_irq(d2153_aad->g_det_irq, NULL, func,
+				IRQF_TRIGGER_FALLING |
+				IRQF_TRIGGER_RISING |
+				IRQF_DISABLED,
+				(d2153_aad->codec_detect_enable ?
+					"GPIO detect" : "Jack detect"),
+				d2153_aad);
+	dlg_info("[%s] : request_threaded_irq= %d\n", __func__, ret);
 	/* Generate node for DFMS  */
-printk("--------------------------------------------\n");
+	dlg_info("--------------------------------------------\n");
 	d2153_aad_ex->audio_class = class_create(THIS_MODULE, "audio");
-	d2153_aad_ex->headset_dev = device_create(d2153_aad_ex->audio_class, NULL, client->dev.devt, NULL, "earjack");
-	device_create_file(d2153_aad_ex->headset_dev, &headset_Attrs[STATE]);
-	device_create_file(d2153_aad_ex->headset_dev, &headset_Attrs[KEY_STATE]);
-	device_create_file(d2153_aad_ex->headset_dev, &headset_Attrs[ADC]);
-printk("--------------------------------------------+++++++\n");
-
+	d2153_aad_ex->headset_dev = device_create(d2153_aad_ex->audio_class,
+						NULL, client->dev.devt,
+						NULL, "earjack");
+	device_create_file(d2153_aad_ex->headset_dev,
+			&headset_Attrs[STATE]);
+	device_create_file(d2153_aad_ex->headset_dev,
+			&headset_Attrs[KEY_STATE]);
+	device_create_file(d2153_aad_ex->headset_dev,
+			&headset_Attrs[ADC]);
+	dlg_info("--------------------------------------------+++++++\n");
 	d2153_register_irq(d2153_aad->d2153_codec->d2153_pmic,
-			   D2153_IRQ_EACCDET, d2153_button_handler, 0,
-			   "Button detect", d2153_aad);
+			D2153_IRQ_EACCDET, d2153_button_handler, 0,
+			"Button detect", d2153_aad);
 
 
 	d2153_reg_read(d2153_aad->d2153_codec->d2153_pmic, 0x96, &regval);
 	d2153_aad->chip_rev = regval;
 	d2153_aad->l_det_status = false;
 
-	dlg_info("%s chip_rev [0x%x] \n",__func__, d2153_aad->chip_rev);
+	dlg_info("%s chip_rev [0x%x]\n", __func__, d2153_aad->chip_rev);
 
-	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(300));
-	dlg_info("[%s] END!\n",__func__);
+	schedule_delayed_work(&d2153_aad->jack_monitor_work,
+			msecs_to_jiffies(300));
 
 	return 0;
 }

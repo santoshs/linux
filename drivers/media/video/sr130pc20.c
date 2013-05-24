@@ -1,7 +1,7 @@
 /*
  * Driver for Samsung SR130PC20 VGA Camera
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -440,20 +440,20 @@ static int SR130PC20_probe(struct i2c_client *client,
 						NULL, 0, NULL, "front");
 		if (IS_ERR(sec_sub_cam_dev)) {
 			dev_err(&client->dev,
-				"Failed to create device(sec_sub_cam_dev)!\n");
+			"Failed to create device(sec_sub_cam_dev)!\n");
 		}
 
 		if (device_create_file(sec_sub_cam_dev,
 					&dev_attr_front_camtype) < 0) {
 			dev_err(&client->dev,
-				"failed to create sub camera device file, %s\n",
-				dev_attr_front_camtype.attr.name);
+			"failed to create sub camera device file, %s\n",
+			dev_attr_front_camtype.attr.name);
 		}
 		if (device_create_file(sec_sub_cam_dev,
 					&dev_attr_front_camfw) < 0) {
 			dev_err(&client->dev,
-				"failed to create sub camera device file, %s\n",
-				dev_attr_front_camfw.attr.name);
+			"failed to create sub camera device file, %s\n",
+			dev_attr_front_camfw.attr.name);
 		}
 	}
 

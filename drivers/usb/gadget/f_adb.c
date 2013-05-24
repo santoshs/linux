@@ -26,6 +26,7 @@
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/miscdevice.h>
+#include <linux/usb/gadget_cust.h>
 
 #define ADB_BULK_BUFFER_SIZE           4096
 
@@ -413,7 +414,7 @@ static ssize_t adb_write(struct file *fp, const char __user *buf,
 
 static int adb_open(struct inode *ip, struct file *fp)
 {
-	pr_info("adb_open\n");
+	NPRINTK("\n");
 	if (!_adb_dev)
 		return -ENODEV;
 
@@ -436,7 +437,7 @@ static int adb_open(struct inode *ip, struct file *fp)
 
 static int adb_release(struct inode *ip, struct file *fp)
 {
-	pr_info("adb_release\n");
+	NPRINTK("\n");
 
 	/*
 	 * ADB daemon closes the device file after I/O error.  The

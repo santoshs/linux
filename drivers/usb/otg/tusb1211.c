@@ -79,10 +79,14 @@ static void set_otg_vbus(int enable)
 	if (!!enable) {/*Enable VBUS*/
 #if defined(CONFIG_CHARGER_SMB328A)
 		smb328a_otg_enable_disable(1, 0);
+#elif defined(CONFIG_CHARGER_SMB358)
+		smb358a_otg_enable_disable(1);
 #endif
 	} else { /*Disable VBUS*/
 #if defined(CONFIG_CHARGER_SMB328A)
 		smb328a_otg_enable_disable(0, 0);
+#elif defined(CONFIG_CHARGER_SMB358)
+		smb358a_otg_enable_disable(0);
 #endif
 	}
 }

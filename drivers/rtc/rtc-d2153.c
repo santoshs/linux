@@ -410,6 +410,13 @@ static int __devexit d2153_rtc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void d2153_rtc_shutdown(struct platform_device *pdev)
+{
+	d2153_rtc_alarm_irq_enable(&pdev->dev, 0);
+
+	return ;
+}
+
 static struct dev_pm_ops d2153_rtc_pm_ops = {
 	.suspend = d2153_rtc_suspend,
 	.resume = d2153_rtc_resume,
@@ -421,6 +428,7 @@ static struct dev_pm_ops d2153_rtc_pm_ops = {
 static struct platform_driver d2153_rtc_driver = {
 	.probe = d2153_rtc_probe,
 	.remove = __devexit_p(d2153_rtc_remove),
+	.shutdown = d2153_rtc_shutdown,
 	.driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,

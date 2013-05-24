@@ -20,6 +20,7 @@
 
 #include <linux/usb/composite.h>
 #include <asm/unaligned.h>
+#include <linux/usb/gadget_cust.h>
 
 #ifdef CONFIG_USB_G_ANDROID_SAMSUNG_COMPOSITE
 #include "multi_config.h"
@@ -708,6 +709,7 @@ static int set_config(struct usb_composite_dev *cdev,
 			reset_config(cdev);
 			goto done;
 		}
+		NPRINTK("%s interface is configured\n", f->name);
 
 		if (result == USB_GADGET_DELAYED_STATUS) {
 			DBG(cdev,
@@ -725,6 +727,7 @@ done:
 	usb_gadget_vbus_draw(gadget, power);
 	if (result >= 0 && cdev->delayed_status)
 		result = USB_GADGET_DELAYED_STATUS;
+        printk("USBD][%s] result=%d\n",__func__,result);	
 	return result;
 }
 

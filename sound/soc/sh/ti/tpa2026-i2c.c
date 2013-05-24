@@ -186,7 +186,9 @@ static ssize_t show_regwrite(struct device *dev,
 static ssize_t store_regwrite(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
-	unsigned int reg, val, ret;
+	int ret;
+	unsigned int reg, val;
+
 	sscanf(buf, "%x %x ", &reg, &val);
 	sysfs_reg = reg;
 	sysfs_val = val;
@@ -231,8 +233,11 @@ static int tpa2026_i2c_set_state
 
 	tpa2026_i2c_pr_func_start("mode[%d] device[%d] ch_dev[%d].\n",
 						mode, device, ch_dev);
-	if (device & SNDP_OUT_SPEAKER) {
-		if (ch_dev == SNDP_EXTDEV_STOP)
+	if (TPA2026_I2C_INPUT_DEVICE & device)
+		goto rtn;
+
+	if (SNDP_OUT_SPEAKER & device) {
+		if (SNDP_EXTDEV_STOP == ch_dev)
 			tpa2026_i2c_amp_shutdown();
 		else
 			tpa2026_i2c_amp_on();
@@ -242,6 +247,7 @@ static int tpa2026_i2c_set_state
 #endif
 	}
 
+rtn:
 	tpa2026_i2c_pr_func_end("rc[%d].\n", rc);
 	return rc;
 }
@@ -331,7 +337,7 @@ static int tpa2026_i2c_write_log_level(struct file *filp, const char *buffer,
 		return len;
 	}
 
-	if (copy_from_user(buf, (void __user *)buffer, len)) {
+	if (copy_from_user((void *)buf, (void __user *)buffer, len)) {
 		/* failed copy_from_user */
 		return len;
 	}
@@ -545,7 +551,7 @@ static int tpa2026_i2c_probe(struct i2c_client *i2c,
 	tpa2026_i2c_pr_func_start();
 
 	pdata = i2c->dev.platform_data;
-	if (pdata == NULL) {
+	if (NULL == pdata) {
 		tpa2026_i2c_pr_err("platform data is NULL.\n");
 		goto exit;
 	}

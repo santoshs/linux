@@ -23,7 +23,7 @@ Description :  File created
 
 #include "smc_common_includes.h"
 
-#include "smc_conf.h"
+/*#include "smc_conf.h"*/
 #include "smc_fifo.h"
 #include "smc.h"
 #include "smc_test.h"
@@ -357,7 +357,7 @@ static uint8_t smc_test_handler_send_event(uint8_t* test_input_data, uint32_t te
 #else
     SMC_TRACE_PRINTF_ERROR( "smc_test_handler_send_event: IMPLEMENTED ONLY IN MODEM");
 #endif
-    SMC_TRACE_PRINTF_INFO( "smc_test_handler_send_event: completed by return value %d", ret_value);
+    SMC_TRACE_PRINTF_INFO( "smc_test_handler_send_event: completed by return value %d", return_value);
     return return_value;
 
 }

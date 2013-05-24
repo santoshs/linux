@@ -64,7 +64,7 @@
 
 #if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 #define READ_MACADDR
-#undef HW_OOB
+#define HW_OOB
 #undef USE_CID_CHECK
 #endif /* CONFIG_MACH_U2EVM */
 

@@ -763,7 +763,7 @@ void STC311x_Reset(void)
 		for(Loop=0;Loop<16;Loop++)
 	  		GasGaugeData.OCVOffset[Loop] = chip->pdata->OCVOffset[Loop];    
 	   for(Loop=0;Loop<16;Loop++)
-	  		GasGaugeData.OCVOffset2[Loop] = chip->pdata->OCVOffset2[Loop];     
+	  		GasGaugeData.OCVOffset2[Loop] = chip->pdata->OCVOffset2[Loop];
 #if 1
 	  	GasGaugeData.ExternalTemperature = chip->pdata->ExternalTemperature(); /*External temperature fonction, return C*/
 	  	GasGaugeData.ForceExternalTemperature = chip->pdata->ForceExternalTemperature; /* 1=External temperature, 0=STC3115 temperature */
@@ -1635,7 +1635,7 @@ int GasGauge_Task(GasGauge_DataTypeDef *GG)
     GG->AvgTemperature = BattData.AvgTemperature;
     GG->AvgSOC = BattData.AvgSOC;
 
-    if (BattData.Vmode) 
+    if (BattData.Vmode)
     {
       /* no current value in voltage mode */
       GG->Current = 0;
@@ -1945,7 +1945,7 @@ static void stc311x_work(struct delayed_work *dwork)
 		for(Loop=0;Loop<16;Loop++)
 	  		GasGaugeData.OCVOffset[Loop] = chip->pdata->OCVOffset[Loop];    
 	        for(Loop=0;Loop<16;Loop++)
-	  		GasGaugeData.OCVOffset2[Loop] = chip->pdata->OCVOffset2[Loop];     
+	  		GasGaugeData.OCVOffset2[Loop] = chip->pdata->OCVOffset2[Loop];
 #if 1
 	  	GasGaugeData.ExternalTemperature = chip->pdata->ExternalTemperature(); /*External temperature fonction, return C*/
 	  	GasGaugeData.ForceExternalTemperature = chip->pdata->ForceExternalTemperature; /* 1=External temperature, 0=STC3115 temperature */

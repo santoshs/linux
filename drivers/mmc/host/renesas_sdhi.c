@@ -117,8 +117,10 @@
 #define SDHI_MIN_DMA_LEN	8
 #define SDHI_TIMEOUT		5000	/* msec */
 
-#define SD_CLK_CMD_DELAY	200
-unsigned int wakeup_from_suspend;
+#define SD_CLK_CMD_DELAY	200	/* microseconds */
+static unsigned int wakeup_from_suspend;
+
+unsigned int check_booting;
 
 /* sdcard1_detect_state variable used to detect the state of the SD card */
 static int sdcard1_detect_state;
@@ -981,7 +983,12 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 	dev_dbg(&host->pdev->dev, "CMD %d %x %x %x %x\n",
 		cmd->opcode, cmd->arg, cmd->flags, cmd->retries, cmddat);
 
-	if(wakeup_from_suspend == 1){
+	if(check_booting){
+		check_booting = 0;
+		mdelay(1);
+	}
+
+	if (wakeup_from_suspend == 1) {
 		clk_enable(host->clk);
 		/* Disable automatic control for SD clock output */
 		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
@@ -997,8 +1004,7 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 		sdhi_write16(host, SDHI_CLK_CTRL, val16);
 		wakeup_from_suspend = 0;
 		clk_disable(host->clk);
-	}
-	else{
+	} else {
 		/* Send command */
 		sdhi_write16(host, SDHI_CMD, cmddat);
 	}
@@ -1287,16 +1293,8 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	host->pdata = pdata;
  	host->reg = reg;
 
-#if defined(CONFIG_MFD_D2153)
-	/*This call only used for updating the usage count of regulator,
-		as it is already turned on from bootloader.*/
-	if (pdata->set_pwr)
-		pdata->set_pwr(host->pdev, 1);
-#endif
 	/* powr off */
 	host->power_mode = MMC_POWER_OFF;
-	if (pdata->set_pwr)
-		pdata->set_pwr(host->pdev, 0);
 
 	if (!pdata->dma_en_val)
 		pdata->dma_en_val = SDHI_DMA_EN;
@@ -1378,10 +1376,12 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		host->dynamic_clock = 0;
 	}
 
-	if(host->connect == 1)
+	if(host->connect == 1) {
 		wakeup_from_suspend = 1;
-	else
+		check_booting = 1;
+	} else {
 		wakeup_from_suspend = 0;
+	}
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		/* updating the SD card presence*/
@@ -1521,7 +1521,7 @@ int renesas_sdhi_suspend(struct device *dev)
 	sdhi_save_register(host);
 	if (!host->dynamic_clock) {
 		clk_disable(host->clk);
-		
+
 	}
 	ret = pm_runtime_put_sync(dev);
 	if (0 > ret)
@@ -1532,7 +1532,7 @@ int renesas_sdhi_suspend(struct device *dev)
 				host->pdata->gpio_setting_info, 1);
 	}
 
-	if (device_may_wakeup(dev))
+	if (host->pdata  && device_may_wakeup(dev))
 		enable_irq_wake(host->pdata->detect_irq);
 
 	return ret;
@@ -1556,7 +1556,8 @@ int renesas_sdhi_resume(struct device *dev)
 	pm_runtime_get_sync(dev);
 	if (!host->dynamic_clock) {
 		clk_enable(host->clk);
-		sdhi_reset(host);
+		if (host->pdata != NULL)
+			sdhi_reset(host);
 		val = sdhi_read32(host, SDHI_INFO);
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
 	}

@@ -1023,6 +1023,10 @@ static int shmobile_suspend(void)
 	}
 
 	set_regs_for_LPM();
+#ifdef CONFIG_ARCH_R8A7373
+	if (pmdbg_get_enable_dump_suspend())
+		pmdbg_dump_suspend();
+#endif /* CONFIG_ARCH_R8A7373 */
 	/*
 	 * do cpu suspend ...
 	 */

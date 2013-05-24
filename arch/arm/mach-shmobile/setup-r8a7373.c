@@ -35,7 +35,6 @@
 #include <linux/gpio.h>
 #include <linux/sched.h>
 #include <mach/setup-u2current_timer.h>
-
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
 #endif
@@ -55,7 +54,6 @@
 #include <linux/d2153/core.h>
 #endif
 #include <mach/setup-u2sci.h>
-#include <mach/memory-r8a7373.h>
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
 /*
@@ -100,6 +98,7 @@ static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
 	.bus_data_delay	= MIN_SDA_DELAY ,
+	.clks_per_count = 2,
 };
 
 static struct resource i2c0_resources[] = {
@@ -131,6 +130,7 @@ static struct i2c_sh_mobile_platform_data i2c1_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
 	.bus_data_delay	= MIN_SDA_DELAY,
+	.clks_per_count = 2,
 };
 
 static struct resource i2c1_resources[] = {
@@ -162,6 +162,7 @@ static struct i2c_sh_mobile_platform_data i2c2_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
 	.bus_data_delay	= MIN_SDA_DELAY,
+	.clks_per_count = 2,
 };
 
 static struct resource i2c2_resources[] = {
@@ -193,6 +194,7 @@ static struct i2c_sh_mobile_platform_data i2c3_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= false,
 	.bus_data_delay	= MIN_SDA_DELAY,
+	.clks_per_count = 2,
 };
 
 static struct resource i2c3_resources[] = {
@@ -232,6 +234,7 @@ static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
 		.port_num	= GPIO_PORT85,
 		.port_func	= GPIO_FN_I2C_SDA0H,
 	},
+	.clks_per_count = 2,
 };
 
 static struct resource i2c4_resources[] = {
@@ -272,6 +275,7 @@ static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 		.port_num	= GPIO_PORT87,
 		.port_func	= GPIO_FN_I2C_SDA1H,
 	},
+	.clks_per_count = 2,
 };
 
 static struct resource i2c5_resources[] = {
@@ -314,6 +318,7 @@ static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
 		.port_num	= GPIO_PORT83,
 		.port_func	= GPIO_FN_I2C_SDA2H,
 	},
+	.clks_per_count = 2,
 };
 static struct resource i2c6_resources[] = {
 	[0] = {
@@ -353,6 +358,7 @@ static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
 		.port_num	= GPIO_PORT274,
 		.port_func	= GPIO_FN_I2C_SDA3H,
 	},
+	.clks_per_count = 2,
 };
 
 static struct resource i2c7_resources[] = {
@@ -1509,8 +1515,6 @@ EXPORT_SYMBOL_GPL(sh_modify_register32);
 
 void __iomem *sbsc_sdmracr1a;
 
-#define CPG_PLLECR_PLL3ST		(0x00000800)
-#define CPG_PLL3CR_1040MHZ		(0x27000000)
 void SBSC_Init_520Mhz(void)
 {
 	unsigned long work;
@@ -1540,22 +1544,31 @@ void SBSC_Init_520Mhz(void)
 }
 EXPORT_SYMBOL_GPL(SBSC_Init_520Mhz);
 
-unsigned int u2_board_rev;
+static unsigned int board_rev_val;
 
 unsigned int u2_get_board_rev(void)
 {
-	return u2_board_rev;
+	return board_rev_val;
 }
 EXPORT_SYMBOL_GPL(u2_get_board_rev);
 
-unsigned int read_board_rev(void)
+int read_board_rev(void)
 {
 	unsigned int rev0, rev1, rev2, rev3, ret;
 
-	gpio_request(GPIO_PORT72, "HW_REV0");
-	gpio_request(GPIO_PORT73, "HW_REV1");
-	gpio_request(GPIO_PORT74, "HW_REV2");
-	gpio_request(GPIO_PORT75, "HW_REV3");
+	int error;
+	error = gpio_request(GPIO_PORT72, "HW_REV0");
+	if (error < 0)
+		return error;
+	error = gpio_request(GPIO_PORT73, "HW_REV1");
+	if (error < 0)
+		return error;
+	error = gpio_request(GPIO_PORT74, "HW_REV2");
+	if (error < 0)
+		return error;
+	error = gpio_request(GPIO_PORT75, "HW_REV3");
+	if (error < 0)
+		return error;
 
 	gpio_direction_input(GPIO_PORT72);
 	gpio_direction_input(GPIO_PORT73);
@@ -1573,7 +1586,8 @@ unsigned int read_board_rev(void)
 	gpio_free(GPIO_PORT75);
 
 	ret =  rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0;
-	return ret;
+	board_rev_val = ret;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(read_board_rev);
 

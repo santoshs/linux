@@ -86,13 +86,14 @@ smc_channel_conf_t* smc_channel_conf_create( void )
 
     conf->fifo_full_check_timeout_usec  = 0;
     conf->trace_features                = 0x00;
+    conf->wakelock_timeout_ms           = 0;
 
     return conf;
 }
 
 smc_channel_runtime_fixed_conf_t*  smc_channel_runtime_fixes_conf_create( void )
 {
-    smc_channel_runtime_fixed_conf_t* conf = (smc_channel_runtime_fixed_conf_t*)SMC_MALLOC( sizeof(smc_channel_runtime_fixed_conf_t) );
+    smc_channel_runtime_fixed_conf_t* conf = (smc_channel_runtime_fixed_conf_t*)SMC_MALLOC_IRQ( sizeof(smc_channel_runtime_fixed_conf_t) );
 
     conf->channel_id        = 0;
     conf->fifo_in_size      = 0;
@@ -339,9 +340,9 @@ smc_channel_conf_t* smc_channel_conf_create_from_instance_conf( smc_instance_con
             smc_channel_conf->wake_lock_flags = smc_instance_conf_channel->wake_lock_flags_slave;
         }
 
-        smc_channel_conf->priority       = smc_instance_conf_channel->priority;
-        smc_channel_conf->protocol       = smc_instance_conf_channel->protocol;
-
+        smc_channel_conf->priority            = smc_instance_conf_channel->priority;
+        smc_channel_conf->protocol            = smc_instance_conf_channel->protocol;
+        smc_channel_conf->wakelock_timeout_ms = smc_instance_conf_channel->wakelock_timeout_ms;
     }
     else
     {
@@ -472,7 +473,7 @@ uint8_t smc_shm_conf_request_received( smc_channel_t* channel, int32_t fifo_out_
             channel->id, fifo_out_size, fifo_in_size, mdb_start_address, mdb_size);
 
     SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_shm_conf_request_received: channel %d: Own data:        fifo_out_size: %d, fifo_in_size: %d, mdb_start_address 0x%08X, mdb_size: %d",
-                channel->id, channel->fifo_out->length, channel->fifo_in->length, channel->smc_shm_conf_channel->shm_area_start_address-offset, channel->smc_shm_conf_channel->size);
+                channel->id, channel->fifo_out->length, channel->fifo_in->length, (uint32_t)(channel->smc_shm_conf_channel->shm_area_start_address-offset), channel->smc_shm_conf_channel->size);
 
     SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_shm_conf_request_received: channel %d: Own config data:   fifo_out_size: %d, fifo_in_size: %d, mdb_size_out %d, mdb_size_in: %d (total %d)",
                 channel->id, channel->fifo_size_out, channel->fifo_size_in, channel->mdb_size_out, channel->mdb_size_in, channel->mdb_size_out+channel->mdb_size_in);
@@ -491,7 +492,7 @@ void smc_shm_conf_response_received( smc_channel_t* channel, int32_t fifo_out_si
             channel->id, fifo_out_size, fifo_in_size, mdb_start_address, mdb_size);
 
     SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_shm_conf_request_received: channel %d: Own data:          fifo_out_size: %d, fifo_in_size: %d, mdb_start_address 0x%08X, mdb_size: %d",
-                channel->id, channel->fifo_out->length, channel->fifo_in->length, channel->smc_shm_conf_channel->shm_area_start_address-offset, channel->smc_shm_conf_channel->size);
+                channel->id, channel->fifo_out->length, channel->fifo_in->length, (uint32_t)(channel->smc_shm_conf_channel->shm_area_start_address-offset), channel->smc_shm_conf_channel->size);
 
     SMC_TRACE_PRINTF_RUNTIME_CONF_SHM("smc_shm_conf_request_received: channel %d: Own config data:   fifo_out_size: %d, fifo_in_size: %d, mdb_size_out %d, mdb_size_in: %d (total %d)",
                 channel->id, channel->fifo_size_out, channel->fifo_size_in, channel->mdb_size_out, channel->mdb_size_in, channel->mdb_size_out+channel->mdb_size_in);

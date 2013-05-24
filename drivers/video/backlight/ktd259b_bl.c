@@ -107,29 +107,31 @@ struct brt_value brt_table_ktd[] = {
 #else
 struct brt_value brt_table_ktd[] = {
    { MIN_BRIGHTNESS_VALUE,  32 }, // Min pulse 32
-   { 32,  31 },   
-   { 43,  30 },   
-   { 55,  29 },     
-   { 66,  28 },    
-   { 77,  27 },    
-   { 88,  26 }, 
-   { 100,  25 }, 
-   { 111,  24 },    
-   { 122,  23 },    
-   { 134,  22 },    
-   { 145,  20 },//default value     
-   { 153,  19 },   
-   { 179,  17 },     
-   { 187,  16 },       
-   { 195,  15 },   
-   { 204,  14 },   
-   { 212,  13 },   
-   { 221,  12 },    
-   { 229,  11 },    
-   { 237,  10 },    
-   { 246,  9 },    
+   { 30,  31 },   
+   { 41,  30 },   
+   { 52,  29 },     
+   { 63,  28 },    
+   { 74,  27 },    
+   { 85,  26 },    
+   { 96,  25 },    
+   { 107,  24 },    
+   { 118,  23 }, 
+   { 129,  22 },    
+   { 140,  21 },    
+   { 151,  20 }, 
+   { 162,  19 }, //default value       
+   { 170,  18 },    
+   { 178,  17 },     
+   { 186,  16 },       
+   { 194,  15 },   
+   { 202,  14 },   
+   { 210,  13 },   
+   { 218,  12 },    
+   { 226,  11 },  
+   { 234,  10 },   
+   { 241,  9 },    
+   { 248,  8 },      
    { MAX_BRIGHTNESS_VALUE,  7 }, 
-
 };
 #endif
 #define MAX_BRT_STAGE_KTD (int)(sizeof(brt_table_ktd)/sizeof(struct brt_value))
@@ -250,7 +252,7 @@ static void ktd259b_backlight_earlysuspend(struct early_suspend *desc)
         printk("[%02d:%02d:%02d.%03lu][BACKLIGHT] earlysuspend\n", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
 }
 
-static void ktd259b_backlight_earlyresume(struct early_suspend *desc)
+static void ktd259b_backlight_lateresume(struct early_suspend *desc)
 {
 	struct ktd259b_bl_data *ktd259b = container_of(desc, struct ktd259b_bl_data,
 				early_suspend_desc);
@@ -261,7 +263,7 @@ static void ktd259b_backlight_earlyresume(struct early_suspend *desc)
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
        backlight_mode=BACKLIGHT_RESUME;
-       printk("[%02d:%02d:%02d.%03lu][BACKLIGHT] earlyresume\n", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+       printk("[%02d:%02d:%02d.%03lu][BACKLIGHT] late resume\n", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
        backlight_update_status(bl);
 }
 #else
@@ -333,7 +335,7 @@ static int ktd259b_backlight_probe(struct platform_device *pdev)
 	ktd259b->pdev = pdev;
 	ktd259b->early_suspend_desc.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
 	ktd259b->early_suspend_desc.suspend = ktd259b_backlight_earlysuspend;
-	ktd259b->early_suspend_desc.resume = ktd259b_backlight_earlyresume;
+	ktd259b->early_suspend_desc.resume = ktd259b_backlight_lateresume;
 	register_early_suspend(&ktd259b->early_suspend_desc);
 #endif
 
@@ -368,6 +370,13 @@ static int ktd259b_backlight_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void ktd259b_backlight_shutdown(struct platform_device *pdev)
+{
+	printk("[BACKLIGHT] ktd259b_backlight_shutdown\n");
+    gpio_set_value(backlight_pin,0);
+    mdelay(3); 	
+
+}
 
 static struct platform_driver ktd259b_backlight_driver = {
 	.driver		= {
@@ -376,7 +385,7 @@ static struct platform_driver ktd259b_backlight_driver = {
 	},
 	.probe		= ktd259b_backlight_probe,
 	.remove		= ktd259b_backlight_remove,
-
+	.shutdown   = ktd259b_backlight_shutdown,
 #ifndef CONFIG_HAS_EARLYSUSPEND
 	.suspend        = ktd259b_backlight_suspend,
 	.resume         = ktd259b_backlight_resume,

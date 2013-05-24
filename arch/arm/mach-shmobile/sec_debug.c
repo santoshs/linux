@@ -27,6 +27,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel_stat.h>
 #include <linux/moduleparam.h>
+#include <linux/version.h>
 #include <asm/system_misc.h>
 
 #if defined(CONFIG_ARCH_SHMOBILE)
@@ -902,29 +903,31 @@ static void sec_kmsg_dump(struct kmsg_dumper *dumper,
 		*ptr++ = *s2++;
 
 	switch (reason) {
-	case KMSG_DUMP_HALT:
-	case KMSG_DUMP_RESTART:
-	case KMSG_DUMP_POWEROFF:
-		/* No action on ordinary shutdown */
-		flush = 0;
-		break;
-	case KMSG_DUMP_EMERG:
-	case KMSG_DUMP_PANIC:
-	case KMSG_DUMP_OOPS:
-	default: /* And anything else we don't recognise */
-		flush = 1;
-		break;
+		case KMSG_DUMP_HALT:
+		case KMSG_DUMP_RESTART:
+		case KMSG_DUMP_POWEROFF:
+			/* No action on ordinary shutdown */
+			flush = 0;
+			break;
+		case KMSG_DUMP_EMERG:
+		case KMSG_DUMP_PANIC:
+		case KMSG_DUMP_OOPS:
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(3,0,31)
+		case KMSG_DUMP_KEXEC:
+#endif
+		default: /* And anything else we don't recognise */
+			flush = 1;
 	}
 
-	if(flush){
-		/*
-		* Flush now to try to ensure we at least see logs in a raw
-		* RAM dump, in case we don't get any further - this covers
-		* inspection of either our limited copy, or the original
-		* log from a complete RAM dump, and also any other
-		* relevant data.
-		* (We only need a clean, not a flush no API for that).
-		*/
+	if (flush) {
+		/**
+		 * Flush now to try to ensure we at least see logs in a raw
+		 * RAM dump, in case we don't get any further - this covers
+		 * inspection of either our limited copy, or the original
+		 * log from a complete RAM dump, and also any other
+		 * relevant data.
+		 * (We only need a clean, not a flush, but no API for that).
+		 */
 		flush_cache_all();
 		outer_flush_all();
 	}

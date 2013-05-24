@@ -60,7 +60,7 @@ static ssize_t maincamflash_S5K4ECGX_store(struct device *dev,
 
 static DEVICE_ATTR(rear_camtype, 0644, subcamtype_S5K4ECGX_show, NULL);
 static DEVICE_ATTR(rear_camfw, 0644, subcamfw_S5K4ECGX_show, NULL);
-static DEVICE_ATTR(rear_flash, 0644, NULL, maincamflash_S5K4ECGX_store);
+static DEVICE_ATTR(rear_flash, 0664, NULL, maincamflash_S5K4ECGX_store);
 
 struct S5K4ECGX_datafmt {
 	enum v4l2_mbus_pixelcode	code;

@@ -48,13 +48,6 @@
 #include <linux/module.h>
 #include <linux/kthread.h>
 
-
-#include <linux/workqueue.h>
-#include <linux/interrupt.h>
-#include <linux/gpio.h>
-#include <linux/semaphore.h>
-
-
 #if defined (CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
 #endif
@@ -126,10 +119,6 @@ struct sh_mobile_lcdc_priv {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend    early_suspend;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
-
-#if defined(CONFIG_FB_LCD_ESD)
-   	struct work_struct  work;
-#endif   	
 	int irq;
 };
 
@@ -186,16 +175,6 @@ static u32 fb_debug;
 
 module_param(fb_debug, int, 0644);
 MODULE_PARM_DESC(fb_debug, "SH LCD debug level");
-
-
-#if defined(CONFIG_FB_LCD_ESD)
-static struct workqueue_struct *lcd_wq;
-int lcd_esd;
-static irqreturn_t lcd_esd_irq_handler(int irq, void *dev_id);
-#define GPIO_LCD_ESD_DET 6
-#endif
-
-
 
 static unsigned long RoundUpToMultiple(unsigned long x, unsigned long y);
 static unsigned long GCD(unsigned long x, unsigned long y);
@@ -359,19 +338,14 @@ static int display_initialize(int lcd_num)
 
 	lcd_ext_param[lcd_num].aInfo = screen_display_new();
 
-	printk("%s, lcd_num=%d", __func__, lcd_num);
+	printk(KERN_INFO "%s, lcd_num=%d", __func__, lcd_num);
 
 	if (lcd_ext_param[lcd_num].aInfo == NULL)
 		return -2;
 
 	if (lcd_ext_param[lcd_num].panel_func.panel_init) {
-#if defined(CONFIG_FB_LCD_ESD)
-		disable_irq(lcd_esd);
-#endif
-		ret = lcd_ext_param[lcd_num].panel_func.panel_init(lcd_ext_param[lcd_num].mem_size);
-#if defined(CONFIG_FB_LCD_ESD)
-		enable_irq(lcd_esd);
-#endif
+		ret = lcd_ext_param[lcd_num].panel_func.panel_init(
+			lcd_ext_param[lcd_num].mem_size);
 		if (ret != 0) {
 			printk(KERN_ALERT "r_mobile_panel_init error\n");
 			disp_delete.handle = lcd_ext_param[lcd_num].aInfo;
@@ -565,6 +539,12 @@ int sh_mobile_fb_hdmi_set(struct fb_hdmi_set_mode *set_mode)
 		disp_delete.handle = hdmi_handle;
 		screen_display_delete(&disp_delete);
 		lcd_ext_param[0].hdmi_flag = FB_HDMI_STOP;
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+
+		sh_mobile_composer_hdmiset(1);
+#endif
+#endif
 		up(&lcd_ext_param[0].sem_lcd);
 		sh_mobile_lcdc_refresh(
 			RT_DISPLAY_REFRESH_ON, RT_DISPLAY_LCD1);
@@ -737,10 +717,6 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		disp_draw.buffer_id = set_buff_id;
 		disp_draw.buffer_offset = new_pan_offset;
 		disp_draw.rotate = lcd_ext_param[lcd_num].rotate;
-#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-		sh_mobile_composer_blendoverlay(disp_draw.buffer_offset
-						+ info->fix.smem_start);
-#endif
 		DBG_PRINT("screen_display_draw handle %x\n",
 			  (unsigned int)disp_draw.handle);
 		DBG_PRINT("screen_display_draw output_mode %d\n",
@@ -788,9 +764,6 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 		disp_draw.buffer_id = set_buff_id;
 		disp_draw.buffer_offset = 0;
 		disp_draw.rotate = lcd_ext_param[lcd_num].rotate;
-#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-		sh_mobile_composer_blendoverlay(info->fix.smem_start);
-#endif
 		ret = screen_display_draw(&disp_draw);
 		if (ret != SMAP_LIB_DISPLAY_OK) {
 			r_mobile_fb_err_msg(ret, "screen_display_draw");
@@ -1103,12 +1076,8 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 #endif
 
 			if (lcd_ext_param[lcd_num].panel_func.panel_suspend) {
-#if defined(CONFIG_FB_LCD_ESD)
-				struct platform_device *pdev = to_platform_device(dev);
-				struct sh_mobile_lcdc_priv *priv = platform_get_drvdata(pdev);
-				free_irq(lcd_esd, priv);
-#endif
-				lcd_ext_param[lcd_num].panel_func.panel_suspend();
+				lcd_ext_param[lcd_num].
+					panel_func.panel_suspend();
 			}
 
 			up(&lcd_ext_param[lcd_num].sem_lcd);
@@ -1132,21 +1101,14 @@ static int sh_mobile_lcdc_suspend(struct device *dev)
 static int sh_mobile_lcdc_resume(struct device *dev)
 {
 	unsigned int lcd_num;
-	int ret = 0;
 
 	down(&sh_mobile_sem_hdmi);
 
 	for (lcd_num = 0; lcd_num < CHAN_NUM; lcd_num++) {
 		if (lcd_ext_param[lcd_num].aInfo != NULL) {
 			if (lcd_ext_param[lcd_num].panel_func.panel_resume) {
-#if defined(CONFIG_FB_LCD_ESD)
-				struct platform_device *pdev = to_platform_device(dev);
-				struct sh_mobile_lcdc_priv *priv = platform_get_drvdata(pdev);
-#endif
-				lcd_ext_param[lcd_num].panel_func.panel_resume();
-#if defined(CONFIG_FB_LCD_ESD)
-				ret = request_irq(lcd_esd, lcd_esd_irq_handler, IRQF_ONESHOT, dev_name(dev), priv ); /*ME.*/
-#endif
+				lcd_ext_param[lcd_num].
+					panel_func.panel_resume();
 			}
 
 		}
@@ -1161,7 +1123,7 @@ static int sh_mobile_lcdc_resume(struct device *dev)
 
 	up(&sh_mobile_sem_hdmi);
 
-	return ret;
+	return 0;
 }
 
 
@@ -1171,6 +1133,7 @@ static void sh_mobile_fb_early_suspend(struct early_suspend *h)
 	struct sh_mobile_lcdc_priv *priv;
 
 	priv = container_of(h, struct sh_mobile_lcdc_priv, early_suspend);
+
 	sh_mobile_lcdc_suspend(priv->dev);
 
 }
@@ -1180,6 +1143,7 @@ static void sh_mobile_fb_late_resume(struct early_suspend *h)
 	struct sh_mobile_lcdc_priv *priv;
 
 	priv = container_of(h, struct sh_mobile_lcdc_priv, early_suspend);
+
 	sh_mobile_lcdc_resume(priv->dev);
 
 }
@@ -1212,37 +1176,6 @@ static unsigned long LCM(unsigned long x, unsigned long y)
 	return (gcd == 0) ? 0 : ((x / gcd) * y);
 }
 
-#if defined(CONFIG_FB_LCD_ESD)
-static void lcd_esd_detect(struct work_struct *work)
-{
-	struct sh_mobile_lcdc_priv *priv = 
-			container_of(work, struct sh_mobile_lcdc_priv, work);
-
-
-	printk("[LCD] lcd_esd_detect_enter\n");
-
-	sh_mobile_lcdc_suspend(priv->dev);
-	sh_mobile_lcdc_resume(priv->dev);
-
-	/* draw previous */
-	sh_mobile_fb_pan_display(&registered_fb[0]->var, registered_fb[0]);
-}
-
-
-static irqreturn_t lcd_esd_irq_handler(int irq, void *dev_id)
-{
-	struct sh_mobile_lcdc_priv *priv = (struct sh_mobile_lcdc_priv *)dev_id;
-	
-	printk("[LCD] %s, %d\n", __func__, __LINE__ );
-	
-	disable_irq_nosync(lcd_esd);
-
-	queue_work(lcd_wq, &priv->work);
-
-	return IRQ_HANDLED;
-}
-#endif
-
 static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 {
 	struct fb_info *info = NULL;
@@ -1252,9 +1185,6 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int error = 0;
 	int i, j;
-#if defined(CONFIG_FB_LCD_ESD)
-	int ret;
-#endif
 	void *temp = NULL;
 	struct fb_panel_info panel_info;
 
@@ -1287,31 +1217,14 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, priv);
 	pdata = pdev->dev.platform_data;
 
-
-	error = request_irq(i, sh_mobile_lcdc_irq, 0, dev_name(&pdev->dev), priv);
+	error = request_irq(i, sh_mobile_lcdc_irq, 0,
+			    dev_name(&pdev->dev), priv);
 	if (error) {
 		dev_err(&pdev->dev, "unable to request irq\n");
 		goto err0;
 	}
 
 	priv->irq = i;
-
-
-#if defined(CONFIG_FB_LCD_ESD)
-	lcd_wq = create_workqueue("lcd_esd_irq_wq");
-	
-	INIT_WORK(&priv->work, lcd_esd_detect);
-
-	printk("INIT_WORK !!!\n");
-	
-	lcd_esd = gpio_to_irq(GPIO_LCD_ESD_DET);
-
-	printk("lcd_esd=%d\n", lcd_esd);
-
-
-	ret = request_irq(lcd_esd, lcd_esd_irq_handler, IRQF_ONESHOT, dev_name(&pdev->dev), priv ); 
-#endif
-
 
 	/* irq base address */
 	irqc_baseaddr =  res->start;
@@ -1340,6 +1253,12 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 			lcd_ext_param[i].o_mode = RT_DISPLAY_LCD1;
 #if FB_SH_MOBILE_HDMI
 			lcd_ext_param[i].draw_mode = RT_DISPLAY_LCDHDMI;
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
+			/* disable mirror to HDMI */
+			lcd_ext_param[i].draw_mode = RT_DISPLAY_LCD1;
+#endif
+#endif
 #else
 			lcd_ext_param[i].draw_mode = RT_DISPLAY_LCD1;
 #endif
@@ -1555,8 +1474,6 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 		printk(KERN_ALERT "kthread_run error\n");
 		goto err1;
 	}
-
-	sh_lcd_vsync.vsync_flag = 0;
 
 	fb_debug = 0;
 

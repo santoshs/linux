@@ -41,7 +41,7 @@
 
 #define D2153_REG_DEBUG
 /* #define D2153_SUPPORT_I2C_HIGH_SPEED */
-
+#define D2153_AUD_LDO_FOR_ESD
 
 #ifdef D2153_REG_DEBUG
 #define D2153_MAX_HISTORY           	100
@@ -355,7 +355,8 @@ static void d2153_codec_dev_register(struct d2153 *d2153,
 {
 	struct i2c_board_info info;
 
-	strncpy(info.type, name, sizeof(info.type));
+	memset(info.type, '\0', sizeof(info.type));
+	strncpy(info.type, name, strlen(name));
 
 	/* D2153 actual address */
 	info.addr = D2153_CODEC_I2C_ADDR;
@@ -421,7 +422,7 @@ static long d2153_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct d2153 *d2153 =  file->private_data;
 	pmu_reg reg;
-	int ret = 0;
+	long ret = 0;
 	u8 reg_val = 0;
 
 	if (!d2153)
@@ -441,7 +442,7 @@ static long d2153_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case D2153_IOCTL_WRITE_REG:
 		if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 			return -EFAULT;
-		d2153_write(d2153, reg.reg, 1, (u8 *)&reg.val);
+		ret = d2153_write(d2153, reg.reg, 1, (u8 *)&reg.val);
 		break;
 
 	default:
@@ -684,6 +685,9 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	int i;
 	u8 data;
 #endif
+#ifdef D2153_AUD_LDO_FOR_ESD
+	u8 status=0;
+#endif
 
 	if (d2153 != NULL)
 		d2153_regl_info = d2153;
@@ -697,6 +701,14 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	mutex_init(&d2153->d2153_audio_ldo_mutex);
 	
 	d2153_reg_write(d2153, D2153_GPADC_MCTL_REG, 0x55);
+
+#ifdef D2153_AUD_LDO_FOR_ESD
+	d2153_reg_write(d2153, D2153_LDO21_MCTL_REG, 0x00);
+	d2153_reg_write(d2153, D2153_LDO22_MCTL_REG, 0x00);
+	msleep(1);
+	d2153_reg_read(d2153, 0x9c, &status);
+	d2153_reg_read(d2153, 0x9c, &status);
+#endif
 
 #ifdef D2153_SUPPORT_I2C_HIGH_SPEED
 	d2153_set_bits(d2153, D2153_CONTROL_B_REG, D2153_I2C_SPEED_MASK);
