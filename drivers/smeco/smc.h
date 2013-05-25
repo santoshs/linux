@@ -199,7 +199,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.50"
+#define SMC_SW_VERSION  "0.0.51"     /* Update for releases */
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -589,6 +589,7 @@ typedef struct _smc_channel_t
     uint16_t                            rx_queue_peak;                    /* For RX statistics */
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
     void*                               smc_tx_wakelock;                  /* Channel specific TX wakelock item */
+    char*                               smc_tx_wakelock_name;             /* Name of the wakelock */
 #endif
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
@@ -838,7 +839,7 @@ void     smc_channel_fixed_config_response( smc_channel_t* smc_channel, smc_chan
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
 
 void*    smc_wakelock_create              ( char* wakelock_name );
-void     smc_wakelock_destroy             ( void* wakelock_item );
+void     smc_wakelock_destroy             ( void* wakelock_item, uint8_t destroy_ptr );
 
 #endif
     /*

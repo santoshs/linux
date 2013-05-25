@@ -1902,12 +1902,12 @@ void* smc_wakelock_create( char* wakelock_name )
 
     wake_lock_init(wakelock, WAKE_LOCK_SUSPEND, wakelock_name);
 
-    SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_wakelock_create: Created 0x%08X, name '%s'", (uint32_t)wakelock, wakelock_name);
+    SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_wakelock_create: Created 0x%08X, name '%s' size %d", (uint32_t)wakelock, wakelock_name, sizeof( struct wake_lock ));
 
     return (void*)wakelock;
 }
 
-void smc_wakelock_destroy( void* wakelock_item )
+void smc_wakelock_destroy( void* wakelock_item, uint8_t destroy_ptr )
 {
     if( wakelock_item != NULL )
     {
@@ -1917,7 +1917,17 @@ void smc_wakelock_destroy( void* wakelock_item )
 
         wake_unlock( wlock );
 
-        SMC_FREE( wakelock_item );
+        if( destroy_ptr )
+        {
+            SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_wakelock_destroy: remove lock 0x%08X from wakelock list...", (uint32_t)wakelock_item);
+            wake_lock_destroy( wlock );
+
+            SMC_FREE( wakelock_item );
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_wakelock_destroy: not destroyed ptr 0x%08X size %d", (uint32_t)wakelock_item, sizeof( struct wake_lock ) );
+        }
     }
 }
 

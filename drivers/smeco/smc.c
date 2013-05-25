@@ -16,7 +16,7 @@ Change history:
 
 Version:       27   03-Jul-2012     Andrey Derkach
 Status:        draft
-Description :  FIFO polling function updated to keep polling forever since it is
+Description :  FIFO polling function updated to keep polling forever since it is 
                used only for XFile and core dump transfers
 
 Version:       12   04-Feb-2012     Heikki Siikaluoma
@@ -649,7 +649,7 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
                         SMC_LOCK_IRQ( channel->lock_mdb );
 
                         mdb_ptr = smc_mdb_alloc(channel, data_length);
-
+                        
                         SMC_UNLOCK_IRQ( channel->lock_mdb );
                         /*
                          * Critical section ends
@@ -979,7 +979,7 @@ void smc_fifo_poll( const smc_channel_t* smc_channel )
         }
 
         while(delay > 0 ) delay--;
-    }
+    }                            
     while( fifo_item_count == 0);
 
 }
@@ -1163,11 +1163,7 @@ uint8_t smc_channel_send_config( smc_channel_t* smc_channel, uint32_t configurat
     if( wait_reply )
     {
         reply_var = (uint32_t*)SMC_MALLOC_IRQ( sizeof( uint32_t) );
-
-       	if (reply_var == NULL)
-			return SMC_ERROR;
-
-		*reply_var = (uint32_t)0x00000000;
+        *reply_var = 0x00000000;
         userdata.userdata5 = (int32_t)reply_var;
     }
     else
@@ -1182,7 +1178,8 @@ uint8_t smc_channel_send_config( smc_channel_t* smc_channel, uint32_t configurat
     }
     else
     {
-        if( wait_reply && reply_var) {
+        if( wait_reply )
+        {
             uint32_t  timer_counter  = 0;
 
             SMC_TRACE_PRINTF_DEBUG("smc_channel_send_config: wait reply...");
@@ -1577,11 +1574,7 @@ uint8_t smc_send_crash_indication( smc_channel_t* smc_channel, char* crash_messa
         iCrashMessageLen += strlen(crash_message) + 1;
 
         crash_data_message = (char*)SMC_MALLOC(iCrashMessageLen);
-		if( crash_data_message == NULL )
-		{
-			ret_val = SMC_ERROR;
-			return ret_val;
-		}
+
         strcpy(crash_data_message+iIndex, SMC_CPU_NAME);
         iIndex += iCpuNameLen;
         strcpy(crash_data_message+iIndex, CRASH_INFO_PREFIX);
@@ -1594,10 +1587,6 @@ uint8_t smc_send_crash_indication( smc_channel_t* smc_channel, char* crash_messa
         iCrashMessageLen += 14;
 
         crash_data_message = (char*)SMC_MALLOC(iCrashMessageLen);
-		if( crash_data_message == NULL ) {
-			ret_val = SMC_ERROR;
-			return ret_val;
-		}
 
         strcpy(crash_data_message+iIndex, SMC_CPU_NAME);
         iIndex += iCpuNameLen;
@@ -1615,19 +1604,22 @@ uint8_t smc_send_crash_indication( smc_channel_t* smc_channel, char* crash_messa
     userdata.userdata3 = 0;
     userdata.userdata4 = 0;
     userdata.userdata5 = 0;
-	if( crash_data_message != NULL )
-	{
-    	if( smc_send_ext(smc_channel, (uint8_t *)crash_data_message, strlen(crash_data_message)+1, &userdata) != SMC_OK )
-    	{
-        	SMC_FREE(crash_data_message);
-        	SMC_TRACE_PRINTF_ERROR("smc_send_crash_indication: Failed to send crash information");
-        	ret_val = SMC_ERROR;
-    	}
-    	else
-    	{
-        	SMC_TRACE_PRINTF_ERROR("smc_send_crash_indication: crash information successfully sent");
-    	}
-	}
+
+    if( smc_send_ext(smc_channel, (uint8_t*)crash_data_message, strlen(crash_data_message)+1, &userdata) != SMC_OK )
+    {
+        if( crash_data_message != NULL )
+        {
+            SMC_FREE(crash_data_message);
+        }
+
+        SMC_TRACE_PRINTF_ERROR("smc_send_crash_indication: Failed to send crash information");
+        ret_val = SMC_ERROR;
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_send_crash_indication: crash information successfully sent");
+    }
+
     return ret_val;
 }
 
@@ -1877,10 +1869,6 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                             {
                                     /* Read the version from user data field 1 */
                                 uint32_t* version_info = (uint32_t*)SMC_MALLOC_IRQ( sizeof( uint32_t ) );
-								if (NULL == version_info) {
-									SMC_TRACE_PRINTF_ERROR("SMC Memory IRQ allocation failed");
-									return;
-								}
 
                                 *version_info = celldata.userdata1;
 
@@ -1897,7 +1885,8 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
 
                                 smc_channel->smc_event_cb( smc_channel, SMC_VERSION_INFO_REMOTE, (void*)version_info );
 
-                                if( version_info != NULL ) {
+                                if( version_info != NULL )
+                                {
                                     SMC_FREE( version_info );
                                     version_info = NULL;
                                 }
@@ -2882,7 +2871,7 @@ uint8_t smc_signal_add_handler( smc_signal_handler_t* signal_handler )
 
     signal_handler_count++;
 
-    signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof( *signal_handler_ptr_array) * signal_handler_count );
+    signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(signal_handler_ptr_array) * signal_handler_count );
 
     if( old_ptr_array )
     {
@@ -2959,7 +2948,7 @@ void smc_signal_remove_handler( smc_signal_handler_t* signal_handler )
 
             if( signal_handler_count > 0 )
             {
-				signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(*signal_handler_ptr_array) * signal_handler_count );
+                signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(signal_handler_ptr_array) * signal_handler_count );
             }
             else
             {
@@ -3066,7 +3055,7 @@ static uint8_t smc_channel_handle_sync( smc_channel_t* smc_channel, uint32_t syn
         }
         case SMC_MSG_FLAG_SYNC_INFO_RESP:
         {
-            if( NULL == SMC_CHANNEL_STATE_SET_SYNC_SENT( smc_channel->state ) )
+            if( !SMC_CHANNEL_STATE_SET_SYNC_SENT( smc_channel->state ) )
             {
                 SMC_TRACE_PRINTF_DEBUG("smc_channel_handle_sync(ch %d, 0x%08X): ====> Received RESP without REQ, setting state synchronized anyway", smc_channel->id,(uint32_t)smc_channel);
             }
@@ -3369,6 +3358,11 @@ static uint8_t smc_channel_buffer_fifo_flush( smc_channel_t* channel )
                     index = 0;
                 }
             }
+            else
+            {
+                break;
+            }
+
             counter++;
         }
 
@@ -3510,7 +3504,7 @@ uint8_t smc_shared_variable_add( smc_shared_variable_address_info* shm_var_info 
 
     g_smc_shared_variable_address_info_count++;
 
-    g_smc_shared_variable_address_info_array = (smc_shared_variable_address_info **)SMC_MALLOC( sizeof(*g_smc_shared_variable_address_info_array) * g_smc_shared_variable_address_info_count );
+    g_smc_shared_variable_address_info_array = (smc_shared_variable_address_info**)SMC_MALLOC( sizeof(smc_shared_variable_address_info) * g_smc_shared_variable_address_info_count );
 
     if( old_ptr_array )
     {
