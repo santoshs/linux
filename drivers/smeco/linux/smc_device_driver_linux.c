@@ -511,7 +511,11 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
             skb_queue_mapping = skb->queue_mapping;
 
             smc_channel = SMC_CHANNEL_GET(smc_instance, skb_queue_mapping);
-
+			if (smc_channel == NULL)
+			{
+			    SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit error\n");
+				return ret_val;
+			}
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
             if( smc_channel->smc_tx_wakelock != NULL )
             {
@@ -844,7 +848,8 @@ DROP_PACKET:
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
 
         /* Check if the TX queue is empty */
-    tx_queue = netdev_get_tx_queue(device, 0);
+    if ( device != NULL )
+		tx_queue = netdev_get_tx_queue(device, 0);
     tx_queue_len = qdisc_qlen(tx_queue->qdisc);
 
     SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_xmit: channel %d: wake unlock device TX queue len %d", skb_queue_mapping, tx_queue_len);
