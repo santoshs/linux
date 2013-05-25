@@ -351,7 +351,7 @@ smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_
     /* TX wakelock */
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
     {
-        char* name        = NULL;
+        //char* name        = NULL;
         char* name_prefix = "smc_wakelock_tx_";
         char* temp_str    = NULL;
         int   str_len     = 0;
@@ -360,16 +360,15 @@ smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_
 
         str_len = strlen(name_prefix) + strlen(temp_str) + 1;
 
-        name = (char*)SMC_MALLOC_IRQ(str_len);
+        channel->smc_tx_wakelock_name = (char*)SMC_MALLOC_IRQ(str_len);
 
-        memset( name, 0, str_len );
-        strcpy( name, name_prefix );
-        strcpy( name+strlen(name_prefix), temp_str );
+        memset( channel->smc_tx_wakelock_name, 0, str_len );
+        strcpy( channel->smc_tx_wakelock_name, name_prefix );
+        strcpy( channel->smc_tx_wakelock_name+strlen(name_prefix), temp_str );
 
-        channel->smc_tx_wakelock = smc_wakelock_create(name);
+        channel->smc_tx_wakelock = smc_wakelock_create(channel->smc_tx_wakelock_name);
 
         SMC_FREE(temp_str);
-        //SMC_FREE(name);
     }
 #endif
 
@@ -629,8 +628,29 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
 
         /* TX wakelock */
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
-        smc_wakelock_destroy(smc_channel->smc_tx_wakelock);
-        smc_channel->smc_tx_wakelock = NULL;
+        {
+            uint8_t destroy_ptr = TRUE;
+
+            smc_wakelock_destroy(smc_channel->smc_tx_wakelock, destroy_ptr);
+
+            if( smc_channel->smc_tx_wakelock_name != NULL )
+            {
+                SMC_FREE(smc_channel->smc_tx_wakelock_name);
+                smc_channel->smc_tx_wakelock_name = NULL;
+            }
+
+            if( destroy_ptr )
+            {
+                SMC_TRACE_PRINTF_DEBUG("smc_channel_destroy: SMC Channel %d: TX wakelock ptr freed", smc_channel->id);
+                smc_channel->smc_tx_wakelock = NULL;
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_DEBUG("smc_channel_destroy: SMC Channel %d: TX wakelock ptr not freed", smc_channel->id);
+            }
+
+
+        }
 #endif
 
 
