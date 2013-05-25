@@ -536,7 +536,7 @@ static int smb328a_set_top_off(struct i2c_client *client, int set_val)
 	if (val >= 0) {
 		data = (u8)val;
 		data &= 0xF8;
-		data |= ((25 / 25) - 1);		// don't use termination current
+		data |= ((100 / 25) - 1);		// don't use termination current
 		if (smb328a_write_reg(client, SMB328A_INPUT_AND_CHARGE_CURRENTS, data) < 0) {
 			pr_err("%s : error!\n", __func__);
 			return -1;
@@ -671,6 +671,28 @@ void smb328a_otg_enable_disable(int onoff, int cable)
 }
 EXPORT_SYMBOL(smb328a_otg_enable_disable);
 
+int smb328a_check_charging_status(void)
+{
+	int val;
+	u8 data = 0;
+	bool ret = false;
+	struct i2c_client *client = smb_charger->client;
+#ifdef CONFIG_SMB328A_CHARGER_DEBUG
+	pr_info("%s\n", __func__);
+#endif
+
+	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
+	if (val >= 0) {
+		data = (u8)val;
+		if (data & 0x3)
+			ret = 1; /* Charging */
+		else
+			ret = 0; /* No charging */
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(smb328a_check_charging_status);
 
 static void smb328a_ldo_disable(struct i2c_client *client)
 {
@@ -902,9 +924,11 @@ static void smb328a_work_func(struct work_struct *work)
 	if(val & (STATUS_A_CURRENT_TERMINATION|STATUS_A_TAPER_CHARGING))
 	{
 		if(FullChargeSend==0 || (val & STATUS_A_CURRENT_TERMINATION)) {
-			pm_charger_info("%s: EOC\n", __func__);
-			spa_event_handler(SPA_EVT_EOC, 0);
-			FullChargeSend = 1;
+			pm_charger_info("%s: EOC\n", __func__);	        
+			if(spa_event_handler(SPA_EVT_EOC, 0) < 0)
+				pr_info("%s: EOC is not ready\n", __func__);
+			else
+				FullChargeSend = 1;
 		}
     }
 #endif

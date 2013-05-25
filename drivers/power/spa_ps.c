@@ -56,7 +56,7 @@ struct spa_ps
 	struct power_supply batt;
 	struct power_supply usb;
 	struct spa_batt_status state;
-	char model[SPA_MODEL_NAME_LEN];
+	char model[SPA_MODEL_NAME_LEN + 1];
 };
 
 static enum power_supply_property spa_batt_props[] = {
@@ -202,6 +202,7 @@ static int spa_batt_set_property(struct power_supply *batt,
 						break;
 
 				case POWER_SUPPLY_PROP_MODEL_NAME:
+						memset (spa_ps_iter->model,'\0',sizeof(spa_ps_iter->model));
 						strncpy(spa_ps_iter->model, propval->strval, SPA_MODEL_NAME_LEN);
 						break;
 

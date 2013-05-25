@@ -346,5 +346,9 @@ static void __exit spa_agent_exit(void)
 }
 
 //module_init(spa_agent_init);
+#if 0
 subsys_initcall_sync(spa_agent_init);
+#else
+subsys_initcall(spa_agent_init);
+#endif
 module_exit(spa_agent_exit);

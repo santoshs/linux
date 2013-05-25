@@ -547,22 +547,21 @@ static struct d2153_regl_init_data d2153_regulators_init_data[D2153_NUMBER_OF_RE
 
 #if defined(CONFIG_BOARD_VERSION_GARDA) || \
 	defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
-	defined(CONFIG_BOARD_VERSION_LT02LTE) ||  \
-	defined(CONFIG_BOARD_VERSION_LOGANLTE_LATIN)
-struct d2153_battery_platform_data pbat_pdata = {
-	.battery_technology = POWER_SUPPLY_TECHNOLOGY_LION,
-	.battery_capacity = 1800,
-	.vf_lower    = 250,
-	.vf_upper = 510,
-};
+    defined(CONFIG_BOARD_VERSION_LOGANLTE_LATIN)
+#define BATTERY_CAPACITY 1800
+#elif defined(CONFIG_BOARD_VERSION_LT02LTE)
+#define BATTERY_CAPACITY 4000
 #else
+#define BATTERY_CAPACITY 1300
+#endif
+
 struct d2153_battery_platform_data pbat_pdata = {
 	.battery_technology = POWER_SUPPLY_TECHNOLOGY_LION,
-	.battery_capacity = 1300,
-	.vf_lower    = 250,
+	.battery_capacity = BATTERY_CAPACITY,
+	.vf_lower = 250,
 	.vf_upper = 510,
 };
-#endif
+
 
 struct d2153_platform_data d2153_pdata = {
 	.pbat_platform  = &pbat_pdata,

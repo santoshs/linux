@@ -51,10 +51,8 @@
 #define D2153_CODEC_I2C_ADDR			(0x30 >> 1)   // 0x18
 #define D2153_AAD_I2C_ADDR				(0x32 >> 1)   // 0x19
 
-#define D2153_IOCTL_READ_REG  0xc0025083
-#define D2153_IOCTL_WRITE_REG 0x40025084
-
-#define __CONFIG_LEOPARD_BATTERY
+#define D2153_IOCTL_READ_REG  			0xc0025083
+#define D2153_IOCTL_WRITE_REG 			0x40025084
 
 typedef struct {
 	unsigned long reg;
@@ -183,9 +181,6 @@ struct d2153_platform_data {
 	struct d2153_hwmon_platform_data *hwmon_pdata;
 	struct d2153_battery_platform_data *pbat_platform;
 
-	// DLG. eric. 2012/10/16 pmu_platform_callback pmu_event_cb;
-	
-	//unsigned char regl_mapping[LEOPARD_IOCTL_REGL_MAPPING_NUM];	/* Regulator mapping for IOCTL */
 	struct d2153_regl_map regl_map[D2153_NUMBER_OF_REGULATORS];
 
 	struct d2153_audio audio;
