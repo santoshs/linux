@@ -47,6 +47,7 @@
 #include <mach/sec_debug.h>
 #endif
 
+#include <memlog/memlog.h>
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
  * so we need some other way of telling a new secondary core
@@ -620,6 +621,7 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 	sec_debug_irq_log(ipinr, do_IPI, 1);
 #endif
+	memory_log_irq(ipinr,1);
 
 	switch (ipinr) {
 	case IPI_TIMER:
@@ -659,6 +661,8 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		       cpu, ipinr);
 		break;
 	}
+
+	memory_log_irq(ipinr,0);
 
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 	sec_debug_irq_log(ipinr, do_IPI, 2);
