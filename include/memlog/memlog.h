@@ -23,6 +23,7 @@
 
 #ifdef CONFIG_MEMLOG
 #ifndef __ASSEMBLY__
+extern unsigned long memlog_capture;
 extern void memory_log_proc(const char *name, unsigned long pid);
 extern void memory_log_worker(unsigned long func_addr, unsigned long pid
 		, int in);

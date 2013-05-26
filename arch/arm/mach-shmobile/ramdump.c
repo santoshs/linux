@@ -30,6 +30,7 @@
 #include <linux/atomic.h>
 #include <mach/ramdump.h>
 #include <asm/mach/map.h>
+#include <memlog/memlog.h>
 
 #ifdef CONFIG_SEC_DEBUG
 #include <mach/sec_debug.h>
@@ -352,6 +353,7 @@ static int ramdump_die_notifier(struct notifier_block *unused,
 	struct die_args *args = data;
 	dprintk("%s val %lu\n", __func__, val);
 
+	memlog_capture = 0;
 
 	/* find the exception register dump location */
 	p = ramdump->core_reg_dump_base
@@ -385,6 +387,8 @@ static int ramdump_panic_handler(struct notifier_block *this,
 {
 	void *p = NULL;
 	dprintk("%s event %lu\n", __func__, event);
+
+	memlog_capture = 0;
 
 	/* save core registers to the beginning of the dump area */
 	p = ramdump->core_reg_dump_base +

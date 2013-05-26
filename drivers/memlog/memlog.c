@@ -27,7 +27,7 @@
 static struct kobject *memlog_kobj;
 
 static char *logdata;
-static unsigned long capture;
+unsigned long memlog_capture;
 static unsigned long cpu0_proc_index;
 static unsigned long cpu1_proc_index;
 static unsigned long cpu0_irq_index;
@@ -45,7 +45,7 @@ void memory_log_proc(const char *name, unsigned long pid)
 	unsigned long index = 0;
 	unsigned long data[7] = {0, 0, 0, 0, 0, 0, 0};
 	unsigned long flags = 0;
-	if (!logdata || !name || !capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !name || !memlog_capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
@@ -93,7 +93,7 @@ void memory_log_irq(unsigned int irq, int in)
 	unsigned long index = 0;
 	unsigned long data[3] = {0, 0, 0};
 	unsigned long flags = 0;
-	if (!logdata || !capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
@@ -129,7 +129,7 @@ void memory_log_func(unsigned long func_id, int in)
 	unsigned long index = 0;
 	unsigned long data[3] = {0, 0, 0};
 	unsigned long flags = 0;
-	if (!logdata || !capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
@@ -165,7 +165,7 @@ void memory_log_dump_int(unsigned char dump_id, int dump_data)
 	unsigned long index = 0;
 	unsigned long data[4] = {0, 0, 0, 0};
 	unsigned long flags = 0;
-	if (!logdata || !capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
@@ -206,7 +206,7 @@ void memory_log_init(void)
 	cpu0_dump_index = CPU0_DUMP_START_INDEX;
 	cpu1_dump_index = CPU1_DUMP_START_INDEX;
 	memset(logdata, 0, MEMLOG_SIZE);
-	capture = 1;
+	memlog_capture = 1;
 }
 
 static ssize_t capture_show(
@@ -214,7 +214,7 @@ static ssize_t capture_show(
 	struct kobj_attribute *attr,
 	char *buf)
 {
-	return sprintf(buf, "%ld\n", capture);
+	return sprintf(buf, "%ld\n", memlog_capture);
 }
 
 static ssize_t capture_store(
@@ -225,9 +225,9 @@ static ssize_t capture_store(
 {
 	int tmp = 0;
 	sscanf(buf, "%du", &tmp);
-	if (capture != tmp) {
+	if (memlog_capture != tmp) {
 		if (tmp == 0)
-			capture = 0;
+			memlog_capture = 0;
 		else if (tmp == 1)
 			memory_log_init();
 	}
