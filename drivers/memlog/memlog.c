@@ -20,10 +20,9 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/io.h>
-#include <linux/time.h>
+#include <linux/sched.h>
 #include <memlog/memlog.h>
 #include <mach/sec_debug.h>
-#include <mach/r8a7373.h>
 
 static struct kobject *memlog_kobj;
 
@@ -44,15 +43,15 @@ void memory_log_proc(const char *name, unsigned long pid)
 	int len = 0;
 	int cpu = 0;
 	unsigned long index = 0;
-	unsigned long data[6] = {0, 0, 0, 0, 0, 0};
+	unsigned long data[7] = {0, 0, 0, 0, 0, 0, 0};
 	unsigned long flags = 0;
 	if (!logdata || !name || !capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
-	data[0] = __raw_readl(CMCNT0);
-	data[1] = pid;
-	snprintf((char *)&data[2], 16, "%s", name);
+	*(unsigned long long *)&data = local_clock();
+	data[2] = pid;
+	snprintf((char *)&data[3], 16, "%s", name);
 	len = sizeof(data);
 
 	local_irq_save(flags);
@@ -89,14 +88,14 @@ void memory_log_irq(unsigned int irq, int in)
 	int len = 0;
 	int cpu = 0;
 	unsigned long index = 0;
-	unsigned long data[2] = {0, 0};
+	unsigned long data[3] = {0, 0, 0};
 	unsigned long flags = 0;
 	if (!logdata || !capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
-	data[0] = __raw_readl(CMCNT0);
-	data[1] = irq + (in << 24);
+	*(unsigned long long *)&data = local_clock();
+	data[2] = irq + (in << 24);
 	len = sizeof(data);
 
 	local_irq_save(flags);
@@ -125,14 +124,14 @@ void memory_log_func(unsigned long func_id, int in)
 	int len = 0;
 	int cpu = 0;
 	unsigned long index = 0;
-	unsigned long data[2] = {0, 0};
+	unsigned long data[3] = {0, 0, 0};
 	unsigned long flags = 0;
 	if (!logdata || !capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
-	data[0] = __raw_readl(CMCNT0);
-	data[1] = func_id + (in << 24);
+	*(unsigned long long *)&data = local_clock();
+	data[2] = func_id + (in << 24);
 	len = sizeof(data);
 
 	local_irq_save(flags);
@@ -161,15 +160,15 @@ void memory_log_dump_int(unsigned char dump_id, int dump_data)
 	int len = 0;
 	int cpu = 0;
 	unsigned long index = 0;
-	unsigned long data[3] = {0, 0, 0};
+	unsigned long data[4] = {0, 0, 0, 0};
 	unsigned long flags = 0;
 	if (!logdata || !capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
-	data[0] = __raw_readl(CMCNT0);
-	data[1] = dump_id;
-	data[2] = dump_data;
+	*(unsigned long long *)&data = local_clock();
+	data[2] = dump_id;
+	data[3] = dump_data;
 	len = sizeof(data);
 
 	local_irq_save(flags);
