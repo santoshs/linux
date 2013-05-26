@@ -75,10 +75,13 @@ void memory_log_proc(const char *name, unsigned long pid)
 }
 EXPORT_SYMBOL_GPL(memory_log_proc);
 
-void memory_log_worker(unsigned long func_addr, unsigned long pid)
+void memory_log_worker(unsigned long func_addr, unsigned long pid, int in)
 {
 	char str[16];
-	sprintf(str, "0x%lx", func_addr);
+	if (in)
+		sprintf(str, " IN 0x%lx", func_addr);
+	else
+		sprintf(str, "OUT 0x%lx", func_addr);
 	memory_log_proc(str, pid);
 }
 EXPORT_SYMBOL_GPL(memory_log_worker);

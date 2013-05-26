@@ -24,7 +24,8 @@
 #ifdef CONFIG_MEMLOG
 #ifndef __ASSEMBLY__
 extern void memory_log_proc(const char *name, unsigned long pid);
-extern void memory_log_worker(unsigned long func_addr, unsigned long pid);
+extern void memory_log_worker(unsigned long func_addr, unsigned long pid
+		, int in);
 extern void memory_log_irq(unsigned int irq, int in);
 extern void memory_log_func(unsigned long func_id, int in);
 extern void memory_log_dump_int(unsigned char dump_id, int dump_data);
@@ -72,7 +73,8 @@ extern void memory_log_dump_int(unsigned char dump_id, int dump_data);
 static inline void memory_log_proc(const char *name, unsigned long pid)
 {
 }
-static inline void memory_log_worker(unsigned long func_addr, unsigned long pid)
+static inline void memory_log_worker(unsigned long func_addr, unsigned long pid
+		, int in)
 {
 }
 static inline void memory_log_irq(unsigned int irq, int in)
