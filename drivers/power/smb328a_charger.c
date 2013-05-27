@@ -22,9 +22,10 @@
 #include <linux/power_supply.h>
 #include <linux/regulator/machine.h>
 #include <linux/bq27425.h>
-#ifdef CONFIG_USB_SWITCH_TSU6712
+#if defined(CONFIG_USB_SWITCH_TSU6712) || defined(CONFIG_USE_MUIC)
 #include <linux/tsu6712.h>
-#else
+#endif
+#ifdef CONFIG_RT8973
 #include <../drivers/mfd/richtek/rt8973.h>
 #endif
 #include <linux/pmic/pmic.h>
