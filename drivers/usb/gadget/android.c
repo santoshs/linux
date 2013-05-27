@@ -28,6 +28,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
+#include <linux/workqueue.h>
 
 #include "gadget_chips.h"
 
@@ -1656,6 +1657,106 @@ static int android_create_device(struct android_dev *dev)
 	return 0;
 }
 
+#ifdef CONFIG_USB_R8A66597
+#define USB_DFS_TIMEOUT 5 /*Seconds*/
+#define HSUSBDMA_IRQ		117
+#define R8A66597_UDC_IRQ	119
+static void usb_dfs_control_timeout(unsigned long arg);
+static DEFINE_TIMER(usb_dfs_timer, usb_dfs_control_timeout, 0, 0);
+static DEFINE_MUTEX(usb_dfs_mutex);
+static atomic_t refcount = ATOMIC_INIT(0);
+static atomic_t timer_stat = ATOMIC_INIT(0);
+static atomic_t workq_stat = ATOMIC_INIT(0);
+static atomic_long_t update_time = ATOMIC_LONG_INIT(0);
+static void usb_dfs_workqueue(struct work_struct *unused);
+static DECLARE_WORK(dfs_work, usb_dfs_workqueue);
+
+/*
+ * Function will start a timer if not already started
+ * and reuest to stop dfs.
+ */
+static void usb_request_high_cpufreq_timer(void)
+{
+	atomic_long_set(&update_time, (long)jiffies);
+	/* Check whether workqueue or timer already started */
+	if (atomic_read(&timer_stat) == 0 && atomic_read(&workq_stat) == 0) {
+		atomic_inc(&workq_stat);
+		schedule_work(&dfs_work);
+	}
+}
+
+/*
+ * Workqueue for moving the execution from interupt context/
+ * spinlock context
+ */
+static void usb_dfs_workqueue(struct work_struct *unused)
+{
+	/* Not able to lock means, either workqueue or timer already
+	   running. So no need to proceed further */
+	if (mutex_trylock(&usb_dfs_mutex)) {
+		if (0 == usb_request_high_cpufreq()) {
+			usb_dfs_timer.function = usb_dfs_control_timeout;
+			usb_dfs_timer.data = atomic_long_read(&update_time);
+			usb_dfs_timer.expires = jiffies +
+							(HZ * USB_DFS_TIMEOUT);
+			atomic_inc(&timer_stat);
+			add_timer(&usb_dfs_timer);
+		}
+		atomic_dec(&workq_stat);
+		mutex_unlock(&usb_dfs_mutex);
+	}
+}
+
+static void usb_dfs_control_timeout(unsigned long arg)
+{
+	mutex_lock(&usb_dfs_mutex);
+	/*Means some recent dfs request came*/
+	if (arg != atomic_long_read(&update_time)) {
+		/*Reshedule the timer to a newer time*/
+		usb_dfs_timer.data = atomic_long_read(&update_time);
+		mod_timer(&usb_dfs_timer, jiffies + (HZ * USB_DFS_TIMEOUT));
+	} else { /*No one is using dfs now. We can disable it*/
+		usb_release_high_cpufreq();
+		atomic_dec(&timer_stat);
+	}
+	mutex_unlock(&usb_dfs_mutex);
+}
+
+/*
+ * Increment the dfs usecount by one and call stop_cpufreq
+ * if usecount is zero.
+ */
+static int usb_request_high_cpufreq(void)
+{
+	int ret = 0, count = 0;
+	if (atomic_read(&refcount) == 0) {
+		/*Wil stop dfs and cpufreq will raise*/
+		ret = stop_cpufreq();
+		/*If cpu freq change is sucess, change interupt affinity also*/
+		if (ret == 0) {
+			while (!cpu_online(1) || (++count < 100))
+				udelay(1);
+			irq_set_affinity(HSUSBDMA_IRQ, cpumask_of(1));
+			irq_set_affinity(R8A66597_UDC_IRQ, cpumask_of(1));
+		}
+	}
+	if (ret == 0)
+		atomic_inc(&refcount);
+	return ret;
+}
+
+/*
+ * Decrement the usecount by one and check if it is zero
+ * if zero, call start_cpufreq
+ */
+static void usb_release_high_cpufreq(void)
+{
+	if (atomic_dec_return(&refcount) == 0) {
+		/*Will start dfs and cpufreq will be based on load*/
+		start_cpufreq();
+	}
+}
+#endif
 
 static int __init init(void)
 {
