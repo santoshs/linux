@@ -510,15 +510,6 @@ static void __init board_init(void)
 		gpio_pull_up_port(GPIO_PORT290);
 		gpio_pull_up_port(GPIO_PORT289);
 		/* move gpio request to board-renesas_wifi.c */
-
-		/* WLAN Init API call */
-#if defined(CONFIG_BRCM_UNIFIED_DHD_SUPPORT) || defined(CONFIG_RENESAS_WIFI)
-		printk(KERN_ERR "Calling WLAN_INIT!\n");
-		renesas_wlan_init();
-		printk(KERN_ERR "DONE WLAN_INIT!\n");
-#endif
-		/* add the SDIO device */
-
 	}
 
 	/* I2C */
