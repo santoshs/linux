@@ -1182,60 +1182,6 @@ void vcd_spuv_voip_dl(unsigned int *buf_size)
 
 
 /**
- * @brief	VoIP UL playback function.
- *
- * @param	mode	playback mode
- *
- * @retval	none.
- */
-void vcd_spuv_voip_ul_playback(unsigned int mode)
-{
-	vcd_pr_start_spuv_function("mode[%d].\n", mode);
-
-	if (VCD_PLAYBACK_MODE_0 == mode) {
-		/* nop */
-		vcd_spuv_func_voip_ul_playback_mode0();
-	} else if (VCD_PLAYBACK_MODE_1 == mode) {
-		/* overwrite playback data */
-		vcd_spuv_func_voip_ul_playback_mode1();
-	} else {
-		/* overwrite no voice data */
-		vcd_spuv_func_voip_ul_playback_mode2();
-	}
-
-	vcd_pr_end_spuv_function();
-	return;
-}
-
-
-/**
- * @brief	VoIP DL playback function.
- *
- * @param	mode	playback mode
- *
- * @retval	none.
- */
-void vcd_spuv_voip_dl_playback(unsigned int mode)
-{
-	vcd_pr_start_spuv_function("mode[%d].\n", mode);
-
-	if (VCD_PLAYBACK_MODE_0 == mode) {
-		/* mixing "DL voice data" and "playback data" */
-		vcd_spuv_func_voip_dl_playback_mode0();
-	} else if (VCD_PLAYBACK_MODE_1 == mode) {
-		/* overwrite no voice data */
-		vcd_spuv_func_voip_dl_playback_mode1();
-	} else {
-		/* overwrite playback data */
-		vcd_spuv_func_voip_dl_playback_mode2();
-	}
-
-	vcd_pr_end_spuv_function();
-	return;
-}
-
-
-/**
  * @brief	for PT playback function.
  *
  * @param	none.
@@ -2174,6 +2120,9 @@ static void vcd_spuv_interrupt_req(void)
 		/* get status */
 		spuv_status = vcd_spuv_get_status();
 		if (!(VCD_SPUV_STATUS_WAIT_REQ & spuv_status)) {
+			/* output trigger log */
+			vcd_spuv_trigger_count_log(
+				(VCD_LOG_TRIGGER_REC | VCD_LOG_TRIGGER_PLAY));
 			/* status update */
 			vcd_spuv_set_status(VCD_SPUV_STATUS_SYSTEM_ERROR);
 			/* notification fw stop */

@@ -2302,16 +2302,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		goto start_err;
 	}
 
-	/* Output device ON */
-	fsi_d2153_set_dac_power(g_kcontrol, 1);
-
-	/* Input device ON */
-	fsi_d2153_set_adc_power(g_kcontrol, 1);
-
-	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
-		SNDP_GET_AUDIO_DEVICE(work->new_value),
-		SNDP_EXTDEV_START);
-
 #ifndef __SNDP_INCALL_CLKGEN_MASTER
 	if (SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(work->new_value)) {
 		wait_event_interruptible_timeout(
@@ -2341,6 +2331,16 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 		goto start_err;
 	}
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
+		SNDP_GET_AUDIO_DEVICE(work->new_value),
+		SNDP_EXTDEV_START);
 
 start_err:
 	g_sndp_start_call_wait = 1;
@@ -2601,18 +2601,18 @@ static int sndp_work_voice_dev_chg_bt_to_audioic(
 	else
 		sndp_log_err("fsi start error(code=%d)\n", iRet);
 
-	/* Output device ON */
-	fsi_d2153_set_dac_power(g_kcontrol, 1);
-
-	/* Input device ON */
-	fsi_d2153_set_adc_power(g_kcontrol, 1);
-
 	/* start CLKGEN */
 	iRet = clkgen_start(new_value, 0, g_bluetooth_band_frequency);
 	if (ERROR_NONE != iRet)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 
 	fsi_fifo_reset(SNDP_PCM_PORTA);
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
 
 	sndp_log_debug_func("end\n");
 
@@ -2925,16 +2925,6 @@ static void sndp_work_incomm_start(const u_int new_value)
 		goto start_err;
 	}
 
-	/* Output device ON */
-	fsi_d2153_set_dac_power(g_kcontrol, 1);
-
-	/* Input device ON */
-	fsi_d2153_set_adc_power(g_kcontrol, 1);
-
-	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
-			     SNDP_GET_AUDIO_DEVICE(new_value),
-			     SNDP_EXTDEV_START);
-
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
 	wait_event_interruptible_timeout(
 		g_watch_start_clk_queue, atomic_read(&g_sndp_watch_start_clk),
@@ -2952,6 +2942,17 @@ static void sndp_work_incomm_start(const u_int new_value)
 		sndp_log_err("clkgen start error(code=%d)\n", ret);
 		goto start_err;
 	}
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
+			     SNDP_GET_AUDIO_DEVICE(new_value),
+			     SNDP_EXTDEV_START);
+
 
 start_err:
 	g_sndp_start_call_wait = 1;
@@ -3615,13 +3616,6 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 		goto start_err;
 	}
 
-	/* Output device ON */
-	fsi_d2153_set_dac_power(g_kcontrol, 1);
-
-	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
-		SNDP_GET_AUDIO_DEVICE(work->new_value),
-		SNDP_EXTDEV_START);
-
 	/* start CLKGEN */
 	iRet = clkgen_start(work->new_value,
 			    SNDP_NORMAL_RATE,
@@ -3630,6 +3624,13 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 		goto start_err;
 	}
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
+		SNDP_GET_AUDIO_DEVICE(work->new_value),
+		SNDP_EXTDEV_START);
 
 start_err:
 	/* Wake Unlock */
@@ -4269,15 +4270,6 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 			return iRet;
 		}
 
-		/* Output device ON */
-		fsi_d2153_set_dac_power(g_kcontrol, 1);
-
-		/* Input device ON */
-		fsi_d2153_set_adc_power(g_kcontrol, 1);
-
-		sndp_log_info("call extdev set_state\n");
-		sndp_extdev_set_state(mode, device, dev_chg);
-
 		/* start CLKGEN */
 		iRet = clkgen_start(SNDP_PLAYBACK_EARPIECE_INCALL,
 				0,
@@ -4288,6 +4280,16 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 		}
 
 		fsi_fifo_reset(SNDP_PCM_PORTA);
+
+		/* Output device ON */
+		fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+		/* Input device ON */
+		fsi_d2153_set_adc_power(g_kcontrol, 1);
+
+		sndp_log_info("call extdev set_state\n");
+		sndp_extdev_set_state(mode, device, dev_chg);
+
 	} else {
 
 		sndp_log_info("call extdev set_state\n");
