@@ -401,19 +401,14 @@ static void dmae_rpt_halt(struct sh_dmae_chan *sh_chan)
 static int dmae_rpt_init_reg(struct sh_dmae_chan *sh_chan,
 	struct sh_dmae_slave *param)
 {
-	int i = 0;
-	int load_first_desc = 1;
+	int i, load_first_desc = 1;
 	u32 val = 0;
-	u32 chcr = 0;
-	u32 chcrb = 0;
-	size_t copy_size = 0;
+	u32 chcr, chcrb;
+	void __iomem *desc_mem;
+	size_t copy_size;
+	const struct sh_dmae_slave_config *cfg = param->config;
+	struct scatterlist *sg;
 	struct sh_dmae_regs hw;
-	void __iomem *desc_mem = NULL;
-	struct scatterlist *sg = NULL;
-	const struct sh_dmae_slave_config *cfg = NULL;
-
-	if( param)
-		cfg = param->config;
 
 	if (param) {
 		if (0 != dmae_set_dmars(sh_chan, cfg->mid_rid))
@@ -1930,32 +1925,21 @@ static int sh_dmae_suspend(struct device *dev)
 
 static int sh_dmae_resume(struct device *dev)
 {
-	int i = 0;
-	struct sh_dmae_chan *sh_chan = NULL;
-	struct sh_dmae_slave *param = NULL;
-	const struct sh_dmae_slave_config *cfg = NULL;
-	struct sh_dmae_device *shdev = NULL;
-
-	if ( NULL != dev ) {
-		shdev = dev_get_drvdata(dev);
-		if ( shdev == NULL  || shdev->pdata == NULL)
-			return -ENODEV;
-	}else {
-		return -ENODEV;
-	}
+	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
+	int i;
 
 	pm_runtime_get_sync(dev);
 
 	for (i = 0; i < shdev->pdata->channel_num; i++) {
+		struct sh_dmae_chan *sh_chan = shdev->chan[i];
+		struct sh_dmae_slave *param = sh_chan->common.private;
 
-		sh_chan = shdev->chan[i];
-		param = sh_chan->common.private;
-
-		if (sh_chan && !sh_chan->descs_allocated)
+		if (!sh_chan->descs_allocated)
 			continue;
 
 		if (param) {
-			cfg = param->config;
+			const struct sh_dmae_slave_config *cfg = param->config;
+
 			dmae_set_dmars(sh_chan, cfg->mid_rid);
 			dmae_set_chcr(sh_chan, sh_chan->chcr ? : cfg->chcr);
 		} else {
