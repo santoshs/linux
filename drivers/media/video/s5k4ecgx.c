@@ -1,7 +1,7 @@
 /*
  * Driver for Samsung S5K4ECGX  Camera
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -60,7 +60,7 @@ static ssize_t maincamflash_S5K4ECGX_store(struct device *dev,
 
 static DEVICE_ATTR(rear_camtype, 0644, subcamtype_S5K4ECGX_show, NULL);
 static DEVICE_ATTR(rear_camfw, 0644, subcamfw_S5K4ECGX_show, NULL);
-static DEVICE_ATTR(rear_flash, 0644, NULL, maincamflash_S5K4ECGX_store);
+static DEVICE_ATTR(rear_flash, 0664, NULL, maincamflash_S5K4ECGX_store);
 
 struct S5K4ECGX_datafmt {
 	enum v4l2_mbus_pixelcode	code;
