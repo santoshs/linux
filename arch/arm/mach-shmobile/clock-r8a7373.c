@@ -386,9 +386,9 @@ static struct clk div6_clks[DIV6_NR] = {
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 6, 1),
 	[DIV6_MP] = SH_CLK_DIV6_EXT(MPCKCR, 9, CLK_DIV_SHARED,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 6, 1),
-	[DIV6_SPUA] = SH_CLK_DIV6_EXT(SPU2ACKCR, 8, 0,
+	[DIV6_SPUA] = SH_CLK_DIV6_EXT(SPUACKCR, 8, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 6, 1),
-	[DIV6_SPUV] = SH_CLK_DIV6_EXT(SPU2VCKCR, 8, 0,
+	[DIV6_SPUV] = SH_CLK_DIV6_EXT(SPUVCKCR, 8, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 6, 1),
 	[DIV6_SLIMB] = SH_CLK_DIV6_EXT(SLIMBCKCR, 8, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 7, 1),
@@ -442,9 +442,9 @@ static struct clk cksel_clks[CKSEL_NR] = {
 				mp_parent, ARRAY_SIZE(mp_parent), 7, 1),
 	[CKSEL_MPMP] = SH_CLK_CKSEL(MPCKCR, 11, CLK_CKSEL_CKSTP,
 				mp_parent, ARRAY_SIZE(mp_parent), 7, 1),
-	[CKSEL_SPUA] = SH_CLK_CKSEL(SPU2ACKCR, 0, 0,
+	[CKSEL_SPUA] = SH_CLK_CKSEL(SPUACKCR, 0, 0,
 				spua_parent, ARRAY_SIZE(spua_parent), 7, 1),
-	[CKSEL_SPUV] = SH_CLK_CKSEL(SPU2VCKCR, 0, 0,
+	[CKSEL_SPUV] = SH_CLK_CKSEL(SPUVCKCR, 0, 0,
 				spuv_parent, ARRAY_SIZE(spuv_parent), 7, 1),
 };
 

@@ -671,7 +671,7 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	struct f_rndis		*rndis = func_to_rndis(f);
 	int			status, ret = 0;
 	struct usb_ep		*ep;
-
+	int count = 0;
 	/* allocate instance-specific interface IDs */
 	status = usb_interface_id(c, f);
 	if (status < 0)
@@ -794,6 +794,9 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	} else {
 
 		dfs_started = 0;
+		while (!cpu_online(1)||(++count < 10))
+		udelay(1);
+
 		irq_set_affinity(HSUSBDMA_IRQ, cpumask_of(1));
 		irq_set_affinity(R8A66597_UDC_IRQ, cpumask_of(1));
 		}

@@ -255,7 +255,7 @@ static struct plat_sci_port scif4_platform_data = {
 	.ops		= &shmobile_sci_port_ops,
 	.capabilities = SCIx_HAVE_RTSCTS,
 	.rts_ctrl	= 0,
-#if defined(CONFIG_RENESAS_BT)
+#if defined(CONFIG_RENESAS_BT)|| defined(CONFIG_BCM4330_BT) || defined(CONFIG_BCM4334_BT)
 	.exit_lpm_cb	= bcm_bt_lpm_exit_lpm_locked,
 #endif
 	/* GPIO settings */
@@ -303,7 +303,7 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 			/* Function 2 - Direction not set as
 			same as Deep sleep value */
 			.port_fn	= GPIO_FN_SCIFB1_CTS,
-			.pull		= PORTn_CR_PULL_UP,
+			.pull		= PORTn_CR_PULL_OFF,
 			.direction	= PORTn_CR_DIRECTION_NOT_SET,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		},
@@ -312,7 +312,7 @@ static struct portn_gpio_setting_info scif5_gpio_setting_info[] = {
 			/* Function 2 - Retain same initial value
 			in deep sleep to avoid leakage or Hi-Z state */
 			.port_fn	= GPIO_FN_SCIFB1_CTS,
-			.pull		= PORTn_CR_PULL_UP,
+			.pull		= PORTn_CR_PULL_OFF,
 			.direction	= PORTn_CR_DIRECTION_NOT_SET,
 			.output_level	= PORTn_OUTPUT_LEVEL_NOT_SET,
 		}

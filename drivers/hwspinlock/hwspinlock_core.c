@@ -272,18 +272,18 @@ u32 __hwspin_get_hwlock_id(struct hwspinlock *hwlock, int mode, unsigned long *f
 {
 	int ret;
 	unsigned int id;
-	
+
 	if (mode == HWLOCK_NOSPIN) {
 		ret = spin_trylock(&hwlock->lock);
 		BUG_ON(!ret);
 	}
-	
+
 	id = hwlock->bank->ops->get_lock_id(hwlock);
-	
+
 	if (mode == HWLOCK_NOSPIN) {
 		spin_unlock(&hwlock->lock);
 	}
-	
+
 	return id;
 }
 EXPORT_SYMBOL_GPL(__hwspin_get_hwlock_id);
@@ -585,7 +585,7 @@ EXPORT_SYMBOL_GPL(hwspin_lock_request_specific);
  */
 int hwspin_lock_free(struct hwspinlock *hwlock)
 {
-	struct device *dev = hwlock->bank->dev;
+	struct device *dev = NULL;
 	struct hwspinlock *tmp;
 	int ret;
 
@@ -593,7 +593,7 @@ int hwspin_lock_free(struct hwspinlock *hwlock)
 		pr_err("invalid hwlock\n");
 		return -EINVAL;
 	}
-
+	dev = hwlock->bank->dev;
 	mutex_lock(&hwspinlock_tree_lock);
 
 	/* make sure the hwspinlock is used */

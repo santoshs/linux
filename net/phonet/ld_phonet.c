@@ -500,9 +500,9 @@ static void ld_phonet_ldisc_initiate_transfer \
 				dbg("calling netif_rx inside \
 				initiate_transfer ld_pn->len=%d\n", \
 				ld_pn->len);
-				netif_rx(skb);
 				ld_pn->n_Data_Sent += ld_pn->len;
 				ld_phonet_rx_bytes += skb->len;
+				netif_rx(skb);
 
 				/* TBD : Reset pointers */
 				ld_pn->len = LD_PHONET_INIT_LEN;
@@ -621,7 +621,7 @@ static void ld_phonet_ldisc_receive
 				LD_PHONET_SWITCH%c\n", *cp);
 				ld_atcmd_len = sprintf \
 						(ld_pn->ld_atcmd_buffer, \
-						"\r\n+ATSTART:OK\r\n"  \
+						"\r\n\r\n+ATSTART:OK\r\n"  \
 						"\r\n" "OK\r\n");
 				room = tty_write_room(tty);
 				if (room >= ld_atcmd_len) {
@@ -639,7 +639,7 @@ static void ld_phonet_ldisc_receive
 					LD_PHONET_SWITCH%c\n", *cp);
 				ld_atcmd_len = sprintf \
 						 (ld_pn->ld_atcmd_buffer, \
-						"\r\n+MODECHAN:OK\r\n"  \
+						"\r\n\r\n+MODECHAN:OK\r\n"  \
 						  "\r\n" "OK\r\n");
 				room = tty_write_room(tty);
 				if (room >= ld_atcmd_len) {
@@ -740,9 +740,9 @@ static void ld_phonet_ldisc_receive
 				dbg("Request buffer end\n");
 				dbg("calling netif_rx inside ldisc_receive \
 				first ld_pn->len=%d\n", ld_pn->len);
-				netif_rx(skb);
 				ld_pn->n_Data_Sent += ld_pn->len;
 				ld_phonet_rx_bytes += skb->len;
+				netif_rx(skb);
 
 				/* TBD : Update pointers */
 				ld_pn->n_Data_Sent += ld_pn->n_Remaining_Data;
@@ -820,8 +820,8 @@ static void ld_phonet_ldisc_receive
 					dbg("calling netif_rx inside \
 					ldisc_receive second ld_pn->len= \
 					%d\n", ld_pn->len);
-					netif_rx(skb);
 					ld_phonet_rx_bytes += skb->len;
+					netif_rx(skb);
 
 					ld_pn->n_Data_Sent += (msglen + \
 					ISI_MSG_HEADER_SIZE) - (ld_pn->len + \

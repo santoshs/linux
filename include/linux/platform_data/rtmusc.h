@@ -29,7 +29,8 @@ struct rtmus_platform_data {
         void (*charging_complete_callback)(void);
         int (*ex_init)(void);
         void (*over_voltage_callback)(uint8_t detected);
-		void (*usb_power) (uint8_t on); // 0 --> suspend  1 --> resume
+	void (*usb_power) (uint8_t on); // 0 --> suspend  1 --> resume
+	void (*otg_callback)(uint8_t attached);
 };
 
 #endif /* __RTMUSC_H_ */

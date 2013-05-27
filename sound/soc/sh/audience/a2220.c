@@ -1963,7 +1963,7 @@ static int a2220_probe(
 		goto err_mem_alloc_failed;
 	}
 
-	g_a2220_vclk_adr = (unsigned int)ioremap(0xE615001C, 0x4);
+	g_a2220_vclk_adr = (unsigned int)ioremap(VCLKCR4Phys, 0x4);
 
 	/* enable vclk4 */
 	rc = a2220_enable_vclk4();

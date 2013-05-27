@@ -340,8 +340,13 @@ uint8_t smc_test_mdb_alloc_dealloc( )
     return result;
 }
 
+
+
+
 uint8_t smc_test_mdb_perf()
 {
+
+#ifdef SMC_INCLUDE_PERF_TEST
 #ifdef SMECO_MODEM
     uint32_t start_time;
     uint32_t stop_time;
@@ -421,6 +426,10 @@ uint8_t smc_test_mdb_perf()
     SMC_FREE( pool );
 #else
     SMC_TEST_TRACE_PRINTF_INFO("MDB allocation perf test available only in modem");
+#endif
+
+#else
+SMC_TEST_TRACE_PRINTF_INFO("MDB allocation perf test not enabled");
 #endif
     return SMC_OK;
 }

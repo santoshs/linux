@@ -332,8 +332,13 @@ config BATTERY_BQ27425
 	help
 	  Say Y here to enable support for BQ27425 fuelgauge Interface.
 
+config SEC_MAKE_LCD_TEST
+	tristate "For LCD TEST Binary"
+	default n
+
 config SEC_CHARGING_FEATURE
 	tristate "SPA charger driver"
+	default n
 	help
 	default n
 	  Say Y here to enable support for SPA Interface.
@@ -395,7 +400,9 @@ config STC3115_FUELGAUGE
         help
          STC3115_FUELGAUGE
 
-#config BATTERY_DUMMY
-#	bool "Dummy battery driver"
+config TARGET_LOCALE_USA
+	tristate "Samsung Charging driver, SPA supplementary charging"
+	help
+	  Say Y here to enable support for CTIA test.
 
 endif # POWER_SUPPLY

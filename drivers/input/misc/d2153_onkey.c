@@ -42,7 +42,9 @@ static irqreturn_t d2153_onkey_event_lo_handler(int irq, void *data)
 	struct d2153 *d2153 = data;
 	struct d2153_onkey *dlg_onkey = &d2153->onkey;
 
+#if defined(CONFIG_D2153_ONKEY_DEBUG)
 	dev_info(d2153->dev, "Onkey LO Interrupt Event generated\n");
+#endif
 	input_event(dlg_onkey->input, EV_KEY, KEY_POWER, 1);
 	input_sync(dlg_onkey->input);
 
@@ -56,7 +58,9 @@ static irqreturn_t d2153_onkey_event_hi_handler(int irq, void *data)
 	struct d2153 *d2153 = data;
 	struct d2153_onkey *dlg_onkey = &d2153->onkey;
 
+#if defined(CONFIG_D2153_ONKEY_DEBUG)
 	dev_info(d2153->dev, "Onkey HI Interrupt Event generated\n");
+#endif
 	input_event(dlg_onkey->input, EV_KEY, KEY_POWER, 0);
 	input_sync(dlg_onkey->input);
 

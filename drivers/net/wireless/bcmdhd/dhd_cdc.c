@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_cdc.c 364003 2012-10-22 02:22:16Z $
+ * $Id: dhd_cdc.c 394202 2013-04-01 15:15:20Z $
  *
  * BDC is like CDC, except it includes a header for data packets to convey
  * packet priority over the bus, and flags (e.g. to indicate checksum status
@@ -1439,6 +1439,11 @@ _dhd_wlfc_mac_entry_update(athost_wl_status_info_t* ctx, wlfc_mac_descriptor_t* 
 		/* enable after packets are queued-deqeued properly.
 		pktq_flush(dhd->osh, &entry->psq, FALSE, NULL, 0);
 		*/
+		memset(&entry->ea[0], 0, ETHER_ADDR_LEN);
+		entry->transit_count = 0;
+		entry->suppr_transit_count = 0;
+		entry->suppress_count = 0;
+		entry->suppressed = 0;
 	}
 	return rc;
 }
@@ -2763,6 +2768,7 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 #ifdef BDC
 	struct bdc_header *h;
 #endif
+	uint8 data_offset = 0;
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
@@ -2778,12 +2784,12 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 	}
 
 	h = (struct bdc_header *)PKTDATA(dhd->osh, pktbuf);
-
-	if ((*ifidx = BDC_GET_IF_IDX(h)) >= DHD_MAX_IFS) {
-		DHD_ERROR(("%s: rx data ifnum out of range (%d)\n",
-		           __FUNCTION__, *ifidx));
-		return BCME_ERROR;
-	}
+  	if (!ifidx) {
+        	/* for tx packet, skip the analysis */
+                data_offset = h->dataOffset;
+                PKTPULL(dhd->osh, pktbuf, BDC_HEADER_LEN);
+                goto exit;
+        }
 
 #if defined(NDIS630)
 	h->dataOffset = 0;
@@ -2833,6 +2839,10 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 		PKTPULL(dhd->osh, pktbuf, (h->dataOffset << 2));
 #endif
 	return 0;
+exit:
+	PKTPULL(dhd->osh, pktbuf, (data_offset << 2));
+        return 0;
+
 }
 
 #if defined(PROP_TXSTATUS)

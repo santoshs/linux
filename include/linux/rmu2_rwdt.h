@@ -56,10 +56,6 @@
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 
-#ifndef IO_ADDRESS
-#define IO_ADDRESS(x)	x
-#endif	/* IO_ADDRESS */
-
 #ifdef CONFIG_RWDT_DEBUG
 #define RWDT_DEBUG(fmt, ...)	printk(KERN_DEBUG "" fmt, ##__VA_ARGS__)
 #else /* CONFIG_RWDT_DEBUG */
@@ -67,9 +63,6 @@
 #endif /* CONFIG_RWDT_DEBUG */
 
 /* register address define */
-#define STBCHRB1		IO_ADDRESS(0xE6180041U)
-#define SYSC_RESCNT2		IO_ADDRESS(0xE6188020U)
-#define RWDT_BASE		IO_ADDRESS(0xE6020000U)
 #define REG_SIZE		0xCU
 #define RWTCNT_OFFSET           0x0U
 #define RWTCSRA			0x4U

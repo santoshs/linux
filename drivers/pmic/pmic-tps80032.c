@@ -826,7 +826,7 @@ static void tps80032_force_release_hwsem(u8 hwsem_id)
 		return;
 	}
 
-	ptr = ioremap(0xe6001830, 4);
+	ptr = ioremap(HPB_SEM_PMICPhys, 4);
 	value = ioread32(ptr);
 	iounmap(ptr);
 
@@ -837,7 +837,7 @@ static void tps80032_force_release_hwsem(u8 hwsem_id)
 		return;
 
 	/*enable master access*/
-	ptr = ioremap(0xE6001604, 4);
+	ptr = ioremap(HPB_SEM_MPACCTLPhys, 4);
 	for (;;) {
 
 		/* Try to enable master access */
@@ -865,7 +865,7 @@ static void tps80032_force_release_hwsem(u8 hwsem_id)
 	/*Force clear HW sem*/
 	expire = msecs_to_jiffies(5) + jiffies;
 
-	ptr = ioremap(0xe6001830, 4);
+	ptr = ioremap(HPB_SEM_PMICPhys, 4);
 	for (;;) {
 		/* Try to force clear HW sem */
 		iowrite32(0, ptr);
@@ -897,7 +897,7 @@ static void tps80032_force_release_hwsem(u8 hwsem_id)
 
 	/*Disable master access*/
 	expire = msecs_to_jiffies(5) + jiffies;
-	ptr = ioremap(0xE6001604, 4);
+	ptr = ioremap(HPB_SEM_MPACCTLPhys, 4);
 	for (;;) {
 		/* Try to disable master access */
 		iowrite32(0, ptr);

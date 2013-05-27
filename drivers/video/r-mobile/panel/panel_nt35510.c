@@ -49,8 +49,6 @@
 #include <rtapi/system_pwmng.h>
 #endif
 
-#define NT35510_ESD_RECOVERY_ENABLE
-
 /* framebuffer address and size */
 #define R_MOBILE_M_BUFF_ADDR		SDRAM_FRAME_BUFFER_START_ADDR
 #define R_MOBILE_M_BUFF_SIZE		(SDRAM_FRAME_BUFFER_END_ADDR - \
@@ -248,7 +246,7 @@ static unsigned char setvgh[] = { 0xB3,
 		0x05, 0x05, 0x05 };
 
 static unsigned char bt4ctr[] = { 0xB9,
-		0x24, 0x24, 0x24 };
+		0x25, 0x25, 0x25 };
 
 static unsigned char vghctr[] = { 0xBF, 0x01 };
 
@@ -258,7 +256,7 @@ static unsigned char setvglreg[] = { 0xB5,
 static unsigned char bt5ctr[] = { 0xBA,
 		0x24, 0x24, 0x24 };
 
-/* static unsigned char btenctr[] = { 0xC2, 0x01 }; */
+static unsigned char btenctr[] = { 0xC2, 0x01 };
 
 static unsigned char setvgp[] = { 0xBC,
 		0x00, 0xA3, 0x00 };
@@ -302,6 +300,8 @@ static unsigned char dpfrctr3[] = { 0xBF,
 		0x01, 0x84, 0x07, 0x31, 0x00 };
 
 static unsigned char teon[] = { 0x35, 0x00 };
+
+static unsigned char colmod[] = { 0x3A, 0x77 };
 
 static unsigned char dptmctr12[] = { 0xCC,
 		0x03, 0x00, 0x00 };
@@ -411,7 +411,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  vghctr,    sizeof(vghctr)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvglreg, sizeof(setvglreg)},
 	{ MIPI_DSI_DCS_LONG_WRITE,  bt5ctr,    sizeof(bt5ctr)   },
-/*	{ MIPI_DSI_DCS_LONG_WRITE,  btenctr,   sizeof(btenctr)  }, */
+	{ MIPI_DSI_DCS_LONG_WRITE,  btenctr,   sizeof(btenctr)  },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvgp,    sizeof(setvgp)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvgn,    sizeof(setvgn)   },
 
@@ -437,7 +437,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 #ifndef NT35510_ENABLE_VIDEO_MODE
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, teon, sizeof(teon)    },
 #endif
-
+	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, colmod, sizeof(colmod)	},
 	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  caset,  sizeof(caset) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) },
@@ -469,6 +469,8 @@ static const struct specific_cmdset demise_cmdset[] = {
 	{ MIPI_DSI_END,             NULL,      0                }
 };
 
+
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 static struct specific_cmdset mauc0_cmd[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr0,  sizeof(maucctr0) },
 	{ MIPI_DSI_END,             NULL,      0                }
@@ -478,6 +480,7 @@ static struct specific_cmdset mauc1_cmd[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr1,  sizeof(maucctr1) },
 	{ MIPI_DSI_END,             NULL,      0                }
 };
+#endif
 
 static int is_dsi_read_enabled;
 
@@ -503,16 +506,19 @@ struct lcd_info {
 
 static struct lcd_info lcd_info_data;
 
-#if defined(NT35510_ESD_RECOVERY_ENABLE)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 #define DURATION_TIME 3000 /* 3000ms */
+#define SHORT_DURATION_TIME 500 /* 500ms */
 #define ESD_CHECK_DISABLE 0
 #define ESD_CHECK_ENABLE 1
 
 static struct delayed_work esd_check_work;
+static struct mutex esd_check_mutex;
 static int esd_check_flag;
-static int esd_check_now;
 
-#endif /* NT35510_ESD_RECOVERY_ENABLE */
+static int esd_duration;
+
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 static int lcdfreq_lock_free(struct device *dev)
 {
@@ -552,7 +558,7 @@ out:
 	return ret;
 }
 
-#if defined(NT35510_ESD_RECOVERY_ENABLE)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 static int nt35510_panel_simple_reset(void)
 {
 	void *screen_handle;
@@ -573,6 +579,7 @@ static int nt35510_panel_simple_reset(void)
 
 	printk(KERN_DEBUG "%s\n", __func__);
 
+	esd_duration = SHORT_DURATION_TIME;
 	is_dsi_read_enabled = 0;
 	screen_handle =  screen_display_new();
 
@@ -680,6 +687,7 @@ out:
 static int nt35510_panel_check(void)
 {
 	unsigned char rdnumed;
+	unsigned char rddpm;
 	unsigned char wonder[3];
 	unsigned char rdidic[3];
 	unsigned char exp_rdidic[3] = {0x55, 0x10, 0x05};
@@ -693,6 +701,14 @@ static int nt35510_panel_check(void)
 	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x05, 1, &rdnumed);
 	printk(KERN_DEBUG "read_data(0x05) = %02X : ret(%d)\n", rdnumed, ret);
 	if (rdnumed != 0x00)
+		ret = -1;
+	if (ret != 0)
+		goto out;
+
+	/*Read Display Power Mode*/
+	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x0A, 1, &rddpm);
+	printk(KERN_DEBUG "read_data(0x0A) = %02X : ret(%d)\n", rddpm, ret);
+	if (rddpm != 0x9C)
 		ret = -1;
 	if (ret != 0)
 		goto out;
@@ -733,7 +749,7 @@ static void nt35510_panel_esd_check_work(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 
 	/* For the disable entering suspend */
-	esd_check_now = 1;
+	mutex_lock(&esd_check_mutex);
 
 	while ((esd_check_flag == ESD_CHECK_ENABLE) && (nt35510_panel_check()))
 		while ((esd_check_flag == ESD_CHECK_ENABLE) &&
@@ -741,10 +757,10 @@ static void nt35510_panel_esd_check_work(struct work_struct *work)
 			msleep(20);
 
 	if (esd_check_flag == ESD_CHECK_ENABLE)
-		schedule_delayed_work(dwork, msecs_to_jiffies(DURATION_TIME));
+		schedule_delayed_work(dwork, msecs_to_jiffies(esd_duration));
 
 	/* Enable suspend */
-	esd_check_now = 0;
+	mutex_unlock(&esd_check_mutex);
 }
 #endif
 
@@ -1171,19 +1187,17 @@ static void mipi_display_reset(void)
 {
 	printk(KERN_INFO "%s\n", __func__);
 
-	/* GPIO control */
-	gpio_request(reset_gpio, NULL);
-
-	regulator_enable(power_ldo_3v);
 	regulator_enable(power_ldo_1v8);
+	usleep_range(1000, 1000);
+	regulator_enable(power_ldo_3v);
 
 	gpio_direction_output(reset_gpio, 0);
 
-	msleep(20);
+	usleep_range(10000, 10000);
 
 	gpio_direction_output(reset_gpio, 1);
 
-	msleep(50);
+	usleep_range(10000, 10000);
 }
 
 
@@ -1195,7 +1209,6 @@ static int nt35510_panel_init(unsigned int mem_size)
 	screen_disp_set_lcd_if_param set_lcd_if_param;
 	screen_disp_set_address set_address;
 	screen_disp_delete disp_delete;
-	unsigned char read_data[60];
 	int ret = 0;
 	int retry_count = NT35510_INIT_RETRY_COUNT;
 
@@ -1224,8 +1237,17 @@ static int nt35510_panel_init(unsigned int mem_size)
 retry:
 	screen_handle =  screen_display_new();
 
+	/* GPIO control */
+	gpio_request(reset_gpio, NULL);
+	gpio_direction_output(reset_gpio, 1);
+
 	/* LCD panel reset */
+#if 0
 	mipi_display_reset();
+#else
+	regulator_enable(power_ldo_1v8);
+	regulator_enable(power_ldo_3v);
+#endif
 
 	/* Setting peculiar to panel */
 	set_lcd_if_param.handle			= screen_handle;
@@ -1259,14 +1281,6 @@ retry:
 		goto out;
 	}
 	is_dsi_read_enabled = 1;
-
-	/* Read display identification information */
-	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
-	if (ret == 0) {
-		printk(KERN_DEBUG "read_data(RDID1) = %02X\n", read_data[1]);
-		printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
-		printk(KERN_DEBUG "read_data(RDID3) = %02X\n", read_data[3]);
-	}
 
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
@@ -1351,10 +1365,11 @@ retry:
 	printk(KERN_DEBUG "Panel initialized with Command mode\n");
 #endif /* NT35510_ENABLE_VIDEO_MODE */
 
-#if defined(NT35510_ESD_RECOVERY_ENABLE)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+	esd_duration = DURATION_TIME;
 	esd_check_flag = ESD_CHECK_ENABLE;
-	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(DURATION_TIME));
-#endif /* NT35510_ESD_RECOVERY_ENABLE */
+	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(esd_duration));
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 out:
 	disp_delete.handle = screen_handle;
@@ -1377,13 +1392,10 @@ static int nt35510_panel_suspend(void)
 	system_pmg_delete pmg_delete;
 #endif
 
-#if defined(NT35510_ESD_RECOVERY_ENABLE)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 	esd_check_flag = ESD_CHECK_DISABLE;
-	while (esd_check_now)
-		msleep(20);
-	/* Cancel scheduled work queue for check ESD. */
-	cancel_delayed_work_sync(&esd_check_work);
-#endif /* NT35510_ESD_RECOVERY_ENABLE */
+	mutex_lock(&esd_check_mutex);
+#endif /*  CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 	printk(KERN_INFO "%s\n", __func__);
 
@@ -1447,6 +1459,11 @@ static int nt35510_panel_suspend(void)
 	system_pwmng_delete(&pmg_delete);
 #endif
 
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+	mutex_unlock(&esd_check_mutex);
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
+
+
 	return 0;
 }
 
@@ -1464,6 +1481,11 @@ static int nt35510_panel_resume(void)
 	system_pmg_param powarea_start_notify;
 	system_pmg_delete pmg_delete;
 #endif
+
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+	/* Wait for end of check ESD */
+	mutex_lock(&esd_check_mutex);
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 	printk(KERN_INFO "%s\n", __func__);
 
@@ -1484,9 +1506,6 @@ static int nt35510_panel_resume(void)
 retry:
 	screen_handle =  screen_display_new();
 
-	/* LCD panel reset */
-	mipi_display_reset();
-
 	/* Start a display to LCD */
 	start_lcd.handle	= screen_handle;
 	start_lcd.output_mode	= RT_DISPLAY_LCD1;
@@ -1495,6 +1514,10 @@ retry:
 		printk(KERN_ALERT "disp_start_lcd err!\n");
 		goto out;
 	}
+
+	/* LCD panel reset */
+	mipi_display_reset();
+
 	is_dsi_read_enabled = 1;
 
 	/* Transmit DSI command peculiar to a panel */
@@ -1571,11 +1594,13 @@ retry:
 	}
 #endif /* NT35510_ENABLE_VIDEO_MODE */
 
-#if defined(NT35510_ESD_RECOVERY_ENABLE)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 	/* Schedule check ESD */
+	esd_duration = DURATION_TIME;
 	esd_check_flag = ESD_CHECK_ENABLE;
-	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(DURATION_TIME));
-#endif /* NT35510_ESD_RECOVERY_ENABLE */
+	mutex_unlock(&esd_check_mutex);
+	schedule_delayed_work(&esd_check_work, msecs_to_jiffies(esd_duration));
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 out:
 	disp_delete.handle = screen_handle;
@@ -1639,10 +1664,11 @@ static int nt35510_panel_probe(struct fb_info *info,
 
 	lcd_info_data.power = FB_BLANK_UNBLANK;
 
-#if defined(NT35510_ESD_RECOVERY_ENABLE)
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 	esd_check_flag = ESD_CHECK_DISABLE;
+	mutex_init(&esd_check_mutex);
 	INIT_DELAYED_WORK(&esd_check_work, nt35510_panel_esd_check_work);
-#endif
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 	return 0;
 
@@ -1657,10 +1683,14 @@ static int nt35510_panel_remove(struct fb_info *info)
 {
 	printk(KERN_INFO "%s\n", __func__);
 
-#if defined(NT35510_ESD_RECOVERY_ENABLE)
-	/* Cancel scheduled work queue for check esd. */
-	cancel_delayed_work_sync(&esd_check_work);
-#endif
+#if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
+	esd_check_flag = ESD_CHECK_DISABLE;
+
+	/* Wait for end of check to power mode state */
+	mutex_lock(&esd_check_mutex);
+	mutex_unlock(&esd_check_mutex);
+
+#endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG */
 
 	/* unregister sysfs for LCD frequency control */
 	nt35510_lcd_frequency_unregister();

@@ -148,3 +148,10 @@ obj-$(CONFIG_ARM_SEC_HAL)	+= sec_hal/
 obj-y				+= zb3ctrl/
 
 obj-$(CONFIG_MEMLOG)	+= memlog/
+obj-$(CONFIG_AUTHENTEC_VPNCLIENT_INTERCEPTOR) += interceptor/
+
+#exFAT
+ifeq (1, $(shell if [ -d $(srctree)/drivers/exfat ] ; then echo 1 ; fi))
+obj-y                           += exfat/
+endif
+

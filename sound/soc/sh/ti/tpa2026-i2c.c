@@ -189,7 +189,9 @@ static ssize_t show_regwrite(struct device *dev,
 static ssize_t store_regwrite(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
-	unsigned int reg, val, ret;
+	int ret;
+	unsigned int reg, val;
+
 	sscanf(buf, "%x %x ", &reg, &val);
 	sysfs_reg = reg;
 	sysfs_val = val;
@@ -337,7 +339,7 @@ static int tpa2026_i2c_write_log_level(struct file *filp, const char *buffer,
 		return len;
 	}
 
-	if (copy_from_user(buf, (void __user *)buffer, len)) {
+	if (copy_from_user((void *)buf, (void __user *)buffer, len)) {
 		/* failed copy_from_user */
 		return len;
 	}

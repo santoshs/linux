@@ -440,7 +440,6 @@ err:
 /* Override for the release function */
 static int v4l2_release(struct inode *inode, struct file *filp)
 {
-#if 0
 	struct video_device *vdev = video_devdata(filp);
 	int ret = 0;
 
@@ -453,25 +452,6 @@ static int v4l2_release(struct inode *inode, struct file *filp)
 	}
 	/* decrease the refcount unconditionally since the release()
 	   return value is ignored. */
-	video_put(vdev);
-	return ret;
-#else
-	return 0;
-#endif
-}
-
-static int v4l2_flush(struct file *filp, fl_owner_t id)
-{
-	struct video_device *vdev = video_devdata(filp);
-	int ret = 0;
-
-	if (vdev->fops->release) {
-		if (vdev->lock)
-			mutex_lock(vdev->lock);
-		vdev->fops->release(filp);
-		if (vdev->lock)
-			mutex_unlock(vdev->lock);
-	}
 	video_put(vdev);
 	return ret;
 }
@@ -490,7 +470,6 @@ static const struct file_operations v4l2_fops = {
 	.release = v4l2_release,
 	.poll = v4l2_poll,
 	.llseek = no_llseek,
-	.flush = v4l2_flush,
 };
 
 /**

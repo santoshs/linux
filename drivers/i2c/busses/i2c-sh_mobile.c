@@ -248,7 +248,7 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 	u32 tHIGH = 0;
 	u32 tLOW = 0;
 	u32 tf = 0;
-	int offset;
+	int offset = 0;
 
 	/* Get clock rate after clock is enabled */
 	clk_enable(pd->clk);

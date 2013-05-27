@@ -283,7 +283,7 @@ int d2153_irq_init(struct d2153 *d2153, int irq,
 	int ret = -EINVAL;
 	int reg_data, maskbit;
 
-	if (!irq) {
+	if (0 == irq) {
 		dev_err(d2153->dev, "No IRQ configured\n");
 		return -EINVAL;
 	}
@@ -307,9 +307,6 @@ int d2153_irq_init(struct d2153 *d2153, int irq,
 			return ret;
 		}
 		dev_info(d2153->dev, "# IRQ configured [%d]\n", irq);
-	} else {
-		dev_err(d2153->dev, "No IRQ configured\n");
-		return ret;
 	}
 
 	enable_irq_wake(irq);

@@ -2,7 +2,7 @@
  * iccom_drv_int.c
  *     Inter Core Communication driver function file for interrupts.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -266,6 +266,9 @@ void iccom_read_fatal(
 		p_completion = ((iccom_drv_handle *)p_recv_head->msg_header.handle)->async_completion;
 		if (NULL == p_completion) {
 			MSG_ERROR("[ICCOMK]ERR| ICCOM handle does not exist.\n");
+			if (ICCOM_MEM_DYNAMIC == p_recv_head->mng_info) {
+				kfree(p_recv_head);
+			}
 		} else {
 			/* put data to receive queue */
 			ret = iccom_put_recv_queue(p_completion,

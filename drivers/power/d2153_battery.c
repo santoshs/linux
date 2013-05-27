@@ -1,10 +1,10 @@
 /*
  * Battery driver for Dialog D2153
- *   
+ *
  * Copyright(c) 2012 Dialog Semiconductor Ltd.
- *  
+ *
  * Author: Dialog Semiconductor Ltd. D. Chen, A Austin, E Jeong
- *  
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -42,6 +42,10 @@
 #include <linux/d2153/d2153_battery.h>
 #include <linux/d2153/d2153_reg.h>
 
+#ifdef CONFIG_ARCH_R8A7373
+#include <mach/pm.h>
+#endif /* CONFIG_ARCH_R8A7373 */
+
 static const char __initdata d2153_battery_banner[] = \
     "D2153 Battery, (c) 2012 Dialog Semiconductor Ltd.\n";
 
@@ -58,35 +62,62 @@ static const char __initdata d2153_battery_banner[] = \
 #define ADC_RES_MASK_MSB					(0xF0)
 
 #if USED_BATTERY_CAPACITY == BAT_CAPACITY_1800MA
-#define ADC_VAL_100_PERCENT					3624   /* About 4270mV */
-#define CV_START_ADC						3275   /* About 4100mV */
-#define ORIGN_FULL_CHARGED_ADC				3768   /* About 4340mV */
-#define ORIGN_CV_START_ADC					3275   /* About 4100mV */
+#define ADC_VAL_100_PERCENT            		3645   // About 4280mV
+#define CV_START_ADC            			3275   // About 4100mV
+#define MAX_FULL_CHARGED_ADC				3768   // About 4340mV
+#define ORIGN_CV_START_ADC					3686   // About 4300mV
+#define ORIGN_FULL_CHARGED_ADC				3780   // About 4345mV
+
+#define D2153_BAT_CHG_FRST_FULL_LVL         4310   // About EOC 160mA
+#define D2153_BAT_CHG_BACK_FULL_LVL         4340   // About EOC 50mA
+
+#define FIRST_VOLTAGE_DROP_ADC  			121
 #else
 #define ADC_VAL_100_PERCENT            		3445
 #define CV_START_ADC            			3338
-#define ORIGN_FULL_CHARGED_ADC				3470
+#define MAX_FULL_CHARGED_ADC				3470
 #define ORIGN_CV_START_ADC					3320
+#define ORIGN_FULL_CHARGED_ADC				3480   // About 4345mV
+
+#define D2153_BAT_CHG_FRST_FULL_LVL         4160   // About EOC 160mA
+#define D2153_BAT_CHG_BACK_FULL_LVL         4185   // About EOC 60mA
+
+#define FIRST_VOLTAGE_DROP_ADC  			165
 #endif
 #define FULL_CAPACITY						1000
 
-#define FIRST_VOLTAGE_DROP_ADC				215   /* About 102mV */
 #define NORM_NUM                			10000
 #define MAX_WEIGHT							10000
 #define MAX_DIS_OFFSET_FOR_WEIGHT2			300
-#define MAX_DIS_OFFSET_FOR_WEIGHT   		200
+#define MAX_DIS_OFFSET_FOR_WEIGHT1   		200
+#define MAX_DIS_OFFSET_FOR_WEIGHT0_5   		150
+#define MAX_DIS_OFFSET_FOR_WEIGHT			100
 #define MIN_DIS_OFFSET_FOR_WEIGHT   		30
-#define MAX_ADD_DIS_PERCENT_FOR_WEIGHT2		23
-#define MAX_ADD_DIS_PERCENT_FOR_WEIGHT		13
+
+#define CONFIG_NEW_PROFILE
+
+#ifdef CONFIG_NEW_PROFILE
+#define MAX_ADD_DIS_PERCENT_FOR_WEIGHT2   	30    // 35
+#define MAX_ADD_DIS_PERCENT_FOR_WEIGHT1   	23    // 26 // 23
+#define MAX_ADD_DIS_PERCENT_FOR_WEIGHT0_5   18    // 22 // 19  // 15
+#define MAX_ADD_DIS_PERCENT_FOR_WEIGHT   	14    // 18 15
+#define MIN_ADD_DIS_PERCENT_FOR_WEIGHT  	(-30) // (-20) // (-63) // (-40)
+#else
+#define MAX_ADD_DIS_PERCENT_FOR_WEIGHT2   	35
+#define MAX_ADD_DIS_PERCENT_FOR_WEIGHT1   	23
+#define MAX_ADD_DIS_PERCENT_FOR_WEIGHT0_5   19
+#define MAX_ADD_DIS_PERCENT_FOR_WEIGHT   	15
 #define MIN_ADD_DIS_PERCENT_FOR_WEIGHT  	(-40)
+#endif
 
 #define MAX_CHA_OFFSET_FOR_WEIGHT   		300
 #define MIN_CHA_OFFSET_FOR_WEIGHT   		150
 #define MAX_ADD_CHA_PERCENT_FOR_WEIGHT   	10
 #define MIN_ADD_CHA_PERCENT_FOR_WEIGHT  	(0)
-#define DISCHARGE_SLEEP_OFFSET				55
+#define DISCHARGE_SLEEP_OFFSET              55    // 45
 #define LAST_VOL_UP_PERCENT                 75
-#define LAST_CHARGING_WEIGHT      			700
+#define LAST_CHARGING_WEIGHT      			900
+/*#define CONFIG_D2153_BATTERY_DEBUG*/
 
 /* Static Function Prototype */
 /* static void d2153_external_event_handler(int category, int event); */
@@ -111,7 +142,7 @@ static struct adc_cont_in_auto adc_cont_inven[D2153_ADC_CHANNEL_MAX - 1] = {
 	/* VBAT_S channel */
 	[D2153_ADC_VOLTAGE] = {
 		.adc_preset_val = 0,
-		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK 
+		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK
 							| D2153_AUTO_VBAT_EN_MASK),
 		.adc_msb_res = D2153_VDD_RES_VBAT_RES_REG,
 		.adc_lsb_res = D2153_ADC_RES_AUTO1_REG,
@@ -120,7 +151,7 @@ static struct adc_cont_in_auto adc_cont_inven[D2153_ADC_CHANNEL_MAX - 1] = {
 	/* TEMP_1 channel */
 	[D2153_ADC_TEMPERATURE_1] = {
 		.adc_preset_val = D2153_TEMP1_ISRC_EN_BIT,   /* 10uA Current Source enabled */
-		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK 
+		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK
 							| D2153_TEMP1_ISRC_EN_MASK),   /* 10uA Current Source enabled */
 		.adc_msb_res = D2153_TBAT1_RES_TEMP1_RES_REG,
 		.adc_lsb_res = D2153_ADC_RES_AUTO1_REG,
@@ -129,7 +160,7 @@ static struct adc_cont_in_auto adc_cont_inven[D2153_ADC_CHANNEL_MAX - 1] = {
 	/*  TEMP_2 channel */
 	[D2153_ADC_TEMPERATURE_2] = {
 		.adc_preset_val =  D2153_TEMP2_ISRC_EN_BIT,   /* 10uA Current Source enabled */
-		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK 
+		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK
 							| D2153_TEMP2_ISRC_EN_MASK),   /* 10uA Current source enabled */
 		.adc_msb_res = D2153_TBAT2_RES_TEMP2_RES_REG,
 		.adc_lsb_res = D2153_ADC_RES_AUTO3_REG,
@@ -138,7 +169,7 @@ static struct adc_cont_in_auto adc_cont_inven[D2153_ADC_CHANNEL_MAX - 1] = {
 	/* VF channel */
 	[D2153_ADC_VF] = {
 		.adc_preset_val = D2153_AUTO_VF_EN_BIT,      /* 10uA Current Source enabled */
-		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK 
+		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK
 							| D2153_AD4_ISRC_ENVF_ISRC_EN_MASK | D2153_AUTO_VF_EN_MASK),
 		.adc_msb_res = D2153_ADCIN4_RES_VF_RES_REG,
 		.adc_lsb_res = D2153_ADC_RES_AUTO2_REG,
@@ -171,7 +202,7 @@ static struct adc2temp_lookuptbl adc2temp_lut = {
 		2144,      1691,      1341,      1072,     865,      793,      703,
 		577,       480,       400,       334,      285,      239,      199,
 		179,       168,       143,       124,      106,      98,       93,
-		88, 
+		88,
 	},
 	.temp = {	// temperature (degree K)
 		C2K(-200), C2K(-150), C2K(-100), C2K(-50), C2K(0),	 C2K(20),  C2K(50),
@@ -190,6 +221,31 @@ static struct adc2vbat_lookuptbl adc2vbat_lut = {
 };
 
 #if USED_BATTERY_CAPACITY == BAT_CAPACITY_1800MA
+#ifdef CONFIG_NEW_PROFILE   // for Garda/Logan final battery.
+static struct adc2soc_lookuptbl adc2soc_lut = {
+	  .adc_ht  = {1843, 1906, 2056, 2213, 2396, 2563, 2627, 2688, 2762, 2920, 3069, 3249, 3458, ADC_VAL_100_PERCENT,}, // ADC input @ high temp
+	  .adc_rt  = {1843, 1906, 2056, 2213, 2396, 2563, 2627, 2688, 2762, 2920, 3069, 3249, 3458, ADC_VAL_100_PERCENT,}, // ADC input @ room temp
+	  .adc_rlt = {1843, 1906, 2056, 2213, 2396, 2563, 2627, 2688, 2762, 2920, 3069, 3249, 3458, ADC_VAL_100_PERCENT,}, // ADC input @ low temp(0)
+	  .adc_lt  = {1843, 1906, 2056, 2213, 2396, 2563, 2627, 2688, 2762, 2920, 3069, 3249, 3458, ADC_VAL_100_PERCENT,}, // ADC input @ low temp(0)
+	  .adc_lmt = {1843, 1906, 2056, 2213, 2396, 2563, 2627, 2688, 2762, 2920, 3069, 3249, 3458, ADC_VAL_100_PERCENT,}, // ADC input @ low mid temp(-10)
+	  .adc_llt = {1843, 1906, 2056, 2213, 2396, 2563, 2627, 2688, 2762, 2920, 3069, 3249, 3458, ADC_VAL_100_PERCENT,}, // ADC input @ low low temp(-20)
+	  .soc	   = {	 0,   10,	30,   50,  100,  200,  300,  400,  500,  600,  700,  800,  900, 1000,}, // SoC in %
+};
+
+//Discharging Weight(Room/Low/low low)          //     0,    1,    3,    5,   10,   20,   30,   40,   50,   60,   70,   80,   90,  100
+static u16 adc_weight_section_discharge[]       = {19100, 9400, 9985, 1825,  325,  137,  126,  171,  385,  355,  518, 774, 1228, 2495};  // Will test
+static u16 adc_weight_section_discharge_rlt[]   = {19100, 9400, 9985, 1825,  325,  137,  126,  171,  385,  355,  518, 774, 1228, 2495};
+static u16 adc_weight_section_discharge_lt[]    = {19100, 9400, 9985, 1825,  325,  137,  126,  171,  385,  355,  518, 774, 1228, 2495};
+static u16 adc_weight_section_discharge_lmt[]   = {19100, 9400, 9985, 1825,  325,  137,  126,  171,  385,  355,  518, 774, 1228, 2495};
+static u16 adc_weight_section_discharge_llt[]   = {19100, 9400, 9985, 1825,  325,  137,  126,  171,  385,  355,  518, 774, 1228, 2495};
+
+//Charging Weight(Room/Low/low low)             //     0,    1,    3,    5,   10,   20,   30,   40,   50,   60,   70,   80,   90, 100
+static u16 adc_weight_section_charge[]          = { 9700,  734,  488,  385,  225,   95,   93,  105,  218,  216,  259, 281,  303, LAST_CHARGING_WEIGHT};    // Will test
+static u16 adc_weight_section_charge_rlt[]		= { 9700,  734,  488,  385,  225,   95,   93,  105,  218,  216,  259, 281,  303, LAST_CHARGING_WEIGHT};
+static u16 adc_weight_section_charge_lt[]		= { 9700,  734,  488,  385,  225,   95,   93,  105,  218,  216,  259, 281,  303, LAST_CHARGING_WEIGHT};
+static u16 adc_weight_section_charge_lmt[]		= { 9700,  734,  488,  385,  225,   95,   93,  105,  218,  216,  259, 281,  303, LAST_CHARGING_WEIGHT};
+static u16 adc_weight_section_charge_llt[]		= { 9700,  734,  488,  385,  225,   95,   93,  105,  218,  216,  259, 281,  303, LAST_CHARGING_WEIGHT};
+#else
 static struct adc2soc_lookuptbl adc2soc_lut = {
 	.adc_ht  = {1800, 1900, 2150, 2351, 2467, 2605, 2662, 2711, 2750, 2897, 3031, 3233, 3430, ADC_VAL_100_PERCENT,}, // ADC input @ high temp
 	.adc_rt  = {1800, 1900, 2150, 2351, 2467, 2605, 2662, 2711, 2750, 2897, 3031, 3233, 3430, ADC_VAL_100_PERCENT,}, // ADC input @ room temp
@@ -198,25 +254,22 @@ static struct adc2soc_lookuptbl adc2soc_lut = {
 	.adc_lmt = {1800, 1853, 1985, 2113, 2243, 2361, 2428, 2538, 2610, 2705, 2840, 2985, 3125, 3260,}, // ADC input @ low mid temp(-10)
 	.adc_llt = {1800, 1850, 1978, 2105, 2235, 2342, 2405, 2510, 2595, 2680, 2786, 2930, 3040, 3160,}, // ADC input @ low low temp(-20)
 	.soc	 = {   0,	10,   30,	50,  100,  200,  300,  400,  500,  600,  700,  800,  900, 1000,}, // SoC in %
-};           
+};
 
 //Discharging Weight(Room/Low/low low)          //    0,    1,    3,    5,   10,   20,   30,   40,   50,   60,   70,   80,   90,  100
-static u16 adc_weight_section_discharge[]       = {5300, 4300, 3300,  420,	165,   67,	 57,   47,	200,  210,	320,  383,	450,  950};
+static u16 adc_weight_section_discharge[]       = {5200, 4250, 3300,  415,	170,   63,	 53,   45,	200,  210,	320,  383,	450,  950};
 static u16 adc_weight_section_discharge_rlt[]   = {3640, 2740,	966,  466,	140,  120,	 93,   80,	128,  151,	150,  176,	186,  780};
 static u16 adc_weight_section_discharge_lt[]    = {3200, 2120,	860,  356,	111,   90,	 68,   64,	 96,  106,	110,  130,	139,  710};
 static u16 adc_weight_section_discharge_lmt[]   = {2920, 1850,	756,  326,	 94,   79,	 65,   57,	 81,   96,	 99,  121,	128,  670};
 static u16 adc_weight_section_discharge_llt[]   = {2730, 1840,	710,  300,	 70,   62,	 55,   51,	 63,   71,	 73,   79,	 85,  630};
 
 //Charging Weight(Room/Low/low low)             //    0,    1,    3,    5,   10,   20,   30,   40,   50,   60,   70,   80,   90,  100
-static u16 adc_weight_section_charge[]          = {7000, 1500,  760,  300,	210,   80,	 70,   57,	180,  190,	270,  290,	310,  LAST_CHARGING_WEIGHT};
+static u16 adc_weight_section_charge[]          = {7000, 1500,  760,  300,	210,   76,	 67,   56,	180,  190,	270,  280,	300,  LAST_CHARGING_WEIGHT};
 static u16 adc_weight_section_charge_rlt[]		= {7000, 1500,  760,  295,	210,   80,	 70,   57,	180,  190,	240,  275,	295,  LAST_CHARGING_WEIGHT};
 static u16 adc_weight_section_charge_lt[]		= {7000, 1500,  760,  295,	210,   80,	 70,   57,	180,  190,	240,  275,	295,  LAST_CHARGING_WEIGHT};
 static u16 adc_weight_section_charge_lmt[]		= {7000, 1500,  760,  295,	210,   80,	 70,   57,	180,  190,	240,  275,	295,  LAST_CHARGING_WEIGHT};
 static u16 adc_weight_section_charge_llt[]		= {7000, 1500,  760,  295,	210,   80,	 70,   57,	180,  190,	240,  275,	295,  LAST_CHARGING_WEIGHT};
-
-/*Charging Offset 0, 1, 3, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100*/
-/*static u16 adc_diff_charge[] = {60, 60, 200, 210, 225, 225, 248, 240, 235,
-	220, 175, 165, 165, 0}; */
+#endif
 #else
 static struct adc2soc_lookuptbl adc2soc_lut = {
 	.adc_ht  = {1800, 1870, 2060, 2270, 2400, 2510, 2585, 2635, 2685, 2781, 2933, 3064, 3230, ADC_VAL_100_PERCENT,}, // ADC input @ high temp
@@ -266,7 +319,6 @@ static int d2153_get_hwsem_timeout(struct hwspinlock *hwlock,
 	for (;;) {
 		/* Try to take the hwspinlock */
 		ret = hwspin_trylock_nospin(hwlock);
-
 		if (ret == 0)
 			break;
 
@@ -301,15 +353,15 @@ static void d2153_force_release_hwsem(u8 hwsem_id)
 
 	/*Check input hwsem_id*/
 	switch (hwsem_id) {
-	case RT_CPU_SIDE:
-	case SYS_CPU_SIDE:
-	case BB_CPU_SIDE:
-		break;
-	default:
-		return;
+		case RT_CPU_SIDE:
+		case SYS_CPU_SIDE:
+		case BB_CPU_SIDE:
+			break;
+		default:
+			return;
 	}
 
-	ptr = ioremap(0xe6001830, 4);
+	ptr = ioremap(HPB_SEM_PMICPhys, 4);
 	value = ioread32(ptr);
 	iounmap(ptr);
 
@@ -320,7 +372,7 @@ static void d2153_force_release_hwsem(u8 hwsem_id)
 		return;
 
 	/*enable master access*/
-	ptr = ioremap(0xE6001604, 4);
+	ptr = ioremap(HPB_SEM_MPACCTLPhys, 4);
 	for (;;) {
 
 		/* Try to enable master access */
@@ -348,7 +400,7 @@ static void d2153_force_release_hwsem(u8 hwsem_id)
 	/*Force clear HW sem*/
 	expire = msecs_to_jiffies(5) + jiffies;
 
-	ptr = ioremap(0xe6001830, 4);
+	ptr = ioremap(HPB_SEM_PMICPhys, 4);
 	for (;;) {
 		/* Try to force clear HW sem */
 		iowrite32(0, ptr);
@@ -379,7 +431,7 @@ static void d2153_force_release_hwsem(u8 hwsem_id)
 
 	/*Disable master access*/
 	expire = msecs_to_jiffies(5) + jiffies;
-	ptr = ioremap(0xE6001604, 4);
+	ptr = ioremap(HPB_SEM_MPACCTLPhys, 4);
 	for (;;) {
 		/* Try to disable master access */
 		iowrite32(0, ptr);
@@ -476,8 +528,9 @@ void d2153_handle_modem_reset(void)
 }
 EXPORT_SYMBOL(d2153_handle_modem_reset);
 
+
 /*
- * d2153_modem_reset: start thread to handle modem reset
+ * d2153_modem_thread: start thread to handle modem reset
  * @ptr:
  * return: 0
  */
@@ -495,7 +548,7 @@ static int d2153_modem_thread(void *ptr)
 	return 0;
 }
 
-/* 
+/*
  * Name : chk_lut
  *
  */
@@ -507,20 +560,20 @@ static int chk_lut (u16* x, u16* y, u16 v, u16 l) {
 	if (v < x[0])
 		ret = y[0];
 	else if (v >= x[l-1])
-		ret = y[l-1]; 
-	else {          
-		for (i = 1; i < l; i++) {          
-			if (v < x[i])               
-				break;      
-		}       
-		ret = y[i-1];       
-		ret = ret + ((v-x[i-1])*(y[i]-y[i-1]))/(x[i]-x[i-1]);   
-	}   
+		ret = y[l-1];
+	else {
+		for (i = 1; i < l; i++) {
+			if (v < x[i])
+				break;
+		}
+		ret = y[i-1];
+		ret = ret + ((v-x[i-1])*(y[i]-y[i-1]))/(x[i]-x[i-1]);
+	}
 	//return (u16) ret;
 	return ret;
 }
 
-/* 
+/*
  * Name : chk_lut_temp
  * return : The return value is Kelvin degree
  */
@@ -530,25 +583,25 @@ static int chk_lut_temp (u16* x, u16* y, u16 v, u16 l) {
 	if (v >= x[0])
 		ret = y[0];
 	else if (v < x[l-1])
-		ret = y[l-1]; 
-	else {			
-		for (i=1; i < l; i++) { 		 
-			if (v > x[i])				
-				break;		
-		}		
-		ret = y[i-1];		
-		ret = ret + ((v-x[i-1])*(y[i]-y[i-1]))/(x[i]-x[i-1]);	
+		ret = y[l-1];
+	else {
+		for (i=1; i < l; i++) {
+			if (v > x[i])
+				break;
+		}
+		ret = y[i-1];
+		ret = ret + ((v-x[i-1])*(y[i]-y[i-1]))/(x[i]-x[i-1]);
 	}
-	
+
 	return ret;
 }
 
 
-/* 
+/*
  * Name : adc_to_soc_with_temp_compensat
  *
  */
-u32 adc_to_soc_with_temp_compensat(u16 adc, u16 temp) {	
+u32 adc_to_soc_with_temp_compensat(u16 adc, u16 temp) {
 	int sh, sl;
 
 	if(temp < BAT_LOW_LOW_TEMPERATURE)
@@ -557,41 +610,41 @@ u32 adc_to_soc_with_temp_compensat(u16 adc, u16 temp) {
 		temp = BAT_HIGH_TEMPERATURE;
 
 	if((temp <= BAT_HIGH_TEMPERATURE) && (temp > BAT_ROOM_TEMPERATURE)) {
-		sh = chk_lut(adc2soc_lut.adc_ht, adc2soc_lut.soc, adc, adc2soc_lut_length);    
+		sh = chk_lut(adc2soc_lut.adc_ht, adc2soc_lut.soc, adc, adc2soc_lut_length);
 		sl = chk_lut(adc2soc_lut.adc_rt, adc2soc_lut.soc, adc, adc2soc_lut_length);
 		sh = sl + (temp - BAT_ROOM_TEMPERATURE)*(sh - sl)
 								/ (BAT_HIGH_TEMPERATURE - BAT_ROOM_TEMPERATURE);
 	} else if((temp <= BAT_ROOM_TEMPERATURE) && (temp > BAT_ROOM_LOW_TEMPERATURE)) {
-		sh = chk_lut(adc2soc_lut.adc_rt, adc2soc_lut.soc, adc, adc2soc_lut_length); 	   
-		sl = chk_lut(adc2soc_lut.adc_rlt, adc2soc_lut.soc, adc, adc2soc_lut_length); 	   
+		sh = chk_lut(adc2soc_lut.adc_rt, adc2soc_lut.soc, adc, adc2soc_lut_length);
+		sl = chk_lut(adc2soc_lut.adc_rlt, adc2soc_lut.soc, adc, adc2soc_lut_length);
 		sh = sl + (temp - BAT_ROOM_LOW_TEMPERATURE)*(sh - sl)
 								/ (BAT_ROOM_TEMPERATURE-BAT_ROOM_LOW_TEMPERATURE);
 	} else if((temp <= BAT_ROOM_LOW_TEMPERATURE) && (temp > BAT_LOW_TEMPERATURE)) {
-		sh = chk_lut(adc2soc_lut.adc_rlt, adc2soc_lut.soc, adc, adc2soc_lut_length); 	   
-		sl = chk_lut(adc2soc_lut.adc_lt, adc2soc_lut.soc, adc, adc2soc_lut_length); 	   
+		sh = chk_lut(adc2soc_lut.adc_rlt, adc2soc_lut.soc, adc, adc2soc_lut_length);
+		sl = chk_lut(adc2soc_lut.adc_lt, adc2soc_lut.soc, adc, adc2soc_lut_length);
 		sh = sl + (temp - BAT_LOW_TEMPERATURE)*(sh - sl)
 								/ (BAT_ROOM_LOW_TEMPERATURE-BAT_LOW_TEMPERATURE);
 	} else if((temp <= BAT_LOW_TEMPERATURE) && (temp > BAT_LOW_MID_TEMPERATURE)) {
-		sh = chk_lut(adc2soc_lut.adc_lt, adc2soc_lut.soc, adc, adc2soc_lut_length); 	   
-		sl = chk_lut(adc2soc_lut.adc_lmt, adc2soc_lut.soc, adc, adc2soc_lut_length);		
+		sh = chk_lut(adc2soc_lut.adc_lt, adc2soc_lut.soc, adc, adc2soc_lut_length);
+		sl = chk_lut(adc2soc_lut.adc_lmt, adc2soc_lut.soc, adc, adc2soc_lut_length);
 		sh = sl + (temp - BAT_LOW_MID_TEMPERATURE)*(sh - sl)
-								/ (BAT_LOW_TEMPERATURE-BAT_LOW_MID_TEMPERATURE);	
-	} else {		
-		sh = chk_lut(adc2soc_lut.adc_lmt, adc2soc_lut.soc,	adc, adc2soc_lut_length);		 
+								/ (BAT_LOW_TEMPERATURE-BAT_LOW_MID_TEMPERATURE);
+	} else {
+		sh = chk_lut(adc2soc_lut.adc_lmt, adc2soc_lut.soc,	adc, adc2soc_lut_length);
 		sl = chk_lut(adc2soc_lut.adc_llt, adc2soc_lut.soc, adc, adc2soc_lut_length);
 		sh = sl + (temp - BAT_LOW_LOW_TEMPERATURE)*(sh - sl)
-								/ (BAT_LOW_MID_TEMPERATURE-BAT_LOW_LOW_TEMPERATURE); 
+								/ (BAT_LOW_MID_TEMPERATURE-BAT_LOW_LOW_TEMPERATURE);
 	}
 
 	return sh;
 }
 
 
-/* 
+/*
  * Name : soc_to_adc_with_temp_compensat
  *
  */
-u32 soc_to_adc_with_temp_compensat(u16 soc, u16 temp) {	
+u32 soc_to_adc_with_temp_compensat(u16 soc, u16 temp) {
 	int sh, sl;
 
 	if(temp < BAT_LOW_LOW_TEMPERATURE)
@@ -602,30 +655,30 @@ u32 soc_to_adc_with_temp_compensat(u16 soc, u16 temp) {
 	pr_info("%s. Parameter. SOC = %d. temp = %d\n", __func__, soc, temp);
 
 	if((temp <= BAT_HIGH_TEMPERATURE) && (temp > BAT_ROOM_TEMPERATURE)) {
-		sh = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_ht, soc, adc2soc_lut_length);    
+		sh = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_ht, soc, adc2soc_lut_length);
 		sl = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_rt, soc, adc2soc_lut_length);
 		sh = sl + (temp - BAT_ROOM_TEMPERATURE)*(sh - sl)
 								/ (BAT_HIGH_TEMPERATURE - BAT_ROOM_TEMPERATURE);
 	} else if((temp <= BAT_ROOM_TEMPERATURE) && (temp > BAT_ROOM_LOW_TEMPERATURE)) {
-		sh = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_rt, soc, adc2soc_lut_length); 	   
-		sl = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_rlt, soc, adc2soc_lut_length); 	   
+		sh = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_rt, soc, adc2soc_lut_length);
+		sl = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_rlt, soc, adc2soc_lut_length);
 		sh = sl + (temp - BAT_ROOM_LOW_TEMPERATURE)*(sh - sl)
 								/ (BAT_ROOM_TEMPERATURE-BAT_ROOM_LOW_TEMPERATURE);
 	} else if((temp <= BAT_ROOM_LOW_TEMPERATURE) && (temp > BAT_LOW_TEMPERATURE)) {
-		sh = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_rlt, soc, adc2soc_lut_length); 	   
-		sl = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_lt, soc, adc2soc_lut_length); 	   
+		sh = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_rlt, soc, adc2soc_lut_length);
+		sl = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_lt, soc, adc2soc_lut_length);
 		sh = sl + (temp - BAT_LOW_TEMPERATURE)*(sh - sl)
 								/ (BAT_ROOM_LOW_TEMPERATURE-BAT_LOW_TEMPERATURE);
 	} else if((temp <= BAT_LOW_TEMPERATURE) && (temp > BAT_LOW_MID_TEMPERATURE)) {
-		sh = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_lt, soc, adc2soc_lut_length); 	   
-		sl = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_lmt, soc, adc2soc_lut_length);		
+		sh = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_lt, soc, adc2soc_lut_length);
+		sl = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_lmt, soc, adc2soc_lut_length);
 		sh = sl + (temp - BAT_LOW_MID_TEMPERATURE)*(sh - sl)
-								/ (BAT_LOW_TEMPERATURE-BAT_LOW_MID_TEMPERATURE);	
-	} else {		
-		sh = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_lmt,	soc, adc2soc_lut_length);		 
+								/ (BAT_LOW_TEMPERATURE-BAT_LOW_MID_TEMPERATURE);
+	} else {
+		sh = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_lmt,	soc, adc2soc_lut_length);
 		sl = chk_lut(adc2soc_lut.soc, adc2soc_lut.adc_llt, soc, adc2soc_lut_length);
 		sh = sl + (temp - BAT_LOW_LOW_TEMPERATURE)*(sh - sl)
-								/ (BAT_LOW_MID_TEMPERATURE-BAT_LOW_LOW_TEMPERATURE); 
+								/ (BAT_LOW_MID_TEMPERATURE-BAT_LOW_LOW_TEMPERATURE);
 	}
 
 	return sh;
@@ -634,6 +687,10 @@ u32 soc_to_adc_with_temp_compensat(u16 soc, u16 temp) {
 
 
 static u16 pre_soc = 0xffff;
+/*
+ * Name : soc_filter
+ *
+ */
 u16 soc_filter(u16 new_soc, u8 is_charging) {
 	u16 soc = new_soc;
 
@@ -665,11 +722,10 @@ u16 soc_filter(u16 new_soc, u8 is_charging) {
 }
 
 
-/* 
+/*
  * Name : adc_to_degree
  *
  */
-//u16 adc_to_degree_k(u16 adc) {
 int adc_to_degree_k(u16 adc) {
     return (chk_lut_temp(adc2temp_lut.adc, adc2temp_lut.temp, adc, temp_lut_length));
 }
@@ -678,19 +734,19 @@ int degree_k2c(u16 k) {
 	return (K2C(k));
 }
 
-/* 
+/*
  * Name : get_adc_offset
  *
  */
-int get_adc_offset(u16 adc) {	
+int get_adc_offset(u16 adc) {
     return (chk_lut(adc2vbat_lut.adc, adc2vbat_lut.offset, adc, adc2vbat_lut_length));
 }
 
-/* 
+/*
  * Name : adc_to_vbat
  *
  */
-u16 adc_to_vbat(u16 adc, u8 is_charging) {    
+u16 adc_to_vbat(u16 adc, u8 is_charging) {
 	u16 a = adc;
 
 	if(is_charging)
@@ -699,11 +755,11 @@ u16 adc_to_vbat(u16 adc, u8 is_charging) {
 	return (2500 + ((a * 2000) >> 12));
 }
 
-/* 
+/*
  * Name : adc_to_soc
  * get SOC (@ room temperature) according ADC input
  */
-int adc_to_soc(u16 adc, u8 is_charging) { 
+int adc_to_soc(u16 adc, u8 is_charging) {
 
 	u16 a = adc;
 
@@ -712,37 +768,63 @@ int adc_to_soc(u16 adc, u8 is_charging) {
 	return (chk_lut(adc2soc_lut.adc_rt, adc2soc_lut.soc, a, adc2soc_lut_length));
 }
 
-/* 
+
+/*
+ * Name : do_interpolation
+ */
+int do_interpolation(int x0, int x1, int y0, int y1, int x)
+{
+	int y = 0;
+
+	if(!(x1 - x0 )) {
+		pr_err("%s. Divied by Zero. Plz check x1(%d), x0(%d) value \n",
+				__func__, x1, x0);
+		return 0;
+	}
+
+	y = y0 + (x - x0)*(y1 - y0)/(x1 - x0);
+	pr_info("%s. Interpolated y_value is = %d\n", __func__, y);
+
+	return y;
+}
+
+
+
+/*
  * Name : d2153_get_soc
  */
 static int d2153_get_soc(struct d2153_battery *pbat)
 {
 	int soc;
- 	struct d2153_battery_data *pbat_data = NULL;
+	struct d2153_battery_data *pbat_data = NULL;
 
 	if((pbat == NULL) || (!pbat->battery_data.volt_adc_init_done)) {
 		pr_err("%s. Invalid parameter. \n", __func__);
 		return -EINVAL;
 	}
-
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 	pr_info("%s. Getting SOC\n", __func__);
+#endif
 
 	pbat_data = &pbat->battery_data;
 
 	if(pbat_data->soc)
 		pbat_data->prev_soc = pbat_data->soc;
 
-	soc = adc_to_soc_with_temp_compensat(pbat_data->average_volt_adc, 
+	soc = adc_to_soc_with_temp_compensat(pbat_data->average_volt_adc,
 										C2K(pbat_data->average_temperature));
 	if(soc <= 0) {
 		pbat_data->soc = 0;
 		if(pbat_data->current_voltage >= BAT_POWER_OFF_VOLTAGE
 			|| (pbat_data->is_charging == TRUE)) {
+			pr_info("%s: calculated soc = %d, delimited soc = 10\n",
+						__func__, soc);
 			soc = 10;
 		}
 	}
 	else if(soc >= FULL_CAPACITY) {
 		soc = FULL_CAPACITY;
+		pr_info("%s: full capacity\n", __func__);
 		if(pbat_data->virtual_battery_full == 1) {
 			pbat_data->virtual_battery_full = 0;
 			pbat_data->soc = FULL_CAPACITY;
@@ -751,14 +833,22 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 
 	/* Don't allow soc goes up when battery is dicharged.
 	 and also don't allow soc goes down when battey is charged. */
-	if(pbat_data->is_charging != TRUE 
+	if(pbat_data->is_charging != TRUE
 		&& (soc > pbat_data->prev_soc && pbat_data->prev_soc )) {
+		pr_info("%s: is_charging = %d, soc = %d, prev soc = %d",
+					__func__, pbat_data->is_charging,
+					soc, pbat_data->prev_soc);
 		soc = pbat_data->prev_soc;
 	}
-	else if(pbat_data->is_charging
-		&& (soc < pbat_data->prev_soc) && pbat_data->prev_soc) {
+#ifndef CONFIG_D2153_SOC_GO_DOWN_IN_CHG
+	else if (pbat_data->is_charging && (soc < pbat_data->prev_soc) &&
+			pbat_data->prev_soc) {
+		pr_info("%s: is_charging = %d, soc = %d, prev soc = %d",
+					__func__, pbat_data->is_charging,
+					soc, pbat_data->prev_soc);
 		soc = pbat_data->prev_soc;
 	}
+#endif
 	pbat_data->soc = soc;
 
 	d2153_reg_write(pbat->pd2153, D2153_GP_ID_2_REG, (0xFF & soc));
@@ -772,6 +862,10 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 	return soc;
 }
 
+
+/*
+ * Name : d2153_get_weight_from_lookup
+ */
 static u16 d2153_get_weight_from_lookup(u16 tempk, u16 average_adc, u8 is_charging)
 {
 	u8 i = 0;
@@ -779,7 +873,7 @@ static u16 d2153_get_weight_from_lookup(u16 tempk, u16 average_adc, u8 is_chargi
 	int weight = 0;
 
 	// Sanity check.
-	if (tempk < BAT_LOW_LOW_TEMPERATURE)		
+	if (tempk < BAT_LOW_LOW_TEMPERATURE)
 		tempk = BAT_LOW_LOW_TEMPERATURE;
 	else if (tempk > BAT_HIGH_TEMPERATURE)
 		tempk = BAT_HIGH_TEMPERATURE;
@@ -795,7 +889,7 @@ static u16 d2153_get_weight_from_lookup(u16 tempk, u16 average_adc, u8 is_chargi
 		plut = &adc2soc_lut.adc_lt[0];
 	} else if(tempk < BAT_LOW_TEMPERATURE && tempk >= BAT_LOW_MID_TEMPERATURE) {
 		plut = &adc2soc_lut.adc_lmt[0];
-	} else 
+	} else
 		plut = &adc2soc_lut.adc_llt[0];
 
 	for(i = adc2soc_lut_length - 1; i; i--) {
@@ -803,7 +897,7 @@ static u16 d2153_get_weight_from_lookup(u16 tempk, u16 average_adc, u8 is_chargi
 			break;
 	}
 
-	if((tempk <= BAT_HIGH_TEMPERATURE) && (tempk > BAT_ROOM_TEMPERATURE)) {  
+	if((tempk <= BAT_HIGH_TEMPERATURE) && (tempk > BAT_ROOM_TEMPERATURE)) {
 		if(is_charging) {
 			if(average_adc < plut[0]) {
 				// under 1% -> fast charging
@@ -815,59 +909,59 @@ static u16 d2153_get_weight_from_lookup(u16 tempk, u16 average_adc, u8 is_chargi
 	} else if((tempk <= BAT_ROOM_TEMPERATURE) && (tempk > BAT_ROOM_LOW_TEMPERATURE)) {
 		if(is_charging) {
 			if(average_adc < plut[0]) i = 0;
-		
+
 			weight=adc_weight_section_charge_rlt[i];
 			weight = weight + ((tempk-BAT_ROOM_LOW_TEMPERATURE)*(adc_weight_section_charge[i]-adc_weight_section_charge_rlt[i]))
 								/(BAT_ROOM_TEMPERATURE-BAT_ROOM_LOW_TEMPERATURE);
 		} else {
 			weight=adc_weight_section_discharge_rlt[i];
 			weight = weight + ((tempk-BAT_ROOM_LOW_TEMPERATURE)*(adc_weight_section_discharge[i]-adc_weight_section_discharge_rlt[i]))
-								/(BAT_ROOM_TEMPERATURE-BAT_ROOM_LOW_TEMPERATURE); 
+								/(BAT_ROOM_TEMPERATURE-BAT_ROOM_LOW_TEMPERATURE);
 		}
 	} else if((tempk <= BAT_ROOM_LOW_TEMPERATURE) && (tempk > BAT_LOW_TEMPERATURE)) {
 		if(is_charging) {
 			if(average_adc < plut[0]) i = 0;
-		
+
 			weight = adc_weight_section_charge_lt[i];
 			weight = weight + ((tempk-BAT_LOW_TEMPERATURE)*(adc_weight_section_charge_rlt[i]-adc_weight_section_charge_lt[i]))
 								/(BAT_ROOM_LOW_TEMPERATURE-BAT_LOW_TEMPERATURE);
 		} else {
 			weight = adc_weight_section_discharge_lt[i];
 			weight = weight + ((tempk-BAT_LOW_TEMPERATURE)*(adc_weight_section_discharge_rlt[i]-adc_weight_section_discharge_lt[i]))
-								/(BAT_ROOM_LOW_TEMPERATURE-BAT_LOW_TEMPERATURE); 
+								/(BAT_ROOM_LOW_TEMPERATURE-BAT_LOW_TEMPERATURE);
 		}
 	} else if((tempk <= BAT_LOW_TEMPERATURE) && (tempk > BAT_LOW_MID_TEMPERATURE)) {
 		if(is_charging) {
 			if(average_adc < plut[0]) i = 0;
-		
+
 			weight = adc_weight_section_charge_lmt[i];
 			weight = weight + ((tempk-BAT_LOW_MID_TEMPERATURE)*(adc_weight_section_charge_lt[i]-adc_weight_section_charge_lmt[i]))
 								/(BAT_LOW_TEMPERATURE-BAT_LOW_MID_TEMPERATURE);
 		} else {
 			weight = adc_weight_section_discharge_lmt[i];
 			weight = weight + ((tempk-BAT_LOW_MID_TEMPERATURE)*(adc_weight_section_discharge_lt[i]-adc_weight_section_discharge_lmt[i]))
-								/(BAT_LOW_TEMPERATURE-BAT_LOW_MID_TEMPERATURE); 
+								/(BAT_LOW_TEMPERATURE-BAT_LOW_MID_TEMPERATURE);
 		}
-	} else {		
+	} else {
 		if(is_charging) {
 			if(average_adc < plut[0]) i = 0;
 
 			weight = adc_weight_section_charge_llt[i];
 			weight = weight + ((tempk-BAT_LOW_LOW_TEMPERATURE)*(adc_weight_section_charge_lmt[i]-adc_weight_section_charge_llt[i]))
-								/(BAT_LOW_MID_TEMPERATURE-BAT_LOW_LOW_TEMPERATURE); 
+								/(BAT_LOW_MID_TEMPERATURE-BAT_LOW_LOW_TEMPERATURE);
 		} else {
 			weight = adc_weight_section_discharge_llt[i];
 			weight = weight + ((tempk-BAT_LOW_LOW_TEMPERATURE)*(adc_weight_section_discharge_lmt[i]-adc_weight_section_discharge_llt[i]))
-								/(BAT_LOW_MID_TEMPERATURE-BAT_LOW_LOW_TEMPERATURE); 
+								/(BAT_LOW_MID_TEMPERATURE-BAT_LOW_LOW_TEMPERATURE);
 		}
 	}
 
-	return weight;	
+	return weight;
 
 }
 
 
-/* 
+/*
  * Name : d2153_set_adc_mode
  */
 static int d2153_set_adc_mode(struct d2153_battery *pbat, adc_mode type)
@@ -896,11 +990,11 @@ static int d2153_set_adc_mode(struct d2153_battery *pbat, adc_mode type)
 }
 
 
-/* 
+/*
  * Name : d2153_read_adc_in_auto
  * Desc : Read ADC raw data for each channel.
- * Param : 
- *    - d2153 : 
+ * Param :
+ *    - d2153 :
  *    - channel : voltage, temperature 1, temperature 2, VF and TJUNC* Name : d2153_set_end_of_charge
  */
 static int d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channel)
@@ -923,12 +1017,12 @@ static int d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channe
 	}
 
 	ret = d2153_get_hwsem_timeout(r8a73734_hwlock_pmic_d2153, CONST_HPB_WAIT);
-	
+
 	if (ret < 0) {
 			pr_err("%s:lock is already taken.\n", __func__);
 			return -EBUSY;
 	}
-	
+
 	mutex_lock(&pbat->meoc_lock);
 
 	pbat_data->adc_res[channel].is_adc_eoc = FALSE;
@@ -958,19 +1052,19 @@ static int d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channe
 	// Make ADC result
 	pbat_data->adc_res[channel].is_adc_eoc = TRUE;
 	pbat_data->adc_res[channel].read_adc =
-		((msb_res << 4) | (lsb_res >> 
+		((msb_res << 4) | (lsb_res >>
 			(adc_cont_inven[channel].adc_lsb_mask == ADC_RES_MASK_MSB ? 4 : 0)));
 
 out:
 	mutex_unlock(&pbat->meoc_lock);
-	
+
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
-	
+
 	return ret;
 }
 
 
-/* 
+/*
  * Name : d2153_read_adc_in_manual
  */
 static int d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel channel)
@@ -981,12 +1075,12 @@ static int d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel chan
 	struct d2153 *d2153 = pbat->pd2153;
 
 	ret = d2153_get_hwsem_timeout(r8a73734_hwlock_pmic_d2153, CONST_HPB_WAIT);
-	
+
 	if (ret < 0) {
 			pr_err("%s:lock is already taken.\n", __func__);
 			return -EBUSY;
 	}
-	
+
 	mutex_lock(&pbat->meoc_lock);
 
 	pbat_data->adc_res[channel].is_adc_eoc = FALSE;
@@ -1030,35 +1124,133 @@ static int d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel chan
 
 out:
 	mutex_unlock(&pbat->meoc_lock);
-	
+
 	hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
-	
-	return ret;    
+
+	return ret;
 }
 
-/* 
+/*
  * Name : d2153_get_calibration_offset
  */
 static int d2153_get_calibration_offset(int voltage, int y1, int y0)
 {
 	int x1 = D2153_CAL_HIGH_VOLT, x0 = D2153_CAL_LOW_VOLT;
-	int x = voltage, y = 0;
+	int x = voltage, y;
 
 	y = y0 + ((x-x0)*y1 - (x-x0)*y0) / (x1-x0);
 
 	return y;
 }
 
+#define D2153_DROP_ON_RESET		135
 
-/* 
- * Name : d2153_read_voltage
+extern int get_cable_type(void);
+
+/*
+ * Name : d2153_reset_sw_fuelgauge
  */
+static int d2153_reset_sw_fuelgauge(struct d2153_battery *pbat)
+{
+	u8 i, j = 0;
+	int read_adc = 0;
+	u16 charge_offset[] = {100, 250};
+	u32 average_adc, sum_read_adc = 0;
+	struct d2153_battery_data *pbatt_data = &pbat->battery_data;
+
+	if(unlikely(!pbat || !pbatt_data)) {
+		pr_err("%s. Invalid argument\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_info("++++++ Reset Software Fuelgauge +++++++++++\n");
+	pbatt_data->volt_adc_init_done = FALSE;
+
+	/* Initialize ADC buffer */
+	memset(pbatt_data->voltage_adc, 0x0, ARRAY_SIZE(pbatt_data->voltage_adc));
+	pbatt_data->sum_voltage_adc = 0;
+
+	/* Read VBAT_S ADC */
+	for(i = 8, j = 0; i; i--) {
+		read_adc = pbat->d2153_read_adc(pbat, D2153_ADC_VOLTAGE);
+		if(pbatt_data->adc_res[D2153_ADC_VOLTAGE].is_adc_eoc) {
+			read_adc = pbatt_data->adc_res[D2153_ADC_VOLTAGE].read_adc;
+			//pr_info("%s. Read ADC %d : %d\n", __func__, i, read_adc);
+			if(read_adc > 0) {
+				sum_read_adc += read_adc;
+				j++;
+			}
+		}
+		msleep(10);
+	}
+	average_adc = read_adc = sum_read_adc / j;
+	//pr_info("%s. average = %d, j = %d \n", __func__, average_adc, j);
+
+	/* To be compensated a read ADC */
+	if(pbatt_data->is_charging) {
+		int offset = 0;
+
+		if(average_adc > ORIGN_CV_START_ADC ) {
+			int X0, X, X1;
+			int Y0, Y, Y1;
+
+			X0 = ORIGN_CV_START_ADC; X1 = ORIGN_FULL_CHARGED_ADC;
+			Y0 = 10;	Y1 = 100;
+			X = average_adc;
+
+			Y = Y0 + ((X - X0) * (Y1 - Y0)) / (X1 - X0);
+			average_adc = X - (Y1 - Y);
+		}
+		else {
+			int type = get_cable_type();
+
+			//pr_info("[L%d] %s average_adc = %4d, charger type = %d \n",
+			//			__LINE__, __func__, average_adc, type);
+			if(type <= 1)
+				offset = charge_offset[type];
+			else
+				offset = charge_offset[0];
+			average_adc -= offset;
+		}
+	} else {
+		average_adc += D2153_DROP_ON_RESET;
+	}
+	pr_info("%s. average = %d\n", __func__, average_adc);
+	/* Reset the buffer from using a read ADC */
+	for(i = AVG_SIZE; i ; i--) {
+		pbatt_data->voltage_adc[i-1] = average_adc;
+		pbatt_data->sum_voltage_adc += average_adc;
+	}
+
+	pbatt_data->current_volt_adc = average_adc;
+
+	pbatt_data->origin_volt_adc = read_adc;
+	pbatt_data->average_volt_adc = pbatt_data->sum_voltage_adc >> AVG_SHIFT;
+	pbatt_data->voltage_idx = (pbatt_data->voltage_idx+1) % AVG_SIZE;
+	pbatt_data->current_voltage = adc_to_vbat(pbatt_data->current_volt_adc,
+										 pbatt_data->is_charging);
+	pbatt_data->average_voltage = adc_to_vbat(pbatt_data->average_volt_adc,
+										 pbatt_data->is_charging);
+	pbat->battery_data.volt_adc_init_done = TRUE;
+
+	pr_info("%s. Average. ADC = %d, Voltage =  %d\n",
+			__func__, pbatt_data->average_volt_adc, pbatt_data->average_voltage);
+
+	return 0;
+}
+
+
 #ifdef CONFIG_SEC_CHARGING_FEATURE
 extern struct spa_power_data spa_power_pdata;
+extern int spa_event_handler(int evt, void *data);
 #endif
+
+/*
+ * Name : d2153_read_voltage
+ */
 static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps)
 {
-	int new_vol_adc = 0, base_weight, new_vol_orign;
+	int new_vol_adc = 0, base_weight,new_vol_orign;
 	int offset_with_old, offset_with_new = 0;
 	int ret = 0;
 	static int calOffset_4P2, calOffset_3P4 = 0;
@@ -1068,23 +1260,25 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 	int charging_index = 0;
 
 	// >>> 2013/02/26. To set current status.
+#if defined(CONFIG_D2153_BATTERY_DEBUG)
 	pr_info("%s. is_charging = %d\n", __func__, pbat_data->is_charging);
+#endif
 	if (pbat_data->is_charging == D2153_BATTERY_STATUS_MAX) {
 		pr_warn("%s. Need to be set charging status (charging or discharging)\n",
 				__func__);
 		return -EINVAL;
 	}
 	// <<< 2013/02/26. To set current status.
-	
+
 	// Read voltage ADC
 	ret = pbat->d2153_read_adc(pbat, D2153_ADC_VOLTAGE);
-
 	if(ret < 0)
 		return ret;
+
 	// Getting calibration result.
 
 	if(pbat_data->is_charging)
-	{			
+	{
 		offset_charging = initialize_charge_offset[charging_index];
 
 		adc2soc_lut.adc_ht[ADC2SOC_LUT_SIZE-1] = ADC_VAL_100_PERCENT+offset_charging;
@@ -1103,7 +1297,7 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 		adc2soc_lut.adc_llt[ADC2SOC_LUT_SIZE-1] = 3160;
 	}
 
-	
+
 	if(pbat_data->adc_res[D2153_ADC_VOLTAGE].is_adc_eoc) {
 		int offset = 0;
 
@@ -1112,15 +1306,15 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 		// To be made a new VBAT_S ADC by interpolation with calibration result.
 		if(ACT_4P2V_ADC != 0 && ACT_3P4V_ADC != 0) {
 			if(calOffset_4P2 && calOffset_3P4) {
-				offset = d2153_get_calibration_offset(pbat_data->average_voltage, 
-														calOffset_4P2, 
+				offset = d2153_get_calibration_offset(pbat_data->average_voltage,
+														calOffset_4P2,
 														calOffset_3P4);
 			}
-			pr_info("%s. new_vol_adc = %d, offset = %d new_vol_adc + offset = %d \n", 
+			pr_info("%s. new_vol_adc = %d, offset = %d new_vol_adc + offset = %d \n",
 							__func__, new_vol_adc, offset, (new_vol_adc + offset));
 			new_vol_adc = new_vol_adc + offset;
 		}
-		
+
 		if(pbat->battery_data.volt_adc_init_done) {
 
 			//battery_status = d2153_get_battery_status(pbat);
@@ -1132,44 +1326,70 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 
 			if(pbat_data->is_charging) {
 
-				offset_with_new = new_vol_adc - pbat_data->average_volt_adc; 
+				offset_with_new = new_vol_adc - pbat_data->average_volt_adc;
 				// Case of Charging
 				// The battery may be discharged, even if a charger is attached.
 
-				if(pbat_data->average_volt_adc > CV_START_ADC)
-					base_weight = base_weight + ((pbat_data->average_volt_adc 
-							- CV_START_ADC)*(LAST_CHARGING_WEIGHT-base_weight))
-							/ ((ADC_VAL_100_PERCENT+offset) - CV_START_ADC);
+				// Commented out.
+				//if(pbat_data->average_volt_adc > CV_START_ADC)
+				//	base_weight = base_weight + ((pbat_data->average_volt_adc
+				//			- CV_START_ADC)*(LAST_CHARGING_WEIGHT-base_weight))
+				//			/ ((ADC_VAL_100_PERCENT+offset) - CV_START_ADC);
 				if(pbat_data->virtual_battery_full == 1)
 					base_weight = MAX_WEIGHT;
-				
+
 				if(offset_with_new > 0) {
 					pbat_data->sum_total_adc += (offset_with_new * base_weight);
 
 					num_multi = pbat_data->sum_total_adc / NORM_NUM;
-					if(num_multi > 0) {						
+					if(num_multi > 0) {
 						new_vol_adc = pbat_data->average_volt_adc + num_multi;
-						pbat_data->sum_total_adc = pbat_data->sum_total_adc - (num_multi*NORM_NUM);
-					}
-					else
+						pbat_data->sum_total_adc = pbat_data->sum_total_adc
+													- (num_multi * NORM_NUM);
+					} else {
 						new_vol_adc = pbat_data->average_volt_adc;
+					}
 				}
-				else
-					new_vol_adc = pbat_data->average_volt_adc;
+#ifdef CONFIG_D2153_SOC_GO_DOWN_IN_CHG
+				else {
+					offset_with_new = -offset_with_new;
+					base_weight = base_weight + (base_weight
+						* ( MAX_ADD_DIS_PERCENT_FOR_WEIGHT
+						- (((MAX_DIS_OFFSET_FOR_WEIGHT - offset_with_new)
+						* (MAX_ADD_DIS_PERCENT_FOR_WEIGHT
+							- MIN_ADD_DIS_PERCENT_FOR_WEIGHT))
+						/ (MAX_DIS_OFFSET_FOR_WEIGHT
+							- MIN_DIS_OFFSET_FOR_WEIGHT))))/100;
+
+					pr_info("Charging. Recalculated base_weight = %d\n",
+								base_weight);
+
+					pbat_data->sum_total_adc -= (offset_with_new * base_weight);
+
+					num_multi = pbat_data->sum_total_adc / NORM_NUM;
+					if(num_multi < 0){
+						new_vol_adc = pbat_data->average_volt_adc + num_multi;
+						pbat_data->sum_total_adc = pbat_data->sum_total_adc
+													- (num_multi * NORM_NUM);
+					} else {
+						new_vol_adc = pbat_data->average_volt_adc;
+					}
+				}
+#endif /* !CONFIG_D2153_SOC_GO_DOWN_IN_CHG */
 
 				pbat_data->current_volt_adc = new_vol_adc;
 				pbat_data->sum_voltage_adc += new_vol_adc;
 				pbat_data->sum_voltage_adc -= pbat_data->average_volt_adc;
 				pbat_data->voltage_adc[pbat_data->voltage_idx] = new_vol_adc;
 			}
-			else {				
+			else {
 				pbat_data->virtual_battery_full = 0;
 
 				// Case of Discharging.
 				offset_with_new = pbat_data->average_volt_adc - new_vol_adc;
-				offset_with_old = pbat_data->voltage_adc[pbat_data->voltage_idx] 
+				offset_with_old = pbat_data->voltage_adc[pbat_data->voltage_idx]
 								- pbat_data->average_volt_adc;
-			
+
 				if (is_called_by_ticker == 1) {
 					pr_info("%s. is_called_by_ticker = %d,  base_weight = %d, offset_with_new = %d, offset_with_old = %d\n",
 						__func__, is_called_by_ticker, base_weight, offset_with_new, offset_with_old);
@@ -1188,60 +1408,90 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 					pr_info("##### base_weight = %d\n", base_weight);
 				}
 
+				if(offset_with_new > 0) {
+					u8 which_condition = 0;
+					int x1 = 0, x0 = 0, y1 = 0, y0 = 0, y = 0;
 
-				if (offset_with_new > 0) {
-					// Battery was discharged by some reason. 
+					// Battery was discharged by some reason.
 					// So, ADC will be calculated again
-					if (offset_with_new >= MAX_DIS_OFFSET_FOR_WEIGHT2) {
+					if(offset_with_new >= MAX_DIS_OFFSET_FOR_WEIGHT2) {
 						base_weight = base_weight
 							+ (base_weight*MAX_ADD_DIS_PERCENT_FOR_WEIGHT2)/100;
-					} else if (offset_with_new >= MAX_DIS_OFFSET_FOR_WEIGHT) {
-						base_weight = base_weight 
-							+ (base_weight*MAX_ADD_DIS_PERCENT_FOR_WEIGHT)/100;
-					} else if (offset_with_new < MIN_DIS_OFFSET_FOR_WEIGHT) {
-						base_weight = base_weight 
+						which_condition = 0;
+					} else if(offset_with_new >= MAX_DIS_OFFSET_FOR_WEIGHT1) {
+						x1 = MAX_DIS_OFFSET_FOR_WEIGHT2;
+						x0 = MAX_DIS_OFFSET_FOR_WEIGHT1;
+						y1 = MAX_ADD_DIS_PERCENT_FOR_WEIGHT2;
+						y0 = MAX_ADD_DIS_PERCENT_FOR_WEIGHT1;
+						which_condition = 1;
+					} else if(offset_with_new >= MAX_DIS_OFFSET_FOR_WEIGHT0_5) {
+						x1 = MAX_DIS_OFFSET_FOR_WEIGHT1;
+						x0 = MAX_DIS_OFFSET_FOR_WEIGHT0_5;
+						y1 = MAX_ADD_DIS_PERCENT_FOR_WEIGHT1;
+						y0 = MAX_ADD_DIS_PERCENT_FOR_WEIGHT0_5;
+						which_condition = 2;
+					} else if(offset_with_new >= MAX_DIS_OFFSET_FOR_WEIGHT) {
+						x1 = MAX_DIS_OFFSET_FOR_WEIGHT0_5;
+						x0 = MAX_DIS_OFFSET_FOR_WEIGHT;
+						y1 = MAX_ADD_DIS_PERCENT_FOR_WEIGHT0_5;
+						y0 = MAX_ADD_DIS_PERCENT_FOR_WEIGHT;
+						which_condition = 3;
+					} else if(offset_with_new < MIN_DIS_OFFSET_FOR_WEIGHT) {
+						base_weight = base_weight
 							+ (base_weight*MIN_ADD_DIS_PERCENT_FOR_WEIGHT)/100;
+						which_condition = 4;
 					} else {
-						base_weight = base_weight + (base_weight 
-							* ( MAX_ADD_DIS_PERCENT_FOR_WEIGHT 
+						base_weight = base_weight + (base_weight
+							* ( MAX_ADD_DIS_PERCENT_FOR_WEIGHT
 							- (((MAX_DIS_OFFSET_FOR_WEIGHT - offset_with_new)
-							*(MAX_ADD_DIS_PERCENT_FOR_WEIGHT-MIN_ADD_DIS_PERCENT_FOR_WEIGHT))
-							/(MAX_DIS_OFFSET_FOR_WEIGHT-MIN_DIS_OFFSET_FOR_WEIGHT))))/100;
+							* (MAX_ADD_DIS_PERCENT_FOR_WEIGHT
+								- MIN_ADD_DIS_PERCENT_FOR_WEIGHT))
+							/ (MAX_DIS_OFFSET_FOR_WEIGHT
+							    - MIN_DIS_OFFSET_FOR_WEIGHT))))/100;
+						which_condition = 5;
 					}
-						pbat_data->sum_total_adc -= (offset_with_new * base_weight);
+
+					pr_info("%s. Discharging condition : %d\n", __func__, which_condition);
+					if(which_condition >= 1 && which_condition <= 3) {
+						y = do_interpolation(x0, x1, y0, y1, offset_with_new);
+						base_weight = base_weight + (base_weight * y) / 100;
+					}
+					pbat_data->sum_total_adc -= (offset_with_new * base_weight);
 
 
 					num_multi = pbat_data->sum_total_adc / NORM_NUM;
-					if(num_multi < 0){
+					if(num_multi < 0) {
 						new_vol_adc = pbat_data->average_volt_adc + num_multi;
-						pbat_data->sum_total_adc = pbat_data->sum_total_adc - (num_multi*NORM_NUM);
+						pbat_data->sum_total_adc = pbat_data->sum_total_adc
+													- (num_multi * NORM_NUM);
+					} else {
+						new_vol_adc = pbat_data->average_volt_adc;
 					}
-					else
-						new_vol_adc = pbat_data->average_volt_adc;					
-				} 
+				} else {
+					new_vol_adc = pbat_data->average_volt_adc;
+				}
 
-				if(is_called_by_ticker ==0) {
+				if(is_called_by_ticker == 0) {
 					pbat_data->current_volt_adc = new_vol_adc;
 					pbat_data->sum_voltage_adc += new_vol_adc;
-					pbat_data->sum_voltage_adc -= 
-									pbat_data->voltage_adc[pbat_data->voltage_idx];
+					pbat_data->sum_voltage_adc -=
+								pbat_data->voltage_adc[pbat_data->voltage_idx];
 					pbat_data->voltage_adc[pbat_data->voltage_idx] = new_vol_adc;
 				} else {
 					int i;
 					for (i = AVG_SIZE / 3; i ; i--) {
 						pbat_data->current_volt_adc = new_vol_adc;
 						pbat_data->sum_voltage_adc += new_vol_adc;
-						pbat_data->sum_voltage_adc -= 
+						pbat_data->sum_voltage_adc -=
 										pbat_data->voltage_adc[pbat_data->voltage_idx];
-						pbat_data->voltage_adc[pbat_data->voltage_idx] = new_vol_adc;	
+						pbat_data->voltage_adc[pbat_data->voltage_idx] = new_vol_adc;
 						pbat_data->voltage_idx = (pbat_data->voltage_idx+1) % AVG_SIZE;
 					}
 
 					is_called_by_ticker=0;
 				}
 			}
-		}
-		else {
+		} else {
 			u8 i = 0;
 			u8 res_msb, res_lsb, is_convert = 0;
 			u32 capacity = 0, convert_vbat_adc = 0;
@@ -1266,50 +1516,29 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 				if(vbat_adc >= ADC_VAL_100_PERCENT) {
 					convert_vbat_adc = vbat_adc;
 				} else {
-					convert_vbat_adc = soc_to_adc_with_temp_compensat(capacity, 
+					convert_vbat_adc = soc_to_adc_with_temp_compensat(capacity,
 											C2K(pbat_data->average_temperature));
 					is_convert = TRUE;
 				}
-				pr_info("[L%4d]%s. read SOC = %d, convert_vbat_adc = %d, is_convert = %d\n", 
+				pr_info("[L%4d]%s. read SOC = %d, convert_vbat_adc = %d, is_convert = %d\n",
 						__LINE__, __func__, capacity, convert_vbat_adc, is_convert);
 			}
 
-			pbat->pd2153->average_vbat_init_adc = 
+			pbat->pd2153->average_vbat_init_adc =
 									(pbat->pd2153->vbat_init_adc[0] +
 										pbat->pd2153->vbat_init_adc[1] +
 										pbat->pd2153->vbat_init_adc[2]) / 3;
 
 			if(pbat_data->is_charging) {
-				int Y;
-				union power_supply_propval is_cv_charging;	
-
-				ps->get_property(ps, POWER_SUPPLY_PROP_CHARGE_STATUS, &is_cv_charging);
-				is_cv_charging.intval= (is_cv_charging.intval & 0x4);
-
-				if(is_cv_charging.intval) {
-					X0 = CV_START_ADC; X1 = ADC_VAL_100_PERCENT;
-					Y0 = 10;	Y1 = 100;
-					X = pbat->pd2153->average_vbat_init_adc;
-
-					if((X > ADC_VAL_100_PERCENT)
-						|| (X > (new_vol_orign + (Y0 * 2)))) {
-						X = new_vol_orign;
-						pr_info("[L%d] %s. Changed X = %d\n", __LINE__, __func__, X);
-					}
-					
-					Y = Y0 + ((X - X0) * (Y1 - Y0)) / (X1 - X0);
-					new_vol_adc = X - (Y1 - Y);
-					pr_info("[L%d] %s. X = %d, Y = %d, new_vol_adc = %d\n", __LINE__, __func__, X, Y, new_vol_adc);
-				} else {
-					pr_info("[L%d] %s new_vol_adc is %4d \n", __LINE__, __func__, new_vol_adc);
+				pr_info("[L%d] %s cc charging. new_vol_adc is %4d\n",
+					__LINE__, __func__, new_vol_adc);
 					offset = initialize_charge_up_cc[charging_index];
 					new_vol_adc = pbat->pd2153->average_vbat_init_adc - offset;
-				}
-				
 			} else {
 				new_vol_adc = pbat->pd2153->average_vbat_init_adc;
-				pr_info("[L%d] %s discharging new_vol_adc = %d	\n", __LINE__, __func__, new_vol_adc);
-				
+				pr_info("[L%d] %s discharging new_vol_adc = %d\n",
+					__LINE__, __func__, new_vol_adc);
+
 				Y0 = FIRST_VOLTAGE_DROP_ADC;
 				if(C2K(pbat_data->average_temperature) <= BAT_LOW_LOW_TEMPERATURE) {
 					//pr_info("### BAT_LOW_LOW_TEMPERATURE new ADC is %4d \n", new_vol_adc);
@@ -1331,10 +1560,11 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 						X0 = BAT_LOW_TEMPERATURE;
 						X1 = BAT_ROOM_LOW_TEMPERATURE;
 					}
-					new_vol_adc = new_vol_adc + Y0 
+					new_vol_adc = new_vol_adc + Y0
 									+ ((X - X0) * (Y1 - Y0)) / (X1 - X0);
 				}
 			}
+
 			pr_info("[L%d] %s Calculated new_vol_adc is %4d \n", __LINE__, __func__, new_vol_adc);
 			if(((is_convert == TRUE) && (capacity < FULL_CAPACITY)
 						&& (convert_vbat_adc >= 614))
@@ -1344,11 +1574,16 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 				pr_info("[L%d] %s. convert_vbat_adc is assigned to new_vol_adc\n", __LINE__, __func__);
 			}
 
+			if(new_vol_adc > MAX_FULL_CHARGED_ADC) {
+				new_vol_adc = MAX_FULL_CHARGED_ADC;
+				pr_info("%s. Set new_vol_adc to max. ADC value\n", __func__);
+			}
+
 			for(i = AVG_SIZE; i ; i--) {
 				pbat_data->voltage_adc[i-1] = new_vol_adc;
 				pbat_data->sum_voltage_adc += new_vol_adc;
 			}
-			
+
 			pbat_data->current_volt_adc = new_vol_adc;
 			pbat->battery_data.volt_adc_init_done = TRUE;
 		}
@@ -1393,7 +1628,7 @@ static int d2153_read_temperature(struct d2153_battery *pbat)
 
 		if(pbat_data->temp_adc_init_done) {
 			pbat_data->sum_temperature_adc += new_temp_adc;
-			pbat_data->sum_temperature_adc -= 
+			pbat_data->sum_temperature_adc -=
 						pbat_data->temperature_adc[pbat_data->temperature_idx];
 			pbat_data->temperature_adc[pbat_data->temperature_idx] = new_temp_adc;
 		} else {
@@ -1409,10 +1644,10 @@ static int d2153_read_temperature(struct d2153_battery *pbat)
 		pbat_data->average_temp_adc =
 								pbat_data->sum_temperature_adc >> AVG_SHIFT;
 		pbat_data->temperature_idx = (pbat_data->temperature_idx+1) % AVG_SIZE;
-		pbat_data->average_temperature = 
+		pbat_data->average_temperature =
 					degree_k2c(adc_to_degree_k(pbat_data->average_temp_adc));
-		pbat_data->current_temperature = 
-									degree_k2c(adc_to_degree_k(new_temp_adc)); 
+		pbat_data->current_temperature =
+									degree_k2c(adc_to_degree_k(new_temp_adc));
 
 	}
 	else {
@@ -1424,12 +1659,12 @@ static int d2153_read_temperature(struct d2153_battery *pbat)
 }
 
 
-/* 
+/*
  * Name : d2153_get_rf_temperature
  */
 int d2153_get_rf_temperature(void)
 {
-	u8 i, j;
+	u8 i, j, channel;
 	int sum_temp_adc, ret = 0;
 	struct d2153_battery *pbat = gbat;
 	struct d2153_battery_data *pbat_data = &gbat->battery_data;
@@ -1439,14 +1674,14 @@ int d2153_get_rf_temperature(void)
 		return -EINVAL;
 	}
 
-	/* To read a temperature ADC of RF*/
+	/* To read a temperature2 ADC */
 	sum_temp_adc = 0;
-	for (i = 10, j = 0; i; i--) {
-		ret = pbat->d2153_read_adc(pbat, D2153_ADC_TEMPERATURE_2);
-		if (ret == 0) {
-			sum_temp_adc += pbat_data->\
-			adc_res[D2153_ADC_TEMPERATURE_2].read_adc;
-			if (++j == 3)
+	channel = D2153_ADC_TEMPERATURE_2;
+	for(i = 10, j = 0; i; i--) {
+		ret = pbat->d2153_read_adc(pbat, channel);
+		if(ret == 0) {
+			sum_temp_adc += pbat_data->adc_res[channel].read_adc;
+			if(++j == 3)
 				break;
 		} else
 			msleep(20);
@@ -1455,26 +1690,28 @@ int d2153_get_rf_temperature(void)
 		pbat_data->current_rf_temp_adc = (sum_temp_adc / j);
 		pbat_data->current_rf_temperature =
 		degree_k2c(adc_to_degree_k(pbat_data->current_rf_temp_adc));
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 		pr_info("%s. RF_TEMP_ADC = %d, RF_TEMPERATURE = %3d.%d\n",
 				__func__,
 				pbat_data->current_rf_temp_adc,
 				(pbat_data->current_rf_temperature/10),
 				(pbat_data->current_rf_temperature%10));
+#endif
 		return pbat_data->current_rf_temperature;
 	} else {
-		printk(KERN_ERR"ERROR in reading RF temperature.\n");
+		pr_err("%s:ERROR in reading RF temperature.\n", __func__);
 		return -EIO;
 	}
  }
 EXPORT_SYMBOL(d2153_get_rf_temperature);
 
 
-/* 
- * Name : d2153_monitor_voltage_work
+/*
+ * Name : d2153_battery_read_status
  */
 int d2153_battery_read_status(int type)
 {
-	int val=0;
+	int val = 0;
 	struct d2153_battery *pbat = NULL;
 
 	if (gbat == NULL) {
@@ -1487,7 +1724,8 @@ int d2153_battery_read_status(int type)
 	switch(type){
 		case D2153_BATTERY_SOC:
 			val = d2153_get_soc(pbat);
-			val = (val+5)/10;
+			//val = (val+5)/10;
+			val = (val)/10;
 			break;
 
 		case D2153_BATTERY_CUR_VOLTAGE:
@@ -1498,24 +1736,26 @@ int d2153_battery_read_status(int type)
 			val = pbat->battery_data.average_voltage;
 			break;
 
-		// >>> Start. Voltage now
-		case D2153_BATTERY_VOLTAGE_NOW:
+		case D2153_BATTERY_VOLTAGE_NOW :
 		{
 			u8 ch = D2153_ADC_VOLTAGE;
 
 			val = pbat->d2153_read_adc(pbat, ch);
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 			printk("%s: read adc value = %d\n",__func__, val);
+#endif
 			if(val < 0)
 				return val;
 			if(pbat->battery_data.adc_res[ch].is_adc_eoc) {
 				val = adc_to_vbat(pbat->battery_data.adc_res[ch].read_adc, 0);
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 				printk("%s: read adc to bat value = %d\n",__func__, val);
+#endif
 			} else {
 				val = -EINVAL;
 			}
 			break;
 		}
-		// <<< End. Voltage now
 
 		case D2153_BATTERY_TEMP_HPA:
 			val = d2153_get_rf_temperature();
@@ -1535,7 +1775,7 @@ int d2153_battery_read_status(int type)
 			schedule_delayed_work(&pbat->monitor_volt_work, 0);
 			break;
 	}
-	
+
 	return val;
 }
 EXPORT_SYMBOL(d2153_battery_read_status);
@@ -1555,12 +1795,33 @@ int d2153_battery_set_status(int type, int status)
 	}
 
 	pbat = gbat;
+#ifdef CONFIG_MACH_U2EVM
+	if(u2_get_board_rev() <= 4) {
+		dlg_info("%s is called on old Board revision. error\n", __func__);
+		return 0;
+	}
+#endif
 
 	switch(type){
 		case D2153_STATUS_CHARGING :
 			/* Discharging = 0, Charging = 1 */
 			pbat->battery_data.is_charging = status;
+#ifdef CONFIG_D2153_EOC_CTRL
+			if(pbat->battery_data.is_charging == D2153_BATTERY_STATUS_CHARGING) {
+				pbat->battery_data.charger_ctrl_status = D2153_BAT_CHG_START;
+			} else {
+				pbat->battery_data.charger_ctrl_status = D2153_BAT_CHG_MAX;
+			}
+#endif
 			break;
+		case D2153_RESET_SW_FG :
+			/* Reset SW fuel gauge */
+			cancel_delayed_work(&pbat->monitor_volt_work);
+			val = d2153_reset_sw_fuelgauge(pbat);
+			schedule_delayed_work(&gbat->monitor_volt_work, 0);
+			break;
+		default :
+			return -EINVAL;
 	}
 
 	return val;
@@ -1570,11 +1831,11 @@ EXPORT_SYMBOL(d2153_battery_set_status);
 
 static void d2153_monitor_voltage_work(struct work_struct *work)
 {
-	int ret=0; 
+	int ret=0;
 	struct d2153_battery *pbat = container_of(work, struct d2153_battery, monitor_volt_work.work);
 	struct d2153_battery_data *pbat_data = &pbat->battery_data;
 	struct power_supply *ps;
-	
+
 	if(unlikely(!pbat || !pbat_data)) {
 		pr_err("%s. Invalid driver data\n", __func__);
 		goto err_adc_read;
@@ -1599,20 +1860,64 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 		goto err_adc_read;
 	}
 
-	if(pbat_data->is_charging ==0) {
+	if(pbat_data->is_charging == 0) {
 		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_NORMAL);
 	}
 	else {
+#ifdef CONFIG_D2153_EOC_CTRL
+		if(pbat_data->volt_adc_init_done && pbat_data->is_charging) {
+			struct power_supply *ps;
+			union power_supply_propval value;
+
+			ps = power_supply_get_by_name("battery");
+			if(ps == NULL) {
+				pr_err("%s. Failed a battery supply instance\n", __func__);
+				goto err_adc_read;
+			}
+
+			ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
+			if( value.intval == POWER_SUPPLY_STATUS_FULL) {
+				if(((pbat_data->charger_ctrl_status == D2153_BAT_RECHG_FULL)
+					||(pbat_data->charger_ctrl_status == D2153_BAT_CHG_BACKCHG_FULL))
+					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
+					spa_event_handler(SPA_EVT_EOC, 0);
+					pbat_data->charger_ctrl_status = D2153_BAT_RECHG_FULL;
+					pr_info("%s. Recharging Done.(4) full > discharge > Recharge\n", __func__);
+				}
+			} else {
+				// Will stop charging when a voltage approach to first full charge level.
+				if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_BACKCHG_FULL)
+					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
+					spa_event_handler(SPA_EVT_EOC, 0);
+					pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
+					pr_info("%s. Fully charged.(1)(Back-charging done)\n", __func__);
+				} else if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
+					&& (pbat_data->average_voltage >= D2153_BAT_CHG_FRST_FULL_LVL)) {
+					spa_event_handler(SPA_EVT_EOC, 0);
+					pbat_data->charger_ctrl_status = D2153_BAT_CHG_FRST_FULL;
+					pr_info("%s. First charge dond.(2)\n", __func__);
+				} else if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
+					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
+					spa_event_handler(SPA_EVT_EOC, 0);
+					spa_event_handler(SPA_EVT_EOC, 0);
+					pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
+					pr_info("%s. Fully charged.(3)(Back-charging done)\n", __func__);
+				}
+			}
+		}
+#endif
 		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_FAST);
 	}
 
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 	pr_info("# SOC = %3d.%d %%, ADC(read) = %4d, ADC(avg) = %4d, Voltage(avg) = %4d mV, ADC(VF) = %4d\n",
 				(pbat->battery_data.soc/10),
 				(pbat->battery_data.soc%10),
 				pbat->battery_data.origin_volt_adc,
 				pbat->battery_data.average_volt_adc,
-				pbat->battery_data.average_voltage, 
+				pbat->battery_data.average_voltage,
 				pbat->battery_data.vf_adc);
+#endif
 
 	return;
 
@@ -1625,7 +1930,7 @@ err_adc_read:
 static void d2153_monitor_temperature_work(struct work_struct *work)
 {
 	struct d2153_battery *pbat = container_of(work, struct d2153_battery, monitor_temp_work.work);
-	int ret = 0;
+	int ret;
 
 	mutex_lock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	ret = d2153_read_temperature(pbat);
@@ -1643,22 +1948,29 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
 		schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_FAST);
 	}
 
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 	pr_info("# TEMP_BOARD(ADC) = %4d, Board Temperauter(Celsius) = %3d.%d\n",
 				pbat->battery_data.average_temp_adc,
 				(pbat->battery_data.average_temperature/10),
 				(pbat->battery_data.average_temperature%10));
+#endif
 
 	return ;
 }
 
+
+/*
+ * Name : d2153_battery_start
+ */
 void d2153_battery_start(void)
 {
-	schedule_delayed_work(&gbat->monitor_volt_work, 0);
+	schedule_delayed_work(&gbat->monitor_volt_work, (3 * HZ));
 }
 EXPORT_SYMBOL_GPL(d2153_battery_start);
 
-/* 
- * Name : d2153_battery_init
+
+/*
+ * Name : d2153_battery_data_init
  */
 static void d2153_battery_data_init(struct d2153_battery *pbat)
 {
@@ -1676,16 +1988,17 @@ static void d2153_battery_data_init(struct d2153_battery *pbat)
 	pbat_data->volt_adc_init_done = FALSE;
 	pbat_data->temp_adc_init_done = FALSE;
 	pbat_data->battery_present = TRUE;
-	// >>> 2013/02/26. To set current status.
-	pbat_data->is_charging = D2153_BATTERY_STATUS_DISCHARGING;
-	// <<< 2013/02/26. To set current status.
-	wake_lock_init(&pbat_data->sleep_monitor_wakeup, WAKE_LOCK_SUSPEND, "sleep_monitor");		
+	pbat_data->is_charging = D2153_BATTERY_STATUS_MAX;
+#ifdef CONFIG_D2153_EOC_CTRL
+	pbat_data->charger_ctrl_status = D2153_BAT_CHG_MAX;
+#endif
+	wake_lock_init(&pbat_data->sleep_monitor_wakeup, WAKE_LOCK_SUSPEND, "sleep_monitor");
 
 	return;
 }
 
 
-/* 
+/*
  * Name : d2153_battery_probe
  */
 static __devinit int d2153_battery_probe(struct platform_device *pdev)
@@ -1706,7 +2019,7 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 		pr_err("%s Unable to register hw spinlock for pmic driver\n",__func__);
 		return -EIO;
 	}
-	
+
 	gbat = pbat;
 	pbat->pd2153 = d2153;
 
@@ -1729,7 +2042,7 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 	// Start schedule of dealyed work for temperature.
 	schedule_delayed_work(&pbat->monitor_temp_work, 0);
 
-	device_init_wakeup(&pdev->dev, 1);	
+	device_init_wakeup(&pdev->dev, 1);
 
 	/* Init thread to handle modem reset */
 	init_waitqueue_head(&d2153_modem_reset_event);
@@ -1741,7 +2054,13 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 				__func__, __LINE__);
 		goto err_default;
 	}
-	
+	pr_info("# D2153 Battery driver information \n");
+	pr_info("# MAX_ADD_DIS_PERCENT_FOR_WEIGHT2 = %d\n",   MAX_ADD_DIS_PERCENT_FOR_WEIGHT2);
+	pr_info("# MAX_ADD_DIS_PERCENT_FOR_WEIGHT1 = %d\n",   MAX_ADD_DIS_PERCENT_FOR_WEIGHT1);
+	pr_info("# MAX_ADD_DIS_PERCENT_FOR_WEIGHT0_5 = %d\n", MAX_ADD_DIS_PERCENT_FOR_WEIGHT0_5);
+	pr_info("# MAX_ADD_DIS_PERCENT_FOR_WEIGHT = %d\n",    MAX_ADD_DIS_PERCENT_FOR_WEIGHT);
+	pr_info("# MIN_ADD_DIS_PERCENT_FOR_WEIGHT = %d\n",    MIN_ADD_DIS_PERCENT_FOR_WEIGHT);
+
 	pr_info("%s. End...\n", __func__);
 
 	return 0;
@@ -1772,8 +2091,12 @@ static int d2153_battery_suspend(struct platform_device *pdev, pm_message_t stat
 	cancel_delayed_work_sync(&pbat->monitor_temp_work);
 	cancel_delayed_work_sync(&pbat->monitor_volt_work);
 
+#ifdef CONFIG_ARCH_R8A7373
+	if (pmdbg_get_enable_dump_suspend())
+		pmdbg_pmic_dump_suspend(d2153);
+#endif /* CONFIG_ARCH_R8A7373 */
+
 	pr_info("%s. Leave\n", __func__);
-	
 	return 0;
 }
 
@@ -1789,12 +2112,12 @@ static int d2153_battery_resume(struct platform_device *pdev)
 
 	pr_info("%s. Enter\n", __func__);
 
-	if(unlikely(!pbat || !d2153)) {
+	if(unlikely(!d2153)) {
 		pr_err("%s. Invalid parameter\n", __func__);
 		return -EINVAL;
 	}
 
-	
+
 	// Start schedule of dealyed work for monitoring voltage and temperature.
 	if(!is_called_by_ticker) {
 		schedule_delayed_work(&pbat->monitor_temp_work, 0);
@@ -1864,9 +2187,7 @@ static void __exit d2153_battery_exit(void)
 }
 module_exit(d2153_battery_exit);
 
-
 MODULE_AUTHOR("Dialog Semiconductor Ltd. < eric.jeong@diasemi.com >");
 MODULE_DESCRIPTION("Battery driver for the Dialog D2153 PMIC");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("Power supply : d2153-battery");
-

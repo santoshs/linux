@@ -234,7 +234,7 @@ static int common_audio_status_ioremap(void)
 {
 	/* Get CPGA Logical Address */
 	g_common_ulClkRstRegBase =
-		(u_long)ioremap_nocache(CPG_PHY_BASE, CPG_REG_MAX);
+		(u_long)ioremap_nocache(CPG_BASEPhys, CPG_REG_MAX);
 	if (0 >= g_common_ulClkRstRegBase) {
 		sndp_log_err("error CPGA register ioremap failed\n");
 		return -ENOMEM;
@@ -242,7 +242,7 @@ static int common_audio_status_ioremap(void)
 
 	/* Get CPGA(soft reset) Logical Address */
 	g_common_ulSrstRegBase =
-		(u_long)ioremap_nocache(CPG_PHY_BASE_SRST, CPG_REG_MAX_SRST);
+		(u_long)ioremap_nocache(CPG_SEMCTRLPhys, CPG_REG_MAX_SRST);
 	if (0 >= g_common_ulSrstRegBase) {
 		sndp_log_err("error Software Reset register ioremap failed\n");
 		/* Release CPGA Logical Address */

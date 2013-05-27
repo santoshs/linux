@@ -28,7 +28,7 @@
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
-
+/* #define CONFIG_THS_DEBUG_ENABLE */
 #ifdef CONFIG_THS_DEBUG_ENABLE
 #define THS_DEBUG_MSG(...) printk(KERN_INFO __VA_ARGS__)
 #define THS_ERROR_MSG(...) printk(KERN_ERR __VA_ARGS__)
@@ -49,6 +49,7 @@ struct thermal_sensor {
 	struct work_struct 		tj1_work;
 	struct work_struct 		tj2_work;
 	struct work_struct      tj3_work;
+	struct delayed_work		work;
 	struct workqueue_struct 	*queue;
 	struct thermal_sensor_data  	pdata[2];
 	int 				ths_irq;

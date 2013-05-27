@@ -75,7 +75,7 @@ enum clock_state {
 /* For change sampling rate & down factor dynamically */
 #define SAMPLING_RATE_DEF FREQ_TRANSITION_LATENCY
 #define SAMPLING_RATE_LOW 500000
-#define SAMPLING_DOWN_FACTOR_DEF 20
+#define SAMPLING_DOWN_FACTOR_DEF (CONFIG_SH_SAMPLING_DOWN_FACTOR)
 #define SAMPLING_DOWN_FACTOR_LOW 1
 
 #define INIT_STATE	1

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2012 Dialog Semiconductor Ltd.
+ *  Copyright (C) 2013 Renesas Mobile Corporation.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -9,12 +9,6 @@
  */
 
 struct fsi_d2153_platform_data {
-	int gpio_spkr_en;
-	int gpio_hp_det;
-	int gpio_hp_mute;
-	int gpio_int_mic_en;
-	int gpio_ext_mic_en;
-	struct clk *main;
-	struct clk *vclk4;
+	bool hp_spk_path_en;
 	void *private_data;
 };

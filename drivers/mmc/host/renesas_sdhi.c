@@ -118,7 +118,7 @@
 #define SDHI_TIMEOUT		5000	/* msec */
 
 #define SD_CLK_CMD_DELAY   200     /* microseconds */
-unsigned int wakeup_from_suspend_sd;
+static unsigned int wakeup_from_suspend_sd;
 
 /* sdcard1_detect_state variable used to detect the state of the SD card */
 static int sdcard1_detect_state;
@@ -621,6 +621,9 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		container_of(work, struct renesas_sdhi_host, detect_wq.work);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 status;
+	bool dwflag;
+
+	dwflag = true;
 
 	flush_delayed_work_sync(&host->mmc->detect);
 
@@ -660,9 +663,14 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 				dmaengine_terminate_all(host->dma_tx);
 			if (host->dma_rx)
 				dmaengine_terminate_all(host->dma_rx);
-			cancel_delayed_work(&host->timeout_wq);
+
+			/* true if delayed work was pending and cancelled,
+				false if it was running and waited for finish */
+			dwflag = cancel_delayed_work_sync(&host->timeout_wq);
 		}
-		renesas_sdhi_data_done(host, host->cmd);
+
+		if (dwflag)
+			renesas_sdhi_data_done(host, host->cmd);
 	}
 
 	clk_disable(host->clk);
@@ -1209,6 +1217,27 @@ static const struct mmc_host_ops renesas_sdhi_ops = {
 	.start_signal_voltage_switch = renesas_sdhi_signal_voltage_switch,
 };
 
+	//Add sdcard detection value to sysfs
+extern struct class *sec_class;
+static struct device *sd_detection_cmd_dev;
+
+static ssize_t sd_detection_cmd_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	if(sdcard1_detect_state==1)
+	{
+		printk("sdhci: card inserted.\n");
+		return sprintf(buf, "Insert\n");
+	}
+	else
+	{
+		printk("sdhci: card removed.\n");
+		return sprintf(buf, "Remove\n");
+	}
+}
+	
+static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
+
 static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
@@ -1265,16 +1294,8 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	host->pdata = pdata;
  	host->reg = reg;
 
-#if defined(CONFIG_MFD_D2153)
-	/*This call only used for updating the usage count of regulator,
-		as it is already turned on from bootloader.*/
-	if (pdata->set_pwr)
-		pdata->set_pwr(host->pdev, 1);
-#endif
 	/* powr off */
 	host->power_mode = MMC_POWER_OFF;
-	if (pdata->set_pwr)
-		pdata->set_pwr(host->pdev, 0);
 
 	if (!pdata->dma_en_val)
 		pdata->dma_en_val = SDHI_DMA_EN;
@@ -1367,6 +1388,15 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		sysfs_ret = sdhi_sysfs_init(host);
 		if (sysfs_ret)
 			printk(KERN_ERR "SYSFS initialization for SDHI:sdcard1 detection failed\n");
+	}
+	//Create sdcard detection value to sysfs
+	if (sd_detection_cmd_dev == NULL){
+		sd_detection_cmd_dev = device_create(sec_class, NULL, 0, NULL, "sdcard");
+		if (IS_ERR(sd_detection_cmd_dev))
+			printk("Fail to create sysfs dev\n");
+
+		if (device_create_file(sd_detection_cmd_dev, &dev_attr_status) < 0)
+			printk("Fail to create sysfs file\n");
 	}
 
 	/* irq */
@@ -1490,7 +1520,7 @@ int renesas_sdhi_suspend(struct device *dev)
 	sdhi_save_register(host);
 	if (!host->dynamic_clock) {
 		clk_disable(host->clk);
-		
+
 	}
 	ret = pm_runtime_put_sync(dev);
 	if (0 > ret)
@@ -1501,7 +1531,7 @@ int renesas_sdhi_suspend(struct device *dev)
 				host->pdata->gpio_setting_info, 1);
 	}
 
-	if (device_may_wakeup(dev))
+	if (host->pdata  && device_may_wakeup(dev))
 		enable_irq_wake(host->pdata->detect_irq);
 
 	return ret;
@@ -1515,6 +1545,8 @@ int renesas_sdhi_resume(struct device *dev)
 	u32 val;
 	u32 ret = 0;
 
+	wakeup_from_suspend_sd = 1;
+
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		if (host->pdata != NULL)
 			gpio_set_portncr_value(host->pdata->port_cnt,
@@ -1523,7 +1555,8 @@ int renesas_sdhi_resume(struct device *dev)
 	pm_runtime_get_sync(dev);
 	if (!host->dynamic_clock) {
 		clk_enable(host->clk);
-		sdhi_reset(host);
+		if (host->pdata != NULL)
+			sdhi_reset(host);
 		val = sdhi_read32(host, SDHI_INFO);
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
 	}
@@ -1536,7 +1569,6 @@ int renesas_sdhi_resume(struct device *dev)
 				pdata->set_pwr(host->pdev, 0);
 		}
 	}
-	wakeup_from_suspend_sd = 1;
 	return ret;
 }
 #else

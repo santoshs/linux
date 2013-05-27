@@ -23,11 +23,13 @@ config PMIC_TPS80032_POW
 	  This feature is not belong to PMIC driver.
 	  It's dependecy driver.
 
-config PMIC_NCP6914
-	bool "NCP6914 PMIC Support"
-	default n
+config PMIC_NCP6914_POW
+	bool "NCP6914 Power Department Support"
+	default m
 	help
-		This enables support for the NCP6914 PMIC.
+	  This enables support for the Power Department interface.
+	  This feature is not belong to PMIC driver.
+	  It's dependecy driver.
 
 endif # PMIC_INTERFACE
 

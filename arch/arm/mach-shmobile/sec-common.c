@@ -1,11 +1,9 @@
 #include <linux/device.h>
 #include <linux/err.h>
-#include <linux/module.h>
-
-/* changed for Ramdump feature addtion :
-   this will be modified futhur */
+#include <linux/export.h>
 
 struct class *sec_class;
+
 EXPORT_SYMBOL(sec_class);
 
 static int __init rlte_class_create(void)

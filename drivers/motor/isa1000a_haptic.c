@@ -31,6 +31,10 @@
 unsigned int vib_duty = 99;//CONFIG_TPU1_PWM_DUTY_RATE;		// Full vibration 99%
 unsigned int pre_nForce = 0;
 
+#ifdef CONFIG_BOARD_VERSION_GARDA
+extern unsigned int read_board_rev(void);
+#endif
+
 typedef struct
 {
     void *pwm_handle;
@@ -45,6 +49,29 @@ typedef struct
 }t_vib_desc;
 
 static t_vib_desc vib_desc;
+
+#ifdef CONFIG_BOARD_VERSION_GARDA	
+static DEFINE_MUTEX(vibtonz_mutex_lock);
+static int vibtonz_enable = 0;
+
+int vibtonz_is_enabled(void)
+{
+	int ret;
+	mutex_lock(&vibtonz_mutex_lock);
+	ret = vibtonz_enable;
+	mutex_unlock(&vibtonz_mutex_lock);
+	return ret;
+}
+EXPORT_SYMBOL(vibtonz_is_enabled);
+
+void vibtonz_set_enable(int val)
+{
+	mutex_lock(&vibtonz_mutex_lock);
+	vibtonz_enable = val;
+	mutex_unlock(&vibtonz_mutex_lock);	
+}
+EXPORT_SYMBOL(vibtonz_set_enable);
+#endif
 
 void vibtonz_en(bool en)
 {
@@ -159,6 +186,7 @@ static int isa1000a_haptic_probe(struct platform_device *pdev)
 	vib_iter->pwm_period = pdata->pwm_period_ns;
 	vib_iter->pwm_polarity = pdata->polarity;
 
+#ifndef CONFIG_BOARD_VERSION_GARDA
 	vib_iter->timed_dev.name="vibrator";
 	vib_iter->timed_dev.enable=vibrator_enable_set_timeout;
 	vib_iter->timed_dev.get_time=vibrator_get_remaining_time;
@@ -169,6 +197,7 @@ static int isa1000a_haptic_probe(struct platform_device *pdev)
 		printk(KERN_ERR "Vibrator: timed_output dev registration failure\n");
 		timed_output_dev_unregister(&vib_iter->timed_dev);
 	}
+#endif
 
 	platform_set_drvdata(pdev, vib_iter);
 
@@ -196,12 +225,24 @@ static struct platform_driver isa1000a_haptic_driver = {
 
 static int __init isa1000a_haptic_init(void)
 {
+#ifdef CONFIG_BOARD_VERSION_GARDA
+	if(3 > read_board_rev())
+		return platform_driver_register(&isa1000a_haptic_driver);
+	else
+		return -1;
+#else
 	return platform_driver_register(&isa1000a_haptic_driver);
+#endif
 }
 
 static void __exit isa1000a_haptic_exit(void)
 {
-	platform_driver_unregister(&isa1000a_haptic_driver);
+#ifdef CONFIG_BOARD_VERSION_GARDA
+	if(3 > read_board_rev())
+#endif
+	{
+		platform_driver_unregister(&isa1000a_haptic_driver);
+	}
 }
 
 module_init(isa1000a_haptic_init);

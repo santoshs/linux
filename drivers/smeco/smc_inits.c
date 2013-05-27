@@ -272,12 +272,16 @@ smc_channel_t* smc_channel_create( smc_channel_conf_t* smc_channel_conf )
     channel->trace_features                = smc_channel_conf->trace_features;
     channel->version_remote                = 0x00000000;
 
+    channel->wakelock_timeout_ms           = smc_channel_conf->wakelock_timeout_ms;
+
         /* Initialize callback functions */
     channel->smc_receive_cb                = (smc_receive_data_callback)smc_channel_conf->smc_receive_data_cb;
     channel->smc_send_data_deallocator_cb  = (smc_send_data_deallocator_callback)smc_channel_conf->smc_send_data_deallocator_cb;
 
     channel->smc_receive_data_allocator_cb = (smc_receive_data_allocator_callback)smc_channel_conf->smc_receive_data_allocator_cb;
     channel->smc_event_cb                  = (smc_event_callback)smc_channel_conf->smc_event_cb;
+
+
 
         /*
          * FIFOs are created when channel is added to SMC instance and SHM is ready

@@ -77,6 +77,7 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
             .trace_features_slave                = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
             .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_TIMER,
             .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
+            .wakelock_timeout_ms                 = SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC,
      },
      {
              .name                = "ETH_P_MHI",
@@ -113,6 +114,7 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .trace_features_slave                = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
              .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_TIMER,
              .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
+             .wakelock_timeout_ms                 = SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC,
      },
      {
              .name                = "ETH_P_MHDP",
@@ -150,6 +152,7 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .trace_features_slave                = (SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND+SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE),
              .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_TIMER,
              .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
+             .wakelock_timeout_ms                 = SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC,
      }
 };
 
@@ -162,7 +165,7 @@ static smc_instance_conf_t smc_instance_conf_l2mux[SMC_CONF_COUNT_L2MUX] =
     {
         .name                         = SMC_CONFIG_NAME_EOS2_ES20,
         .user_name                    = SMC_CONFIG_USER_L2MUX,
-        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A73734_EOS2_ES20,
+        .master_name                  = SMC_CONFIG_MASTER_NAME_SH_MOBILE_R8A7373_EOS2_ES20,
         .slave_name                   = SMC_CONFIG_SLAVE_NAME_MODEM_WGEM31_EOS2_ES20,
 
         .master_cpu_version_major     = 2,

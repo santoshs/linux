@@ -25,7 +25,7 @@
 #define GPIO_SMB358_INT 142
 
 /* Slave address */
-#define SMB358_SLAVE_ADDR		(0xD4>>1)
+#define SMB358_SLAVE_ADDR		0xD4>>1
 
 /* SMB358 Registers. */
 #define SMB358_CHARGE_CURRENT		0X00

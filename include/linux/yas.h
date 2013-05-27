@@ -96,6 +96,11 @@
 /*  Structure definition                                                      */
 /* -------------------------------------------------------------------------- */
 
+struct mag_platform_data {
+	int position;
+	void (*init_gpio)(void);
+};
+
 struct yas_mag_filter {
 	int len;
 	int noise[3];

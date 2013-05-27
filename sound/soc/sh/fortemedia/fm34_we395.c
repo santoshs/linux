@@ -704,7 +704,7 @@ static int fm34_write_proc(struct file *filp, const char *buffer,
 		return len;
 	}
 
-	if (copy_from_user(buf, (void __user *)buffer, len)) {
+	if (copy_from_user((void *)buf, (void __user *)buffer, len)) {
 		/* failed copy_from_user */
 		return len;
 	}
@@ -740,7 +740,7 @@ static int fm34_write_exec_proc(struct file *filp, const char *buffer,
 		return len;
 	}
 
-	if (copy_from_user(buf, (void __user *)buffer, len)) {
+	if (copy_from_user((void *)buf, (void __user *)buffer, len)) {
 		/* failed copy_from_user */
 		return len;
 	}
@@ -986,7 +986,7 @@ static int fm34_probe(
 		goto err_init_gpio_failed;
 	}
 
-	g_fm34_vclk_adr = (unsigned int)ioremap(FM34_VCLKCR4_ADDR,
+	g_fm34_vclk_adr = (unsigned int)ioremap(VCLKCR4Phys,
 						FM34_VCLKCR4_REGSIZE);
 
 	if (0 >= g_fm34_vclk_adr) {
