@@ -406,11 +406,11 @@ static int dmae_rpt_init_reg(struct sh_dmae_chan *sh_chan,
 	u32 chcr, chcrb;
 	void __iomem *desc_mem;
 	size_t copy_size;
-	const struct sh_dmae_slave_config *cfg = param->config;
 	struct scatterlist *sg;
 	struct sh_dmae_regs hw;
 
 	if (param) {
+		const struct sh_dmae_slave_config *cfg = param->config;
 		if (0 != dmae_set_dmars(sh_chan, cfg->mid_rid))
 			goto error;
 		sh_chan->chcr |= cfg->chcr;
