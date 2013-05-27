@@ -2223,6 +2223,7 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_battery *pbat = &d2153->batt;
 	int i;
+	int ret = 0;
 
 	pr_info("Start %s\n", __func__);
 
@@ -2258,7 +2259,11 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_D2153_DEBUG_FEATURE
 	for (i = 0; i < D2153_PROP_MAX ; i++) {
-		device_create_file(&pdev->dev, &d2153_battery_attrs[i]);
+		ret = device_create_file(&pdev->dev, &d2153_battery_attrs[i]);
+		if (ret) {
+			printk(KERN_ERR "Failed to create battery sysfs entries\n");
+			return ret;
+		}
 	}
 #endif
 
@@ -2267,7 +2272,7 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 #endif
 	
 	pr_info("%s. End...\n", __func__);
-	return 0;
+	return ret;
 }
 
 
@@ -2397,7 +2402,7 @@ static __devexit int d2153_battery_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_D2153_DEBUG_FEATURE
 	for (i = 0; i < D2153_PROP_MAX ; i++) {
-		device_create_file(&pdev->dev, &d2153_battery_attrs[i]);
+		device_remove_file(&pdev->dev, &d2153_battery_attrs[i]);
 	}
 #endif
 
