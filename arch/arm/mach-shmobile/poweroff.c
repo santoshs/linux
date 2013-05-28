@@ -76,9 +76,6 @@ void shmobile_pm_stop_peripheral_devices(void)
 {
 	struct regulator *regulator;
 
-#if defined(CONFIG_MACH_U2EVM)
-	}
-#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 	POWEROFF_PRINTK("%s\n", __func__);
 	POWEROFF_PRINTK("Turn off SD Host Interface\n");
 	regulator = regulator_get(NULL, "vio_sd");
@@ -87,7 +84,6 @@ void shmobile_pm_stop_peripheral_devices(void)
 		regulator_put(regulator);
 	}
 	POWEROFF_PRINTK("Turn off Sensors, Display and Touch module\n");
-#endif
 }
 
 /*
