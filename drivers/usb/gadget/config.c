@@ -122,7 +122,6 @@ int usb_gadget_config_buf(
 struct usb_descriptor_header **
 usb_copy_descriptors(struct usb_descriptor_header **src)
 {
-
 	struct usb_descriptor_header **tmp;
 	unsigned bytes;
 	unsigned n_desc;
@@ -156,8 +155,4 @@ usb_copy_descriptors(struct usb_descriptor_header **src)
 
 	return ret;
 }
-#ifdef CONFIG_USB_R8A66597
-static int usb_request_high_cpufreq(void);
-static void usb_release_high_cpufreq(void);
-static void usb_request_high_cpufreq_timer(void);
-#endif
+
