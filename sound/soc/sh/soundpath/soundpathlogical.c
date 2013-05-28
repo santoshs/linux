@@ -2836,9 +2836,6 @@ static void sndp_work_capture_incomm_start(struct sndp_work_info *work)
 	/* Running Capture */
 	g_sndp_incomm_playrec_flg |= E_CAP;
 
-	g_sndp_start_call_wait = 1;
-	wake_up_interruptible(&g_sndp_start_call_queue);
-
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
 
