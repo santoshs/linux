@@ -101,6 +101,16 @@ enum audio_test_hw_val {
 	AUDIO_TEST_HW_MAX
 };
 
+/*!
+  @brief	VCD start status.
+*/
+enum audio_test_vcd_stat {
+	AUDIO_TEST_VCD_NONE,
+	AUDIO_TEST_VCD_OK,		/**< Start OK. */
+	AUDIO_TEST_VCD_NG,		/**< Start NG. */
+	AUDIO_TEST_VCD_MAX
+};
+
 /*---------------------------------------------------------------------------*/
 /* extern variable declaration                                               */
 /*---------------------------------------------------------------------------*/

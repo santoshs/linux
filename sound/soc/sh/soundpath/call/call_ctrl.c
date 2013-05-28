@@ -1189,21 +1189,15 @@ static void call_playback_incomm_data_set(unsigned int buf_size)
 		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
 	/* If process had been driver closed. */
-	if (NULL == g_call_incomm_substream[SNDP_PCM_OUT]) {
-		sndp_log_info("substream is NULL\n");
-		return;
-	}
-	if (NULL == g_call_incomm_substream[SNDP_PCM_OUT]->runtime) {
-		sndp_log_info("runtime is NULL\n");
-		return;
-	}
+	if (NULL == g_call_incomm_substream[SNDP_PCM_OUT])
+		goto no_proc;
+	if (NULL == g_call_incomm_substream[SNDP_PCM_OUT]->runtime)
+		goto no_proc;
 
 	runtime = g_call_incomm_substream[SNDP_PCM_OUT]->runtime;
 
-	if (NULL == runtime->dma_area) {
-		sndp_log_info("dma_area is NULL\n");
-		return;
-	}
+	if (NULL == runtime->dma_area)
+		goto no_proc;
 
 	/* Copy the data from temporary area. */
 	if (0 < g_call_playback_incomm_len) {
@@ -1283,6 +1277,8 @@ static void call_playback_incomm_data_set(unsigned int buf_size)
 	/* Set next position */
 	pcm_info->next_pd_side = (DATA_SIDE_0 == pcm_info->next_pd_side) ?
 						DATA_SIDE_1 : DATA_SIDE_0;
+
+no_proc:
 	up(&g_sndp_wait_free[SNDP_PCM_OUT]);
 }
 
@@ -1308,21 +1304,15 @@ static void call_record_incomm_data_set(unsigned int buf_size)
 		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
 	/* If process had been driver closed. */
-	if (NULL == g_call_incomm_substream[SNDP_PCM_IN]) {
-		sndp_log_info("substream is NULL\n");
-		return;
-	}
-	if (NULL == g_call_incomm_substream[SNDP_PCM_IN]->runtime) {
-		sndp_log_info("runtime is NULL\n");
-		return;
-	}
+	if (NULL == g_call_incomm_substream[SNDP_PCM_IN])
+		goto no_proc;
+	if (NULL == g_call_incomm_substream[SNDP_PCM_IN]->runtime)
+		goto no_proc;
 
 	runtime = g_call_incomm_substream[SNDP_PCM_IN]->runtime;
 
-	if (NULL == runtime->dma_area) {
-		sndp_log_info("dma_area is NULL\n");
-		return;
-	}
+	if (NULL == runtime->dma_area)
+		goto no_proc;
 
 	/* Get data, If Buffer >= Data */
 	if ((g_call_record_incomm_len + buf_size) <=
@@ -1391,6 +1381,7 @@ static void call_record_incomm_data_set(unsigned int buf_size)
 	pcm_info->next_pd_side = (DATA_SIDE_0 == pcm_info->next_pd_side) ?
 						DATA_SIDE_1 : DATA_SIDE_0;
 
+no_proc:
 	up(&g_sndp_wait_free[SNDP_PCM_IN]);
 }
 
@@ -1539,17 +1530,13 @@ static void call_work_dummy_rec(struct sndp_work_info *work)
 		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
 	/* If process had been driver closed. */
-	if (NULL == g_call_substream[SNDP_PCM_IN]->runtime) {
-		sndp_log_info("runtime is NULL\n");
-		return;
-	}
+	if (NULL == g_call_substream[SNDP_PCM_IN]->runtime)
+		goto no_proc;
 
 	runtime = g_call_substream[SNDP_PCM_IN]->runtime;
 
-	if (NULL == runtime->dma_area) {
-		sndp_log_info("dma_area is NULL\n");
-		return;
-	}
+	if (NULL == runtime->dma_area)
+		goto no_proc;
 
 	/* Get data, If Buffer >= Data */
 	if ((g_call_dummy_record_len + VCD_RECORD_BUFFER_SIZE) <=
@@ -1616,8 +1603,7 @@ static void call_work_dummy_rec(struct sndp_work_info *work)
 	if (g_call_dummy_rec)
 		sndp_workqueue_enqueue(g_call_queue_in, &g_call_work_in);
 
-	up(&g_sndp_wait_free[SNDP_PCM_IN]);
-
+no_proc:
 	up(&g_sndp_wait_free[SNDP_PCM_IN]);
 
 	/* sndp_log_debug_func("end\n"); */
@@ -1730,17 +1716,13 @@ static void call_work_dummy_play(struct sndp_work_info *work)
 	if (0 != ret)
 		sndp_log_err("down_interruptible ret[%d]\n", ret);
 
-	if (NULL == g_call_substream[SNDP_PCM_OUT]->runtime) {
-		sndp_log_info("runtime is NULL\n");
-		return;
-	}
+	if (NULL == g_call_substream[SNDP_PCM_OUT]->runtime)
+		goto no_proc;
 
 	runtime = g_call_substream[SNDP_PCM_OUT]->runtime;
 
-	if (NULL == runtime->dma_area) {
-		sndp_log_info("dma_area is NULL\n");
-		return;
-	}
+	if (NULL == runtime->dma_area)
+		goto no_proc;
 
 	if (0 < g_call_dummy_play_len) {
 		pcm_info->byte_offset = g_call_dummy_play_len;
@@ -1781,6 +1763,7 @@ static void call_work_dummy_play(struct sndp_work_info *work)
 		sndp_workqueue_enqueue(g_call_queue_out, &g_call_work_out);
 	}
 
+no_proc:
 	up(&g_sndp_wait_free[SNDP_PCM_OUT]);
 	/* sndp_log_debug_func("end\n"); */
 }
@@ -2128,7 +2111,8 @@ static void call_work_record_incomm_dummy_set(struct sndp_work_info *work)
 	else
 		buf_size = pcm_info->save_buf_size;
 
-	if (buf_size <= (runtime->status->hw_ptr - runtime->control->appl_ptr))
+	if ((buf_size / 2) <=
+		(runtime->status->hw_ptr - runtime->control->appl_ptr))
 		goto no_proc;
 
 	/* If Buffer >= Data */

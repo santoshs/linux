@@ -265,6 +265,8 @@ static int g_call_playback_stop;
 
 static uint g_bluetooth_band_frequency;
 
+static uint g_loopplay;
+
 /* Callback function for audience */
 static struct sndp_extdev_callback_func *g_sndp_extdev_callback;
 
@@ -632,6 +634,8 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 
 	/* Initialize bluetooth band frequency */
 	g_bluetooth_band_frequency = 8000;
+
+	g_loopplay = 0;
 
 	/* Wake lock init */
 	wake_lock_init(&g_sndp_wake_lock_suspend,
@@ -1613,12 +1617,18 @@ static int sndp_fsi_trigger(
 	LOG_INIT_CYCLE_COUNT(substream->stream);
 
 	/* for Production Test (Loopback) */
-	if (SNDP_PT_LOOPBACK_START == g_pt_start) {
+	if ((SNDP_PT_LOOPBACK_START == g_pt_start) || (1 == g_loopplay)) {
+		if (SNDRV_PCM_TRIGGER_START == cmd)
+			g_loopplay = 1;
+
 		/* Same Call process route */
 		sndp_call_trigger(substream,
 				cmd,
 				dai,
 				GET_OLD_VALUE(substream->stream));
+
+		if (SNDRV_PCM_TRIGGER_STOP == cmd)
+			g_loopplay = 0;
 
 		goto pt_route_end;
 	}
@@ -1815,7 +1825,7 @@ static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
 		else
 			iRet = 0;
 	} else {
-		if (SNDP_PT_LOOPBACK_START != g_pt_start)
+		if (0 == g_loopplay)
 			/* During a call */
 			iRet = g_sndp_dai_func.fsi_pointer(substream);
 		else
@@ -2332,12 +2342,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		goto start_err;
 	}
 
-	/* Output device ON */
-	fsi_d2153_set_dac_power(g_kcontrol, 1);
-
-	/* Input device ON */
-	fsi_d2153_set_adc_power(g_kcontrol, 1);
-
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
 		SNDP_GET_AUDIO_DEVICE(work->new_value),
 		SNDP_EXTDEV_START);
@@ -2826,9 +2830,6 @@ static void sndp_work_capture_incomm_start(struct sndp_work_info *work)
 	/* Running Capture */
 	g_sndp_incomm_playrec_flg |= E_CAP;
 
-	g_sndp_start_call_wait = 1;
-	wake_up_interruptible(&g_sndp_start_call_queue);
-
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
 
@@ -2942,12 +2943,6 @@ static void sndp_work_incomm_start(const u_int new_value)
 		sndp_log_err("clkgen start error(code=%d)\n", ret);
 		goto start_err;
 	}
-
-	/* Output device ON */
-	fsi_d2153_set_dac_power(g_kcontrol, 1);
-
-	/* Input device ON */
-	fsi_d2153_set_adc_power(g_kcontrol, 1);
 
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
 			     SNDP_GET_AUDIO_DEVICE(new_value),
@@ -3463,9 +3458,14 @@ static void sndp_watch_start_fw_cb(void)
 
 	if ((SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(old_value)) ||
 	    (SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(old_value))) {
-		if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(old_value)))
+		if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(old_value))) {
 			fsi_fifo_reset(SNDP_PCM_PORTA);
-		else
+			/* Output device ON */
+			fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+			/* Input device ON */
+			fsi_d2153_set_adc_power(g_kcontrol, 1);
+		} else
 			fsi_fifo_reset(SNDP_PCM_PORTB);
 	}
 
