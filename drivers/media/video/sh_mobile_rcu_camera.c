@@ -65,6 +65,9 @@ EXPORT_SYMBOL(sec_main_cam_dev);
 struct device *sec_sub_cam_dev;  /* /sys/class/camera/rear/rear_type */
 EXPORT_SYMBOL(sec_sub_cam_dev);
 
+static int cam_status0;
+static int cam_status1;
+
 static bool rear_flash_state;
 static int (*rear_flash_set)(int, int);
 static bool dump_addr_flg;
@@ -1651,6 +1654,25 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 
 	dev_geo(icd->parent, "%s():\n", __func__);
 
+	csi2_sd = find_csi2(pcdev);
+	if (csi2_sd) {
+		csi2_sd->grp_id = soc_camera_grp_id(icd);
+		v4l2_set_subdev_hostdata(csi2_sd, icd);
+	}
+
+	ret = v4l2_subdev_call(csi2_sd, core, s_power, 1);
+	if (ret < 0 && ret != -ENOIOCTLCMD && ret != -ENODEV) {
+		pm_runtime_put_sync(ici->v4l2_dev.dev);
+		return ret;
+	}
+
+	/*
+	 * -ENODEV is special: either csi2_sd == NULL or the CSI-2 driver
+	 * has not found this soc-camera device among its clients
+	 */
+	if (ret == -ENODEV && csi2_sd)
+		csi2_sd->grp_id = 0;
+
 #ifdef RCU_POWAREA_MNG_ENABLE
 	dev_info(icd->parent, "Start A4LC power area(RCU)\n");
 	system_handle = system_pwmng_new();
@@ -1666,14 +1688,42 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 	system_pwmng_delete(&pmg_delete);
 #endif
 
-	if (pcdev->icd)
+	if (pcdev->icd) {
+		dev_err(pcdev->ici.v4l2_dev.dev, "not NULL pcdev->icd.\n");
+#ifdef RCU_POWAREA_MNG_ENABLE
+		system_handle = system_pwmng_new();
+		powarea_start_notify.handle         = system_handle;
+		powarea_start_notify.powerarea_name = RT_PWMNG_POWERAREA_A4LC;
+		ret = system_pwmng_powerarea_end_notify(
+			&powarea_start_notify);
+		if (ret != SMAP_LIB_PWMNG_OK) {
+			dev_warn(icd->parent,
+				"powarea_end_notify err!\n");
+		}
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+#endif /* RCU_POWAREA_MNG_ENABLE */
 		return -EBUSY;
+	}
 
 	/* request irq */
 	ret = request_irq(pcdev->irq, sh_mobile_rcu_irq, IRQF_DISABLED,
 			  dev_name(pcdev->ici.v4l2_dev.dev), pcdev);
 	if (ret) {
 		dev_err(pcdev->ici.v4l2_dev.dev, "Unable to register RCU interrupt.\n");
+#ifdef RCU_POWAREA_MNG_ENABLE
+		system_handle = system_pwmng_new();
+		powarea_start_notify.handle         = system_handle;
+		powarea_start_notify.powerarea_name = RT_PWMNG_POWERAREA_A4LC;
+		ret = system_pwmng_powerarea_end_notify(
+			&powarea_start_notify);
+		if (ret != SMAP_LIB_PWMNG_OK) {
+			dev_warn(icd->parent,
+				"powarea_end_notify err!\n");
+		}
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+#endif /* RCU_POWAREA_MNG_ENABLE */
 		return ret;
 	}
 
@@ -1689,6 +1739,22 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 		if (ret) {
 			dev_err(pcdev->ici.v4l2_dev.dev,
 				"%s timeout ret=%d\n", __func__, ret);
+			pcdev->rcu_add_device_state = false;
+			free_irq(pcdev->irq, pcdev);
+#ifdef RCU_POWAREA_MNG_ENABLE
+			system_handle = system_pwmng_new();
+			powarea_start_notify.handle = system_handle;
+			powarea_start_notify.powerarea_name =
+				RT_PWMNG_POWERAREA_A4LC;
+			ret = system_pwmng_powerarea_end_notify(
+				&powarea_start_notify);
+			if (ret != SMAP_LIB_PWMNG_OK) {
+				dev_warn(icd->parent,
+					"powarea_end_notify err!\n");
+			}
+			pmg_delete.handle = system_handle;
+			system_pwmng_delete(&pmg_delete);
+#endif /* RCU_POWAREA_MNG_ENABLE */
 			return ret;
 		}
 	} else {
@@ -1708,24 +1774,6 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 
 	sh_mobile_rcu_soft_reset(pcdev);
 
-	csi2_sd = find_csi2(pcdev);
-	if (csi2_sd) {
-		csi2_sd->grp_id = soc_camera_grp_id(icd);
-		v4l2_set_subdev_hostdata(csi2_sd, icd);
-	}
-
-	ret = v4l2_subdev_call(csi2_sd, core, s_power, 1);
-	if (ret < 0 && ret != -ENOIOCTLCMD && ret != -ENODEV) {
-		pm_runtime_put_sync(ici->v4l2_dev.dev);
-		return ret;
-	}
-
-	/*
-	 * -ENODEV is special: either csi2_sd == NULL or the CSI-2 driver
-	 * has not found this soc-camera device among its clients
-	 */
-	if (ret == -ENODEV && csi2_sd)
-		csi2_sd->grp_id = 0;
 	pcdev->icd = icd;
 
 	return 0;
@@ -1750,10 +1798,6 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 		__func__, pcdev->streaming, pcdev->active);
 
 	BUG_ON(icd != pcdev->icd);
-
-	v4l2_subdev_call(csi2_sd, core, s_power, 0);
-	if (csi2_sd)
-		csi2_sd->grp_id = 0;
 
 	/* disable capture, disable interrupts */
 	rcu_write(pcdev, RCEIER, 0);
@@ -1807,6 +1851,11 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 	pmg_delete.handle = system_handle;
 	system_pwmng_delete(&pmg_delete);
 #endif
+
+	v4l2_subdev_call(csi2_sd, core, s_power, 0);
+	if (csi2_sd)
+		csi2_sd->grp_id = 0;
+
 	pcdev->icd = NULL;
 }
 
@@ -2970,6 +3019,12 @@ static int sh_mobile_rcu_get_ctrl(struct soc_camera_device *icd,
 	case V4L2_CID_GET_DUMP_SIZE_USER:
 		ctrl->value = SH_RCU_DUMP_LOG_SIZE_USER;
 		return 0;
+	case V4L2_CID_GET_CAMSTS0:
+		ctrl->value = cam_status0;
+		return 0;
+	case V4L2_CID_GET_CAMSTS1:
+		ctrl->value = cam_status1;
+		return 0;
 	}
 
 	return -ENOIOCTLCMD;
@@ -3185,6 +3240,12 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 			return -EIO;
 		}
 		pcdev->mmap_size = page_num;
+		return 0;
+	case V4L2_CID_SET_CAMSTS0:
+		cam_status0 = ctrl->value;
+		return 0;
+	case V4L2_CID_SET_CAMSTS1:
+		cam_status1 = ctrl->value;
 		return 0;
 	}
 	return -ENOIOCTLCMD;
@@ -3703,6 +3764,8 @@ static int __init sh_mobile_rcu_init(void)
 	sec_sub_cam_dev = NULL;
 	rear_flash_state = true;
 	rear_flash_set = NULL;
+	cam_status0 = -1;
+	cam_status1 = -1;
 	dump_addr_flg = false;
 #ifdef SH_RCU_DUMP_LOG_ENABLE
 	dumplog_order = 0;
