@@ -54,13 +54,15 @@ static struct rndis_multiframe {
 	struct usb_ep		*in;
 	struct sk_buff		*skb;
 	struct sk_buff *rndis_frame[MAX_RNDIS_FRAME_COUNT];
+	struct hrtimer tx_timer;
+	struct tasklet_struct taskl;
 } multiframe_struct ;
 
 
 /* prototyyppi */
 static void eth_start_xmit_usb(struct rndis_multiframe *multiframe);
-static void multiframe_timer_timeout(unsigned long arg);
-static	DEFINE_TIMER(multiframe_timer, multiframe_timer_timeout, 0, 0);
+static enum hrtimer_restart multiframe_timer_timeout(struct hrtimer *timer);
+static void multiframe_timer_timeout_tasklet(unsigned long arg);
 static	DEFINE_SPINLOCK(timer_lock);
 
 /*-------------------------------------------------------------------------*/
@@ -128,7 +130,18 @@ static inline int qlen(struct usb_gadget *gadget)
 /*-------------------------------------------------------------------------*/
 
 /* NETWORK DRIVER HOOKUP (to the layer above this driver) */
-static void multiframe_timer_timeout(unsigned long arg)
+static enum hrtimer_restart multiframe_timer_timeout(struct hrtimer *timer)
+{
+	struct rndis_multiframe *multiframe = container_of(timer,
+						struct rndis_multiframe,
+						tx_timer);
+
+	tasklet_hi_schedule(&multiframe->taskl);
+
+	return HRTIMER_NORESTART;
+}
+
+static void multiframe_timer_timeout_tasklet(unsigned long arg)
 {
 	struct rndis_multiframe *multiframe = (struct rndis_multiframe *) arg;
 
@@ -136,7 +149,6 @@ static void multiframe_timer_timeout(unsigned long arg)
 	eth_start_xmit_usb(multiframe);
 	spin_unlock(&timer_lock);
 }
-
 
 
 static int ueth_change_mtu(struct net_device *net, int new_mtu)
@@ -586,17 +598,10 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		multiframe->net = net;
 		multiframe->in = in;
 
-		if (timer_pending(&multiframe_timer))
-			del_timer(&multiframe_timer);
+		hrtimer_start(&multiframe->tx_timer,
+				ktime_set(0, NSEC_PER_SEC/600),
+				HRTIMER_MODE_REL);
 
-		multiframe_timer.function =
-			&multiframe_timer_timeout;
-		multiframe_timer.data     =
-			(unsigned long) multiframe;
-		multiframe_timer.expires =
-			jiffies + ((HZ + 999) / 1000);
-
-		add_timer(&multiframe_timer);
 
 
 	}
@@ -626,8 +631,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		* (RNDIS_FRAME_BYTE_ALIGMENT - 1)
 		>= dev->max_host_transfer_size) ||
 		(dev->max_host_transfer_size != 0x4000)) {
-		if (timer_pending(&multiframe_timer))
-			del_timer(&multiframe_timer);
+
 		eth_start_xmit_usb(multiframe);
 	}
 	
@@ -672,6 +676,9 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 
 		int	align_off[skb_shinfo(skb)->nr_frags];
 		int	nr_frag = skb_shinfo(skb)->nr_frags;
+
+		if (hrtimer_active(&multiframe->tx_timer))
+			hrtimer_cancel(&multiframe->tx_timer);
 
 		spin_lock_irqsave(&dev->req_lock, flags);
 		/*
@@ -730,7 +737,7 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 
 				total_length += frag->size + align_off[i];
 			}
-			req->buf = kmalloc(total_length, GFP_ATOMIC | GFP_DMA);
+			req->buf = kmalloc(total_length, GFP_ATOMIC);
 
 			if (unlikely(!req->buf)) {
 
@@ -755,7 +762,7 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 		} else {
 
 			align_off[0] = 0;
-			req->buf = kmalloc(skb->data_len, GFP_ATOMIC | GFP_DMA);
+			req->buf = kmalloc(skb->data_len, GFP_ATOMIC);
 
 			if (unlikely(!req->buf)) {
 
@@ -1029,6 +1036,7 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	struct eth_dev		*dev;
 	struct net_device	*net;
 	int			status;
+	struct rndis_multiframe *multiframe = &multiframe_struct;
 
 	if (the_dev)
 		return -EBUSY;
@@ -1040,6 +1048,14 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	dev = netdev_priv(net);
 	spin_lock_init(&dev->lock);
 	spin_lock_init(&dev->req_lock);
+
+	hrtimer_init(&multiframe->tx_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	multiframe->tx_timer.function =
+			&multiframe_timer_timeout;
+	tasklet_init(&multiframe->taskl,
+				multiframe_timer_timeout_tasklet,
+				(unsigned long)multiframe);
+
 	INIT_WORK(&dev->work, eth_work);
 	INIT_LIST_HEAD(&dev->tx_reqs);
 	INIT_LIST_HEAD(&dev->rx_reqs);
@@ -1203,12 +1219,13 @@ void gether_disconnect(struct gether *link)
 {
 	struct eth_dev		*dev = link->ioport;
 	struct usb_request	*req;
+	struct rndis_multiframe *multiframe = &multiframe_struct;
 
 	if (!dev)
 		return;
 
 	DBG(dev, "%s\n", __func__);
-
+	tasklet_kill(&multiframe->taskl);
 	netif_stop_queue(dev->net);
 	netif_carrier_off(dev->net);
 

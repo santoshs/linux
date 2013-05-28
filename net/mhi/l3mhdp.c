@@ -30,6 +30,7 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/version.h>
+#include <linux/interrupt.h>
 
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
@@ -109,7 +110,8 @@ struct mhdp_tunnel {
 	struct sk_buff		*skb;
 	int			pdn_id;
 	int			free_pdn;
-	struct timer_list tx_timer;
+	struct hrtimer tx_timer;
+	struct tasklet_struct taskl;
 	struct sk_buff *skb_to_free[MAX_MHDPHDR_SIZE];
 	spinlock_t timer_lock;
 };
@@ -150,8 +152,8 @@ static void mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send);
 static int mhdp_netdev_event(struct notifier_block *this,
 			     unsigned long event, void *ptr);
 
-static void tx_timer_timeout(unsigned long arg);
-
+static enum hrtimer_restart tx_timer_timeout(struct hrtimer *timer);
+static void tx_timer_timeout_tasklet(unsigned long arg);
 
 static ssize_t mhdp_write_wakelock_value(struct device *dev,
 					struct device_attribute *attr,
@@ -263,7 +265,12 @@ mhdp_tunnel_init(struct net_device *dev,
 	tunnel->pdn_id      = parms->pdn_id;
 	tunnel->free_pdn    = 0;
 
-	init_timer(&tunnel->tx_timer);
+	hrtimer_init(&tunnel->tx_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	tunnel->tx_timer.function = &tx_timer_timeout;
+	tasklet_init(&tunnel->taskl,
+			tx_timer_timeout_tasklet,
+			(unsigned long) tunnel);
+
 	spin_lock_init(&tunnel->timer_lock);
 }
 
@@ -286,8 +293,12 @@ mhdp_destroy_tunnels(struct mhdp_net *mhdpn)
 {
 	struct mhdp_tunnel *tunnel;
 
-	for (tunnel = mhdpn->tunnels; (tunnel); tunnel = tunnel->next)
+	for (tunnel = mhdpn->tunnels; (tunnel); tunnel = tunnel->next) {
 		mhdp_tunnel_destroy(tunnel->dev);
+		if (hrtimer_active(&tunnel->tx_timer))
+			hrtimer_cancel(&tunnel->tx_timer);
+		tasklet_kill(&tunnel->taskl);
+	}
 
 	mhdpn->tunnels = NULL;
 }
@@ -496,7 +507,7 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 				size_of_previous_hdr = ipv4header->ihl *
 							sizeof(unsigned int);
 				ret = 1;
-				DPRINTK("MHDP_FILTER:IPv4 packet filtered out");
+				DPRINTK("MHDP_FILTER: IPv4 packet filtered out");
 			}
 		}
 
@@ -574,7 +585,7 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 					(unsigned int)(
 						(unsigned char *)udphdr -
 						(unsigned char *)ipv6header);
-				DPRINTK("MHDP_FILTER:IPv6 packet filtered out");
+				DPRINTK("MHDP_FILTER: IPv6 packet filtered out");
 			}
 			else
 			{
@@ -671,7 +682,7 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		u_parms = (struct mhdp_tunnel_parm *)ifr->ifr_data;
 
 		if (copy_from_user(&k_parms, u_parms,
-			sizeof(struct mhdp_tunnel_parm))) {
+					sizeof(struct mhdp_tunnel_parm))) {
 			DPRINTK("Error: Failed to copy data from user space");
 			return -EFAULT;
 		}
@@ -679,8 +690,8 @@ mhdp_netdev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		DPRINTK("pdn_id:%d", k_parms.pdn_id);
 
 		for (tunnel = mhdpn->tunnels, pre_dev = NULL;
-			tunnel;
-			pre_dev = tunnel, tunnel = tunnel->next) {
+		     tunnel;
+		     pre_dev = tunnel, tunnel = tunnel->next) {
 			if (tunnel->pdn_id == k_parms.pdn_id)
 				tunnel->free_pdn = 1;
 		}
@@ -758,6 +769,9 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 
 		mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
 		nb_frags = mhdpHdr->packet_count;
+
+		if (hrtimer_active(&tunnel->tx_timer))
+			hrtimer_cancel(&tunnel->tx_timer);
 
 		skb->protocol = htons(ETH_P_MHDP);
 		skb->priority = 1;
@@ -879,9 +893,8 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 			skb_pull(newskb, mhdp_header_len + offset);
 
-			newskb->len = length ;
-			skb_set_tail_pointer(newskb, length);
-			newskb->truesize = length + sizeof(struct sk_buff);
+			skb_trim(newskb, length);
+			newskb->truesize = SKB_TRUESIZE(length);
 
 			ip_ver = (u8)*newskb->data;
 
@@ -941,9 +954,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 				netif_rx(newskb);
 #endif /*#ifdef MHDP_USE_NAPI*/
 			}
-
 		}
-
 	}
 	rcu_read_unlock();
 
@@ -958,6 +969,8 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 error:
 	if (mhdp_header_len > skb_headlen(skb))
 		kfree(mhdpHdr);
+
+	EPRINTK("%s - error detected\n", __func__);
 
 	dev_kfree_skb(skb);
 
@@ -1016,7 +1029,18 @@ mhdp_netdev_rx_napi(struct sk_buff *skb, struct net_device *dev)
  * tx_timer_timeout - Timer expiration function for TX packet concatenation
   => will then call mhdp_submit_queued_skb to pass concatenated packets to IPC
  */
-static void tx_timer_timeout(unsigned long arg)
+static enum hrtimer_restart tx_timer_timeout(struct hrtimer *timer)
+{
+	struct mhdp_tunnel *tunnel = container_of(timer,
+						struct mhdp_tunnel,
+						tx_timer);
+
+	tasklet_hi_schedule(&tunnel->taskl);
+
+	return HRTIMER_NORESTART;
+}
+
+static void tx_timer_timeout_tasklet(unsigned long arg)
 {
 	struct mhdp_tunnel *tunnel = (struct mhdp_tunnel *) arg;
 
@@ -1052,10 +1076,6 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	SKBPRINT(skb, "SKB: TX");
 
-
-	if (timer_pending(&tunnel->tx_timer))
-		del_timer(&tunnel->tx_timer);
-
 #if 0
 	{
 	    int i;
@@ -1075,8 +1095,8 @@ xmit_again:
 
 	if (tunnel->skb == NULL) {
 
-		tunnel->skb = netdev_alloc_skb(dev,
-			L2MUX_HDR_SIZE + sizeof(struct mhdp_hdr));
+			tunnel->skb = netdev_alloc_skb(dev,
+				L2MUX_HDR_SIZE + sizeof(struct mhdp_hdr));
 
 		if (!tunnel->skb) {
 			EPRINTK("mhdp_netdev_xmit error1");
@@ -1103,6 +1123,10 @@ xmit_again:
 
 		mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
 		mhdpHdr->packet_count = 0;
+
+		hrtimer_start(&tunnel->tx_timer,
+				ktime_set(0, NSEC_PER_SEC/600),
+				HRTIMER_MODE_REL);
 	}
 
 	/*This new frame is to big for the current mhdp frame,
@@ -1178,19 +1202,8 @@ xmit_again:
 			}
 		}
 
-		if (mhdpHdr->packet_count >= MAX_MHDPHDR_SIZE) {
-
+		if (mhdpHdr->packet_count >= MAX_MHDPHDR_SIZE)
 			mhdp_submit_queued_skb(tunnel, 1);
-
-		} else {
-
-			tunnel->tx_timer.function = &tx_timer_timeout;
-			tunnel->tx_timer.data     = (unsigned long) tunnel;
-			tunnel->tx_timer.expires =
-					jiffies + ((HZ + 999) / 1000);
-			add_timer(&tunnel->tx_timer);
-
-		}
 	}
 
 	spin_unlock(&tunnel->timer_lock);
