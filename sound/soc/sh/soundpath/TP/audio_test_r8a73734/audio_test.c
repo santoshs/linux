@@ -145,6 +145,7 @@ static int audio_test_call_regist_watch(void);
 static void audio_test_watch_start_clk_cb(void);
 static void audio_test_watch_stop_clk_cb(void);
 static void audio_test_watch_start_vcd_cb(void);
+static void audio_test_watch_stop_vcd_cb(void);
 /***********************************/
 /* log level                       */
 /***********************************/
@@ -842,7 +843,13 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 	wait_event_interruptible(
 		g_watch_start_vcd_queue,
 		atomic_read(&g_audio_test_watch_start_vcd));
-	atomic_set(&g_audio_test_watch_start_vcd, 0);
+	if (AUDIO_TEST_VCD_NG == atomic_read(&g_audio_test_watch_start_vcd)) {
+		audio_test_log_err("Wait VCD");
+		atomic_set(&g_audio_test_watch_start_vcd, AUDIO_TEST_VCD_NONE);
+		ret = -ECOMM;
+		goto wait_error;
+	}
+	atomic_set(&g_audio_test_watch_start_vcd, AUDIO_TEST_VCD_NONE);
 
 	audio_test_log_rfunc("ret[%d]", ret);
 	return ret;
@@ -850,7 +857,7 @@ static int audio_test_proc_start_spuv_loopback(u_int fsi_port, u_int vqa_val,
 error:
 	/* Add not to be suspend in loopback */
 	wake_unlock(&g_audio_test_wake_lock);
-
+wait_error:
 	audio_test_log_err("ret[%d]", ret);
 	return ret;
 }
@@ -997,6 +1004,7 @@ static int audio_test_proc_set_call_mode(u_int call_kind, u_int vqa_val,
 
 	cmd.command = VCD_COMMAND_WATCH_FW;
 	info.start_fw = audio_test_watch_start_vcd_cb;
+	info.stop_fw = audio_test_watch_stop_vcd_cb;
 	cmd.arg = &info;
 	ret = vcd_execute_test_call(&cmd);
 	if (0 != ret) {
@@ -1772,7 +1780,26 @@ static void audio_test_watch_start_vcd_cb(void)
 {
 	audio_test_log_efunc("");
 
-	atomic_set(&g_audio_test_watch_start_vcd, 1);
+	atomic_set(&g_audio_test_watch_start_vcd, AUDIO_TEST_VCD_OK);
+	wake_up_interruptible(&g_watch_start_vcd_queue);
+
+	audio_test_log_rfunc("");
+}
+
+/*!
+  @brief	firm stop vocoder callback function
+
+  @param	.
+
+  @return	.
+
+  @note		.
+ */
+static void audio_test_watch_stop_vcd_cb(void)
+{
+	audio_test_log_efunc("");
+
+	atomic_set(&g_audio_test_watch_start_vcd, AUDIO_TEST_VCD_NG);
 	wake_up_interruptible(&g_watch_start_vcd_queue);
 
 	audio_test_log_rfunc("");

@@ -265,6 +265,8 @@ static int g_call_playback_stop;
 
 static uint g_bluetooth_band_frequency;
 
+static uint g_loopplay;
+
 /* Callback function for audience */
 static struct sndp_extdev_callback_func *g_sndp_extdev_callback;
 
@@ -632,6 +634,8 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 
 	/* Initialize bluetooth band frequency */
 	g_bluetooth_band_frequency = 8000;
+
+	g_loopplay = 0;
 
 	/* Wake lock init */
 	wake_lock_init(&g_sndp_wake_lock_suspend,
@@ -1613,12 +1617,18 @@ static int sndp_fsi_trigger(
 	LOG_INIT_CYCLE_COUNT(substream->stream);
 
 	/* for Production Test (Loopback) */
-	if (SNDP_PT_LOOPBACK_START == g_pt_start) {
+	if ((SNDP_PT_LOOPBACK_START == g_pt_start) || (1 == g_loopplay)) {
+		if (SNDRV_PCM_TRIGGER_START == cmd)
+			g_loopplay = 1;
+
 		/* Same Call process route */
 		sndp_call_trigger(substream,
 				cmd,
 				dai,
 				GET_OLD_VALUE(substream->stream));
+
+		if (SNDRV_PCM_TRIGGER_STOP == cmd)
+			g_loopplay = 0;
 
 		goto pt_route_end;
 	}
@@ -1815,7 +1825,7 @@ static snd_pcm_uframes_t sndp_fsi_pointer(struct snd_pcm_substream *substream)
 		else
 			iRet = 0;
 	} else {
-		if (SNDP_PT_LOOPBACK_START != g_pt_start)
+		if (0 == g_loopplay)
 			/* During a call */
 			iRet = g_sndp_dai_func.fsi_pointer(substream);
 		else
