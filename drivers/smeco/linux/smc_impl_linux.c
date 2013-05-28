@@ -15,6 +15,10 @@
 /*
 Change history:
 
+Version:       31   24-May-2013     Heikki Siikaluoma
+Status:        draft
+Description :  TX Wakelock
+
 Version:       14   07-Jun-2012     Heikki Siikaluoma
 Status:        draft
 Description :  Resource IRQ handler changed: First clears the interrupt then handles the request

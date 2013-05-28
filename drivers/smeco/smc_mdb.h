@@ -37,10 +37,6 @@ Description :  File created
 #endif
 #endif
 
-#ifndef TLSF_USE_REF
-#define TLSF_USE_REF 0
-#endif
-
 #ifndef SMC_MDB_H
 #define SMC_MDB_H
 
@@ -79,8 +75,6 @@ uint32_t smc_mdb_channel_largest_free_block_get( smc_channel_t* smc_channel );
 
 #define SMC_MDB_ADDRESS_IN_POOL(address, pool, pool_size)   (((uint32_t)address >= (uint32_t)((uint8_t*)pool)) && ((uint32_t)address < ((uint32_t)((uint8_t*)pool)+pool_size)))
 
-
-#if !TLSF_USE_REF
 typedef void* tlsf_pool;
 
     /* Debugging. */
@@ -99,7 +93,6 @@ size_t tlsf_ptr_size(void * ptr);
 
     /* Overhead of per-pool internal structures. */
 size_t tlsf_overhead( void );
-#endif
 
 #endif
 

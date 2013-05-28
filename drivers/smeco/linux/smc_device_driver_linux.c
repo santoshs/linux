@@ -480,6 +480,13 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
     SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: SKB Data (len %d, queue):", skb->len, skb->queue_mapping);
     SMC_TRACE_PRINTF_TRANSMIT_DATA( skb->len , skb->data );
 
+    if( device == NULL )
+    {
+        SMC_TRACE_PRINTF_ASSERT("smc_net_device_driver_xmit: net device in parameter is NULL");
+        assert(0);
+    }
+
+
     smc_net_dev  = netdev_priv(device);
     smc_instance = smc_net_dev->smc_instance;
 
@@ -530,8 +537,16 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
 
                 SMC_UNLOCK_TX_BUFFER( smc_channel->lock_tx_queue );
 
-                SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: deliver to upper layer TX function...");
-                ret_val = smc_net_dev->smc_dev_config->skb_tx_function(skb, device);
+                if (smc_net_dev->smc_dev_config != NULL)
+                {
+                    SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: deliver to upper layer TX function...");
+                    ret_val = smc_net_dev->smc_dev_config->skb_tx_function(skb, device);
+                }
+                else
+                {
+                    SMC_TRACE_PRINTF_WARNING("smc_net_device_driver_xmit: upper layer TX function not defined");
+                    ret_val = SMC_DRIVER_OK;
+                }
 
                 if (unlikely(ret_val))
                 {
@@ -560,10 +575,13 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                         assert(0);
                     }
 #endif
-                    if (smc_net_dev->smc_dev_config && smc_net_dev->smc_dev_config->driver_modify_send_data)
+                    if (smc_net_dev->smc_dev_config != NULL)
                     {
-                        SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: upper layer wants to modify send packet");
-                        smc_net_dev->smc_dev_config->driver_modify_send_data(skb, &userdata);
+                        if (smc_net_dev->smc_dev_config->driver_modify_send_data)
+                        {
+                            SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: upper layer wants to modify send packet");
+                            smc_net_dev->smc_dev_config->driver_modify_send_data(skb, &userdata);
+                        }
                     }
 
 #ifdef SMC_XMIT_BUFFER_FAIL_SEND
@@ -755,13 +773,13 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
 
         if( tx_queue_len == 0 )
         {
-            if( smc_channel->smc_tx_wakelock != NULL )
+            if( smc_channel != NULL && smc_channel->smc_tx_wakelock != NULL )
             {
                 SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: channel %d: wake_unlock 0x%08X", skb_queue_mapping, (uint32_t)smc_channel->smc_tx_wakelock );
                 wake_unlock( (struct wake_lock*)smc_channel->smc_tx_wakelock );
             }
         }
-        else
+        else if( smc_channel != NULL )
         {
             SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: channel %d: wake_lock not unlocked: device TX queue len %d", skb_queue_mapping, tx_queue_len);
 
@@ -945,13 +963,14 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
         smc_t*          smc_instance = NULL;
         smc_channel_t*  smc_channel  = NULL;
 
-        smc_instance = smc_net_dev->smc_instance;
-        smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc_msg->if_channel_id);
-
         SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: SIOCDEV_MSG_INTERNAL, message 0x%08X, param 0x%08X", if_req_smc_msg->if_msg_id, if_req_smc_msg->if_msg_parameter);
+
+        smc_instance = smc_net_dev->smc_instance;
 
         if( smc_instance != NULL )
         {
+            smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc_msg->if_channel_id);
+
             if( if_req_smc_msg->if_msg_id == SMC_MSG_FLAG_PING_REQ )
             {
                 if( smc_channel != NULL )
