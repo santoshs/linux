@@ -530,6 +530,7 @@ static void __init board_init(void)
 
 	gpio_request(GPIO_PORT28, NULL);
 	gpio_direction_input(GPIO_PORT28);
+	gpio_pull_up_port(GPIO_PORT28);
 
 #if defined(CONFIG_MFD_D2153)
 	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
