@@ -65,6 +65,7 @@ struct rcvry_info {
 	unsigned long		killable_flag;
 	struct completion	rcvry_completion;
 	struct file			*rcvry_fp;
+	unsigned long		cancel_flag;
 } rcvry_info;
 
 #endif /* __RCVRY_DRV_PRIVATE_H__ */

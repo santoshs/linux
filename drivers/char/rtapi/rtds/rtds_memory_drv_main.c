@@ -933,7 +933,7 @@ static int rtds_get_cmdline(
 	pid_t pid, char *buf, int len
 )
 {
-	char cmdline_name[30];
+	char cmdline_name[255];
 	struct file *fp = NULL;
 	unsigned int size;
 
