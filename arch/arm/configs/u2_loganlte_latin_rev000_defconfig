@@ -944,8 +944,10 @@ CONFIG_RENESAS_MDMLOADER=y
 # CONFIG_PMIC_TPS80032_POW is not set
 # CONFIG_USB_OTG_INTERFACE is not set
 
+# General Renesas reference implementation
+CONFIG_RENESAS=y
+
 # Renesas Bluetooth Implementation
-# CONFIG_RENESAS=y
 # CONFIG_RENESAS_BT=y
 
 # Renesas NFC implementation
