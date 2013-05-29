@@ -55,6 +55,9 @@
 #endif
 #include <mach/setup-u2sci.h>
 
+#ifdef CONFIG_ARCH_SHMOBILE
+void __iomem *dummy_write_mem;
+#endif
 static struct map_desc r8a7373_io_desc[] __initdata = {
 /*
  * TODO: Porting  parameter.
@@ -1250,7 +1253,18 @@ void __init r8a7373_add_standard_devices(void)
 	}
 /* ES2.0 change end */
 }
-
+/*Do Dummy write in L2 cache to avoid A2SL turned-off
+	just after L2-sync operation */
+#ifdef CONFIG_ARCH_SHMOBILE
+void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
+{
+	dummy_write_mem = ioremap_nocache(
+	(unsigned long)(SDRAM_NON_SECURE_SPINLOCK_START_ADDR + 0x00000400),
+	0x00000400/*1k*/);
+	if (dummy_write_mem == NULL)
+		printk(KERN_ERR "97373_a2slpowerdown_workaround Failed\n");
+}
+#endif
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
 extern spinlock_t sh_cmt_lock;
 
