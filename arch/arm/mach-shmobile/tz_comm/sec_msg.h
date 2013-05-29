@@ -1,24 +1,22 @@
-
-/* ************************************************************************* **
-**                               Renesas                                     **
-** ************************************************************************* */
-
-/* *************************** COPYRIGHT INFORMATION *********************** **
-** This program contains proprietary information that is a trade secret of   **
-** Renesas and also is protected as an unpublished work under                **
-** applicable Copyright laws. Recipient is to retain this program in         **
-** confidence and is not permitted to use or make copies thereof other than  **
-** as permitted in a written agreement with Renesas.                         **
-**                                                                           **
-** All rights reserved. Company confidential.                                **
-* ************************************************************************** */
 /*
- *  Secure message interface.
- *
- *  This is the interface used for creating and accessing messages used
- *  in communication with services in the Secure Environment.
- *
- */
+*arch/arm/mach-shmobile/tz_comm/sec_msg.h
+
+*Copyright (C) 2013 Renesas Mobile Corporation
+
+*This program is free software; you can redistribute it and/or modify
+*it under the terms of the GNU General Public License as published by
+*the Free Software Foundation; version 2 of the License.
+
+*This program is distributed in the hope that it will be useful,
+*but WITHOUT ANY WARRANTY; without even the implied warranty of
+*MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*GNU General Public License for more details.
+
+*You should have received a copy of the GNU General Public License
+*along with this program; if not, write to the Free Software
+*Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+*/
+
 #if defined _SEC_MSG_H_
 #error "Multiply included"
 #endif
