@@ -2,7 +2,7 @@
  * iccom_drv_send.c
  *     Inter Core Communication driver function file for send.
  *
- * Copyright (C) 2012,2013 Renesas Electronics Corporation
+ * Copyright (C) 2012-2013 Renesas Electronics Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -159,7 +159,7 @@ int iccom_send_command(void *handle, int type, iccom_cmd_send_param *send_param)
 	MSG_MED("[ICCOMK]INF|[%s] send_mode   [%d]\n", __func__, send_param->send_mode);
 	MSG_MED("[ICCOMK]INF|[%s] send_num    [%d]\n", __func__, send_param->send_num);
 
-	down(&g_iccom_send_sem);	/* lock a semaphore */
+	ICCOM_DOWN_TIMEOUT(&g_iccom_send_sem);	/* lock a semaphore */
 
 	ret_code = iccom_write_command(handle, type, send_param);		/* write message parameters */
 
