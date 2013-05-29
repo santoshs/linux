@@ -3777,8 +3777,9 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	set_bit(EV_ABS, touch_dev->input_dev->evbit);
 	set_bit(INPUT_PROP_DIRECT, touch_dev->input_dev->propbit);
 
-	//touch_dev->cap_info.Orientation |= TOUCH_XY_SWAP | TOUCH_H_FLIP;
-
+#ifdef CONFIG_RENESAS
+	touch_dev->cap_info.Orientation |= TOUCH_XY_SWAP | TOUCH_H_FLIP;
+#endif
 
 	for (i = 0; i < MAX_SUPPORTED_BUTTON_NUM; i++)
 		set_bit(BUTTON_MAPPING_KEY[i], touch_dev->input_dev->keybit);
