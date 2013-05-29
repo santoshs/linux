@@ -22,6 +22,7 @@
 
 struct rtmus_platform_data {
         void (*usb_callback) (uint8_t attached);
+	void (*usb_cdp_callback) (uint8_t attached);
         void (*uart_callback) (uint8_t attached);
         void (*charger_callback) (uint8_t attached);
         void (*jig_callback) (uint8_t attached,uint8_t factory_mode);

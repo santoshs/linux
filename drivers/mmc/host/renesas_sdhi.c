@@ -117,8 +117,8 @@
 #define SDHI_MIN_DMA_LEN	8
 #define SDHI_TIMEOUT		5000	/* msec */
 
-#define SD_CLK_CMD_DELAY	200	/* microseconds */
-static unsigned int wakeup_from_suspend;
+#define SD_CLK_CMD_DELAY   200     /* microseconds */
+static unsigned int wakeup_from_suspend_sd;
 
 unsigned int check_booting;
 
@@ -623,6 +623,9 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		container_of(work, struct renesas_sdhi_host, detect_wq.work);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 status;
+	bool dwflag;
+
+	dwflag = true;
 
 	flush_delayed_work_sync(&host->mmc->detect);
 
@@ -662,9 +665,14 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 				dmaengine_terminate_all(host->dma_tx);
 			if (host->dma_rx)
 				dmaengine_terminate_all(host->dma_rx);
-			cancel_delayed_work(&host->timeout_wq);
+
+			/* true if delayed work was pending and cancelled,
+				false if it was running and waited for finish */
+			dwflag = cancel_delayed_work_sync(&host->timeout_wq);
 		}
-		renesas_sdhi_data_done(host, host->cmd);
+
+		if (dwflag)
+			renesas_sdhi_data_done(host, host->cmd);
 	}
 
 	clk_disable(host->clk);
@@ -944,7 +952,6 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 			struct mmc_command *cmd, u16 cmddat)
 {
 	u16 val16;
-	
 	host->cmd = cmd;
 
 	cmddat |= cmd->opcode;
@@ -988,13 +995,13 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 		mdelay(1);
 	}
 
-	if (wakeup_from_suspend == 1) {
+	if (wakeup_from_suspend_sd == 1) {
 		clk_enable(host->clk);
 		/* Disable automatic control for SD clock output */
 		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
 		sdhi_write16(host, SDHI_CLK_CTRL, (val16 & ~0x200)|0x100);
 
-		 /* Delay of 200 us */
+		/* Delay of 200 us */
 		udelay(SD_CLK_CMD_DELAY);
 
 		/* Send command */
@@ -1002,7 +1009,7 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 
 		/* enable card clock */
 		sdhi_write16(host, SDHI_CLK_CTRL, val16);
-		wakeup_from_suspend = 0;
+		wakeup_from_suspend_sd = 0;
 		clk_disable(host->clk);
 	} else {
 		/* Send command */
@@ -1377,10 +1384,10 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	}
 
 	if(host->connect == 1) {
-		wakeup_from_suspend = 1;
+		wakeup_from_suspend_sd = 1;
 		check_booting = 1;
 	} else {
-		wakeup_from_suspend = 0;
+		wakeup_from_suspend_sd = 0;
 	}
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
@@ -1546,7 +1553,7 @@ int renesas_sdhi_resume(struct device *dev)
 	u32 val;
 	u32 ret = 0;
 
-	wakeup_from_suspend = 1;
+	wakeup_from_suspend_sd = 1;
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		if (host->pdata != NULL)

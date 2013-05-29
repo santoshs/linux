@@ -169,9 +169,9 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
 #endif
 
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
-    SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock feature enabled, timeout %d ms", device_name, SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS);
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock enabled, timeout %d ms", device_name, SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS);
 #else
-    SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock feature not enabled", device_name);
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock not enabled", device_name);
 #endif
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");

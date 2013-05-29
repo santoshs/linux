@@ -32,6 +32,7 @@
 #include <linux/spinlock.h>
 #include <linux/semaphore.h>
 #include <linux/syscalls.h>
+#include <linux/pid.h>
 
 #include <log_kernel.h>
 #include <iccom_drv.h>
@@ -209,28 +210,23 @@ static void rcvry_drv_sub_delete(struct rcvry_delete *p_handle)
 }
 
 /*******************************************************************************
- * Function   : rcvry_drv_sub_wait_killable
+ * Function   : rcvry_drv_sub_wait_interruptible
  * Description: Wait until the current process
  *			is killed or the function of complete is called
  * Parameters : file discriptor
  * Returns    : Error Code
  ******************************************************************************/
-static long rcvry_drv_sub_wait_killable(struct file *fp)
+static long rcvry_drv_sub_wait_interruptible(struct file *fp)
 {
-	long ret;
 	int error;
-	int send_data;
-	long function_ret;
-	iccom_drv_send_cmd_param iccom_send_cmd;
-	void *p_rcvry_iccom_handle;
-	struct rcvry_delete t_rcvry_delete;
-	iccom_drv_enable_standby_param ena_standby;
 	long local_index;
 	unsigned long *local_killable_flag;
 	long *local_standby_counter;
 	struct completion *local_completion;
 	pid_t *local_pid;
 	struct file *local_fp = NULL;
+	struct pid *pid = NULL;
+	struct task_struct *tsk = NULL;
 
 	local_fp = fp;
 
@@ -251,9 +247,68 @@ static long rcvry_drv_sub_wait_killable(struct file *fp)
 	local_fp		=  rcvry_info_t[local_index].rcvry_fp;
 	up(&g_rcvry_sem);
 
-	error = wait_for_completion_killable(local_completion);
+	init_completion(local_completion);
+	error = wait_for_completion_interruptible(local_completion);
 	MSG_MED("[RCVRYD]INF|[%s] wait_for_completion_killable error = %d\n",
 		__func__, error);
+
+	if (error < 0) {
+		down(&g_rcvry_sem);
+		MSG_MED("[RCVRYD]INF|[%s] completion current->flags = %#x\n",
+		__func__, current->flags);
+		MSG_MED("[RCVRYD]INF|[%s] completion current->tgid = %d\n",
+		__func__, current->tgid);
+		pid = find_get_pid(current->tgid);
+		tsk = get_pid_task(pid, PIDTYPE_PID);
+
+		MSG_MED("[RCVRYD]INF|[%s] completion tsk->flags = %#x\n",
+		__func__, tsk->flags);
+		MSG_MED("[RCVRYD]INF|[%s] completion tsk->tgid = %d\n",
+		__func__, tsk->tgid);
+
+		if ((tsk != NULL) &&
+			!(tsk->flags & (PF_EXITING | PF_EXITPIDONE))) {
+			MSG_HIGH("[RCVRYD]INF|[%s] not PF_EXITING\n",
+			__func__);
+			up(&g_rcvry_sem);
+			return -EINTR;
+		}
+		up(&g_rcvry_sem);
+	}
+	return SMAP_OK;
+}
+/*******************************************************************************
+ * Function   : rcvry_drv_sub_rcvry_proc
+ * Description: Wait until the current process
+ *			is killed or the function of complete is called
+ * Parameters : file discriptor
+ * Returns    : Error Code
+ ******************************************************************************/
+static long rcvry_drv_sub_rcvry_proc(long local_index)
+{
+	long ret = 0;
+	int send_data;
+	long function_ret;
+	iccom_drv_send_cmd_param iccom_send_cmd;
+	void *p_rcvry_iccom_handle;
+	struct rcvry_delete t_rcvry_delete;
+	iccom_drv_enable_standby_param ena_standby;
+	unsigned long *local_killable_flag;
+	long *local_standby_counter;
+	struct completion *local_completion;
+	pid_t *local_pid;
+	struct file *local_fp = NULL;
+
+	MSG_MED("[RCVRYD]IN |[%s]\n",
+		 __func__);
+
+	down(&g_rcvry_sem);
+	local_completion	= &rcvry_info_t[local_index].rcvry_completion;
+	local_standby_counter	= &rcvry_info_t[local_index].standby_counter;
+	local_pid		= &rcvry_info_t[local_index].pid;
+	local_killable_flag	= &rcvry_info_t[local_index].killable_flag;
+	local_fp		=  rcvry_info_t[local_index].rcvry_fp;
+	up(&g_rcvry_sem);
 
 	if (0 < *local_standby_counter) {
 
@@ -278,178 +333,168 @@ static long rcvry_drv_sub_wait_killable(struct file *fp)
 
 		MSG_HIGH("[RCVRYD]INF|[%s] After  g_standby_counter = %ld\n",
 			 __func__, *local_standby_counter);
-
-	} else {
-		MSG_HIGH("[RCVRYD]INF|[%s] Not Done\n",
-			 __func__);
 	}
 
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
 	ret = mfis_drv_resume();
 #endif
 
-	if (error) {
-		down(&g_rcvry_sem);
-		p_rcvry_iccom_handle = rcvry_drv_sub_new();
-		if (NULL == p_rcvry_iccom_handle) {
-			MSG_ERROR(
+	down(&g_rcvry_sem);
+	p_rcvry_iccom_handle = rcvry_drv_sub_new();
+	if (NULL == p_rcvry_iccom_handle) {
+		MSG_ERROR(
 "[RCVRYD]ERR |[%s] Recovery Handle Create Fail\n",
-				  __func__);
-			ret = SMAP_NG;
-			MSG_HIGH("[RCVRYD]OUT 1|[%s]\n",
-				 __func__);
-			rcvry_info_t[local_index].pid = 0;
-			up(&g_rcvry_sem);
-			return ret;
-		}
-		t_rcvry_delete.handle = p_rcvry_iccom_handle;
-		send_data = current->pid;
-
-		MSG_MED("[RCVRYD]INF|[%s] Send date(pid) = %d\n",
-			__func__, send_data);
-
-		function_ret = 0;
-		iccom_send_cmd.handle		=
-			((struct rcvry_handle *)p_rcvry_iccom_handle)->handle;
-		iccom_send_cmd.task_id		= TASK_RCVRY01;
-		iccom_send_cmd.function_id	= EVENT_TASK_RESOURCE_RELEASE;
-		iccom_send_cmd.send_mode	= ICCOM_DRV_SYNC;
-		iccom_send_cmd.send_size	= sizeof(int);
-		iccom_send_cmd.send_data	= (unsigned char *)&send_data;
-		iccom_send_cmd.recv_size	= sizeof(long);
-		iccom_send_cmd.recv_data	=
-			(unsigned char *)&function_ret;
-		MSG_MED("[RCVRYD]INF|[%s] iccom_drv_send_command in 1\n",
-			__func__);
-		ret = iccom_drv_send_command(&iccom_send_cmd);
-		if (SMAP_OK != ret) {
-			MSG_ERROR(
-"[RCVRYD]ERR |[%s] Send Command Fail 1 ret_code = 0x%08lx\n",
-				  __func__, ret);
-			ret = SMAP_NG;
-			rcvry_drv_sub_delete(&t_rcvry_delete);
-			MSG_HIGH("[RCVRYD]OUT 1|[%s]\n",
-				 __func__);
-			rcvry_info_t[local_index].pid = 0;
-			up(&g_rcvry_sem);
-			return ret;
-		}
-		MSG_MED(
-"[RCVRYD]INF|[%s] iccom_drv_send_command out 1 ret = %ld function_ret = 0x%08lx\n",
-			__func__, ret, function_ret);
-
-		function_ret = 0;
-		iccom_send_cmd.handle		=
-			((struct rcvry_handle *)p_rcvry_iccom_handle)->handle;
-		iccom_send_cmd.task_id		= TASK_RCVRY01;
-		iccom_send_cmd.function_id	= EVENT_TASK_RCVRY01_ID;
-		iccom_send_cmd.send_mode	= ICCOM_DRV_SYNC;
-		iccom_send_cmd.send_size	= sizeof(int);
-		iccom_send_cmd.send_data	= (unsigned char *)&send_data;
-		iccom_send_cmd.recv_size	= sizeof(long);
-		iccom_send_cmd.recv_data	=
-			(unsigned char *)&function_ret;
-		MSG_MED("[RCVRYD]INF|[%s] iccom_drv_send_command in 2\n",
-			__func__);
-		ret = iccom_drv_send_command(&iccom_send_cmd);
-		if (SMAP_OK != ret) {
-			MSG_ERROR(
-"[RCVRYD]ERR |[%s] Send Command Fail 2 ret_code = 0x%08lx\n",
-				  __func__, ret);
-			ret = SMAP_NG;
-			rcvry_drv_sub_delete(&t_rcvry_delete);
-			MSG_HIGH("[RCVRYD]OUT 2|[%s]\n",
-				 __func__);
-			rcvry_info_t[local_index].pid = 0;
-			up(&g_rcvry_sem);
-			return ret;
-		}
-		MSG_MED(
-"[RCVRYD]INF|[%s] iccom_drv_send_command out 2 ret = %ld function_ret = 0x%08lx\n",
-			__func__, ret, function_ret);
-
-		function_ret = 0;
-		iccom_send_cmd.handle		=
-			((struct rcvry_handle *)p_rcvry_iccom_handle)->handle;
-		iccom_send_cmd.task_id		= TASK_RCVRY02;
-		iccom_send_cmd.function_id	= EVENT_TASK_RCVRY02_ID;
-		iccom_send_cmd.send_mode	= ICCOM_DRV_SYNC;
-		iccom_send_cmd.send_size	= sizeof(int);
-		iccom_send_cmd.send_data	= (unsigned char *)&send_data;
-		iccom_send_cmd.recv_size	= sizeof(long);
-		iccom_send_cmd.recv_data	=
-			(unsigned char *)&function_ret;
-		MSG_MED("[RCVRYD]INF|[%s] iccom_drv_send_command in 3\n",
-			__func__);
-		ret = iccom_drv_send_command(&iccom_send_cmd);
-		if (SMAP_OK != ret) {
-			MSG_ERROR(
-"[RCVRYD]ERR |[%s] Send Command Fail 3 ret_code = 0x%08lx\n",
-				  __func__, ret);
-			ret = SMAP_NG;
-			rcvry_drv_sub_delete(&t_rcvry_delete);
-			MSG_HIGH("[RCVRYD]OUT 3|[%s]\n",
-				 __func__);
-			rcvry_info_t[local_index].pid = 0;
-			up(&g_rcvry_sem);
-			return ret;
-		}
-		MSG_MED(
-"[RCVRYD]INF|[%s] iccom_drv_send_command out 3 ret = %ld function_ret = 0x%08lx\n",
-			__func__, ret, function_ret);
-
-		function_ret = 0;
-		iccom_send_cmd.handle		=
-			((struct rcvry_handle *)p_rcvry_iccom_handle)->handle;
-		iccom_send_cmd.task_id		= TASK_RCVRY03;
-		iccom_send_cmd.function_id	= EVENT_TASK_RCVRY03_ID;
-		iccom_send_cmd.send_mode	= ICCOM_DRV_SYNC;
-		iccom_send_cmd.send_size	= sizeof(int);
-		iccom_send_cmd.send_data	= (unsigned char *)&send_data;
-		iccom_send_cmd.recv_size	= sizeof(long);
-		iccom_send_cmd.recv_data	=
-			(unsigned char *)&function_ret;
-		MSG_MED("[RCVRYD]INF|[%s] iccom_drv_send_command in 4\n",
-			__func__);
-		ret = iccom_drv_send_command(&iccom_send_cmd);
-		if (SMAP_OK != ret) {
-			MSG_ERROR(
-	"[RCVRYD]ERR |[%s] Send Command Fail 4 ret_code = 0x%08lx\n",
-				  __func__, ret);
-			ret = SMAP_NG;
-			rcvry_drv_sub_delete(&t_rcvry_delete);
-			MSG_HIGH("[RCVRYD]OUT 3|[%s]\n",
-				 __func__);
-			*local_pid = 0;
-			up(&g_rcvry_sem);
-			return ret;
-		}
-		MSG_MED(
-"[RCVRYD]INF|[%s] iccom_drv_send_command out 4 ret = %ld function_ret = 0x%08lx\n",
-			__func__, ret, function_ret);
-
-		rcvry_drv_sub_delete(&t_rcvry_delete);
-		*local_killable_flag = 1;
+			  __func__);
+		ret = SMAP_NG;
+		MSG_HIGH("[RCVRYD]OUT 1|[%s]\n",
+			 __func__);
+		rcvry_info_t[local_index].pid = 0;
 		up(&g_rcvry_sem);
-
-		MSG_HIGH("[RCVRYD]OUT|[%s]\n",
-			 __func__);
-	} else {
-		ret = SMAP_OK;
-		MSG_MED("[RCVRYD]OUT|[%s] complete return\n",
-			 __func__);
+		return ret;
 	}
+	t_rcvry_delete.handle = p_rcvry_iccom_handle;
+	send_data = *local_pid;
+
+	MSG_MED("[RCVRYD]INF|[%s] Send date(pid) = %d\n",
+		__func__, send_data);
+
+	function_ret = 0;
+	iccom_send_cmd.handle		=
+		((struct rcvry_handle *)p_rcvry_iccom_handle)->handle;
+	iccom_send_cmd.task_id		= TASK_RCVRY01;
+	iccom_send_cmd.function_id	= EVENT_TASK_RESOURCE_RELEASE;
+	iccom_send_cmd.send_mode	= ICCOM_DRV_SYNC;
+	iccom_send_cmd.send_size	= sizeof(int);
+	iccom_send_cmd.send_data	= (unsigned char *)&send_data;
+	iccom_send_cmd.recv_size	= sizeof(long);
+	iccom_send_cmd.recv_data	=
+		(unsigned char *)&function_ret;
+	MSG_MED("[RCVRYD]INF|[%s] iccom_drv_send_command in 1\n",
+		__func__);
+	ret = iccom_drv_send_command(&iccom_send_cmd);
+	if (SMAP_OK != ret) {
+		MSG_ERROR(
+"[RCVRYD]ERR |[%s] Send Command Fail 1 ret_code = 0x%08lx\n",
+			  __func__, ret);
+		ret = SMAP_NG;
+		rcvry_drv_sub_delete(&t_rcvry_delete);
+		MSG_HIGH("[RCVRYD]OUT 1|[%s]\n",
+			 __func__);
+		rcvry_info_t[local_index].pid = 0;
+		up(&g_rcvry_sem);
+		return ret;
+	}
+	MSG_MED(
+"[RCVRYD]INF|[%s] iccom_drv_send_command out 1 ret = %ld function_ret = 0x%08lx\n",
+		__func__, ret, function_ret);
+
+	function_ret = 0;
+	iccom_send_cmd.handle		=
+		((struct rcvry_handle *)p_rcvry_iccom_handle)->handle;
+	iccom_send_cmd.task_id		= TASK_RCVRY01;
+	iccom_send_cmd.function_id	= EVENT_TASK_RCVRY01_ID;
+	iccom_send_cmd.send_mode	= ICCOM_DRV_SYNC;
+	iccom_send_cmd.send_size	= sizeof(int);
+	iccom_send_cmd.send_data	= (unsigned char *)&send_data;
+	iccom_send_cmd.recv_size	= sizeof(long);
+	iccom_send_cmd.recv_data	=
+		(unsigned char *)&function_ret;
+	MSG_MED("[RCVRYD]INF|[%s] iccom_drv_send_command in 2\n",
+		__func__);
+	ret = iccom_drv_send_command(&iccom_send_cmd);
+	if (SMAP_OK != ret) {
+		MSG_ERROR(
+"[RCVRYD]ERR |[%s] Send Command Fail 2 ret_code = 0x%08lx\n",
+			  __func__, ret);
+		ret = SMAP_NG;
+		rcvry_drv_sub_delete(&t_rcvry_delete);
+		MSG_HIGH("[RCVRYD]OUT 2|[%s]\n",
+			 __func__);
+		rcvry_info_t[local_index].pid = 0;
+		up(&g_rcvry_sem);
+		return ret;
+	}
+	MSG_MED(
+"[RCVRYD]INF|[%s] iccom_drv_send_command out 2 ret = %ld function_ret = 0x%08lx\n",
+		__func__, ret, function_ret);
+
+	function_ret = 0;
+	iccom_send_cmd.handle		=
+		((struct rcvry_handle *)p_rcvry_iccom_handle)->handle;
+	iccom_send_cmd.task_id		= TASK_RCVRY02;
+	iccom_send_cmd.function_id	= EVENT_TASK_RCVRY02_ID;
+	iccom_send_cmd.send_mode	= ICCOM_DRV_SYNC;
+	iccom_send_cmd.send_size	= sizeof(int);
+	iccom_send_cmd.send_data	= (unsigned char *)&send_data;
+	iccom_send_cmd.recv_size	= sizeof(long);
+	iccom_send_cmd.recv_data	=
+		(unsigned char *)&function_ret;
+	MSG_MED("[RCVRYD]INF|[%s] iccom_drv_send_command in 3\n",
+		__func__);
+	ret = iccom_drv_send_command(&iccom_send_cmd);
+	if (SMAP_OK != ret) {
+		MSG_ERROR(
+"[RCVRYD]ERR |[%s] Send Command Fail 3 ret_code = 0x%08lx\n",
+			  __func__, ret);
+		ret = SMAP_NG;
+		rcvry_drv_sub_delete(&t_rcvry_delete);
+		MSG_HIGH("[RCVRYD]OUT 3|[%s]\n",
+			 __func__);
+		rcvry_info_t[local_index].pid = 0;
+		up(&g_rcvry_sem);
+		return ret;
+	}
+	MSG_MED(
+"[RCVRYD]INF|[%s] iccom_drv_send_command out 3 ret = %ld function_ret = 0x%08lx\n",
+		__func__, ret, function_ret);
+
+	function_ret = 0;
+	iccom_send_cmd.handle		=
+		((struct rcvry_handle *)p_rcvry_iccom_handle)->handle;
+	iccom_send_cmd.task_id		= TASK_RCVRY03;
+	iccom_send_cmd.function_id	= EVENT_TASK_RCVRY03_ID;
+	iccom_send_cmd.send_mode	= ICCOM_DRV_SYNC;
+	iccom_send_cmd.send_size	= sizeof(int);
+	iccom_send_cmd.send_data	= (unsigned char *)&send_data;
+	iccom_send_cmd.recv_size	= sizeof(long);
+	iccom_send_cmd.recv_data	=
+		(unsigned char *)&function_ret;
+	MSG_MED("[RCVRYD]INF|[%s] iccom_drv_send_command in 4\n",
+		__func__);
+	ret = iccom_drv_send_command(&iccom_send_cmd);
+	if (SMAP_OK != ret) {
+		MSG_ERROR(
+"[RCVRYD]ERR |[%s] Send Command Fail 4 ret_code = 0x%08lx\n",
+			  __func__, ret);
+		ret = SMAP_NG;
+		rcvry_drv_sub_delete(&t_rcvry_delete);
+		MSG_HIGH("[RCVRYD]OUT 3|[%s]\n",
+			 __func__);
+		*local_pid = 0;
+		up(&g_rcvry_sem);
+		return ret;
+	}
+	MSG_MED(
+"[RCVRYD]INF|[%s] iccom_drv_send_command out 4 ret = %ld function_ret = 0x%08lx\n",
+		__func__, ret, function_ret);
+
+	rcvry_drv_sub_delete(&t_rcvry_delete);
+	*local_killable_flag = 1;
+	up(&g_rcvry_sem);
+
+	MSG_MED("[RCVRYD]OUT|[%s]\n",
+		 __func__);
 
 	return ret;
 }
 
 /*******************************************************************************
- * Function   : rcvry_drv_sub_wait_killable_cancel
+ * Function   : rcvry_drv_sub_wait_interruptible_cancel
  * Description: Return the function of wait_for_completion_killable
  * Parameters : file discriptor
  * Returns	  : Error Code
  ******************************************************************************/
-static long rcvry_drv_sub_wait_killable_cancel(struct file *fp)
+static long rcvry_drv_sub_wait_interruptible_cancel(struct file *fp)
 {
 	long local_index;
 	struct file *local_fp = NULL;
@@ -467,6 +512,7 @@ static long rcvry_drv_sub_wait_killable_cancel(struct file *fp)
 		up(&g_rcvry_sem);
 		return SMAP_NG;
 	}
+	rcvry_info_t[local_index].cancel_flag = 1;
 	local_completion = &rcvry_info_t[local_index].rcvry_completion;
 	up(&g_rcvry_sem);
 	complete(local_completion);
@@ -572,10 +618,10 @@ static long rcvry_drv_ioctl(
 
 	switch (cmd) {
 	case RCVRY_CMD_KILL_WAIT:
-		ret = rcvry_drv_sub_wait_killable(local_fp);
+		ret = rcvry_drv_sub_wait_interruptible(local_fp);
 		break;
 	case RCVRY_CMD_KILL_WAIT_CANCEL:
-		ret = rcvry_drv_sub_wait_killable_cancel(local_fp);
+		ret = rcvry_drv_sub_wait_interruptible_cancel(local_fp);
 		break;
 #ifdef ICCOM_ENABLE_STANDBYCONTROL
 	case RCVRY_CMD_STANDBY_NG:
@@ -658,6 +704,19 @@ static long rcvry_drv_ioctl(
 	case RCVRY_CMD_GET_PID:
 		MSG_MED("[RCVRYD]INF|[%s] GET PID PASS\n",
 			 __func__);
+		down(&g_rcvry_sem);
+		local_index = rcvry_drv_sub_currentfp_table_search(local_fp);
+		MSG_MED("[RCVRYD]INF|[%s]empty index = %lu\n",
+			 __func__, local_index);
+		if (0 > local_index) {
+			MSG_ERROR("[RCVRYD]ERR|[%s]No pid\n",
+				  __func__);
+			up(&g_rcvry_sem);
+			return SMAP_NG;
+		}
+		rcvry_info_t[local_index].pid = current->pid;
+		up(&g_rcvry_sem);
+
 		cmd_param = current->pid;
 		if (copy_to_user((void __user *)arg,
 				 &cmd_param, sizeof(cmd_param))) {
@@ -693,6 +752,7 @@ static int rcvry_drv_close(
 	)
 {
 	long local_index;
+	unsigned long cancel_flag = 0;
 
 	MSG_MED("[RCVRYD]IN |[%s]\n",
 		 __func__);
@@ -710,6 +770,18 @@ static int rcvry_drv_close(
 		up(&g_rcvry_sem);
 		return SMAP_NG;
 	}
+	cancel_flag = rcvry_info_t[local_index].cancel_flag;
+	up(&g_rcvry_sem);
+
+	if (cancel_flag == 0) {
+		rcvry_drv_sub_rcvry_proc(local_index);
+	} else {
+		MSG_MED(
+		"[RCVRYD]INF|[%s] Already canceled\n",
+		 __func__);
+	}
+
+	down(&g_rcvry_sem);
 
 	MSG_MED(
 	"[RCVRYD]INF|[%s] Already wait_for_completion_killable return\n",
@@ -718,6 +790,7 @@ static int rcvry_drv_close(
 	rcvry_info_t[local_index].standby_counter = 0;
 	rcvry_info_t[local_index].killable_flag = 0;
 	rcvry_info_t[local_index].rcvry_fp = NULL;
+	rcvry_info_t[local_index].cancel_flag = 0;
 
 	up(&g_rcvry_sem);
 

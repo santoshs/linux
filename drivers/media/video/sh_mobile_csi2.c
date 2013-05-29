@@ -73,6 +73,8 @@ struct sh_csi2 {
 	int				strm_on;
 	spinlock_t			lock;
 	unsigned int			err_cnt;
+	int				power;
+	int				first_power;
 #if SH_CSI2_DEBUG
 	int				vd_s_cnt;
 	int				vd_e_cnt;
@@ -82,6 +84,7 @@ struct sh_csi2 {
 };
 
 static void sh_csi2_hwinit(struct sh_csi2 *priv);
+static void sh_csi2_l_power(struct sh_csi2 *priv, int power_on);
 
 static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
 {
@@ -128,7 +131,7 @@ static int sh_csi2_stream(struct sh_csi2 *priv, int enable)
 }
 
 static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
-			   struct v4l2_mbus_framefmt *mf)
+			struct v4l2_mbus_framefmt *mf)
 {
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 	struct sh_csi2_pdata *pdata = priv->pdev->dev.platform_data;
@@ -193,7 +196,7 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 	iowrite32(intstate, priv->base + SH_CSI2_INTSTATE);
 	if (intstate & SH_CSI2_INT_ERROR) {
 		priv->err_cnt++;
-		printk(KERN_ALERT "CSI Error Interrupt(0x%08X)\n", intstate);
+		printk(KERN_INFO "CSI Interrupt(0x%08X)\n", intstate);
 	}
 #if SH_CSI2_ERROR_RESET
 	if (intstate & SH_CSI2_INT_RESET_ERROR) {
@@ -243,7 +246,7 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
  * error out.
  */
 static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
-			 struct v4l2_mbus_framefmt *mf)
+			struct v4l2_mbus_framefmt *mf)
 {
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 	u32 tmp = (priv->client->channel & 3) << 8;
@@ -294,7 +297,7 @@ static int sh_csi2_s_fmt(struct v4l2_subdev *sd,
 }
 
 static int sh_csi2_g_mbus_config(struct v4l2_subdev *sd,
-				 struct v4l2_mbus_config *cfg)
+				struct v4l2_mbus_config *cfg)
 {
 	cfg->flags = V4L2_MBUS_PCLK_SAMPLE_RISING |
 		V4L2_MBUS_HSYNC_ACTIVE_HIGH | V4L2_MBUS_VSYNC_ACTIVE_HIGH |
@@ -305,13 +308,13 @@ static int sh_csi2_g_mbus_config(struct v4l2_subdev *sd,
 }
 
 static int sh_csi2_s_mbus_config(struct v4l2_subdev *sd,
-				 const struct v4l2_mbus_config *cfg)
+				const struct v4l2_mbus_config *cfg)
 {
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 	struct soc_camera_device *icd = v4l2_get_subdev_hostdata(sd);
 	struct v4l2_subdev *client_sd = soc_camera_to_subdev(icd);
 	struct v4l2_mbus_config client_cfg = {.type = V4L2_MBUS_CSI2,
-					      .flags = priv->mipi_flags};
+						.flags = priv->mipi_flags};
 
 	return v4l2_subdev_call(client_sd, video, s_mbus_config, &client_cfg);
 }
@@ -411,6 +414,7 @@ static int sh_csi2_client_connect(struct sh_csi2 *priv)
 	struct device *dev = v4l2_get_subdevdata(&priv->subdev);
 	struct v4l2_mbus_config cfg;
 	unsigned long common_flags, csi2_flags;
+	struct sh_csi2_pdata *csi_info;
 	int i, ret;
 
 	if (priv->client)
@@ -450,7 +454,7 @@ static int sh_csi2_client_connect(struct sh_csi2 *priv)
 		common_flags = csi2_flags;
 	else if (!ret)
 		common_flags = soc_mbus_config_compatible(&cfg,
-							  csi2_flags);
+							csi2_flags);
 	else
 		common_flags = 0;
 
@@ -464,6 +468,8 @@ static int sh_csi2_client_connect(struct sh_csi2 *priv)
 	pm_runtime_get_sync(dev);
 
 	sh_csi2_hwinit(priv);
+	csi_info = priv->pdev->dev.platform_data;
+	sh_csi2_stream(csi_info->priv, 1);
 
 	return 0;
 }
@@ -473,21 +479,30 @@ static void sh_csi2_client_disconnect(struct sh_csi2 *priv)
 	if (!priv->client)
 		return;
 
+	sh_csi2_stream(priv, 0);
+
 	priv->client = NULL;
 
 	pm_runtime_put(v4l2_get_subdevdata(&priv->subdev));
 }
 
+
 static int sh_csi2_s_power(struct v4l2_subdev *sd, int on)
 {
 	struct sh_csi2 *priv = container_of(sd, struct sh_csi2, subdev);
 
-	if (on)
+	priv->power = on;
+	if (on) {
+		sh_csi2_l_power(priv, on);
 		return sh_csi2_client_connect(priv);
+	}
 
+	priv->first_power = 0;
 	sh_csi2_client_disconnect(priv);
+	sh_csi2_l_power(priv, on);
 	return 0;
 }
+
 
 static struct v4l2_subdev_core_ops sh_csi2_subdev_core_ops = {
 	.s_power	= sh_csi2_s_power,
@@ -552,7 +567,7 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 	v4l2_set_subdevdata(&priv->subdev, &pdev->dev);
 
 	snprintf(priv->subdev.name, V4L2_SUBDEV_NAME_SIZE, "%s.mipi-csi",
-		 dev_name(pdata->v4l2_dev->dev));
+			dev_name(pdata->v4l2_dev->dev));
 	ret = v4l2_device_register_subdev(pdata->v4l2_dev, &priv->subdev);
 	dev_dbg(&pdev->dev,
 		"%s(%p): ret(register_subdev) = %d\n", __func__, priv, ret);
@@ -614,14 +629,12 @@ static struct platform_driver __refdata sh_csi2_pdrv = {
 	},
 };
 
-void sh_csi2_power(struct device *dev, int power_on)
+static void sh_csi2_l_power(struct sh_csi2 *priv, int power_on)
 {
 	struct clk *csi_clk;
 	struct clk *meram_clk;
 	struct clk *icb_clk;
-	struct soc_camera_link *icl;
 	struct sh_csi2_pdata *csi_info;
-	struct sh_csi2 *priv;
 #ifdef CSI2_POWAREA_MNG_ENABLE
 	void *system_handle;
 	system_pmg_param powarea_start_notify;
@@ -634,13 +647,7 @@ void sh_csi2_power(struct device *dev, int power_on)
 	struct camera_prm_delete cam_delete;
 #endif
 	int ret;
-	if (!dev) {
-		printk(KERN_ALERT "%s :not device\n", __func__);
-		return;
-	}
-	icl = (struct soc_camera_link *) dev->platform_data;
-	csi_info = (struct sh_csi2_pdata *) icl->priv;
-	priv = (struct sh_csi2 *)csi_info->priv;
+	csi_info = priv->pdev->dev.platform_data;
 
 	csi_clk = clk_get(NULL, csi_info->cmod_name);
 	if (IS_ERR(csi_clk)) {
@@ -713,11 +720,7 @@ void sh_csi2_power(struct device *dev, int power_on)
 					"Unable to register CSI interrupt.\n");
 			}
 			priv->intcs_base = ioremap_nocache(0xFFD50000, 0x1000);
-
-			sh_csi2_hwinit(csi_info->priv);
-			sh_csi2_stream(csi_info->priv, 1);
 		} else {
-			sh_csi2_stream(csi_info->priv, 0);
 			iounmap(priv->intcs_base);
 			free_irq(priv->irq, priv);
 			clk_disable(csi_clk);
@@ -770,6 +773,28 @@ int sh_csi2__l_reset(void *handle, int reset)
 		sh_csi2_stream(priv, 0);
 	}
 	return 0;
+}
+
+void sh_csi2_power(struct device *dev, int power_on)
+{
+	struct soc_camera_link *icl;
+	struct sh_csi2_pdata *csi_info;
+	struct sh_csi2 *priv;
+
+	if (!dev) {
+		printk(KERN_ERR "%s :not device\n", __func__);
+		return;
+	}
+	icl = (struct soc_camera_link *) dev->platform_data;
+	csi_info = (struct sh_csi2_pdata *) icl->priv;
+	priv = (struct sh_csi2 *)csi_info->priv;
+
+	if (priv && priv->power && priv->first_power) {
+		dev_info(&priv->pdev->dev, "local reset route(%d)\n", power_on);
+		sh_csi2__l_reset(priv, power_on);
+	} else if (!priv->first_power) {
+		priv->first_power = 1;
+	}
 }
 
 module_platform_driver(sh_csi2_pdrv);

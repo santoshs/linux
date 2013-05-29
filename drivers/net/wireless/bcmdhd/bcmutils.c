@@ -1592,8 +1592,8 @@ bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 	uint32 bit;
 	const char* name;
 
-	if (len < 2 || !buf)
-		return 0;
+        if (len < 2 || !buf)
+           return 0;
 
 	buf[0] = '\0';
 
@@ -1623,14 +1623,14 @@ bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 		if (flags != 0)
 			p += snprintf(p, 2, " ");
 	}
-
+       
 	/* indicate the str was too short */
 	if (flags != 0) {
 		if (len < 2)
 			p -= 2 - len;	/* overwrite last char */
 		p += snprintf(p, 2, ">");
 	}
-
+       
 	return (int)(p - buf);
 }
 

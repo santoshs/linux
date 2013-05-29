@@ -70,6 +70,14 @@ struct cmp_getfence {
 	int release_hdmi_fd;
 };
 
+struct cmp_hdmimem {
+	int size;
+#if 0 /* not supported. */
+	int hdmi_width;
+	int hdmi_height;
+#endif
+};
+
 /************************/
 /* define cmd for ioctl */
 /************************/
@@ -89,7 +97,7 @@ struct cmp_getfence {
 #define CMP_IOCG_GETFENCE \
 	_IOR(IOC_SH_MOBILE_COMP_MAGIC, 0x22, struct cmp_getfence)
 #define CMP_IOCS_HDMIMEM \
-	_IOW(IOC_SH_MOBILE_COMP_MAGIC, 0x23, unsigned long)
+	_IOW(IOC_SH_MOBILE_COMP_MAGIC, 0x23, struct cmp_hdmimem)
 
 
 
@@ -209,9 +217,10 @@ struct composer_rh {
 	struct localwork             rh_wqtask;
 	struct composer_blendwait    rh_wqwait;
 	struct localwork             rh_wqtask_disp;
-	struct localwork             rh_wqtask_hdmi_blend;
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+	struct localwork             rh_wqtask_hdmi_blend;
 	struct localwork             rh_wqtask_hdmi;
+	struct localwork             rh_wqtask_hdmi_comp;
 	struct composer_blendwait    rh_wqwait_hdmi;
 #endif
 
@@ -251,6 +260,7 @@ struct composer_rh {
 
 	struct   list_head           lcd_list;
 	struct   list_head           hdmi_list;
+	struct   list_head           hdmi_wait_list;
 
 	void                         *timerecord;
 };

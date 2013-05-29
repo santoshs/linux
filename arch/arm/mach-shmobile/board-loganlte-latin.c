@@ -74,6 +74,7 @@
 #if defined(CONFIG_SND_SOC_SH4_FSI)
 #include <mach/setup-u2audio.h>
 #endif /* CONFIG_SND_SOC_SH4_FSI */
+#include <sound/a2220.h>
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
 #include <linux/leds-regulator.h>
@@ -116,7 +117,7 @@
 #include <mach/sbsc.h>
 
 static int unused_gpios_logan_rev1[] = {
-				GPIO_PORT4, GPIO_PORT27, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
+				GPIO_PORT4, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
 				GPIO_PORT140, GPIO_PORT141, GPIO_PORT142, GPIO_PORT198,
 				GPIO_PORT200, GPIO_PORT201, GPIO_PORT219, GPIO_PORT224,
 				GPIO_PORT225, GPIO_PORT226, GPIO_PORT227, GPIO_PORT228,
@@ -134,7 +135,7 @@ static int unused_gpios_logan_rev1[] = {
 };
 
 static int unused_gpios_logan_rev2[] = {
-				GPIO_PORT4, GPIO_PORT21, GPIO_PORT26, GPIO_PORT27, GPIO_PORT36,
+				GPIO_PORT4, GPIO_PORT21, GPIO_PORT26, GPIO_PORT36,
 				GPIO_PORT44, GPIO_PORT46, GPIO_PORT86, GPIO_PORT87,
 				GPIO_PORT104, GPIO_PORT140, GPIO_PORT141, GPIO_PORT142,
 				GPIO_PORT198, GPIO_PORT199, GPIO_PORT200, GPIO_PORT201,
@@ -238,6 +239,12 @@ static struct platform_device board_bcmbt_lpm_device = {
 };
 #endif
 
+struct a2220_platform_data a2220_data = {
+	.a2220_hw_init = NULL,
+	.gpio_reset = GPIO_PORT44,
+	.gpio_wakeup = GPIO_PORT26,
+};
+
 struct fm34_platform_data fm34_data = {
 	.set_mclk = NULL,
 	.gpio_pwdn = GPIO_PORT26,
@@ -279,6 +286,7 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 			.irq           = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
 	},
 #endif
+
 #if defined(CONFIG_RT8973)
 	{
 		I2C_BOARD_INFO("rt8973", 0x28>>1),
@@ -316,6 +324,10 @@ static struct platform_device key_backlight_device = {
 
 
 static struct i2c_board_info i2cm_devices_d2153[] = {
+	{
+		I2C_BOARD_INFO("audience_a2220", 0x3E),
+		.platform_data = &a2220_data,
+	},
 	{
 		I2C_BOARD_INFO(FM34_MODULE_NAME, 0x60),
 		.platform_data = &fm34_data,
@@ -394,12 +406,10 @@ static void __init board_init(void)
 
 	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 
-	if (u2_board_rev == RLTE_BOARD_REV_0_1) {
-		/* Init unused GPIOs */
-		if (u2_get_board_rev() <= 1) {
-			for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
-				unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
-		}
+	/* Init unused GPIOs */
+	if (u2_get_board_rev() <= 1) {
+		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
+			unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
 	} else {
 		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev2); inx++)
 			unused_gpio_port_init(unused_gpios_logan_rev2[inx]);
@@ -512,6 +522,14 @@ static void __init board_init(void)
 		gpio_pull_up_port(GPIO_PORT290);
 		gpio_pull_up_port(GPIO_PORT289);
 		/* move gpio request to board-renesas_wifi.c */
+
+		/* WLAN Init API call */
+#if defined(CONFIG_BRCM_UNIFIED_DHD_SUPPORT) || defined(CONFIG_RENESAS_WIFI)
+		printk(KERN_ERR "Calling WLAN_INIT!\n");
+		renesas_wlan_init();
+		printk(KERN_ERR "DONE WLAN_INIT!\n");
+#endif
+		/* add the SDIO device */
 	}
 
 	/* I2C */
@@ -534,11 +552,21 @@ static void __init board_init(void)
 	gpio_direction_input(GPIO_PORT32);
 	gpio_pull_up_port(GPIO_PORT32);
 
+#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
+	gpio_request(GPIO_PORT97, NULL);
+	gpio_direction_input(GPIO_PORT97);
+	gpio_pull_up_port(GPIO_PORT97);
+#endif
+
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
 	u2audio_init(u2_board_rev);
 #endif /* CONFIG_SND_SOC_SH4_FSI */
+
+	gpio_request(GPIO_PORT24, NULL);
+	gpio_direction_input(GPIO_PORT24);
+	gpio_pull_down_port(GPIO_PORT24);
 
 #ifndef CONFIG_ARM_TZ
 	r8a7373_l2cache_init();

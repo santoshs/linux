@@ -319,7 +319,7 @@ static void mfis_drv_late_resume(struct early_suspend *h)
 {
 	struct mfis_early_suspend_tbl *p_tbl;
 
-
+	sh_early_suspend_finish_flag = 0;
 	mfis_standby_work_cancel();
 
 	eco_mode_flag = 0;
@@ -331,7 +331,6 @@ static void mfis_drv_late_resume(struct early_suspend *h)
 	mfis_resume_noirq(p_tbl->dev);
 
 	late_resume_phase_flag = 0;
-	sh_early_suspend_finish_flag = 0;
 
 	return;
 }

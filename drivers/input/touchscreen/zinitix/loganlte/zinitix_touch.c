@@ -3836,9 +3836,9 @@ static ssize_t touchkey_threshold_show(struct device *dev,
 	ret = ts_read_data(misc_touch_dev->client, ZINITIX_BUTTON_SENSITIVITY, (u8*)&threshold, 2);
 
 	if (ret < 0)
-		return sprintf(buf, "%s", "fail");		
+		return sprintf(buf, "%s", "fail");
 
-       return sprintf(buf, "%d\n", threshold);
+	return sprintf(buf, "%d\n", threshold);
 }
 #endif
 
@@ -4454,10 +4454,14 @@ static int zinitix_touch_probe(struct i2c_client *client,
 #ifdef	GPIO_TOUCH_IRQ
 	touch_dev->irq = GPIO_TOUCH_IRQ;
 #else
-	touch_dev->irq = gpio_to_irq(touch_dev->int_gpio_num);
-	if (touch_dev->irq < 0)
+	ret  = gpio_to_irq(touch_dev->int_gpio_num);
+	if (ret < 0) {
 		printk(KERN_INFO "error. gpio_to_irq(..) function is not \
 			supported? you should define GPIO_TOUCH_IRQ.\n");
+		goto err_request_irq;
+	}
+	touch_dev->irq = ret ;
+
 #endif
 	zinitix_debug_msg("request irq (irq = %d, pin = %d) \n",
 		touch_dev->irq, touch_dev->int_gpio_num);

@@ -22,6 +22,8 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/uaccess.h>
+#include <linux/spinlock.h>
+#include <linux/list.h>
 
 #include "../composer/sh_mobile_debug.h"
 #include "../composer/sh_mobile_hdmi_compose.h"
@@ -35,6 +37,8 @@
 /******************************************************/
 /* define local define                                */
 /******************************************************/
+#define FEATURE_HDMI_CONFIG_BLENDONLY    0
+
 /* define for error threshold */
 #define RTAPI_FATAL_ERROR_THRESHOLD  (-256)
 
@@ -61,11 +65,50 @@ static int __hdmi_compose_pid_outut;
 static int __hdmi_compose_pid_blend;
 #endif
 #endif
+static DEFINE_SPINLOCK(irqlock_hdmi_wait_list);
+static LIST_HEAD(top_hdmi_wait_list);
 
 /******************************************************/
 /* local functions                                    */
 /******************************************************/
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+
+static void hdmi_waitlist_insert(struct composer_rh *rh)
+{
+	unsigned long flags;
+
+	printk_dbg2(3, "spinlock\n");
+	spin_lock_irqsave(&irqlock_hdmi_wait_list, flags);
+
+	list_add_tail(&rh->hdmi_wait_list, &top_hdmi_wait_list);
+
+	spin_unlock_irqrestore(&irqlock_hdmi_wait_list, flags);
+}
+
+static struct composer_rh *hdmi_waitlist_delete(struct composer_rh *rh)
+{
+	unsigned long flags;
+
+	printk_dbg2(3, "spinlock\n");
+	spin_lock_irqsave(&irqlock_hdmi_wait_list, flags);
+
+	if (rh == NULL) {
+		/* lookup head of wait list. */
+		if (!list_empty(&top_hdmi_wait_list)) {
+			rh = list_first_entry(&top_hdmi_wait_list,
+				struct composer_rh, hdmi_wait_list);
+		}
+	}
+
+	if (rh) {
+		/* remove list */
+		list_del_init(&rh->hdmi_wait_list);
+	}
+
+	spin_unlock_irqrestore(&irqlock_hdmi_wait_list, flags);
+
+	return rh;
+}
 
 static void notify_graphics_image_output(int result, unsigned long user_data)
 {
@@ -73,6 +116,7 @@ static void notify_graphics_image_output(int result, unsigned long user_data)
 
 	DBGENTER("result:%d user_data:0x%lx\n", result, user_data);
 
+	TRACE_LOG(FUNC_WQ_DISP_HDMI);
 	/* confirm result code. */
 	if (result < RTAPI_FATAL_ERROR_THRESHOLD) {
 		/* user_data not reliable. */
@@ -94,8 +138,11 @@ static void notify_graphics_image_output(int result, unsigned long user_data)
 			rh->rh_wqwait_hdmi.status = RTAPI_NOTIFY_RESULT_NORMAL;
 		}
 
-		/* wakeup waiting task */
-		wake_up_interruptible_all(&rh->rh_wqwait_hdmi.wait_notify);
+		hdmi_waitlist_delete(rh);
+
+		/* schedule to complete. */
+		localwork_queue(VAR_WORKQUEUE_HDMI,
+			&rh->rh_wqtask_hdmi_comp);
 	}
 
 	DBGLEAVE("\n");
@@ -107,8 +154,8 @@ static void notify_graphics_image_blend_dummy(
 	printk_err1("callback.");
 }
 
-/* notify_graphics_image_conv_dummy is decrared in lcd_compose.c */
-/* notify_graphics_image_edit_dummy is decrared in lcd_compose.c */
+/* notify_graphics_image_conv_dummy is declared in lcd_compose.c */
+/* notify_graphics_image_edit_dummy is declared in lcd_compose.c */
 
 static void *hdmi_rtapi_create(void)
 {
@@ -171,7 +218,7 @@ static void *hdmi_rtapi_create(void)
 			sh_mobile_composer_notifyfatalerror();
 		}
 	} else {
-		/* eror report */
+		/* error report */
 		printk_err("graphic_handle_hdmi is NULL\n");
 	}
 	return graphic_handle_hdmi;
@@ -233,6 +280,18 @@ static int  hdmi_rtapi_delete(void *graphic_handle_hdmi)
 		screen_graphics_delete(&_del);
 	}
 
+	{
+		struct composer_rh *rh;
+		/* issue fake-hdmi output complete if list is found. */
+		while ((rh = hdmi_waitlist_delete(NULL)) != NULL) {
+			/* schedule to complete. */
+			rh->rh_wqwait_hdmi.status = RTAPI_NOTIFY_RESULT_ERROR;
+
+			localwork_queue(VAR_WORKQUEUE_HDMI,
+				&rh->rh_wqtask_hdmi_comp);
+		}
+	}
+
 	return rc;
 }
 
@@ -270,8 +329,12 @@ static int  hdmi_rtapi_output(void *graphic_handle_hdmi, struct composer_rh *rh)
 		dump_screen_grap_image_output(_out);
 #endif
 
+	/* append wait lists */
+	hdmi_waitlist_insert(rh);
+
 	wait->status  = RTAPI_NOTIFY_RESULT_UNDEFINED;
 	rc = screen_graphics_image_output(_out);
+
 	if (rc != SMAP_LIB_GRAPHICS_OK) {
 		printk_err("screen_graphics_image_output " \
 			"return by %d %s.\n", rc,
@@ -279,6 +342,9 @@ static int  hdmi_rtapi_output(void *graphic_handle_hdmi, struct composer_rh *rh)
 #if _ERR_DBG >= 1
 		dump_screen_grap_image_output(_out);
 #endif
+
+		/* remove wait list */
+		hdmi_waitlist_delete(rh);
 
 		if (rc < RTAPI_FATAL_ERROR_THRESHOLD) {
 			/* notify hung-up */
@@ -288,29 +354,10 @@ static int  hdmi_rtapi_output(void *graphic_handle_hdmi, struct composer_rh *rh)
 		goto finish;
 	}
 
-	/* wait complete */
-	rc = wait_event_interruptible_timeout(
-		wait->wait_notify,
-		wait->status != RTAPI_NOTIFY_RESULT_UNDEFINED,
-		msecs_to_jiffies(WORK_OUTPUT_WAITTIME));
-	if (rc < 0) {
-		/* report error */
-		printk_err("unexpectly wait_event " \
-			"interrupted by %d .\n", rc);
-	} else if (rc == 0) {
-		/* report error */
-		printk_err1("not detect notify of output.\n");
-	}
+	/* do not wait complete of operation.    */
+	/* therefore, assume the normal results. */
+	rc = CMP_OK;
 
-	if (wait->status == RTAPI_NOTIFY_RESULT_NORMAL) {
-		rc = CMP_OK;
-	} else {
-		printk_err1("callback result is error.\n");
-#if _ERR_DBG >= 1
-		dump_screen_grap_image_output(_out);
-#endif
-		rc = CMP_NG;
-	}
 	_out->handle = NULL;
 
 finish:
@@ -366,13 +413,13 @@ static int  hdmi_rtapi_blend(void *graphic_handle, struct composer_rh *rh)
 	}
 
 	/* WORK_RUNBLEND_WAITTIME is defined in lcd_compose.c */
-	rc = wait_event_interruptible_timeout(
+	rc = wait_event_timeout(
 		wait->wait_notify,
 		wait->status != RTAPI_NOTIFY_RESULT_UNDEFINED,
 		WORK_RUNBLEND_WAITTIME * HZ);
 	if (rc < 0) {
 		/* report error */
-		printk_err("unexpectly wait_event interrupted by %d .\n", rc);
+		printk_err("unexpectedly wait_event interrupted by %d .\n", rc);
 	} else if (rc == 0) {
 		/* report error */
 		printk_err1("not detect notify of blending.\n");
@@ -393,7 +440,7 @@ finish3:
 	return rc;
 }
 
-/* config_update_address is decrared in lcd_compose.c */
+/* config_update_address is declared in lcd_compose.c */
 
 static int  hdmi_config(void *handle,
 	struct composer_rh *rh, struct cmp_postdata *post)
@@ -410,6 +457,14 @@ static int  hdmi_config(void *handle,
 	if (user_data == NULL) {
 		/* no need hdmi draw */
 		rc = CMP_OK;
+	} else if (user_data->num <= 1) {
+		/* turn off display (draw blank) */
+		if (handle) {
+			/* handle need close */
+			data->valid = true;
+			rc = CMP_OK;
+		}
+		rc = CMP_OK;
 	} else {
 		screen_grap_image_blend  *blend  = &data->blend;
 		screen_grap_layer        *layer;
@@ -418,18 +473,7 @@ static int  hdmi_config(void *handle,
 		int i;
 
 		/* parameter check */
-		if (user_data->num <= 1) {
-			/* do not display hdmi output */
-			if (handle) {
-				/* handle need close */
-				data->valid = true;
-				rc = CMP_OK;
-			} else {
-				/* no need operation. */
-				rc = CMP_OK;
-			}
-			goto finish;
-		} else if (user_data->num > CMP_DATA_NUM_GRAP_LAYER) {
+		if (user_data->num > CMP_DATA_NUM_GRAP_LAYER) {
 			printk_err2("buffer num %d invalid.\n", user_data->num);
 			goto finish;
 		}
@@ -468,7 +512,7 @@ static int  hdmi_config(void *handle,
 		data->display = true;
 
 		if (user_data->num == 2) {
-			/* may be not necesary blending. */
+			/* may be not necessary blending. */
 			data->need_blend = false;
 		} else {
 			/* need blending. */
@@ -484,7 +528,7 @@ finish:
 	return rc;
 }
 
-/* worke memory */
+/* work memory */
 static int hdmi_memory_allocate(struct cmp_information_hdmi *info,
 	unsigned long size)
 {
@@ -550,6 +594,10 @@ static int hdmi_config_output(struct composer_rh *rh,
 	DBGENTER("info:%p\n", info);
 
 	need_blend = data->need_blend;
+#if FEATURE_HDMI_CONFIG_BLENDONLY
+	/* always perform blending */
+	need_blend = true;
+#endif
 	if (!need_blend) {
 		screen_grap_layer   *layer = &data->layer[0];
 
@@ -577,17 +625,10 @@ static int hdmi_config_output(struct composer_rh *rh,
 		}
 	}
 	data->need_blend = need_blend;
+	/* clear blend_buffer id */
+	info->blend_bufferid = -1;
 
-	printk_dbg2(2, "need_blend:%d\n\n", need_blend);
-
-	/* record need blending */
-	if (!need_blend) {
-		/* not need blending. but assume not user direct. */
-		info->hdmi_direct_display[0] = false;
-	} else {
-		/* need blending */
-		info->hdmi_direct_display[0] = false;
-	}
+	printk_dbg2(2, "need_blend:%d\n", need_blend);
 
 	if (!need_blend)
 		goto finish;
@@ -599,8 +640,11 @@ static int hdmi_config_output(struct composer_rh *rh,
 	} else {
 		unsigned long rtaddr;
 		int           offset;
+		int           lane;
 
-		if (info->hdmi_count_display & 1)
+		lane = info->hdmi_count_display & 1;
+
+		if (lane)
 			offset = 0;
 		else
 			offset = info->allocatesize/2;
@@ -620,6 +664,9 @@ static int hdmi_config_output(struct composer_rh *rh,
 		data->output.output_image = data->blend.output_image;
 		data->output.rotate       = RT_GRAPHICS_ROTATE_0;
 		info->hdmi_count_display++;
+
+		/* record blend_buffer id */
+		info->blend_bufferid = lane;
 	}
 
 finish:

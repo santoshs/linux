@@ -62,6 +62,12 @@
 #define __PRN_AUDIO_TEST__
 #define __PRN_AUDIO_TEST_ADD_TIME__
 
+/***********************************/
+/* pcm dump                        */
+/***********************************/
+#define AUDIO_TEST_PCMNAME		"pcmname"
+
+
 /*!
   @brief	Device file name.
 */
@@ -93,6 +99,16 @@ enum audio_test_hw_val {
 	AUDIO_TEST_HW_FSI,		/**< FSI. */
 	AUDIO_TEST_HW_SCUW,		/**< SCUW. */
 	AUDIO_TEST_HW_MAX
+};
+
+/*!
+  @brief	VCD start status.
+*/
+enum audio_test_vcd_stat {
+	AUDIO_TEST_VCD_NONE,
+	AUDIO_TEST_VCD_OK,		/**< Start OK. */
+	AUDIO_TEST_VCD_NG,		/**< Start NG. */
+	AUDIO_TEST_VCD_MAX
 };
 
 /*---------------------------------------------------------------------------*/

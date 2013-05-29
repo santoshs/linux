@@ -30,6 +30,7 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/version.h>
+#include <linux/interrupt.h>
 
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
@@ -109,9 +110,10 @@ struct mhdp_tunnel {
 	struct sk_buff		*skb;
 	int			pdn_id;
 	int			free_pdn;
-    struct timer_list tx_timer;
-    struct sk_buff *skb_to_free[MAX_MHDPHDR_SIZE];
-    spinlock_t timer_lock;
+	struct hrtimer tx_timer;
+	struct tasklet_struct taskl;
+	struct sk_buff *skb_to_free[MAX_MHDPHDR_SIZE];
+	spinlock_t timer_lock;
 };
 
 struct mhdp_net {
@@ -150,8 +152,8 @@ static void mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send);
 static int mhdp_netdev_event(struct notifier_block *this,
 			     unsigned long event, void *ptr);
 
-static void tx_timer_timeout(unsigned long arg);
-
+static enum hrtimer_restart tx_timer_timeout(struct hrtimer *timer);
+static void tx_timer_timeout_tasklet(unsigned long arg);
 
 static ssize_t mhdp_write_wakelock_value(struct device *dev,
 					struct device_attribute *attr,
@@ -263,8 +265,13 @@ mhdp_tunnel_init(struct net_device *dev,
 	tunnel->pdn_id      = parms->pdn_id;
 	tunnel->free_pdn    = 0;
 
-	init_timer(&tunnel->tx_timer);
-	spin_lock_init (&tunnel->timer_lock);
+	hrtimer_init(&tunnel->tx_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	tunnel->tx_timer.function = &tx_timer_timeout;
+	tasklet_init(&tunnel->taskl,
+			tx_timer_timeout_tasklet,
+			(unsigned long) tunnel);
+
+	spin_lock_init(&tunnel->timer_lock);
 }
 
 /**
@@ -286,8 +293,12 @@ mhdp_destroy_tunnels(struct mhdp_net *mhdpn)
 {
 	struct mhdp_tunnel *tunnel;
 
-	for (tunnel = mhdpn->tunnels; (tunnel); tunnel = tunnel->next)
+	for (tunnel = mhdpn->tunnels; (tunnel); tunnel = tunnel->next) {
 		mhdp_tunnel_destroy(tunnel->dev);
+		if (hrtimer_active(&tunnel->tx_timer))
+			hrtimer_cancel(&tunnel->tx_timer);
+		tasklet_kill(&tunnel->taskl);
+	}
 
 	mhdpn->tunnels = NULL;
 }
@@ -512,7 +523,8 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 
 			DPRINTK("MHDP_FILTER: parsing header stack");
 
-			next_hdr = (unsigned char*)(ipv6header + sizeof(struct ipv6hdr));
+			next_hdr = (unsigned char *)ipv6header +
+						sizeof(struct ipv6hdr);
 
 			/*parse the supported next_hdr until UDP is found*/
 			while ((*next_hdr != NEXTHDR_UDP) &&
@@ -523,7 +535,9 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 					+ sizeof(struct ipv6hdr))
 				> (u32)next_hdr)) {
 
-				DPRINTK("MHDP_FILTER: 0x%02x @ 0x%x", *next_hdr, next_hdr);
+				DPRINTK("MHDP_FILTER: 0x%02x @ 0x%x",
+						*next_hdr,
+						next_hdr);
 
 				if (*next_hdr == NEXTHDR_FRAGMENT) {
 
@@ -538,10 +552,13 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 					(*next_hdr == NEXTHDR_DEST)) {
 
 					next_hdr_lgth = *(next_hdr +
-								sizeof(char))+8*sizeof(char);
+								sizeof(char))
+								+8*sizeof(char);
 					next_hdr += next_hdr_lgth;
 
-					DPRINTK("MHDP_FILTER: next_hdr_lgth = %d, next_hdr = 0x%x", next_hdr_lgth, next_hdr);
+					DPRINTK("MHDP_FILTER: next_hdr_lgth = %d, next_hdr = 0x%x",
+						next_hdr_lgth,
+						next_hdr);
 
 				} else {
 					/*Not supported, force to none
@@ -572,7 +589,9 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 			}
 			else
 			{
-				DPRINTK("MHDP_FILTER: wrong port %d != %d", htons(udphdr->dest), mhdpn->udp_filter.port_id);
+				DPRINTK("MHDP_FILTER: wrong port %d != %d",
+					htons(udphdr->dest),
+					mhdpn->udp_filter.port_id);
 			}
 		}
 	}
@@ -748,8 +767,11 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 
 	if (skb) {
 
-	    mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
-	    nb_frags = mhdpHdr->packet_count;
+		mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
+		nb_frags = mhdpHdr->packet_count;
+
+		if (hrtimer_active(&tunnel->tx_timer))
+			hrtimer_cancel(&tunnel->tx_timer);
 
 		skb->protocol = htons(ETH_P_MHDP);
 		skb->priority = 1;
@@ -773,11 +795,10 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 		dev_queue_xmit(skb);
 
 		for (i = 0; i < nb_frags; i++) {
-			if (tunnel->skb_to_free[i]) {
+			if (tunnel->skb_to_free[i])
 				dev_kfree_skb(tunnel->skb_to_free[i]);
-			} else {
-				EPRINTK("mhdp_submit_queued_skb: error no skb to free \n");
-			}
+			else
+				EPRINTK("%s error no skb to free\n", __func__);
 		}
 	}
 }
@@ -790,7 +811,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 {
 	skb_frag_t *frag = NULL;
 	struct page *page = NULL;
-	struct sk_buff *newskb;
+	struct sk_buff *newskb = NULL;
 	struct mhdp_hdr *mhdpHdr;
 	int offset, length;
 	int err = 0, i, pdn_id;
@@ -819,13 +840,13 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 	mhdp_header_len = sizeof(packet_count) +
 		(packet_count * sizeof(struct packet_info));
 
-	if (mhdp_header_len > skb_headlen(skb)) {
+	if ((mhdp_header_len > skb_headlen(skb)) && has_frag) {
 		int skbheadlen = skb_headlen(skb);
 
 		DPRINTK("mhdp header length: %d, skb_headerlen: %d",
 				mhdp_header_len, skbheadlen);
 
-		mhdpHdr = (struct mhdp_hdr *) kmalloc(mhdp_header_len,
+		mhdpHdr = kmalloc(mhdp_header_len,
 				GFP_ATOMIC);
 
 		if (skbheadlen == 0) {
@@ -872,9 +893,8 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 			skb_pull(newskb, mhdp_header_len + offset);
 
-			newskb->len = length ;
-			skb_set_tail_pointer(newskb, length);
-			newskb->truesize = length + sizeof(struct sk_buff);
+			skb_trim(newskb, length);
+			newskb->truesize = SKB_TRUESIZE(length);
 
 			ip_ver = (u8)*newskb->data;
 
@@ -909,33 +929,33 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 		skb_reset_network_header(newskb);
 
-      /* IPv6 Support - Check the IP version */
-	  /* and set ETH_P_IP or ETH_P_IPv6 for received packets */
+		/* IPv6 Support - Check the IP version */
+		/* and set ETH_P_IP or ETH_P_IPv6 for received packets */
 
 		newskb->protocol = htons(ETH_IP_TYPE(ip_ver));
 
 		newskb->pkt_type = PACKET_HOST;
 
-		if (mhdp_is_filtered(mhdp_net_dev(dev), newskb))
-			goto end;
+		if (!mhdp_is_filtered(mhdp_net_dev(dev), newskb)) {
 
-		skb_tunnel_rx(newskb, dev);
+			skb_tunnel_rx(newskb, dev);
 
-		tunnel = mhdp_locate_tunnel(mhdp_net_dev(dev), pdn_id);
-		if (tunnel) {
-			struct net_device_stats *stats = &tunnel->dev->stats;
-			stats->rx_packets++;
-			newskb->dev = tunnel->dev;
-			SKBPRINT(newskb, "NEWSKB: RX");
+			tunnel = mhdp_locate_tunnel(mhdp_net_dev(dev), pdn_id);
+			if (tunnel) {
+				struct net_device_stats *stats =
+							&tunnel->dev->stats;
+				stats->rx_packets++;
+				newskb->dev = tunnel->dev;
+				SKBPRINT(newskb, "NEWSKB: RX");
 
 #ifdef MHDP_USE_NAPI
-			netif_receive_skb(newskb);
+				netif_receive_skb(newskb);
 #else
-			netif_rx(newskb);
+				netif_rx(newskb);
 #endif /*#ifdef MHDP_USE_NAPI*/
+			}
 		}
 	}
-end:
 	rcu_read_unlock();
 
 	if (mhdp_header_len > skb_headlen(skb))
@@ -950,7 +970,12 @@ error:
 	if (mhdp_header_len > skb_headlen(skb))
 		kfree(mhdpHdr);
 
+	EPRINTK("%s - error detected\n", __func__);
+
 	dev_kfree_skb(skb);
+
+	if (newskb)
+		dev_kfree_skb(newskb);
 
 	return err;
 }
@@ -1004,15 +1029,26 @@ mhdp_netdev_rx_napi(struct sk_buff *skb, struct net_device *dev)
  * tx_timer_timeout - Timer expiration function for TX packet concatenation
   => will then call mhdp_submit_queued_skb to pass concatenated packets to IPC
  */
-static void tx_timer_timeout(unsigned long arg)
+static enum hrtimer_restart tx_timer_timeout(struct hrtimer *timer)
 {
-    struct mhdp_tunnel *tunnel = (struct mhdp_tunnel *) arg;
+	struct mhdp_tunnel *tunnel = container_of(timer,
+						struct mhdp_tunnel,
+						tx_timer);
 
-    spin_lock(&tunnel->timer_lock);
+	tasklet_hi_schedule(&tunnel->taskl);
+
+	return HRTIMER_NORESTART;
+}
+
+static void tx_timer_timeout_tasklet(unsigned long arg)
+{
+	struct mhdp_tunnel *tunnel = (struct mhdp_tunnel *) arg;
+
+	spin_lock(&tunnel->timer_lock);
 
 	mhdp_submit_queued_skb(tunnel, 1);
 
-    spin_unlock(&tunnel->timer_lock);
+	spin_unlock(&tunnel->timer_lock);
 }
 
 /**
@@ -1040,10 +1076,6 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	SKBPRINT(skb, "SKB: TX");
 
-
-	if (timer_pending(&tunnel->tx_timer))
-		del_timer(&tunnel->tx_timer);
-
 #if 0
 	{
 	    int i;
@@ -1052,7 +1084,7 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 		for (i = 0; i < len; i++) {
 			if (i%8 == 0)
-				printk("MHDP mhdp_netdev_xmit : TX [%04X] ", i);
+				printk(KERN_DEBUG "MHDP mhdp_netdev_xmit : TX [%04X] ", i);
 			printk(" 0x%02X", ptr[i]);
 			if (i%8 == 7 || i == len-1)
 				printk("\n");
@@ -1061,7 +1093,7 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 #endif
 xmit_again:
 
-		if (tunnel->skb == NULL) {
+	if (tunnel->skb == NULL) {
 
 			tunnel->skb = netdev_alloc_skb(dev,
 				L2MUX_HDR_SIZE + sizeof(struct mhdp_hdr));
@@ -1091,6 +1123,10 @@ xmit_again:
 
 		mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
 		mhdpHdr->packet_count = 0;
+
+		hrtimer_start(&tunnel->tx_timer,
+				ktime_set(0, NSEC_PER_SEC/600),
+				HRTIMER_MODE_REL);
 	}
 
 	/*This new frame is to big for the current mhdp frame,
@@ -1103,9 +1139,9 @@ xmit_again:
 
 	} else {
 
-	/*
-	 * skb_put cannot be called as the (data_len != 0)
-	 */
+		/*
+		 * skb_put cannot be called as the (data_len != 0)
+		 */
 
 		tunnel->skb->tail += sizeof(struct packet_info);
 		tunnel->skb->len  += sizeof(struct packet_info);
@@ -1116,75 +1152,65 @@ xmit_again:
 				(unsigned long)tunnel->skb->data_len);
 
 
-	mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
+		mhdpHdr = (struct mhdp_hdr *)tunnel->skb->data;
 
-	tunnel->skb_to_free[mhdpHdr->packet_count] = skb;
+		tunnel->skb_to_free[mhdpHdr->packet_count] = skb;
 
-	packet_count = mhdpHdr->packet_count;
-	mhdpHdr->info[packet_count].pdn_id = tunnel->pdn_id;
-	if (packet_count == 0) {
-		mhdpHdr->info[packet_count].packet_offset = 0;
-	} else {
-		mhdpHdr->info[packet_count].packet_offset =
-			mhdpHdr->info[packet_count - 1].packet_offset +
-			mhdpHdr->info[packet_count - 1].packet_length;
-	}
+		packet_count = mhdpHdr->packet_count;
+		mhdpHdr->info[packet_count].pdn_id = tunnel->pdn_id;
+		if (packet_count == 0) {
+			mhdpHdr->info[packet_count].packet_offset = 0;
+		} else {
+			mhdpHdr->info[packet_count].packet_offset =
+				mhdpHdr->info[packet_count - 1].packet_offset +
+				mhdpHdr->info[packet_count - 1].packet_length;
+		}
 
-	mhdpHdr->info[packet_count].packet_length = skb->len;
-	mhdpHdr->packet_count++;
+		mhdpHdr->info[packet_count].packet_length = skb->len;
+		mhdpHdr->packet_count++;
 
-	page = virt_to_page(skb->data);
+		page = virt_to_page(skb->data);
 
-	if (page == NULL) {
-		EPRINTK("kmap_atomic_to_page returns NULL");
-		goto tx_error;
-	}
+		if (page == NULL) {
+			EPRINTK("kmap_atomic_to_page returns NULL");
+			goto tx_error;
+		}
 
-	get_page(page);
+		get_page(page);
 
-	offset = ((unsigned long)skb->data -
-			(unsigned long)page_address(page));
+		offset = ((unsigned long)skb->data -
+				(unsigned long)page_address(page));
 
-	skb_add_rx_frag(tunnel->skb, skb_shinfo(tunnel->skb)->nr_frags,
-				page, offset, skb_headlen(skb), skb_headlen(skb));
+		skb_add_rx_frag(tunnel->skb, skb_shinfo(tunnel->skb)->nr_frags,
+				page, offset, skb_headlen(skb),
+				skb_headlen(skb));
 
-	if (skb_shinfo(skb)->nr_frags) {
+		if (skb_shinfo(skb)->nr_frags) {
 
-		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+			for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
 
 				skb_frag_t *frag =
 					&skb_shinfo(tunnel->skb)->frags[i];
 
-			get_page(skb_frag_page(frag));
+				get_page(skb_frag_page(frag));
 
 				skb_add_rx_frag(tunnel->skb,
 					skb_shinfo(tunnel->skb)->nr_frags,
 					skb_frag_page(frag),
 					frag->page_offset,
 					frag->size, frag->size);
+			}
 		}
-	}
 
-		if (mhdpHdr->packet_count >= MAX_MHDPHDR_SIZE) {
-
+		if (mhdpHdr->packet_count >= MAX_MHDPHDR_SIZE)
 			mhdp_submit_queued_skb(tunnel, 1);
-
-	} else {
-
-		tunnel->tx_timer.function = &tx_timer_timeout;
-		tunnel->tx_timer.data     = (unsigned long) tunnel;
-			tunnel->tx_timer.expires =
-					jiffies + ((HZ + 999) / 1000);
-		add_timer(&tunnel->tx_timer);
-
-		}
 	}
 
 	spin_unlock(&tunnel->timer_lock);
 	return NETDEV_TX_OK;
 
 tx_error:
-    spin_unlock(&tunnel->timer_lock);
+	spin_unlock(&tunnel->timer_lock);
 	stats->tx_errors++;
 	dev_kfree_skb(skb);
 	return NETDEV_TX_OK;

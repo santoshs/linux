@@ -868,9 +868,26 @@ static int soc_camera_s_ctrl(struct file *file, void *priv,
 	struct soc_camera_device *icd = file->private_data;
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
-	int ret;
+	int ret = 0;
+	struct soc_camera_link *icl = to_soc_camera_link(icd);
+	int power;
 
 	WARN_ON(priv != file->private_data);
+
+	if (V4L2_CID_SET_RESET == ctrl->id) {
+		if (ctrl->value)
+			power = 0;
+		else
+			power = 1;
+		if (icl->power) {
+			ret = icl->power(icd->pdev, power);
+			if (ret < 0) {
+				dev_err(icd->pdev, "special reset fail(%d)\n",
+					ret);
+			}
+		}
+		return ret;
+	}
 
 	if (ici->ops->set_ctrl) {
 		ret = ici->ops->set_ctrl(icd, ctrl);

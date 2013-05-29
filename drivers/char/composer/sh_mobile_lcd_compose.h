@@ -47,7 +47,8 @@ struct cmp_information_fb {
 	int                    fb_double_buffer;
 	int                    fb_offset_info[2][2];
 
-	int                    fb_direct_display[2];
+	int                    direct_display[2];
+	int                    blend_bufferid;
 
 	struct fb_info         *fb_info;
 	unsigned long          queue_fb_map_address;
@@ -63,7 +64,8 @@ struct cmp_information_fb {
 /******************************/
 
 /* interface of execute RT-API.  */
-static void *lcd_rtapi_create(void);
+static void *lcd_rtapi_create(int lcd_width, int lcd_height,
+	int hdmi_width, int hdmi_height);
 static int  lcd_rtapi_delete(void *handle);
 static int  lcd_rtapi_blend(void *handle, struct composer_rh *rh);
 
@@ -83,6 +85,8 @@ static int  lcd_unset_address(int id, struct localworkqueue  *workqueue,
 
 /* fb driver */
 static int  lcd_fb_pan_display(struct composer_rh *rh,
+		struct cmp_information_fb *info);
+static int  lcd_get_resolution(int *width, int *height,
 		struct cmp_information_fb *info);
 
 #endif

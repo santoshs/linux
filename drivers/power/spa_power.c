@@ -663,8 +663,11 @@ static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attrib
 	struct spa_power_desc *spa_power_iter=g_spa_power;
 	const ptrdiff_t off = attr-ss_batt_ext_attrs;
 
-	if(!spa_power_iter)return 0;
-	
+	if(!spa_power_iter) {
+		pr_spa_dbg(LEVEL1, "%s : spa_power_iter is NULL\n", __func__);
+		return 0;
+	}
+
 	switch(off)
 	{
 		case SS_BATT_RESET_SOC:
@@ -827,7 +830,7 @@ static int spa_set_charge(struct spa_power_desc *spa_power_iter, unsigned int ac
 #if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
 		cancel_delayed_work_sync(&spa_power_iter->back_charging_work);
 #endif
-		pr_spa_dbg(LEVEL2, "%s : Discharging!! ", __func__ );
+		pr_spa_dbg(LEVEL1, "%s : Discharging!! ", __func__);
 	}
 #if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
 	else if(act == SPA_CMD_DELAYED_DISCHARGE)
@@ -1365,7 +1368,7 @@ static void spa_update_batt_info(struct spa_power_desc *spa_power_iter, unsigned
 			break;
 		case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 			value.intval= spa_power_iter->batt_info.voltage;
-			pr_spa_dbg(LEVEL1, "%s : voltage = %d\n", __func__, spa_power_iter->batt_info.voltage);
+			pr_spa_dbg(LEVEL2, "%s : voltage = %d\n", __func__, spa_power_iter->batt_info.voltage);
 			ps->set_property(ps, POWER_SUPPLY_PROP_VOLTAGE_NOW, &value);
 			break;
 		case POWER_SUPPLY_PROP_CAPACITY:
@@ -1374,9 +1377,12 @@ static void spa_update_batt_info(struct spa_power_desc *spa_power_iter, unsigned
 #else
 			value.intval = spa_power_iter->batt_info.capacity;
 #endif
-			if (spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL)
+			if (spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL) {
 				value.intval = 100;
-#if 0			
+				pr_spa_dbg(LEVEL1, "%s : notified capacity=%d\n",
+                         __func__, value.intval);
+			}
+#if 0
 			if(spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY && spa_power_iter->batt_info.vf_status == 0 )
 			{ // batterry removed
 #if defined(REPORT_0_WHEN_NOBATT)
@@ -1388,7 +1394,6 @@ static void spa_update_batt_info(struct spa_power_desc *spa_power_iter, unsigned
 #endif
 			}
 #endif
-			pr_spa_dbg(LEVEL1, "%s : capacity = %d\n notified capacity=%d\n", __func__, spa_power_iter->batt_info.capacity, value.intval);
 			ps->set_property(ps, POWER_SUPPLY_PROP_CAPACITY, &value);
 			break;
 		case POWER_SUPPLY_PROP_TEMP:
@@ -1540,7 +1545,7 @@ static void spa_batt_work(struct work_struct *work)
 
 	//YJ.Choi put below code temporary to avoid not power off device with 0% capacity
 	if(spa_power_iter->batt_info.capacity == 0)
-		wake_lock_timeout(&spa_power_iter->spa_wakelock, 10*HZ);
+		wake_lock_timeout(&spa_power_iter->spa_holdwakelock, 10*HZ);
 
 	// update power supply battery,
 	spa_update_power_supply_battery(spa_power_iter, POWER_SUPPLY_PROP_TEMP);
@@ -1895,7 +1900,7 @@ static void spa_delayed_init_work(struct work_struct *work)
 		    spa_power_iter->batt_info.update_interval = SPA_BATT_UPDATE_INTERVAL_WHILE_CHARGING;
 		    cancel_delayed_work_sync(&spa_power_iter->battery_work);
 		    schedule_delayed_work(&spa_power_iter->battery_work, msecs_to_jiffies(0));
-		}		
+		}
 		pr_spa_dbg(LEVEL1, "%s : SPA_INIT_PROGRESS_DONE\n",__func__);
 	}
 	else
@@ -1932,6 +1937,7 @@ static int spa_power_probe(struct platform_device *pdev)
 	/* Initialsing wakelock */
 	wake_lock_init(&spa_power_iter->spa_wakelock, WAKE_LOCK_SUSPEND, "spa_charge");
 	wake_lock_init(&spa_power_iter->acc_wakelock, WAKE_LOCK_SUSPEND, "acc_wakelock");
+	wake_lock_init(&spa_power_iter->spa_holdwakelock, WAKE_LOCK_SUSPEND, "spa_holdpoweroff");
 
 	/* Create workqueue */
 	spa_power_iter->spa_workqueue = create_singlethread_workqueue("spa_power_wq");
@@ -1981,7 +1987,7 @@ static int spa_power_probe(struct platform_device *pdev)
 	schedule_delayed_work(&spa_power_iter->delayed_init_work, msecs_to_jiffies(50));
 
 	probe_status = SPA_PROBE_STATUS_READY;
-	
+
 	goto label_SPA_POWER_PROBE_SUCCESS;
 
 label_SPA_POWER_PROBE_ERROR:
@@ -2007,6 +2013,7 @@ static int __devexit spa_power_remove(struct platform_device *pdev)
 	destroy_workqueue(spa_power_iter->spa_workqueue);
 
 	wake_lock_destroy(&spa_power_iter->spa_wakelock);
+	wake_lock_destroy(&spa_power_iter->spa_holdwakelock);
 
 	{
 		int i=0;

@@ -65,6 +65,9 @@ EXPORT_SYMBOL(sec_main_cam_dev);
 struct device *sec_sub_cam_dev;  /* /sys/class/camera/rear/rear_type */
 EXPORT_SYMBOL(sec_sub_cam_dev);
 
+static int cam_status0;
+static int cam_status1;
+
 static bool rear_flash_state;
 static int (*rear_flash_set)(int, int);
 static bool dump_addr_flg;
@@ -493,8 +496,8 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 		return;
 	}
 	reg_actst1 = meram_read(pcdev, RCU_MERAM_ACTST1);
-	reg_actst1 = (3 & (reg_actst1 >> (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
-
+	reg_actst1 =
+		(0x3 & (reg_actst1 >> (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
 
 	if (RCU_MERAM_FRAMEA == pcdev->meram_frame) {
 		if ((RCU_MERAM_STP_FORCE == mode) && !(reg_actst1 & 0x1)) {
@@ -943,7 +946,7 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 		is_log = sh_mobile_rcu_intr_log(pcdev, status, "capture");
 
 		if (is_log)
-		sh_mobile_rcu_dump_reg(pcdev);
+			sh_mobile_rcu_dump_reg(pcdev);
 
 		sh_mobile_rcu_soft_reset(pcdev);
 
@@ -958,7 +961,7 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 				__func__);
 		}
 		if (is_log)
-		sh_mobile_rcu_dump_reg(pcdev);
+			sh_mobile_rcu_dump_reg(pcdev);
 		ret = -EIO;
 	}
 
@@ -1651,63 +1654,6 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 
 	dev_geo(icd->parent, "%s():\n", __func__);
 
-#ifdef RCU_POWAREA_MNG_ENABLE
-	dev_info(icd->parent, "Start A4LC power area(RCU)\n");
-	system_handle = system_pwmng_new();
-
-	/* Notifying the Beginning of Using Power Area */
-	powarea_start_notify.handle		= system_handle;
-	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
-	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
-	if (ret != SMAP_LIB_PWMNG_OK)
-		dev_warn(icd->parent, "powarea_start_notify err!\n");
-
-	pmg_delete.handle = system_handle;
-	system_pwmng_delete(&pmg_delete);
-#endif
-
-	if (pcdev->icd)
-		return -EBUSY;
-
-	/* request irq */
-	ret = request_irq(pcdev->irq, sh_mobile_rcu_irq, IRQF_DISABLED,
-			  dev_name(pcdev->ici.v4l2_dev.dev), pcdev);
-	if (ret) {
-		dev_err(pcdev->ici.v4l2_dev.dev, "Unable to register RCU interrupt.\n");
-		return ret;
-	}
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	if (down_interruptible(&pcdev->sem_rcu_state))
-		dev_err(pcdev->ici.v4l2_dev.dev,
-			"%s down_interruptible -ERESTARTSYS\n", __func__);
-	pcdev->rcu_add_device_state = true;
-	if (pcdev->rcu_early_suspend_state) {
-		up(&pcdev->sem_rcu_state);
-		ret = down_timeout(&pcdev->sem_rcu_late_resume,
-			msecs_to_jiffies(RCU_LATE_RESUME_WAIT_MSEC));
-		if (ret) {
-			dev_err(pcdev->ici.v4l2_dev.dev,
-				"%s timeout ret=%d\n", __func__, ret);
-			return ret;
-			}
-	} else {
-		up(&pcdev->sem_rcu_state);
-		}
-#endif /* CONFIG_HAS_EARLYSUSPEND */
-
-	dev_info(icd->parent,
-		 "SuperH Mobile RCU driver attached to camera %d\n",
-		 icd->devnum);
-
-	pm_runtime_get_sync(ici->v4l2_dev.dev);
-
-	pcdev->buf_total = 0;
-
-	pcdev->icd = icd;
-
-	sh_mobile_rcu_soft_reset(pcdev);
-
 	csi2_sd = find_csi2(pcdev);
 	if (csi2_sd) {
 		csi2_sd->grp_id = soc_camera_grp_id(icd);
@@ -1726,6 +1672,108 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 	 */
 	if (ret == -ENODEV && csi2_sd)
 		csi2_sd->grp_id = 0;
+
+#ifdef RCU_POWAREA_MNG_ENABLE
+	dev_info(icd->parent, "Start A4LC power area(RCU)\n");
+	system_handle = system_pwmng_new();
+
+	/* Notifying the Beginning of Using Power Area */
+	powarea_start_notify.handle		= system_handle;
+	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
+	if (ret != SMAP_LIB_PWMNG_OK)
+		dev_warn(icd->parent, "powarea_start_notify err!\n");
+
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif
+
+	if (pcdev->icd) {
+		dev_err(pcdev->ici.v4l2_dev.dev, "not NULL pcdev->icd.\n");
+#ifdef RCU_POWAREA_MNG_ENABLE
+		system_handle = system_pwmng_new();
+		powarea_start_notify.handle         = system_handle;
+		powarea_start_notify.powerarea_name = RT_PWMNG_POWERAREA_A4LC;
+		ret = system_pwmng_powerarea_end_notify(
+			&powarea_start_notify);
+		if (ret != SMAP_LIB_PWMNG_OK) {
+			dev_warn(icd->parent,
+				"powarea_end_notify err!\n");
+		}
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+#endif /* RCU_POWAREA_MNG_ENABLE */
+		return -EBUSY;
+	}
+
+	/* request irq */
+	ret = request_irq(pcdev->irq, sh_mobile_rcu_irq, IRQF_DISABLED,
+			  dev_name(pcdev->ici.v4l2_dev.dev), pcdev);
+	if (ret) {
+		dev_err(pcdev->ici.v4l2_dev.dev, "Unable to register RCU interrupt.\n");
+#ifdef RCU_POWAREA_MNG_ENABLE
+		system_handle = system_pwmng_new();
+		powarea_start_notify.handle         = system_handle;
+		powarea_start_notify.powerarea_name = RT_PWMNG_POWERAREA_A4LC;
+		ret = system_pwmng_powerarea_end_notify(
+			&powarea_start_notify);
+		if (ret != SMAP_LIB_PWMNG_OK) {
+			dev_warn(icd->parent,
+				"powarea_end_notify err!\n");
+		}
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+#endif /* RCU_POWAREA_MNG_ENABLE */
+		return ret;
+	}
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	if (down_interruptible(&pcdev->sem_rcu_state))
+		dev_err(pcdev->ici.v4l2_dev.dev,
+			"%s down_interruptible -ERESTARTSYS\n", __func__);
+	pcdev->rcu_add_device_state = true;
+	if (pcdev->rcu_early_suspend_state) {
+		up(&pcdev->sem_rcu_state);
+		ret = down_timeout(&pcdev->sem_rcu_late_resume,
+			msecs_to_jiffies(RCU_LATE_RESUME_WAIT_MSEC));
+		if (ret) {
+			dev_err(pcdev->ici.v4l2_dev.dev,
+				"%s timeout ret=%d\n", __func__, ret);
+			pcdev->rcu_add_device_state = false;
+			free_irq(pcdev->irq, pcdev);
+#ifdef RCU_POWAREA_MNG_ENABLE
+			system_handle = system_pwmng_new();
+			powarea_start_notify.handle = system_handle;
+			powarea_start_notify.powerarea_name =
+				RT_PWMNG_POWERAREA_A4LC;
+			ret = system_pwmng_powerarea_end_notify(
+				&powarea_start_notify);
+			if (ret != SMAP_LIB_PWMNG_OK) {
+				dev_warn(icd->parent,
+					"powarea_end_notify err!\n");
+			}
+			pmg_delete.handle = system_handle;
+			system_pwmng_delete(&pmg_delete);
+#endif /* RCU_POWAREA_MNG_ENABLE */
+			return ret;
+		}
+	} else {
+		up(&pcdev->sem_rcu_state);
+	}
+#endif /* CONFIG_HAS_EARLYSUSPEND */
+
+	dev_info(icd->parent,
+		 "SuperH Mobile RCU driver attached to camera %d\n",
+		 icd->devnum);
+
+	pm_runtime_get_sync(ici->v4l2_dev.dev);
+
+	pcdev->buf_total = 0;
+
+	pcdev->icd = icd;
+
+	sh_mobile_rcu_soft_reset(pcdev);
+
 	pcdev->icd = icd;
 
 	return 0;
@@ -1750,10 +1798,6 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 		__func__, pcdev->streaming, pcdev->active);
 
 	BUG_ON(icd != pcdev->icd);
-
-	v4l2_subdev_call(csi2_sd, core, s_power, 0);
-	if (csi2_sd)
-		csi2_sd->grp_id = 0;
 
 	/* disable capture, disable interrupts */
 	rcu_write(pcdev, RCEIER, 0);
@@ -1807,6 +1851,11 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 	pmg_delete.handle = system_handle;
 	system_pwmng_delete(&pmg_delete);
 #endif
+
+	v4l2_subdev_call(csi2_sd, core, s_power, 0);
+	if (csi2_sd)
+		csi2_sd->grp_id = 0;
+
 	pcdev->icd = NULL;
 }
 
@@ -2970,6 +3019,12 @@ static int sh_mobile_rcu_get_ctrl(struct soc_camera_device *icd,
 	case V4L2_CID_GET_DUMP_SIZE_USER:
 		ctrl->value = SH_RCU_DUMP_LOG_SIZE_USER;
 		return 0;
+	case V4L2_CID_GET_CAMSTS0:
+		ctrl->value = cam_status0;
+		return 0;
+	case V4L2_CID_GET_CAMSTS1:
+		ctrl->value = cam_status1;
+		return 0;
 	}
 
 	return -ENOIOCTLCMD;
@@ -3155,7 +3210,7 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		pcdev->mmap_pages = NULL;
 
 		if (copy_from_user(mmap_page_info,
-			(int __user *)ctrl->value,
+				(int __user *)ctrl->value,
 				sizeof(mmap_page_info))) {
 			dev_err(icd->parent,
 				"%s:copy_from_user error(%d)\n",
@@ -3175,7 +3230,7 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		}
 
 		if (copy_from_user(pcdev->mmap_pages,
-			(int __user *)mmap_page_info[1],
+				(int __user *)mmap_page_info[1],
 				page_num * sizeof(struct page *))) {
 			dev_err(icd->parent,
 				"%s:copy_from_user error(%d)\n",
@@ -3185,6 +3240,12 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 			return -EIO;
 		}
 		pcdev->mmap_size = page_num;
+		return 0;
+	case V4L2_CID_SET_CAMSTS0:
+		cam_status0 = ctrl->value;
+		return 0;
+	case V4L2_CID_SET_CAMSTS1:
+		cam_status1 = ctrl->value;
 		return 0;
 	}
 	return -ENOIOCTLCMD;
@@ -3703,6 +3764,8 @@ static int __init sh_mobile_rcu_init(void)
 	sec_sub_cam_dev = NULL;
 	rear_flash_state = true;
 	rear_flash_set = NULL;
+	cam_status0 = -1;
+	cam_status1 = -1;
 	dump_addr_flg = false;
 #ifdef SH_RCU_DUMP_LOG_ENABLE
 	dumplog_order = 0;

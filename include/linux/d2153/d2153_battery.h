@@ -27,6 +27,7 @@
 #define CONFIG_D2153_EOC_CTRL
 #define CONFIG_D2153_SOC_GO_DOWN_IN_CHG
 #define CONFIG_D2153_DEBUG_FEATURE
+
 #define D2153_MANUAL_READ_RETRIES			(5)
 #define ADC2TEMP_LUT_SIZE					(22)
 #define ADC2VBAT_LUT_SIZE					(10)
@@ -142,7 +143,7 @@ enum {
 	D2153_BAT_RECHG_FULL,
 	D2153_BAT_CHG_MAX,
 };
-#endif
+#endif /* CONFIG_D2153_EOC_CTRL */
 
 typedef enum d2153_adc_channel {
 	D2153_ADC_VOLTAGE = 0,

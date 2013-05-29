@@ -294,8 +294,6 @@ void vcd_spuv_init_playback_buffer_id(void);
 int vcd_spuv_get_call_type(void);
 void vcd_spuv_voip_ul(unsigned int *buf_size);
 void vcd_spuv_voip_dl(unsigned int *buf_size);
-void vcd_spuv_voip_ul_playback(unsigned int mode);
-void vcd_spuv_voip_dl_playback(unsigned int mode);
 void vcd_spuv_update_voip_ul_buffer_id(void);
 void vcd_spuv_update_voip_dl_buffer_id(void);
 int vcd_spuv_resampler_init(void);

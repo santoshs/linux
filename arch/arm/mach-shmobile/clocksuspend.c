@@ -2194,7 +2194,7 @@ static int clk_debugfs_register_one(unsigned int index)
 			(u8 *)&__shmobile_freq_modes_es2_x[index].zg_clk);
 	if (!d) {
 		err = -ENOMEM;
-	goto err_out;
+		goto err_out;
 	}
 
 	d = debugfs_create_u8("b_clk", (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH),

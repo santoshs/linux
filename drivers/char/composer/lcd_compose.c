@@ -34,6 +34,8 @@
 #include <rtapi/system_memory.h>
 #include <linux/fb.h>
 
+#include <video/sh_mobile_lcdc.h>
+
 /******************************************************/
 /* define prototype                                   */
 /******************************************************/
@@ -41,6 +43,8 @@
 /******************************************************/
 /* define local define                                */
 /******************************************************/
+#define FEATURE_IGNORE_SET_SIZE_ERROR    1
+
 /* define for error threshold */
 #define RTAPI_FATAL_ERROR_THRESHOLD  (-256)
 
@@ -128,7 +132,7 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 			rh->rh_wqwait.status = RTAPI_NOTIFY_RESULT_NORMAL;
 		}
 		/* wakeup waiting task */
-		wake_up_interruptible_all(&rh->rh_wqwait.wait_notify);
+		wake_up_all(&rh->rh_wqwait.wait_notify);
 	}
 
 	DBGLEAVE("\n");
@@ -136,10 +140,12 @@ static void notify_graphics_image_blend(int result, unsigned long user_data)
 
 
 
-static void *lcd_rtapi_create(void)
+static void *lcd_rtapi_create(int lcd_width, int lcd_height,
+	int hdmi_width, int hdmi_height)
 {
 	void *graphic_handle = NULL;
 	screen_grap_new _new;
+	screen_grap_set_blend_size _size;
 	screen_grap_initialize  _ini;
 	int  rc;
 
@@ -162,6 +168,47 @@ static void *lcd_rtapi_create(void)
 #endif
 	printk_dbg1(1, "screen_graphics_new result:%p in PID:%d TGID:%d\n",
 		graphic_handle, current->pid, current->tgid);
+
+	if (graphic_handle && lcd_width && lcd_height) {
+		_size.handle = graphic_handle;
+		_size.lcd_width = lcd_width;
+		_size.lcd_height = lcd_height;
+		_size.hdmi_width = ((hdmi_width == 0) ? 0 : 1920);
+		_size.hdmi_height = ((hdmi_height == 0) ? 0 : 1088);
+
+#if _LOG_DBG >= 1
+		if (5 <= debug)
+			dump_screen_grap_set_blend_size(&_size);
+#endif
+
+		rc = screen_graphics_set_blend_size(&_size);
+		if (rc != SMAP_LIB_GRAPHICS_OK) {
+			printk_err("screen_graphics_set_blend_size " \
+				"return by %d %s.\n", rc,
+				get_RTAPImsg_graphics(rc));
+#if _ERR_DBG >= 1
+			dump_screen_grap_set_blend_size(&_size);
+#endif
+
+#if FEATURE_IGNORE_SET_SIZE_ERROR
+			/* ignore error */
+			rc = SMAP_LIB_GRAPHICS_OK;
+#else
+			lcd_rtapi_delete(graphic_handle);
+			graphic_handle = NULL;
+#endif
+		}
+		if (rc < RTAPI_FATAL_ERROR_THRESHOLD) {
+			/* notify hung-up */
+			sh_mobile_composer_notifyfatalerror();
+		}
+	} else if (graphic_handle) {
+		/* skip set_blend_size */
+		printk_dbg1(2, "skip screen_graphics_set_blend_size\n");
+	} else {
+		/* error report */
+		printk_dbg1(1, "graphic_handle is NULL\n");
+	}
 
 	if (graphic_handle) {
 		_ini.handle   = graphic_handle;
@@ -186,7 +233,7 @@ static void *lcd_rtapi_create(void)
 			sh_mobile_composer_notifyfatalerror();
 		}
 	} else {
-		/* eror report */
+		/* error report */
 		printk_dbg1(1, "graphic_handle is NULL\n");
 	}
 	return graphic_handle;
@@ -296,7 +343,7 @@ static int  lcd_rtapi_blend(void *graphic_handle, struct composer_rh *rh)
 		goto finish3;
 	}
 
-	rc = wait_event_interruptible_timeout(
+	rc = wait_event_timeout(
 		wait->wait_notify,
 		wait->status != RTAPI_NOTIFY_RESULT_UNDEFINED,
 		WORK_RUNBLEND_WAITTIME * HZ);
@@ -382,6 +429,10 @@ static int  lcd_config(struct composer_rh *rh, struct cmp_postdata *post)
 	if (user_data == NULL) {
 		/* no need fb draw */
 		rc = CMP_OK;
+	} else if (user_data->num <= 1) {
+		/* turn off display (draw blank) */
+		/* not supported.                */
+		rc = CMP_OK;
 	} else {
 		int i;
 		screen_grap_image_blend *blend = &data->blend;
@@ -389,8 +440,7 @@ static int  lcd_config(struct composer_rh *rh, struct cmp_postdata *post)
 		unsigned long rtaddr;
 
 		/* handle blend information */
-		if (user_data->num <= 0 ||
-			user_data->num > CMP_DATA_NUM_GRAP_LAYER) {
+		if (user_data->num > CMP_DATA_NUM_GRAP_LAYER) {
 			printk_err2("buffer num %d invalid.\n", user_data->num);
 			goto finish;
 		}
@@ -451,17 +501,20 @@ static void get_fb_info(struct cmp_information_fb *info)
 		goto err;
 	}
 
-	lock_fb_info(fb_info);
-	if (!try_module_get(fb_info->fbops->owner)) {
+	if (!lock_fb_info(fb_info)) {
 		res = -ENODEV;
 	} else {
-		if (fb_info->fbops->fb_open) {
-			res = fb_info->fbops->fb_open(fb_info, 0);
-			if (res)
-				module_put(fb_info->fbops->owner);
+		if (!try_module_get(fb_info->fbops->owner)) {
+			res = -ENODEV;
+		} else {
+			if (fb_info->fbops->fb_open) {
+				res = fb_info->fbops->fb_open(fb_info, 0);
+				if (res)
+					module_put(fb_info->fbops->owner);
+			}
 		}
+		unlock_fb_info(fb_info);
 	}
-	unlock_fb_info(fb_info);
 
 	if (res == 0) {
 		unsigned long offset;
@@ -522,12 +575,16 @@ static void release_fb_info(struct cmp_information_fb *info)
 	struct fb_info   *fb_info = info->fb_info;
 
 	if (fb_info) {
-		lock_fb_info(fb_info);
-		if (fb_info->fbops->fb_release != NULL)
-			fb_info->fbops->fb_release(fb_info, 0);
+		if (!lock_fb_info(fb_info)) {
+			/* error report */
+			printk_err("ignore module_put of FB.\n");
+		} else {
+			if (fb_info->fbops->fb_release != NULL)
+				fb_info->fbops->fb_release(fb_info, 0);
 
-		module_put(fb_info->fbops->owner);
-		unlock_fb_info(fb_info);
+			module_put(fb_info->fbops->owner);
+			unlock_fb_info(fb_info);
+		}
 
 		info->fb_info = NULL;
 	}
@@ -662,7 +719,7 @@ static int  lcd_set_address(int id, unsigned long addr, unsigned long size,
 		if (info->queue_fb_map_handle2) {
 			printk_err2("id 1 already configure.\n");
 			rc = -EBUSY;
-			/* currenty, free resource is not safely. */
+			/* currently, free resource is not safely. */
 			goto err_exit;
 		}
 	} else {
@@ -842,6 +899,8 @@ static int  lcd_config_output(struct composer_rh *blend_req,
 
 	/* assume need blending. */
 	data->need_blend = true;
+	/* clear blend_buffer id */
+	info->blend_bufferid = -1;
 
 	if (data->blend.input_layer[1] == NULL &&
 		data->blend.input_layer[0] != NULL &&
@@ -924,15 +983,9 @@ next_step:
 			(unsigned char *) (fb_rtstart + offset);
 
 		printk_dbg2(3, "y_offset:%d\n", y_offset);
-	}
 
-	/* record need blending. */
-	if (data->need_blend) {
-		/* not need blending. use directl. */
-		info->fb_direct_display[0] = false;
-	} else {
-		/* need blending */
-		info->fb_direct_display[0] = true;
+		/* record blend_buffer id */
+		info->blend_bufferid = lane;
 	}
 
 	/* confirm valid condition. */
@@ -974,9 +1027,10 @@ static int lcd_fb_pan_display(struct composer_rh *blend_req,
 	if (y_offset == WORK_DISPDRAW_INVALID_YOFFSET) {
 		printk_dbg1(1, "y_offset invalid\n");
 		res = CMP_NG;
+	} else if (!lock_fb_info(fb_info)) {
+		printk_dbg2(3, "lock_fb_info failed.\n");
+		res = CMP_NG;
 	} else {
-		lock_fb_info(fb_info);
-
 		vInfo = fb_info->var;
 
 		vInfo.xoffset = 0;
@@ -1006,4 +1060,33 @@ draw_skip:
 
 	DBGLEAVE("%d\n", res);
 	return res;
+}
+
+static int  lcd_get_resolution(int *width, int *height,
+		struct cmp_information_fb *info)
+{
+	struct fb_info   *fb_info;
+
+	DBGENTER("width:%p height:%p info:%p\n",
+		width, height, info);
+
+	fb_info = info->fb_info;
+
+	*width = SH_MLCD_WIDTH;
+	*height = SH_MLCD_HEIGHT;
+	if (fb_info == NULL) {
+		/* use default   */
+		printk_dbg2(3, "fb_info is NULL.\n");
+	} else if (!lock_fb_info(fb_info)) {
+		/* use default   */
+		printk_dbg2(3, "lock_fb_info failed.\n");
+	} else {
+		*width  = fb_info->var.xres;
+		*height = fb_info->var.yres;
+
+		unlock_fb_info(fb_info);
+	}
+
+	DBGLEAVE("\n");
+	return CMP_OK;
 }

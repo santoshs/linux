@@ -136,7 +136,7 @@ struct sh_mobile_i2c_data {
 	int curr_msg;
 	int pos;
 	int sr;
-	u_int8_t bus_data_delay;
+	int8_t bus_data_delay;
 };
 
 #define IIC_FLAG_HAS_ICIC67	(1 << 0)
@@ -726,8 +726,7 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	pd->clks_per_count = 1;
 	if (pdata && pdata->clks_per_count)
 		pd->clks_per_count = pdata->clks_per_count;
-	if (pdata && (pdata->bus_data_delay <= MAX_SDA_DELAY
-			 && pdata->bus_data_delay >= MIN_SDA_DELAY))
+	if (pdata && (pdata->bus_data_delay <= MAX_SDA_DELAY))
 		pd->bus_data_delay = pdata->bus_data_delay <<
 							SHIFT_3BITS_SDA_DELAY;
 	else

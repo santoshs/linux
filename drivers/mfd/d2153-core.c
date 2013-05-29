@@ -241,9 +241,20 @@ int d2153_reg_write(struct d2153 * const d2153, u8 const reg, u8 const val)
 {
 	int ret;
 	u8 data = val;
+	u8 read_data;
 
 	mutex_lock(&d2153->d2153_io_mutex);
 	ret = d2153_write(d2153, reg, 1, &data);
+
+	if(reg == 0x5E && val == 0x00) {
+
+		msleep(10);
+
+		d2153_read(d2153, 0x9c, 1, &read_data);
+		d2153_read(d2153, 0x9c, 1, &read_data);
+
+	}
+
 	if (ret != 0)
 		dlg_err("write to reg R%d failed\n", reg);
 #ifdef D2153_REG_DEBUG
@@ -355,8 +366,7 @@ static void d2153_codec_dev_register(struct d2153 *d2153,
 {
 	struct i2c_board_info info;
 
-	memset(info.type, '\0', sizeof(info.type));
-	strncpy(info.type, name, strlen(name));
+	strlcpy(info.type, name, sizeof(info.type));
 
 	/* D2153 actual address */
 	info.addr = D2153_CODEC_I2C_ADDR;
@@ -432,8 +442,11 @@ static long d2153_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case D2153_IOCTL_READ_REG:
 		if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 			return -EFAULT;
-
-		ret = d2153_read(d2153, reg.reg, 1, &reg_val);
+		if (reg.reg >= 0x100)
+			return -EINVAL;
+		mutex_lock(&d2153->d2153_io_mutex);
+		ret = d2153_read(d2153, (u8)reg.reg, 1, &reg_val);
+		mutex_unlock(&d2153->d2153_io_mutex);
 		reg.val = (unsigned short)reg_val;
 		if (copy_to_user((pmu_reg *)arg, &reg, sizeof(pmu_reg)) != 0)
 			return -EFAULT;
@@ -442,7 +455,11 @@ static long d2153_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case D2153_IOCTL_WRITE_REG:
 		if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 			return -EFAULT;
-		ret = d2153_write(d2153, reg.reg, 1, (u8 *)&reg.val);
+		if (reg.reg >= 0x100)
+			return -EINVAL;
+		mutex_lock(&d2153->d2153_io_mutex);
+		ret = d2153_write(d2153, (u8)reg.reg, 1, (u8 *)&reg.val);
+		mutex_unlock(&d2153->d2153_io_mutex);
 		break;
 
 	default:
@@ -600,7 +617,9 @@ static ssize_t d2153_ioctl_write(struct file *file, const char __user *buffer,
 	dlg_info("length   : %d\n", dbg.len);
 
 	if (dbg.read_write == PMUDBG_READ_REG) {
+		mutex_lock(&d2153->d2153_io_mutex);
 		ret = d2153_read(d2153, dbg.addr, dbg.len, dbg.val);
+		mutex_unlock(&d2153->d2153_io_mutex);
 		if (ret < 0) {
 			dlg_err("%s: pmu reg read failed\n", __func__);
 			return -EFAULT;
@@ -610,7 +629,9 @@ static ssize_t d2153_ioctl_write(struct file *file, const char __user *buffer,
 			dlg_info("[%x] = 0x%02x\n", dbg.addr,
 				dbg.val[i]);
 	} else {
+		mutex_lock(&d2153->d2153_io_mutex);
 		ret = d2153_write(d2153, dbg.addr, dbg.len, dbg.val);
+		mutex_unlock(&d2153->d2153_io_mutex);
 		if (ret < 0) {
 			dlg_err("%s: pmu reg write failed\n", __func__);
 			return -EFAULT;
@@ -685,9 +706,6 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	int i;
 	u8 data;
 #endif
-#ifdef D2153_AUD_LDO_FOR_ESD
-	u8 status=0;
-#endif
 
 	if (d2153 != NULL)
 		d2153_regl_info = d2153;
@@ -696,18 +714,18 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 
 	dlg_info("D2153 Driver : built at %s on %s\n", __TIME__, __DATE__);
 
+	ret = d2153_hw_sem_reset_init();
+	if (0 != ret)
+		goto err;
+
 	d2153->pdata = pdata;
 	mutex_init(&d2153->d2153_io_mutex);
-	mutex_init(&d2153->d2153_audio_ldo_mutex);
 	
 	d2153_reg_write(d2153, D2153_GPADC_MCTL_REG, 0x55);
 
 #ifdef D2153_AUD_LDO_FOR_ESD
 	d2153_reg_write(d2153, D2153_LDO21_MCTL_REG, 0x00);
 	d2153_reg_write(d2153, D2153_LDO22_MCTL_REG, 0x00);
-	msleep(1);
-	d2153_reg_read(d2153, 0x9c, &status);
-	d2153_reg_read(d2153, 0x9c, &status);
 #endif
 
 #ifdef D2153_SUPPORT_I2C_HIGH_SPEED
@@ -825,7 +843,9 @@ err_irq:
 	d2153_dev_info = NULL;
 	pm_power_off = NULL;
 err:
-	dlg_crit("\n\nD2153-core.c: device init failed ! \n\n");
+	if (0 != d2153_hw_sem_reset_deinit())
+		dlg_crit("d2153_hw_sem_reset_deinit Failed\n");
+	dlg_crit("\n\nD2153-core.c: device init failed !\n\n");
 	return ret;
 }
 EXPORT_SYMBOL_GPL(d2153_device_init);
@@ -848,6 +868,8 @@ void d2153_device_exit(struct d2153 *d2153)
 
 	d2153_free_irq(d2153, D2153_IRQ_EVDD_MON);
 	d2153_irq_exit(d2153);
+	if (0 != d2153_hw_sem_reset_deinit())
+		dlg_crit("d2153_hw_sem_reset_deinit Failed\n");
 }
 EXPORT_SYMBOL_GPL(d2153_device_exit);
 

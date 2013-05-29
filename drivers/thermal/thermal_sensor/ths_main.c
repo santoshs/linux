@@ -133,20 +133,20 @@ int __ths_get_cur_temp(unsigned int ths_id, int *cur_temp)
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
 	if (TRUE == suspend_state) {
-		dev_err(&ths->pdev->dev, "Error! Thermal Sensor driver is suspended.\n");
+		THS_DEBUG_MSG("Error! Thermal Sensor driver is suspended.\n");
 		ret = -EACCES;
 		goto ths_error;
 	}
 
 	if ((ths_id != 0) && (ths_id != 1)) {
-		dev_err(&ths->pdev->dev, "Error! Index of Thermal Sensor is invalid.\n");
+		THS_DEBUG_MSG("Error! Index of Thermal Sensor is invalid.\n");
 		ret = -EINVAL;
 		goto ths_error;
 	}
 
 	if (E_IDLE == ths->pdata[ths_id].current_mode) {
-		dev_err(&ths->pdev->dev,
-		"Error! Thermal Sensor device %d is Idle.\n", ths_id);
+
+		THS_DEBUG_MSG("Error! Thermal Sensor device is Idle.\n");
 		ret = -ENXIO;
 		goto ths_error;
 	}
@@ -177,13 +177,13 @@ int __ths_set_op_mode(enum mode ths_mode, unsigned int ths_id)
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
 	if (TRUE == suspend_state) {
-		dev_err(&ths->pdev->dev, "Error! Thermal Sensor driver is suspended.\n");
+		THS_DEBUG_MSG("Error! Thermal Sensor driver is suspended.\n");
 		ret = -EACCES;
 		goto ths_error;
 	}
 
 	if ((ths_id != 0) && (ths_id != 1)) {
-		dev_err(&ths->pdev->dev, "Error! Index of Thermal Sensor is invalid.\n");
+		THS_DEBUG_MSG("Error! Index of Thermal Sensor is invalid.\n");
 		ret = -EINVAL;
 		goto ths_error;
 	}
@@ -240,13 +240,13 @@ int __ths_get_op_mode(unsigned int ths_id)
 	THS_DEBUG_MSG(">>> %s start\n", __func__);
 
 	if (TRUE == suspend_state) {
-		dev_err(&ths->pdev->dev, "Error! Thermal Sensor driver is suspended.\n");
+		THS_DEBUG_MSG("Error! Thermal Sensor driver is suspended.\n");
 		ret = -EACCES;
 		goto ths_error;
 	}
 
 	if ((ths_id != 0) && (ths_id != 1)) {
-		dev_err(&ths->pdev->dev, "Error! Index of Thermal Sensor is invalid.\n");
+		THS_DEBUG_MSG("Error! Index of Thermal Sensor is invalid.\n");
 		ret = -EINVAL;
 		goto ths_error;
 	}

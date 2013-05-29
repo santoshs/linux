@@ -93,6 +93,8 @@ __weak int KERNEL_LOG;
 #define ID_JIG  4
 #define ID_UNKNOW 5
 #define ID_OTG  6
+#define ID_JIG_UART 7
+#define ID_USB_CDP 8
 
 #define MAX_DCDT_retry 2
 static char * devices_name[] = { "NONE",
@@ -444,6 +446,25 @@ static void usb_attach(uint8_t attached)
 		switch_set_state(&switch_usb_uart,101);
     }
 }
+
+static void usb_cdp_attach(uint8_t attached)
+{
+        printk(attached ? "USB CDP attached\n" : "USB CDP detached\n");
+        set_cable_status = attached ? CABLE_TYPE_USB : CABLE_TYPE_NONE;
+        if ( attached ) {
+		usb_uart_switch_state = 100;
+                send_usb_insert_event(1);
+                spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_USB_CDP);
+		switch_set_state(&switch_usb_uart,100);
+        }
+        else {
+		usb_uart_switch_state = 101;
+                send_usb_insert_event(0);
+                spa_event_handler(SPA_EVT_CHARGER, (void *)POWER_SUPPLY_TYPE_BATTERY);
+		switch_set_state(&switch_usb_uart,101);
+    }
+}
+
 static void uart_attach(uint8_t attached)
 {
 	printk(attached?"UART attached\n":"UART detached\n");
@@ -523,6 +544,7 @@ static void set_usb_power(uint8_t on)
 
 static struct rtmus_platform_data __initdata rtmus_pdata = {
     .usb_callback = &usb_attach,
+    .usb_cdp_callback = &usb_cdp_attach,
     .uart_callback = &uart_attach,
     .charger_callback = &charger_attach,
     .jig_callback = &jig_attach,
@@ -534,7 +556,7 @@ static struct rtmus_platform_data __initdata rtmus_pdata = {
 #endif
     .over_voltage_callback = &over_voltage,
     .usb_power = &set_usb_power,
-	.ex_init = rt8973_ex_init,
+    .ex_init = rt8973_ex_init,
 };
 #endif
 
@@ -844,29 +866,29 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
     }
     if (regIntFlag&RT8973_INT_CHGDET_MASK)
     {
-        INFO("regDev1 = 0x%x;regDev2=0x%x\n",regDev1,regDev2);
-		if (regDev1&0x20) //0x20 
+	INFO("regDev1 = 0x%x;regDev2=0x%x\n",regDev1,regDev2);
+	if (regDev1&0x20) //0x20
+	{
+		INFO("USB CDP connected!\n");
+		pDrvData->accessory_id = ID_USB_CDP;
+		if (platform_data.usb_cdp_callback)
+			platform_data.usb_cdp_callback(RT8973_ATTACHED);
+		if (pDrvData->operating_mode)
 		{
-			INFO("CDP connected!\n");
-			pDrvData->accessory_id = ID_USB;
-			if (platform_data.usb_callback)
-				platform_data.usb_callback(RT8973_ATTACHED);
-			if (pDrvData->operating_mode)
-			{
-				I2CWByte(RT8973_REG_MANUAL_SW1,0x24);
-			}
-			return;
+			I2CWByte(RT8973_REG_MANUAL_SW1,0x24);
 		}
-		else if (regDev1&0x50) //0x40 / 0x10
-		{
-			INFO("DCP/TA connected!\n");
-			pDrvData->accessory_id = ID_CHARGER;
-			if (platform_data.charger_callback)
-				platform_data.charger_callback(RT8973_ATTACHED);
-			return;
-		}
-		INFO("Unkown event!!\n");
 		return;
+	}
+	else if (regDev1&0x50) //0x40 / 0x10
+	{
+		INFO("DCP/TA connected!\n");
+		pDrvData->accessory_id = ID_CHARGER;
+		if (platform_data.charger_callback)
+			platform_data.charger_callback(RT8973_ATTACHED);
+		return;
+        }
+        INFO("Unkown event!!\n");
+        return;
     }
     regADC = I2CRByte(RT8973_REG_ADC)&0x1f;
     pDrvData->usbid_adc = regADC;
@@ -1032,7 +1054,7 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
                 case 0x1c: //Factory Mode : JIG UART OFF = 1
                 // auto switch -- ignore
                 INFO("Auto Switch Mode JIG UART OFF= 1\n");
-                pDrvData->accessory_id = ID_JIG;
+                pDrvData->accessory_id = ID_JIG_UART;
                 pDrvData->factory_mode = RTMUSC_FM_BOOT_OFF_UART;
                 EN_ADCCHG_MASK();
 		if (platform_data.jig_callback) {
@@ -1180,6 +1202,10 @@ inline void do_detach_work(int32_t regIntFlag)
         if (platform_data.usb_callback)
             platform_data.usb_callback(RT8973_DETACHED);
         break;
+	case ID_USB_CDP:
+	if (platform_data.usb_cdp_callback)
+	platform_data.usb_cdp_callback(RT8973_DETACHED);
+	break;
         case ID_UART:
         if (platform_data.uart_callback) {
             platform_data.uart_callback(RT8973_DETACHED);
@@ -1188,6 +1214,11 @@ inline void do_detach_work(int32_t regIntFlag)
 	}
         break;
         case ID_JIG:
+        if (platform_data.jig_callback) {
+            platform_data.jig_callback(RT8973_DETACHED,pDrvData->factory_mode);
+        }
+        break;
+        case ID_JIG_UART:
         if (platform_data.jig_callback) {
             platform_data.jig_callback(RT8973_DETACHED,pDrvData->factory_mode);
 	    wake_unlock(&pDrvData->uart_wakelock);
@@ -1206,6 +1237,7 @@ inline void do_detach_work(int32_t regIntFlag)
             regCtrl1 |= 0x04; // Automatically Contrl
             I2CWByte(RT8973_REG_CONTROL_1,regCtrl1);
         }
+	break;
         default:
         INFO("Unknown accessory detach\n");
         ;
@@ -1321,6 +1353,7 @@ static bool init_reg_setting(void)
     int count = 0;
     INFO("Initialize register setting!!\n");
     pDrvData->chip_id = I2CRByte(RT8973_REG_CHIP_ID);
+    INFO("Chip ID is %d \n",pDrvData->chip_id);
     if  (pDrvData->chip_id<0)
     {
         ERR("I2C read error(reture %d)\n",pDrvData->chip_id);
@@ -1548,23 +1581,12 @@ static void rt8973musc_shutdown(struct i2c_client *client)
 
 static int rt8973musc_resume(struct i2c_client *client)
 {
-	int32_t regADC, regIntFlag;
-	struct i2c_client *pClient = client;
 	struct rtmus_platform_data *pdata = &platform_data;
-
-	/*if (device_may_wakeup(&client->dev) && client->irq)
-		disable_irq_wake(client->irq);*/
-
-	regIntFlag = I2CRByte(RT8973_REG_INT_FLAG);
-	if (regIntFlag&RT8973_INT_ATTACH_MASK) {
-		regADC = I2CRByte(RT8973_REG_ADC)&0x1f;
-
-	if ((0x1c == regADC) || (0x16 == regADC)) {
-		if (!wake_lock_active(&pDrvData->uart_wakelock))
-			wake_lock(&pDrvData->uart_wakelock);
-		}
-	}
-
+	INFO("In rt8973musc_resume\n");
+	if((ID_UART == pDrvData->accessory_id) || (ID_JIG_UART == pDrvData->accessory_id)){
+                if (!wake_lock_active(&pDrvData->uart_wakelock))
+                        wake_lock(&pDrvData->uart_wakelock);
+                }
     if (pdata->usb_power)
         pdata->usb_power(1);
 	return 0;
@@ -1575,6 +1597,7 @@ static int rt8973musc_suspend(struct i2c_client *client, pm_message_t state)
     struct rtmus_platform_data *pdata = &platform_data;
 	/*if (device_may_wakeup(&client->dev) && client->irq)
 		enable_irq_wake(client->irq);*/
+    INFO("In rt8973musc_suspend\n");
     if (pdata->usb_power)
         pdata->usb_power(0);
 

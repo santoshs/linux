@@ -37,7 +37,7 @@
 #define USE_FIFO_SCHDULE    1
 
 #if USE_FIFO_SCHDULE
-#define THREAD_PRIORITY  (MAX_RT_PRIO-1)
+#define THREAD_PRIORITY  (1)
 #else
 #define THREAD_NICE      (-15)
 #endif
@@ -124,7 +124,7 @@ static inline int localworkqueue_thread(void *arg)
 
 #if USE_FIFO_SCHDULE
 	struct sched_param param = {.sched_priority = THREAD_PRIORITY};
-	param.sched_priority -= wq->priority;
+	param.sched_priority += wq->priority;
 	sched_setscheduler(current, SCHED_FIFO, &param);
 #else
 	set_user_nice(current, THREAD_NICE - wq->priority);
@@ -138,6 +138,10 @@ static inline int localworkqueue_thread(void *arg)
 		void   (*func)(struct localwork *);
 
 		wait_event_interruptible(wq->wait, !list_empty(&wq->top));
+
+		/* ignore all signal */
+		if (signal_pending(current))
+			flush_signals(current);
 
 		if (kthread_should_stop())
 			break;
