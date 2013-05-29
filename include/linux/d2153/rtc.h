@@ -68,6 +68,7 @@ struct d2153_rtc {
 	struct platform_device  *pdev;
 	struct rtc_device       *rtc;
 	int                     alarm_enabled;      /* used over suspend/resume */
+	u8 						chip_rev;
 };
 
 struct setSrAlarmData_t {

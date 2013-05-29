@@ -119,10 +119,6 @@
 #define D2153_HEADSET		0x1
 #define D2153_HEADPHONE		0x2
 
-#define D2153_AA_Silicon	0x00
-#define D2153_AB_Silicon	0x10
-#define D2153_AC_Silicon	0x20
-
 /* Structure to encapsulate button press ADC value ranges */
 struct button_resistance {
 	u8 min_val;

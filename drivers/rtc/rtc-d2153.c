@@ -325,12 +325,23 @@ static const struct rtc_class_ops d2153_rtc_ops = {
 #ifdef CONFIG_PM
 static int d2153_rtc_suspend(struct device *dev)
 {
-	d2153_set_irq_disable();
+	struct d2153 *d2153 = dev_get_drvdata(dev);
+	struct d2153_rtc *dlg_rtc = &d2153->rtc;
+
+	if (D2153_AC_Silicon > dlg_rtc->chip_rev)
+		d2153_set_irq_disable(); /* W/A for issue XXXX */
+
 	return 0;
+
 }
 static int d2153_rtc_resume(struct device *dev)
 {
-	d2153_set_irq_enable();
+	struct d2153 *d2153 = dev_get_drvdata(dev);
+	struct d2153_rtc *dlg_rtc = &d2153->rtc;
+
+	if (D2153_AC_Silicon > dlg_rtc->chip_rev)
+		d2153_set_irq_enable(); /* W/A for issue XXXX */
+
 #if defined(CONFIG_RTC_ANDROID_ALARM_WORKAROUND)
 	/* This option selects temporary fix for alarm handling in 'Android'
 	 * environment. This option enables code to disable alarm in the
@@ -392,6 +403,11 @@ static int d2153_rtc_probe(struct platform_device *pdev)
 		d2153_set_bits(d2153, D2153_COUNT_Y_REG, D2153_MONITOR_MASK);
 		d2153_rtc_time_fixup(&pdev->dev);
 	}
+
+	/* Read chip revision */
+	ret = d2153_reg_read(d2153, D2153_CHIP_ID_REG, &dlg_rtc->chip_rev);
+	if(ret < 0)
+		dlg_rtc->chip_rev = 0xFF;
 
 	d2153_register_irq(d2153, D2153_IRQ_EALARM, d2153_rtc_timer_alarm_handler,
                             0, "RTC Timer Alarm", d2153);
