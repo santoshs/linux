@@ -792,7 +792,7 @@ void sh_csi2_power(struct device *dev, int power_on)
 	if (priv && priv->power && priv->first_power) {
 		dev_info(&priv->pdev->dev, "local reset route(%d)\n", power_on);
 		sh_csi2__l_reset(priv, power_on);
-	} else if (!priv->first_power) {
+	} else if (priv && !priv->first_power) {
 		priv->first_power = 1;
 	}
 }
