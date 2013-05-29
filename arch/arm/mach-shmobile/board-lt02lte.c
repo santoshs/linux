@@ -404,8 +404,6 @@ static void __init board_init(void)
 	r8a7373_pinmux_init();
 
 	/* set board version */
-	if (read_board_rev() < 0)
-		printk(KERN_WARNING "%s: Read board rev faild\n", __func__);
 	u2_board_rev = u2_get_board_rev();
 
 	create_proc_read_entry("board_revision", 0444, NULL,
@@ -441,7 +439,7 @@ static void __init board_init(void)
 	gpio_request(GPIO_FN_SCIFB0_RTS_, NULL);
 
 #if 1
-	if (u2_get_board_rev() == 0) {
+	if (u2_board_rev == BOARD_REV_0_0) {
 		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_lt02lte_rev0); inx++)
 			unused_gpio_port_init(unused_gpios_lt02lte_rev0[inx]);
 	} else {
