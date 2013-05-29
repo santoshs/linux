@@ -170,9 +170,6 @@ void adb_req_put(struct adb_dev *dev, struct list_head *head,
 {
 	unsigned long flags;
 
-#ifdef CONFIG_USB_R8A66597
-	usb_request_high_cpufreq_timer();
-#endif
 	spin_lock_irqsave(&dev->lock, flags);
 	list_add_tail(&req->list, head);
 	spin_unlock_irqrestore(&dev->lock, flags);
@@ -184,9 +181,6 @@ struct usb_request *adb_req_get(struct adb_dev *dev, struct list_head *head)
 	unsigned long flags;
 	struct usb_request *req;
 
-#ifdef CONFIG_USB_R8A66597
-	usb_request_high_cpufreq_timer();
-#endif
 	spin_lock_irqsave(&dev->lock, flags);
 	if (list_empty(head)) {
 		req = 0;
