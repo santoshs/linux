@@ -1653,7 +1653,9 @@ static int nt35510_panel_resume(void)
 	screen_disp_start_lcd start_lcd;
 	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_delete disp_delete;
-	unsigned char read_data[60];	
+#ifndef CONFIG_RENESAS
+	unsigned char read_data[60];
+#endif
 	int ret = 0;
 	int retry_count = NT35510_INIT_RETRY_COUNT;
 
@@ -1701,6 +1703,7 @@ retry:
 
 	is_dsi_read_enabled = 1;
 
+#ifndef CONFIG_RENESAS
 	/* Read display identification information */
 	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
 	if (ret == 0) {
@@ -1708,6 +1711,7 @@ retry:
 		printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
 		printk(KERN_DEBUG "read_data(RDID3) = %02X\n", read_data[3]);
 	}
+#endif
 
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);

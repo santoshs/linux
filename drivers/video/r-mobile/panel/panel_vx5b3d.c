@@ -1373,7 +1373,9 @@ static int panel_specific_cmdset(void *lcd_handle,
 		switch (cmdset[loop].cmd) {
 		case MIPI_DSI_DCS_LONG_WRITE:
 		case MIPI_DSI_GEN_LONG_WRITE:
-			//printk(KERN_INFO "panel_cmdset LONG Write\n");
+#ifdef CONFIG_RENESAS
+			printk(KERN_INFO "panel_cmdset LONG Write\n");
+#endif
 			write_dsi_l.handle         = lcd_handle;
 			write_dsi_l.output_mode    = RT_DISPLAY_LCD1;
 			write_dsi_l.data_id        = cmdset[loop].cmd;
