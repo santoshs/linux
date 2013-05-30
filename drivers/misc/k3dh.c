@@ -31,7 +31,7 @@
 #include <linux/k3dh_dev.h>
 #include <linux/pm.h>
 #include <linux/regulator/consumer.h>
-
+#include <mach/board.h>
 #define K3DH_DEBUG 0
 
 #if K3DH_DEBUG
@@ -1057,7 +1057,7 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	/* initialized sensor orientation */
 	/* temporary for rev0.1 and 0.2 */
 #if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
-        if (u2_get_board_rev() < 2) {
+	if (u2_get_board_rev() < BOARD_REV_0_2) {
 #endif
         for (ii = 0; ii < 9; ii++){
         	g_k3dh->orientation[ii] = platform_data->orientation[ii];

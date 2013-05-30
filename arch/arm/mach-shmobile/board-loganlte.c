@@ -366,12 +366,12 @@ static void __init board_init(void)
 		if(sbsc_sdmra_38200)
 			iounmap(sbsc_sdmra_38200);
 	}
-
+#ifdef CONFIG_ARCH_SHMOBILE
+	r8a7373_avoid_a2slpowerdown_afterL2sync();
+#endif
 	r8a7373_pinmux_init();
 
 	/* set board version */
-	if (read_board_rev() < 0)
-		printk(KERN_WARNING "%s: Read board rev faild\n", __func__);
 	u2_board_rev = u2_get_board_rev();
 
 	create_proc_read_entry("board_revision", 0444, NULL,
@@ -394,12 +394,10 @@ static void __init board_init(void)
 
 	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 
-	if (u2_board_rev == RLTE_BOARD_REV_0_1) {
-		/* Init unused GPIOs */
-		if (u2_get_board_rev() <= 1) {
-			for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
-				unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
-		}
+	/* Init unused GPIOs */
+	if (u2_board_rev <= BOARD_REV_0_1) {
+		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
+			unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
 	} else {
 		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev2); inx++)
 			unused_gpio_port_init(unused_gpios_logan_rev2[inx]);
@@ -582,7 +580,7 @@ static void __init board_init(void)
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if (u2_board_rev == RLTE_BOARD_REV_0_0) {
+	if (u2_board_rev == BOARD_REV_0_0) {
 		int i;
 		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
 			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {

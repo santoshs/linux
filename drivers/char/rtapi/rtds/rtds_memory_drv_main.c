@@ -754,7 +754,7 @@ static int rtds_mem_procfile_read(
 	up(&g_rtds_memory_shared_mem);
 
 	/* show dump info */
-	count = snprintf(page, PAGE_SIZE, "%-4s %-7s %s\n",
+	count = snprintf(page, PAGE_SIZE, "%-4s %7s %s\n",
 			"TGID", "SIZE", "NAME");
 	if (count < 0)
 		goto error;
@@ -838,7 +838,7 @@ static void *mproinfo_s_start(
 	MSG_MED("[%s]%d\n", __func__, (u32)*pos);
 
 	if (*pos == 0)
-		seq_printf(m, "%-4s %-4s %-3s %-10s %-10s %-10s %-7s %s\n",
+		seq_printf(m, "%-4s %-4s %3s %-10s %-10s %-10s %7s %s\n",
 			 "PID", "TGID", "ID", "WB_ADDR", "NC_ADDR",
 			 "PHY_ADDR", "SIZE", "NAME");
 
