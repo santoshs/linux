@@ -840,7 +840,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 	mhdp_header_len = sizeof(packet_count) +
 		(packet_count * sizeof(struct packet_info));
 
-	if ((mhdp_header_len > skb_headlen(skb)) && has_frag) {
+	if (mhdp_header_len > skb_headlen(skb)) {
 		int skbheadlen = skb_headlen(skb);
 
 		DPRINTK("mhdp header length: %d, skb_headerlen: %d",
@@ -854,7 +854,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 						frag->page_offset,
 						mhdp_header_len);
 
-		} else {
+		} else if (has_frag) {
 			memcpy((__u8 *)mhdpHdr, skb->data, skbheadlen);
 
 			memcpy((__u8 *)mhdpHdr + skbheadlen,
