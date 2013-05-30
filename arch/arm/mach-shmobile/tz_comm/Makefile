@@ -1,13 +1,19 @@
-# 
-#  Copyright © Renesas Mobile Corporation 2010 . All rights reserved     
-# 
-#  This material, including documentation and any related source code and information, is protected by 
-#  copyright controlled by Renesas. All rights are reserved. Copying, including reproducing, storing, adapting,
-#  translating and modifying, including decompiling or reverse engineering, any or all of this material
-#  requires the prior written consent of Renesas. This material also contains confidential information, which
-#  may not be disclosed to others without the prior written consent of Renesas.                                        
-#
-#
+#*arch/arm/mach-shmobile/tz_comm/Makefile
+
+#Copyright (C) 2013 Renesas Mobile Corporation
+
+#This program is free software; you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation; version 2 of the License.
+#This program is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+#You should have received a copy of the GNU General Public License
+#along with this program; if not, write to the Free Software
+#Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
 # Following environment specific symbols must be implemented:
 #
 #Error: L6218E: Undefined symbol hw_arm_dcache_maintenance (referred from sec_bridge_tz.o).
