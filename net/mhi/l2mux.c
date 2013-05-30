@@ -598,7 +598,7 @@ l2mux_skb_tx(struct sk_buff *skb, struct net_device *dev)
 
 #ifdef ACTIVATE_L2MUX_STAT
 
-	if ((skb) && (0 == err)) {
+	if (0 == err) {
 		/* L2MUX header */
 		l2hdr = l2mux_hdr(skb);
 		/* proto id and length in L2 header */
