@@ -52,10 +52,10 @@
 #endif	
 
 /**
- * RLTE_BOARD_REV
+ * BOARD_REV
  */
-#define RLTE_BOARD_REV_0_0	0
-#define RLTE_BOARD_REV_0_1	1
+#define BOARD_REV_0_0	0
+#define BOARD_REV_0_1	1
 
 /**
  * ION

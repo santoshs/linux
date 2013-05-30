@@ -96,8 +96,8 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 	int debounce_ms;
 
 #if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
-	if ((RLTE_BOARD_REV_0_1 < u2_board_rev) &&
-		(RLTE_BOARD_REV_0_4 > u2_board_rev)) {
+	if ((BOARD_REV_0_1 < u2_board_rev) &&
+		(BOARD_REV_0_4 > u2_board_rev)) {
 		d2153_pdata.audio.aad_codec_detect_enable = true;
 		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
 		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
@@ -106,7 +106,7 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
 	}
 #elif defined(CONFIG_MACH_LT02LTE)
-	if (RLTE_BOARD_REV_0_1 < u2_board_rev) {
+	if (BOARD_REV_0_1 < u2_board_rev) {
 		d2153_pdata.audio.aad_codec_detect_enable = true;
 		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
 		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
@@ -167,7 +167,7 @@ void u2audio_init(unsigned int u2_board_rev)
 	u2audio_gpio_init();
 
 #if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
-	if (u2_board_rev < RLTE_BOARD_REV_0_1)
+	if (u2_board_rev < BOARD_REV_0_1)
 		fm34_device = DEVICE_EXIST;
 	else
 		fm34_device = DEVICE_NONE;
