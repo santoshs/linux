@@ -129,7 +129,7 @@ int rtds_memory_drv_init_mpro(
 	send_cmd.recv_data   = NULL;
 
 	/* send EVENT_MEMORYSUB_INITAPPSHAREDMEM */
-	down(&g_rtds_memory_send_sem);
+	RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_send_sem);
 	ret = iccom_drv_send_command(&send_cmd);
 	up(&g_rtds_memory_send_sem);
 	if (SMAP_OK != ret) {
@@ -306,10 +306,9 @@ void rtds_memory_check_shared_apmem(
 		MSG_LOW("[RTDSK]   |page_num  [0x%08X]\n", page_num);
 
 		/* Allocate page descriptor area */
-		mem_table->pages = kmalloc(page_num * sizeof(struct page *),
-						GFP_KERNEL);
+		mem_table->pages = vmalloc(page_num * sizeof(struct page *));
 		if (NULL == mem_table->pages) {
-			MSG_ERROR("[RTDSK]ERR| kmalloc of page area failed.\n");
+			MSG_ERROR("[RTDSK]ERR| vmalloc of page area failed.\n");
 			rtds_memory_send_error_msg(mem_table, SMAP_MEMORY);
 			MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 			return;
@@ -318,8 +317,9 @@ void rtds_memory_check_shared_apmem(
 		ret = rtds_memory_create_page_frame(page_num, mem_table->pages,
 							NULL);
 		if (SMAP_OK != ret) {
-			kfree(mem_table->pages);
-			MSG_ERROR("[RTDSK]ERR| rtds_memory_create_page_frame failed.\n");
+			vfree(mem_table->pages);
+			MSG_ERROR("[RTDSK]ERR|" \
+				" rtds_memory_create_page_frame failed.\n");
 			rtds_memory_send_error_msg(mem_table, ret);
 			MSG_MED("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
 			return;
@@ -328,15 +328,18 @@ void rtds_memory_check_shared_apmem(
 		/* Mapping */
 		ret = rtds_memory_map_shared_apmem(fp, map_data, mem_table);
 		if (SMAP_OK != ret) {
-			MSG_ERROR("[RTDSK]ERR| rtds_memory_map_shared_apmem ret[%d].\n", ret);
-			rtds_memory_free_page_frame(page_num, mem_table->pages, NULL);
-			kfree(mem_table->pages);
+			MSG_ERROR("[RTDSK]ERR| rtds_memory_map_shared_apmem" \
+				  " ret[%d].\n", ret);
+			rtds_memory_free_page_frame(page_num, mem_table->pages,
+						    NULL);
+			vfree(mem_table->pages);
 			rtds_memory_send_error_msg(mem_table, ret);
 			MSG_MED("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
 			return;
 		}
 
-		rtds_memory_drv_inv_cache(mem_table->rt_wb_addr, mem_table->memory_size);
+		rtds_memory_drv_inv_cache(mem_table->rt_wb_addr,
+					  mem_table->memory_size);
 
 		/* Create APP shared memory */
 		ret = rtds_memory_send_open_shared_apmem(mem_table->rt_wb_addr,
@@ -349,9 +352,10 @@ void rtds_memory_check_shared_apmem(
 		if (SMAP_OK != ret) {
 			rtds_memory_free_page_frame(page_num, mem_table->pages,
 							NULL);
-			kfree(mem_table->pages);
+			vfree(mem_table->pages);
 			kfree(mem_table);
-			MSG_ERROR("[RTDSK]ERR| rtds_memory_send_open_shared_apmem ret[%d].\n", ret);
+			MSG_ERROR("[RTDSK]ERR| rtds_memory_" \
+				"send_open_shared_apmem ret[%d].\n", ret);
 			panic("Send error[%s][%d] err_code[%d]",
 				__func__, __LINE__, ret);
 		} else {
@@ -383,9 +387,12 @@ void rtds_memory_check_shared_apmem(
 			MSG_MED("[RTDSK]   |Free API is not called.\n");
 			break;
 		default:
-			MSG_ERROR("[RTDSK]ERR| rtds_memory_send_close_shared_apmem ret[%d].\n", ret);
-			rtds_memory_free_page_frame(RTDS_MEM_GET_PAGE_NUM(mem_table->memory_size), mem_table->pages, NULL);
-			kfree(mem_table->pages);
+			MSG_ERROR("[RTDSK]ERR| rtds_memory_" \
+				  "send_close_shared_apmem ret[%d].\n", ret);
+			rtds_memory_free_page_frame(
+				RTDS_MEM_GET_PAGE_NUM(mem_table->memory_size),
+				mem_table->pages, NULL);
+			vfree(mem_table->pages);
 			kfree(mem_table);
 			panic("Send error[%s][%d] err_code[%d]",
 				__func__, __LINE__, ret);
@@ -447,7 +454,7 @@ void rtds_memory_check_shared_apmem(
 		rtds_memory_free_page_frame(page_num, mem_table->pages, NULL);
 
 		/* Release allocate memory */
-		kfree(mem_table->pages);
+		vfree(mem_table->pages);
 		kfree(mem_table);
 
 		break;
@@ -491,11 +498,12 @@ void rtds_memory_check_shared_apmem(
 	case RTDS_MEM_UNMAP_EVENT:
 		MSG_MED("[RTDSK]   |RTDS_MEM_UNMAP_EVENT\n");
 		/* Unmap */
-		rtds_memory_do_unmap(mem_table->rt_wb_addr, mem_table->memory_size);
+		rtds_memory_do_unmap(mem_table->rt_wb_addr,
+				     mem_table->memory_size);
 		mem_table->rt_wb_addr = 0;
 
 		if (0 == mem_table->rt_nc_addr) {
-			kfree(mem_table->pages);
+			vfree(mem_table->pages);
 			mem_table->pages = NULL;
 		}
 		up(&(mem_table->semaphore));
@@ -508,11 +516,17 @@ void rtds_memory_check_shared_apmem(
 		ret = rtds_memory_map_shared_apmem(fp, map_data, mem_table);
 		if (SMAP_OK == ret) {
 			/* Create APP shared memory */
-			ret = rtds_memory_send_open_shared_apmem(mem_table->rt_wb_addr, mem_table->rt_nc_addr,
-													 mem_table->memory_size, 0, mem_table->error_code,
-													 0, &(mem_table->apmem_id));
+			ret = rtds_memory_send_open_shared_apmem(
+							mem_table->rt_wb_addr,
+							mem_table->rt_nc_addr,
+							mem_table->memory_size,
+							0,
+							mem_table->error_code,
+							0,
+							&(mem_table->apmem_id));
 			if (SMAP_OK != ret) {
-				panic("Send error[%s][%d] err_code[%d]", __func__, __LINE__, ret);
+				panic("Send error[%s][%d] err_code[%d]",
+					__func__, __LINE__, ret);
 			}
 		}
 
@@ -522,8 +536,10 @@ void rtds_memory_check_shared_apmem(
 
 	case RTDS_MEM_UNMAP_PNC_EVENT:
 		MSG_MED("[RTDSK]   |RTDS_MEM_UNMAP_PNC_EVENT\n");
-		MSG_LOW("[RTDSK]   |rt_wb_addr[0x%08X]\n", (u32)mem_table->rt_wb_addr);
-		MSG_LOW("[RTDSK]   |rt_nc_addr[0x%08X]\n", (u32)mem_table->rt_nc_addr);
+		MSG_LOW("[RTDSK]   |rt_wb_addr[0x%08X]\n",
+			(u32)mem_table->rt_wb_addr);
+		MSG_LOW("[RTDSK]   |rt_nc_addr[0x%08X]\n",
+			(u32)mem_table->rt_nc_addr);
 
 		/* Request RT domain to close shared memory */
 		ret = rtds_memory_send_close_shared_apmem(mem_table->apmem_id);
@@ -543,19 +559,21 @@ void rtds_memory_check_shared_apmem(
 		/* Unmap write-back addr */
 		if (0 != mem_table->rt_wb_addr) {
 			/* Unmap */
-			rtds_memory_do_unmap(mem_table->rt_wb_addr, mem_table->memory_size);
+			rtds_memory_do_unmap(mem_table->rt_wb_addr,
+					     mem_table->memory_size);
 			mem_table->rt_wb_addr = 0;
 		}
 
 		/* Unmap non-cache addr */
 		if (0 != mem_table->rt_nc_addr) {
 			/* Unmap */
-			rtds_memory_do_unmap(mem_table->rt_nc_addr, mem_table->memory_size);
+			rtds_memory_do_unmap(mem_table->rt_nc_addr,
+					     mem_table->memory_size);
 			mem_table->rt_nc_addr = 0;
 		}
 
 		/* Release allocate memory */
-		kfree(mem_table->pages);
+		vfree(mem_table->pages);
 		up(&(mem_table->semaphore));
 
 		break;
@@ -638,15 +656,17 @@ void rtds_memory_check_shared_apmem(
 			case SMAP_OK:
 				break;
 			case SMAP_NG:
-				MSG_MED("[RTDSK]   | Free API is not called.\n");
+				MSG_MED("[RTDSK]   |Free API is not called.\n");
 				break;
 			default:
-				MSG_ERROR("[RTDSK]ERR| L.%d ret[%d].\n", __LINE__, ret);
+				MSG_ERROR("[RTDSK]ERR| L.%d ret[%d].\n",
+					  __LINE__, ret);
 				break;
 			}
 
 			/* Unmap write-back addr */
-			rtds_memory_do_unmap(mem_table->rt_wb_addr, mem_table->memory_size);
+			rtds_memory_do_unmap(mem_table->rt_wb_addr,
+					     mem_table->memory_size);
 
 			/* Unmap non-cache addr */
 			if (0 != mem_table->rt_nc_addr)
@@ -670,22 +690,26 @@ void rtds_memory_check_shared_apmem(
 
 		if (temp_p) {
 			list_del(&temp_p->queue_header);
-			spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
+			spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem,
+						flag);
 
 			/* Free allocated page */
 			if (!proc_cnt) {
 				page_num = RTDS_MEM_GET_PAGE_NUM(mem_table->memory_size);
-				rtds_memory_free_page_frame(page_num, mem_table->pages, NULL);
-				kfree(mem_table->pages);
+				rtds_memory_free_page_frame(page_num,
+							    mem_table->pages,
+							    NULL);
+				vfree(mem_table->pages);
 			}
 
 			/* Release allocate memory */
-			kfree(temp_p->pages);
+			vfree(temp_p->pages);
 			kfree(temp_p);
 
 		} else {
 			MSG_MED("[RTDSK]   | Create list is not found.\n");
-			spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
+			spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem,
+						flag);
 		}
 
 		/* Release allocate memory */
@@ -701,7 +725,8 @@ void rtds_memory_check_shared_apmem(
 		up(&g_rtds_memory_shared_mem);
 
 		/* Unmap write-back addr */
-		rtds_memory_do_unmap(mem_table->rt_wb_addr, mem_table->memory_size);
+		rtds_memory_do_unmap(mem_table->rt_wb_addr,
+				     mem_table->memory_size);
 
 		/* Search for create list */
 		spin_lock_irqsave(&g_rtds_memory_lock_create_mem, flag);
@@ -718,22 +743,25 @@ void rtds_memory_check_shared_apmem(
 		if (temp_p) {
 
 			list_del(&entry_p->queue_header);
-			spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
+			spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem,
+						flag);
 
 			/* Free allocated page */
 			page_num = RTDS_MEM_GET_PAGE_NUM(entry_p->mem_size);
-			rtds_memory_free_page_frame(page_num, entry_p->pages, NULL);
+			rtds_memory_free_page_frame(page_num, entry_p->pages,
+						    NULL);
 
 			/* Release allocate memory */
-			kfree(entry_p->pages);
+			vfree(entry_p->pages);
 			kfree(entry_p);
 		} else {
 			MSG_MED("[RTDSK]   | Create list is not found.\n");
-			spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
+			spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem,
+						flag);
 		}
 
 		/* Release allocate memory */
-		kfree(mem_table->pages);
+		vfree(mem_table->pages);
 		kfree(mem_table);
 
 		break;
@@ -1355,20 +1383,20 @@ int rtds_memory_open_kernel_shared_apmem(
 	}
 
 	/* Allocate page descriptor area */
-	rtds_memory_open_mem->pages = kmalloc(page_num * sizeof(struct page *),
-						GFP_KERNEL);
+	rtds_memory_open_mem->pages = vmalloc(page_num * sizeof(struct page *));
 	if (NULL == rtds_memory_open_mem->pages) {
-		MSG_ERROR("[RTDSK]ERR| kmalloc of page area failed.\n");
+		MSG_ERROR("[RTDSK]ERR| vmalloc of page area failed.\n");
 		ret = SMAP_MEMORY;
 		MSG_MED("[RTDSK]OUT|[%s] ret[%d]\n", __func__, ret);
 		return ret;
 	}
 
 	/* Create page frame */
-	ret = rtds_memory_create_page_frame(page_num, rtds_memory_open_mem->pages, NULL);
+	ret = rtds_memory_create_page_frame(page_num,
+					    rtds_memory_open_mem->pages, NULL);
 	if (SMAP_OK != ret) {
-		kfree(rtds_memory_open_mem->pages);
-		MSG_ERROR("[RTDSK]ERR| rtds_memory_create_page_frame failed.\n");
+		vfree(rtds_memory_open_mem->pages);
+		MSG_ERROR("[RTDSK]ERR|rtds_memory_create_page_frame failed.\n");
 		MSG_MED("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
 		return ret;
 	}
@@ -1379,10 +1407,11 @@ int rtds_memory_open_kernel_shared_apmem(
 		MSG_ERROR("[RTDSK]ERR| Mapping failed(vamalloc space).\n");
 		ret = RTDS_MEM_ERR_MAPPING;
 		/* free allocated page */
-		rtds_memory_free_page_frame(page_num, rtds_memory_open_mem->pages, NULL);
+		rtds_memory_free_page_frame(page_num,
+					    rtds_memory_open_mem->pages, NULL);
 
 		/* free allocated memory */
-		kfree(rtds_memory_open_mem->pages);
+		vfree(rtds_memory_open_mem->pages);
 		MSG_MED("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
 		return ret;
 	}
@@ -1398,11 +1427,13 @@ int rtds_memory_open_kernel_shared_apmem(
 	if (SMAP_OK != ret) {
 		vunmap((const void *)rtds_memory_open_mem->app_addr);
 		/* free allocated page */
-		rtds_memory_free_page_frame(page_num, rtds_memory_open_mem->pages, NULL);
+		rtds_memory_free_page_frame(page_num,
+					    rtds_memory_open_mem->pages, NULL);
 
 		/* free allocated memory */
-		kfree(rtds_memory_open_mem->pages);
-		MSG_ERROR("[RTDSK]ERR| rtds_memory_put_create_mem_list failed[%d].\n", ret);
+		vfree(rtds_memory_open_mem->pages);
+		MSG_ERROR("[RTDSK]ERR| rtds_memory_put_create_mem_list" \
+			  " failed[%d].\n", ret);
 		MSG_MED("[RTDSK]OUT|[%s] ret[%d]\n", __func__, ret);
 		return ret;
 	}
@@ -1451,9 +1482,10 @@ int rtds_memory_close_kernel_shared_apmem(
 		MSG_MED("[RTDSK]   |page_num[0x%08X]\n", page_num);
 
 		/* Free page */
-		rtds_memory_free_page_frame(page_num, rtds_memory_close_mem->pages, NULL);
+		rtds_memory_free_page_frame(page_num,
+					    rtds_memory_close_mem->pages, NULL);
 		/* Release page descriptor area */
-		kfree(rtds_memory_close_mem->pages);
+		vfree(rtds_memory_close_mem->pages);
 		break;
 
 	case -1:
@@ -1462,8 +1494,9 @@ int rtds_memory_close_kernel_shared_apmem(
 		break;
 
 	default:
-		MSG_MED("[RTDSK]   |App shared memory has been used[%d]\n", proc_cnt);
-		kfree(rtds_memory_close_mem->pages);
+		MSG_MED("[RTDSK]   |App shared memory has been used[%d]\n",
+			proc_cnt);
+		vfree(rtds_memory_close_mem->pages);
 		break;
 	}
 
@@ -1570,7 +1603,7 @@ int rtds_memory_open_shared_apmem(
 {
 	int				ret = SMAP_MEMORY;
 	rtds_memory_app_memory_table	*mem_table;
-	unsigned int			page_num = RTDS_MEM_GET_PAGE_NUM(mem_info->mem_size);
+	unsigned int	page_num = RTDS_MEM_GET_PAGE_NUM(mem_info->mem_size);
 	struct page			**k_pages;
 	rtds_memory_create_queue	*create_list;
 	unsigned long			flag;
@@ -1582,25 +1615,26 @@ int rtds_memory_open_shared_apmem(
 	MSG_MED("[RTDSK]   |mem_size[0x%08X]\n", (u32)mem_info->mem_size);
 	MSG_MED("[RTDSK]   |pages[0x%08X]\n", (u32)mem_info->pages);
 
-	k_pages = kmalloc(page_num * sizeof(struct page *), GFP_KERNEL);
+	k_pages = vmalloc(page_num * sizeof(struct page *));
 	if (NULL == k_pages) {
-		MSG_ERROR("[RTDSK]ERR| kmalloc failed.\n");
+		MSG_ERROR("[RTDSK]ERR| vmalloc failed.\n");
 		MSG_MED("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
 		return ret;
 	}
 
 	mem_table = kmalloc(sizeof(*mem_table), GFP_KERNEL);
 	if (NULL == mem_table) {
-		kfree(k_pages);
+		vfree(k_pages);
 		MSG_ERROR("[RTDSK]ERR| kmalloc failed.\n");
 		MSG_MED("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
 		return ret;
 	}
 
-	ret = copy_from_user(k_pages, mem_info->pages, page_num * sizeof(struct page *));
+	ret = copy_from_user(k_pages, mem_info->pages,
+			     page_num * sizeof(struct page *));
 	if (0 != ret) {
 		kfree(mem_table);
-		kfree(k_pages);
+		vfree(k_pages);
 		ret = SMAP_NG;
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
 		MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
@@ -1609,7 +1643,7 @@ int rtds_memory_open_shared_apmem(
 
 	create_list = kmalloc(sizeof(rtds_memory_create_queue), GFP_KERNEL);
 	if (NULL == create_list) {
-		kfree(k_pages);
+		vfree(k_pages);
 		kfree(mem_table);
 		MSG_ERROR("[RTDSK]ERR| kmalloc failed.\n");
 		MSG_MED("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
@@ -1622,7 +1656,8 @@ int rtds_memory_open_shared_apmem(
 	create_list->pages	= k_pages;
 	create_list->task_info	= current;
 	create_list->app_cache	= mem_info->app_cache;
-	list_add_tail(&create_list->queue_header, &g_rtds_memory_list_create_mem);
+	list_add_tail(&create_list->queue_header,
+		      &g_rtds_memory_list_create_mem);
 
 	spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
 
@@ -1632,25 +1667,26 @@ int rtds_memory_open_shared_apmem(
 
 		spin_lock_irqsave(&g_rtds_memory_lock_create_mem, flag);
 		list_del(&create_list->queue_header);
-		kfree(k_pages);
+		vfree(k_pages);
 		kfree(mem_table);
 		kfree(create_list);
 		spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
 
-		MSG_ERROR("[RTDSK]ERR| rtds_memory_create_page_frame failed.\n");
+		MSG_ERROR("[RTDSK]ERR|rtds_memory_create_page_frame failed.\n");
 		MSG_MED("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
 		return ret;
 	}
 
 	create_list->page = *k_pages;
-	ret = copy_to_user(mem_info->pages, k_pages, page_num * sizeof(struct page *));
+	ret = copy_to_user(mem_info->pages, k_pages,
+			   page_num * sizeof(struct page *));
 	if (0 != ret) {
 		rtds_memory_free_page_frame(page_num, k_pages, create_list);
 
 		spin_lock_irqsave(&g_rtds_memory_lock_create_mem, flag);
 		list_del(&create_list->queue_header);
 		spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
-		kfree(k_pages);
+		vfree(k_pages);
 		kfree(mem_table);
 		kfree(create_list);
 
@@ -1673,13 +1709,14 @@ int rtds_memory_open_shared_apmem(
 	map_data->mem_table		= mem_table;
 
 	/* Map user space */
-	ret = rtds_memory_do_map(fp, &(create_list->app_addr), mem_info->mem_size, 0);
+	ret = rtds_memory_do_map(fp, &(create_list->app_addr),
+				 mem_info->mem_size, 0);
 	if (SMAP_OK != ret) {
 		rtds_memory_free_page_frame(page_num, k_pages, create_list);
 		spin_lock_irqsave(&g_rtds_memory_lock_create_mem, flag);
 		list_del(&create_list->queue_header);
 		spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
-		kfree(k_pages);
+		vfree(k_pages);
 		kfree(mem_table);
 		kfree(create_list);
 		MSG_ERROR("[RTDSK]ERR| rtds_memory_do_map failed[%d]\n", ret);
@@ -1744,9 +1781,9 @@ int rtds_memory_ioctl_close_apmem(
 	MSG_MED("[RTDSK]   |app_addr[0x%08X]\n", (u32)ioctl_mem.app_addr);
 	MSG_MED("[RTDSK]   |pages[0x%08X]\n", (u32)ioctl_mem.pages);
 
-	k_pages = kmalloc(sizeof(struct page *), GFP_KERNEL);
+	k_pages = vmalloc(sizeof(struct page *));
 	if (NULL == k_pages) {
-		MSG_ERROR("[RTDSK]ERR| kmalloc failed.\n");
+		MSG_ERROR("[RTDSK]ERR| vmalloc failed.\n");
 		ret = SMAP_NG;
 		goto out;
 	}
@@ -1756,7 +1793,7 @@ int rtds_memory_ioctl_close_apmem(
 		MSG_ERROR("[RTDSK]ERR| [%d]copy_from_user failed[%d]\n",
 			__LINE__, ret);
 		ret = SMAP_NG;
-		kfree(k_pages);
+		vfree(k_pages);
 		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
 		return ret;
 	}
@@ -1767,18 +1804,18 @@ int rtds_memory_ioctl_close_apmem(
 	if (0 != list_empty(&g_rtds_memory_list_create_mem)) {
 		spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
 		ret = SMAP_NG;
-		kfree(k_pages);
+		vfree(k_pages);
 		MSG_ERROR("[RTDSK]ERR|List is empty.\n");
 		goto  out;
 	}
 
 	/* Search and entry list */
-	list_for_each_entry(entry_p, &g_rtds_memory_list_create_mem, queue_header) {
+	list_for_each_entry(entry_p, &g_rtds_memory_list_create_mem,
+			    queue_header) {
 		if (entry_p->page == *k_pages) {
 			/* Prevention of the overflow */
-			if (RTDS_MEM_PROC_CNT_MAX > proc_cnt) {
+			if (RTDS_MEM_PROC_CNT_MAX > proc_cnt)
 				proc_cnt++;
-			}
 
 			if (entry_p->app_addr == ioctl_mem.app_addr) {
 				MSG_MED("[RTDSK]   |entry_p           [0x%08X]\n", (u32)entry_p);
@@ -1794,13 +1831,14 @@ int rtds_memory_ioctl_close_apmem(
 	if (NULL == temp_p) {
 		spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
 		ret = SMAP_NG;
-		kfree(k_pages);
+		vfree(k_pages);
 		MSG_ERROR("[RTDSK]ERR|[%d] List is not found.\n", __LINE__);
 		goto out;
 	}
 
 	list_del(&temp_p->queue_header);
-	MSG_LOW("[RTDSK]   |temp entry_p[0x%08X] proc_cnt[%d]\n", (u32)temp_p, proc_cnt);
+	MSG_LOW("[RTDSK]   |temp entry_p[0x%08X] proc_cnt[%d]\n",
+		(u32)temp_p, proc_cnt);
 	spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
 
 	if (!proc_cnt) {
@@ -1809,8 +1847,8 @@ int rtds_memory_ioctl_close_apmem(
 						temp_p);
 	}
 
-	kfree(k_pages);
-	kfree(temp_p->pages);
+	vfree(k_pages);
+	vfree(temp_p->pages);
 	kfree(temp_p);
 	ret = SMAP_OK;
 
@@ -2192,7 +2230,7 @@ int rtds_memory_send_open_shared_apmem(
 	send_cmd.recv_data		= (unsigned char *)(&rcv_data);
 
 	/* send EVENT_MEMORY_CREATEAPPMEMORY */
-	down(&g_rtds_memory_send_sem);
+	RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_send_sem);
 	ret = iccom_drv_send_command(&send_cmd);
 	up(&g_rtds_memory_send_sem);
 	if (SMAP_OK == ret) {
@@ -2245,7 +2283,7 @@ int rtds_memory_send_close_shared_apmem(
 	send_cmd.recv_data		= (unsigned char *)(&rcv_data);
 
 	/* send EVENT_MEMORYSUB_DELETEAPPSHAREDMEM */
-	down(&g_rtds_memory_send_sem);
+	RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_send_sem);
 	ret = iccom_drv_send_command(&send_cmd);
 	up(&g_rtds_memory_send_sem);
 
@@ -2313,14 +2351,14 @@ typedef struct {
  * Returns	  : None
  ****************************************************************************/
 void rtds_memory_rcv_comp_notice(
-	void			*user_data,
-	int				result_code,
-	int				function_id,
+	void		*user_data,
+	int		result_code,
+	int		function_id,
 	unsigned char	*data_addr,
-	int				data_len
+	int		data_len
 )
 {
-	int				ret;
+	int		ret;
 	rcv_open_data	open_data;
 	rcv_close_data	close_data;
 	rcv_open_data	*open_data_p = &open_data;
@@ -2337,8 +2375,9 @@ void rtds_memory_rcv_comp_notice(
 
 	/* Parameter check*/
 	if ((NULL == data_addr) || (0 == data_len)) {
-		MSG_ERROR("[RTDSK]ERR| rcv_data is illegal. addr[0x%08X]size[%x]\n",
-		 (u32)data_addr, (u32)data_len);
+		MSG_ERROR("[RTDSK]ERR| rcv_data is illegal." \
+			" addr[0x%08X]size[%x]\n",
+			(u32)data_addr, (u32)data_len);
 		MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 		return;
 	}
@@ -2369,7 +2408,7 @@ void rtds_memory_rcv_comp_notice(
 		if (sizeof(rcv_close_data) == data_len) {
 			/* Get apmem_id */
 			close_data_p = (rcv_close_data *)data_addr;
-			rcv_data.event		= RTDS_MEM_DRV_EVENT_APMEM_CLOSE;
+			rcv_data.event	= RTDS_MEM_DRV_EVENT_APMEM_CLOSE;
 			rcv_data.apmem_id	= close_data_p->apmem_id;
 		} else {
 			error_flag = true;
@@ -2413,7 +2452,8 @@ void rtds_memory_rcv_comp_notice(
 	}
 
 	if (error_flag) {
-		MSG_ERROR("[RTDSK]ERR| rcv_data is illegal. size[%x]\n", data_len);
+		MSG_ERROR("[RTDSK]ERR| rcv_data is illegal. size[%x]\n",
+			  data_len);
 		MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 		return;
 	}
@@ -2422,13 +2462,13 @@ void rtds_memory_rcv_comp_notice(
 	ret = rtds_memory_put_recv_queue(&rcv_data);
 	if (SMAP_OK == ret) {
 		/* Get semaphore to wakeup apmem thread */
-		down(&g_rtds_memory_apmem_rttrig_sem);
+		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_apmem_rttrig_sem);
 		MSG_LOW("[RTDSK]   |Semaphore down(Apmem)\n");
 		/* Wakeup thread */
 		complete(&g_rtds_memory_completion);
-	} else {
-		MSG_ERROR("[RTDSK]ERR| rtds_memory_put_recv_queue failed ret[%d]\n", ret);
-	}
+	} else
+		MSG_ERROR("[RTDSK]ERR|" \
+			" rtds_memory_put_recv_queue failed ret[%d]\n", ret);
 
 	MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
 	return;
@@ -2647,7 +2687,7 @@ int rtds_memory_map_mpro(
 
 	/* Add mpro list */
 	rtds_memory_put_mpro_list(mem_table);
-	down(&(mem_table->semaphore));
+	RTDS_MEM_DOWN_TIMEOUT(&(mem_table->semaphore));
 
 	/* mapped address  */
 	*vir_address	= mem_table->rt_wb_addr;
@@ -2716,7 +2756,7 @@ int rtds_memory_unmap_mpro(
 
 	/* Add mpro list */
 	rtds_memory_put_mpro_list(mem_table);
-	down(&(mem_table->semaphore));
+	RTDS_MEM_DOWN_TIMEOUT(&(mem_table->semaphore));
 
 	ret_code = mem_table->error_code;
 	kfree(mem_table);
@@ -2783,7 +2823,7 @@ int rtds_memory_map_pnc_mpro(
 
 	/* Add mpro list */
 	rtds_memory_put_mpro_list(mem_table);
-	down(&(mem_table->semaphore));
+	RTDS_MEM_DOWN_TIMEOUT(&(mem_table->semaphore));
 
 	if (0 != mem_table->error_code) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
@@ -2897,7 +2937,7 @@ int rtds_memory_unmap_pnc_mpro(
 
 	/* Add mpro list */
 	rtds_memory_put_mpro_list(mem_table);
-	down(&(mem_table->semaphore));
+	RTDS_MEM_DOWN_TIMEOUT(&(mem_table->semaphore));
 
 	ret_code = mem_table->error_code;
 	kfree(mem_table);
@@ -2967,7 +3007,7 @@ int rtds_memory_map_pnc_nma_mpro(
 
 	/* Add mpro list */
 	rtds_memory_put_mpro_list(mem_table);
-	down(&(mem_table->semaphore));
+	RTDS_MEM_DOWN_TIMEOUT(&(mem_table->semaphore));
 
 	/* mapped address  */
 	*rt_addr_wb	= mem_table->rt_wb_addr;
@@ -3132,8 +3172,9 @@ int rtds_memory_ioctl_map_pnc_mpro(
 	}
 
 	/* Page descriptor information storage area */
-	pages_size = (ioctl_rtmap_pnc.mem_size / PAGE_SIZE) * sizeof(struct page *);
-	kernel_pages = kmalloc(pages_size, GFP_KERNEL);
+	pages_size = (ioctl_rtmap_pnc.mem_size / PAGE_SIZE)
+		   * sizeof(struct page *);
+	kernel_pages = vmalloc(pages_size);
 	if (NULL == kernel_pages) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
 		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
@@ -3141,10 +3182,11 @@ int rtds_memory_ioctl_map_pnc_mpro(
 	}
 
 	/* Copy user data into kernel space. */
-	ret_code = copy_from_user(kernel_pages, ioctl_rtmap_pnc.pages, pages_size);
+	ret_code = copy_from_user(kernel_pages, ioctl_rtmap_pnc.pages,
+				  pages_size);
 	if (0 != ret_code) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
-		kfree(kernel_pages);
+		vfree(kernel_pages);
 		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return SMAP_NG;
 	}
@@ -3152,11 +3194,14 @@ int rtds_memory_ioctl_map_pnc_mpro(
 	memset(&memory_info, 0, sizeof(memory_info));
 
 	/* map demand to Mpro */
-	ret_code = rtds_memory_map_pnc_mpro(ioctl_rtmap_pnc.app_addr, ioctl_rtmap_pnc.mem_size,
-					kernel_pages, ioctl_rtmap_pnc.rt_cache, &memory_info);
+	ret_code = rtds_memory_map_pnc_mpro(ioctl_rtmap_pnc.app_addr,
+					    ioctl_rtmap_pnc.mem_size,
+					    kernel_pages,
+					    ioctl_rtmap_pnc.rt_cache,
+					    &memory_info);
 	if (SMAP_OK != ret_code) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
-		kfree(kernel_pages);
+		vfree(kernel_pages);
 		ioctl_rtmap_pnc.err_code = ret_code;
 		ret_code = copy_to_user(buffer, &ioctl_rtmap_pnc, cnt);
 		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
@@ -3273,8 +3318,9 @@ int rtds_memory_ioctl_map_pnc_nma_mpro(
 	}
 
 	/* Page descriptor information storage area */
-	pages_size = (ioctl_rtmap_pnc_nma.mem_size / PAGE_SIZE) * sizeof(struct page *);
-	kernel_pages = kmalloc(pages_size, GFP_KERNEL);
+	pages_size = (ioctl_rtmap_pnc_nma.mem_size / PAGE_SIZE)
+		   * sizeof(struct page *);
+	kernel_pages = vmalloc(pages_size);
 	if (NULL == kernel_pages) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
 		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
@@ -3286,7 +3332,7 @@ int rtds_memory_ioctl_map_pnc_nma_mpro(
 				pages_size);
 	if (0 != ret_code) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
-		kfree(kernel_pages);
+		vfree(kernel_pages);
 		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return SMAP_NG;
 	}
@@ -3297,7 +3343,7 @@ int rtds_memory_ioctl_map_pnc_nma_mpro(
 				(unsigned int *)&ioctl_rtmap_pnc_nma.rt_addr);
 	if (SMAP_OK != ret_code) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
-		kfree(kernel_pages);
+		vfree(kernel_pages);
 		ioctl_rtmap_pnc_nma.err_code = ret_code;
 		ret_code = copy_to_user(buffer, &ioctl_rtmap_pnc_nma, cnt);
 		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
@@ -3484,13 +3530,13 @@ void rtds_memory_close_apmem(
 		goto out;
 	}
 
-	pages = kmalloc(RTDS_MEM_GET_PAGE_NUM(mem_size) * sizeof(struct page *),
-			GFP_KERNEL);
+	pages = vmalloc(RTDS_MEM_GET_PAGE_NUM(mem_size) * sizeof(struct page *));
 	if (NULL == pages) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
 		goto out;
 	}
-	memcpy(pages, temp_p->pages, RTDS_MEM_GET_PAGE_NUM(mem_size) * sizeof(struct page *));
+	memcpy(pages, temp_p->pages,
+		RTDS_MEM_GET_PAGE_NUM(mem_size) * sizeof(struct page *));
 
 	ret = rtds_memory_get_create_mem_list(app_addr, *pages, &temp_mem_size);
 	if (0 == ret) {
@@ -3500,7 +3546,7 @@ void rtds_memory_close_apmem(
 		MSG_MED("[RTDSK]   |rtds_memory_free_page_frame[%d].\n", ret);
 	}
 
-	kfree(pages);
+	vfree(pages);
 
 out:
 	MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
@@ -4151,7 +4197,7 @@ int rtds_memory_share_shared_apmem(
 	}
 	MSG_MED("[RTDSK]   |app_addr [0x%08X]\n", (u32)mem_table->app_addr);
 
-	k_pages = kmalloc(RTDS_MEM_GET_PAGE_NUM(mem_table->memory_size) * sizeof(struct page *), GFP_KERNEL);
+	k_pages = vmalloc(RTDS_MEM_GET_PAGE_NUM(mem_table->memory_size) * sizeof(struct page *));
 	if (NULL == k_pages) {
 		rtds_memory_do_unmap(mem_table->app_addr,
 					mem_table->memory_size);
@@ -4160,14 +4206,14 @@ int rtds_memory_share_shared_apmem(
 		kfree(mem_table);
 		up(&g_rtds_memory_shared_mem);
 		ret = SMAP_MEMORY;
-		MSG_ERROR("[RTDSK]ERR| kmalloc failed.\n");
+		MSG_ERROR("[RTDSK]ERR| vmalloc failed.\n");
 		MSG_MED("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
 		return ret;
 	}
 
 	create_list = kmalloc(sizeof(rtds_memory_create_queue), GFP_KERNEL);
 	if (NULL == create_list) {
-		kfree(k_pages);
+		vfree(k_pages);
 		rtds_memory_do_unmap(mem_table->app_addr,
 					mem_table->memory_size);
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
@@ -4352,9 +4398,6 @@ void rtds_memory_flush_cache_all(
 
 	spin_lock_irqsave(&g_rtds_memory_lock_cache_all, flag);
 
-	/* Flush all the L1 cache. */
-	flush_cache_all();
-
 	/* Flush all the L2 cache. */
 	outer_flush_all();
 
@@ -4365,13 +4408,14 @@ void rtds_memory_flush_cache_all(
 }
 /*****************************************************************************
  * Function   : rtds_memory_put_create_mem_list
- * Description: This function entries informatin of App shared area to list queue.
+ * Description: This function entries informatin of App shared area
+ *		to list queue.
  * Parameters : app_addr		- App shared address
- *				mem_size		- memory size
- *				page			- page descriptor
- *				app_cache		- cache type of App domain
- * Returns	  : SMAP_OK			- Success
- *				SMAP_MEMORY		- No memory
+ *		mem_size		- memory size
+ *		page			- page descriptor
+ *		app_cache		- cache type of App domain
+ * Returns    : SMAP_OK			- Success
+ *		SMAP_MEMORY		- No memory
  ****************************************************************************/
 int rtds_memory_put_create_mem_list(
 	unsigned int		app_addr,
@@ -4397,15 +4441,16 @@ int rtds_memory_put_create_mem_list(
 		MSG_ERROR("[RTDSK]ERR| kmalloc() failed\n");
 		ret = SMAP_MEMORY;
 	} else {
-		k_pages = kmalloc(RTDS_MEM_GET_PAGE_NUM(mem_size) * sizeof(struct page *), GFP_KERNEL);
+		k_pages = vmalloc(RTDS_MEM_GET_PAGE_NUM(mem_size) * sizeof(struct page *));
 		if (NULL == k_pages) {
-			MSG_ERROR("[RTDSK]ERR| kmalloc failed.\n");
+			MSG_ERROR("[RTDSK]ERR| vmalloc failed.\n");
 			kfree(create_queue);
 			ret = SMAP_MEMORY;
 			MSG_MED("[RTDSK]OUT|[%s] ret[%d]\n", __func__, ret);
 			return ret;
 		}
-		memcpy(k_pages, page, RTDS_MEM_GET_PAGE_NUM(mem_size) * sizeof(struct page *));
+		memcpy(k_pages, page,
+		       RTDS_MEM_GET_PAGE_NUM(mem_size) * sizeof(struct page *));
 
 		/* Set data */
 		create_queue->app_addr	= app_addr;
@@ -4501,7 +4546,7 @@ int rtds_memory_get_create_mem_list(
 	/* Spin unlock*/
 	spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
 
-	kfree(temp->pages);
+	vfree(temp->pages);
 	kfree(temp);
 
 	if (proc_cnt) {
@@ -4556,9 +4601,9 @@ int rtds_memory_ioctl_get_memsize(
 	MSG_MED("[RTDSK]   |app_addr[0x%08X]\n", (u32)ioctl_mem.app_addr);
 	MSG_MED("[RTDSK]   |pages[0x%08X]\n", (u32)ioctl_mem.pages);
 
-	k_pages = kmalloc(sizeof(struct page *), GFP_KERNEL);
+	k_pages = vmalloc(sizeof(struct page *));
 	if (NULL == k_pages) {
-		MSG_ERROR("[RTDSK]ERR| kmalloc failed.\n");
+		MSG_ERROR("[RTDSK]ERR| vmalloc failed.\n");
 		ret = SMAP_NG;
 		goto out;
 	}
@@ -4568,7 +4613,7 @@ int rtds_memory_ioctl_get_memsize(
 		MSG_ERROR("[RTDSK]ERR| [%d]copy_from_user failed[%d]\n",
 			__LINE__, ret);
 		ret = SMAP_NG;
-		kfree(k_pages);
+		vfree(k_pages);
 		MSG_HIGH("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
 		return ret;
 	}
@@ -4579,7 +4624,7 @@ int rtds_memory_ioctl_get_memsize(
 
 	if (0 != list_empty(&g_rtds_memory_list_create_mem)) {
 		spin_unlock_irqrestore(&g_rtds_memory_lock_create_mem, flag);
-		kfree(k_pages);
+		vfree(k_pages);
 		MSG_ERROR("[RTDSK]ERR| List is empty.\n");
 		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return SMAP_NG;
@@ -4587,7 +4632,8 @@ int rtds_memory_ioctl_get_memsize(
 
 
 	/* Get App shared memory size */
-	list_for_each_entry(entry_p, &g_rtds_memory_list_create_mem, queue_header) {
+	list_for_each_entry(entry_p, &g_rtds_memory_list_create_mem,
+			    queue_header) {
 		if ((entry_p->app_addr == ioctl_mem.app_addr) &&
 			(entry_p->page == *k_pages)) {
 			MSG_MED("[RTDSK]   |entry_p->app_addr[0x%08X]\n",
@@ -4606,10 +4652,10 @@ int rtds_memory_ioctl_get_memsize(
 	if (NULL == temp) {
 		MSG_ERROR("[RTDSK]ERR| List is not found.\n");
 		ret = SMAP_PARA_NG;
-	} else {
+	} else
 		ioctl_mem.mem_size = temp->mem_size;
-	}
-	kfree(k_pages);
+
+	vfree(k_pages);
 out:
 	/* Set error code */
 	ioctl_mem.err_code  = ret;
@@ -5048,7 +5094,7 @@ void rtds_memory_leak_check_page_frame(
 											this_p);
 			}
 			spin_lock_irqsave(&g_rtds_memory_lock_create_mem, flag);
-			kfree(this_p->pages);
+			vfree(this_p->pages);
 			kfree(this_p);
 		}
 	}
@@ -5160,7 +5206,7 @@ void rtds_memory_dump_notify(
 	list_add_tail(&g_dump_que.queue_header, &g_rtds_memory_list_rcv_event);
 	spin_unlock_irqrestore(&g_rtds_memory_lock_recv_queue, flag);
 
-	down(&g_rtds_memory_apmem_rttrig_sem);
+	RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_apmem_rttrig_sem);
 	complete(&g_rtds_memory_completion);
 
 	MSG_MED("[RTDSK]OUT|[%s]\n", __func__);
@@ -5257,7 +5303,7 @@ int rtds_memory_send_check_unmap(
 	send_cmd.recv_data	= NULL;
 
 	/* send EVENT_MEMORYCB_CHECKUNMAP */
-	down(&g_rtds_memory_send_sem);
+	RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_send_sem);
 	ret = iccom_drv_send_command(&send_cmd);
 	up(&g_rtds_memory_send_sem);
 
@@ -5854,7 +5900,7 @@ int rtds_memory_map_mpro_ma(
 
 	/* Add mpro list */
 	rtds_memory_put_mpro_list(mem_table);
-	down(&(mem_table->semaphore));
+	RTDS_MEM_DOWN_TIMEOUT(&(mem_table->semaphore));
 
 	if (0 != mem_table->error_code) {
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
@@ -5932,7 +5978,7 @@ int rtds_memory_unmap_mpro_ma(
 
 	/* Add mpro list */
 	rtds_memory_put_mpro_list(mem_table);
-	down(&(mem_table->semaphore));
+	RTDS_MEM_DOWN_TIMEOUT(&(mem_table->semaphore));
 
 	ret_code = mem_table->error_code;
 	kfree(mem_table);
