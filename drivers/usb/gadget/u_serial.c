@@ -355,9 +355,6 @@ __acquires(&port->port_lock)
 	int			status = 0;
 	bool			do_tty_wake = false;
 
-#ifdef CONFIG_USB_R8A66597
-	usb_request_high_cpufreq_timer();
-#endif
 	while (!list_empty(pool)) {
 		struct usb_request	*req;
 		int			len;
@@ -423,9 +420,6 @@ __acquires(&port->port_lock)
 	struct list_head	*pool = &port->read_pool;
 	struct usb_ep		*out = port->port_usb->out;
 
-#ifdef CONFIG_USB_R8A66597
-	usb_request_high_cpufreq_timer();
-#endif
 	while (!list_empty(pool)) {
 		struct usb_request	*req;
 		int			status;
