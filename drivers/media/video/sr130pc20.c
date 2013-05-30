@@ -39,7 +39,7 @@ static ssize_t subcamtype_SR130PC20_show(struct device *dev,
 static ssize_t subcamfw_SR130PC20_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	char *sensorfw = "SR130PC20";
+	char *sensorfw = "N";
 	return sprintf(buf, "%s\n", sensorfw);
 }
 
