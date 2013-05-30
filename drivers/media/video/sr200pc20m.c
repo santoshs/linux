@@ -1,7 +1,7 @@
 /*
  * Driver for Samsung SR200PC20M VGA Camera
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -39,7 +39,7 @@ static ssize_t maincamtype_SR200PC20M_show(struct device *dev,
 static ssize_t maincamfw_SR200PC20M_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	char *sensorfw = "SR200PC20M";
+	char *sensorfw = "N";
 	return sprintf(buf, "%s\n", sensorfw);
 }
 
