@@ -367,7 +367,9 @@ static void __init board_init(void)
 		if(sbsc_sdmra_38200)
 			iounmap(sbsc_sdmra_38200);
 	}
-
+#ifdef CONFIG_ARCH_SHMOBILE
+	r8a7373_avoid_a2slpowerdown_afterL2sync();
+#endif
 	r8a7373_pinmux_init();
 
 	/* set board version */

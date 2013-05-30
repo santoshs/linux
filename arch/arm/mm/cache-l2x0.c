@@ -58,12 +58,23 @@ static inline void cache_wait(void __iomem *reg, unsigned long mask)
 #define cache_wait	cache_wait_way
 #endif
 
+#ifdef CONFIG_ARCH_SHMOBILE
+extern void __iomem *dummy_write_mem;
+#endif
+
 static inline void cache_sync(void)
 {
 	void __iomem *base = l2x0_base;
 
 	writel_relaxed(0, base + sync_reg_offset);
 	cache_wait(base + L2X0_CACHE_SYNC, 1);
+#ifdef CONFIG_ARCH_SHMOBILE
+	if (dummy_write_mem) {
+		writel_relaxed(
+		(unsigned long)0xA5A55A5A, IOMEM(dummy_write_mem));
+		rmb();
+	}
+#endif
 }
 
 static inline void l2x0_clean_line(unsigned long addr)
