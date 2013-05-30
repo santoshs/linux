@@ -20,6 +20,7 @@
 
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/ratelimit.h>
 
 #include <linux/gpio.h>
 
@@ -1015,7 +1016,7 @@ static void lcd_esd_detect(struct work_struct *work)
 	/* For the disable entering suspend */
 	mutex_lock(&esd_check_mutex);
 
-	printk(KERN_DEBUG "[LCD] %s\n", __func__);
+	printk_ratelimited(KERN_NOTICE "[LCD] %s\n", __func__);
 
 	/* esd recovery */
 	while ((nt35510_panel_simple_reset()) &&
@@ -1057,7 +1058,7 @@ static void lcd_esd_detect(struct work_struct *work)
 static irqreturn_t lcd_esd_irq_handler(int irq, void *dev_id)
 {
 	if (dev_id == &esd_irq_requested) {
-		printk(KERN_DEBUG "[LCD] %s\n", __func__);
+		printk_ratelimited(KERN_NOTICE "[LCD] %s\n", __func__);
 
 		disable_irq_nosync(esd_detect_irq);
 		queue_work(lcd_wq, &esd_detect_work);
