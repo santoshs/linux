@@ -1390,8 +1390,12 @@ static int nt35510_panel_init(unsigned int mem_size)
 
 	screen_handle =  screen_display_new();
 
+	/*
+	 * Regulators are already turned on by boot loader, so these
+	 * enable calls only correct the initial enable reference count;
+	 * hence no need for delays.
+	 */
 	regulator_enable(power_ldo_1v8);
-	usleep_range(1000, 1000);
 	regulator_enable(power_ldo_3v);
 
 	power_supplied = true;
