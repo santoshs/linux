@@ -285,9 +285,9 @@ static unsigned char dopctr[] = { 0xB1,
 static unsigned char invctr[] = { 0x36, 0x02 };
 #else
 static unsigned char dopctr[] = { 0xB1,
-		0x4C, 0x04 };
+		0x1C, 0x06 };
 
-static unsigned char invctr[] = { 0x36, 0x02 };
+static unsigned char invctr[] = { 0x36, 0x00 };
 #endif
 
 static unsigned char sdhdtctr[] = { 0xB6, 0x0A };
@@ -398,7 +398,7 @@ static unsigned char raset[] = { 0x2B,
 		0x00, 0x00, 0x03, 0x1F };
 
 /* Normal Display Mode On */
-/*static unsigned char noron[] = { 0x13 };*/
+static unsigned char noron[] = { 0x13 };
 
 #ifdef NT35510_SWITCH_FRAMERATE_40HZ
 static unsigned char dpfrctr1_40hz[] = { 0xBD,
@@ -453,7 +453,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, teon, sizeof(teon)    },
 #endif
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, colmod, sizeof(colmod)	},
-/*	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },*/
+	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  caset,  sizeof(caset) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) },
 	{ MIPI_DSI_DCS_LONG_WRITE, slpout,    sizeof(slpout)   },
