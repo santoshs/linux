@@ -261,21 +261,17 @@ static int tsu6712_pop_queue(struct interrupt_element* val)
 static void tsu6712_push_queue(struct interrupt_element* val)
 {
 	mutex_lock(&__MUIC_INTERRUPT_QUEUE_LOCK);
-
-	if(__MUIC_INTERRUPT_QUEUE_INDEX >= 10)
+	
+	if(__MUIC_INTERRUPT_QUEUE_INDEX > 8)
 	{
 		pr_err("%s : index overflow %d\n", __func__, __MUIC_INTERRUPT_QUEUE_INDEX);
-		__MUIC_INTERRUPT_QUEUE_INDEX = 0;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].intr = val->intr;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].dev = val->dev;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].adc = val->adc;
+		__MUIC_INTERRUPT_QUEUE_INDEX = -1;
+	}
 
-	} else {
-		__MUIC_INTERRUPT_QUEUE_INDEX++;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].intr = val->intr;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].dev = val->dev;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].adc = val->adc;
-		}
+	__MUIC_INTERRUPT_QUEUE_INDEX++;
+	__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].intr = val->intr;
+	__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].dev = val->dev;
+	__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].adc = val->adc;
 	mutex_unlock(&__MUIC_INTERRUPT_QUEUE_LOCK);
 }
 #endif
