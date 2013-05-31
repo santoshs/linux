@@ -92,8 +92,16 @@ struct smb328a_chip {
 };
 
 static struct smb328a_chip *smb_charger = NULL;
-static int smb328a_disable_charging(struct i2c_client *client);
-static int smb328a_enable_charging(struct i2c_client *client);
+
+struct i2c_client *smb328a_chip_client(void)
+{
+	return smb_charger->client;
+}
+
+int smb328a_chip_status(void)
+{
+	return smb_charger->charger_status;
+}
 
 #ifdef CONFIG_USE_MUIC
 static bool FullChargeSend;
@@ -359,48 +367,6 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 #endif
 }
 
-static ssize_t smb_charger_status_show(struct device *dev,
-				struct device_attribute
-				*devattr, char *buf)
-{
-	return sprintf(buf, "%d\n", smb_charger->charger_status);
-}
-
-static ssize_t smb_charger_status_store(struct device *dev,
-			struct device_attribute *devattr,
-			const char *buf, size_t count)
-{
-	int charger_enable = 0;
-	sscanf(buf, "%d", &charger_enable);
-	pm_charger_info("%s: charger_status = %d\n", __func__,
-					smb_charger->charger_status);
-	if (smb_charger && smb_charger->client) {
-		switch (charger_enable) {
-
-		case 0:
-			smb328a_disable_charging(smb_charger->client);
-			break;
-		case 1:
-			smb328a_enable_charging(smb_charger->client);
-			break;
-		default:
-			break;
-		}
-	}
-	return count;
-}
-
-static DEVICE_ATTR(charging_status, S_IRUSR | S_IWUSR, smb_charger_status_show,
-			smb_charger_status_store);
-
-static struct attribute *charger_attributes[] = {
-	&dev_attr_charging_status.attr,
-	NULL
-};
-
-static const struct attribute_group charger_group = {
-	.attrs = charger_attributes,
-};
 #if 0
 static int smb328a_check_charging_status(struct i2c_client *client)
 {
@@ -713,7 +679,7 @@ static void smb328a_ldo_disable(struct i2c_client *client)
 	}
 }
 
-static int smb328a_enable_charging(struct i2c_client *client)
+int smb328a_enable_charging(struct i2c_client *client)
 {
 	int val;
 	u8 data;
@@ -741,7 +707,7 @@ static int smb328a_enable_charging(struct i2c_client *client)
 	return 0;
 }
 
-static int smb328a_disable_charging(struct i2c_client *client)
+int smb328a_disable_charging(struct i2c_client *client)
 {
 	int val;
 	u8 data;
@@ -977,7 +943,6 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct smb328a_chip *chip;
-	int err = 0;
 
 	pm_charger_info("%s\n", __func__);
 
@@ -996,13 +961,7 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 
 	mutex_init(&smb_charger->i2c_mutex_lock);
 	wake_lock_init(&smb_charger->i2c_lock, WAKE_LOCK_SUSPEND, "smb328a_i2c");
-
-	err = sysfs_create_group(&client->dev.kobj, &charger_group);
-	if (err)
-		pm_charger_info("could not allocate sysfs entry\n");
-
-
-   INIT_WORK(&(chip->work), smb328a_work_func);
+	INIT_WORK(&(chip->work), smb328a_work_func);
 
 	chip->chg_mode = CHG_MODE_NONE;
 
@@ -1032,7 +991,6 @@ static int __devexit smb328a_remove(struct i2c_client *client)
 	struct smb328a_chip *chip = i2c_get_clientdata(client);
 
 	mutex_destroy(&smb_charger->i2c_mutex_lock);
-	sysfs_remove_group(&client->dev.kobj, &charger_group);
 
 	kfree(chip);
 	return 0;
