@@ -20,6 +20,7 @@
 
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/ratelimit.h>
 
 #include <linux/gpio.h>
 
@@ -284,9 +285,9 @@ static unsigned char dopctr[] = { 0xB1,
 static unsigned char invctr[] = { 0x36, 0x02 };
 #else
 static unsigned char dopctr[] = { 0xB1,
-		0x4C, 0x04 };
+		0x1C, 0x06 };
 
-static unsigned char invctr[] = { 0x36, 0x02 };
+static unsigned char invctr[] = { 0x36, 0x00 };
 #endif
 
 static unsigned char sdhdtctr[] = { 0xB6, 0x0A };
@@ -397,7 +398,7 @@ static unsigned char raset[] = { 0x2B,
 		0x00, 0x00, 0x03, 0x1F };
 
 /* Normal Display Mode On */
-/*static unsigned char noron[] = { 0x13 };*/
+static unsigned char noron[] = { 0x13 };
 
 #ifdef NT35510_SWITCH_FRAMERATE_40HZ
 static unsigned char dpfrctr1_40hz[] = { 0xBD,
@@ -452,7 +453,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, teon, sizeof(teon)    },
 #endif
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, colmod, sizeof(colmod)	},
-/*	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },*/
+	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  caset,  sizeof(caset) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) },
 	{ MIPI_DSI_DCS_LONG_WRITE, slpout,    sizeof(slpout)   },
@@ -1015,7 +1016,7 @@ static void lcd_esd_detect(struct work_struct *work)
 	/* For the disable entering suspend */
 	mutex_lock(&esd_check_mutex);
 
-	printk(KERN_DEBUG "[LCD] %s\n", __func__);
+	printk_ratelimited(KERN_NOTICE "[LCD] %s\n", __func__);
 
 	/* esd recovery */
 	while ((nt35510_panel_simple_reset()) &&
@@ -1057,7 +1058,7 @@ static void lcd_esd_detect(struct work_struct *work)
 static irqreturn_t lcd_esd_irq_handler(int irq, void *dev_id)
 {
 	if (dev_id == &esd_irq_requested) {
-		printk(KERN_DEBUG "[LCD] %s\n", __func__);
+		printk_ratelimited(KERN_NOTICE "[LCD] %s\n", __func__);
 
 		disable_irq_nosync(esd_detect_irq);
 		queue_work(lcd_wq, &esd_detect_work);
@@ -1389,8 +1390,12 @@ static int nt35510_panel_init(unsigned int mem_size)
 
 	screen_handle =  screen_display_new();
 
+	/*
+	 * Regulators are already turned on by boot loader, so these
+	 * enable calls only correct the initial enable reference count;
+	 * hence no need for delays.
+	 */
 	regulator_enable(power_ldo_1v8);
-	usleep_range(1000, 1000);
 	regulator_enable(power_ldo_3v);
 
 	power_supplied = true;
@@ -1652,7 +1657,9 @@ static int nt35510_panel_resume(void)
 	screen_disp_start_lcd start_lcd;
 	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_delete disp_delete;
-	unsigned char read_data[60];	
+#ifndef CONFIG_RENESAS
+	unsigned char read_data[60];
+#endif
 	int ret = 0;
 	int retry_count = NT35510_INIT_RETRY_COUNT;
 
@@ -1700,6 +1707,7 @@ retry:
 
 	is_dsi_read_enabled = 1;
 
+#ifndef CONFIG_RENESAS
 	/* Read display identification information */
 	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
 	if (ret == 0) {
@@ -1707,6 +1715,7 @@ retry:
 		printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
 		printk(KERN_DEBUG "read_data(RDID3) = %02X\n", read_data[3]);
 	}
+#endif
 
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
