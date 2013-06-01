@@ -2648,7 +2648,7 @@ static void __exit sci_exit(void)
 early_platform_init_buffer("earlyprintk", &sci_driver,
 			   early_serial_buf, ARRAY_SIZE(early_serial_buf));
 #endif
-module_init(sci_init);
+subsys_initcall(sci_init);
 module_exit(sci_exit);
 
 MODULE_LICENSE("GPL");
