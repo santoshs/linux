@@ -65,15 +65,8 @@ void rmu2_modify_register32(unsigned int addr, u32 clear, u32 set)
 }
 
 static struct resource rmu2_rwdt_resources[] = {
-	[0] = {
-		.start = RWDT_BASEPhys,
-		.end = RWDT_BASEPhys + REG_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(RWDT_SPI),	/* RWDT */
-		.flags	= IORESOURCE_IRQ,
-	}
+	[0] = DEFINE_RES_MEM(RWDT_BASEPhys, REG_SIZE),
+	[1] = DEFINE_RES_IRQ(gic_spi(RWDT_SPI))
 };
 
 static struct platform_device rmu2_rwdt_dev = {
@@ -159,7 +152,7 @@ int rmu2_rwdt_cntclear(void)
 	if (NULL == r) {
 		return -ENOMEM;
 	}
-	base = r->start;
+	base = IO_ADDRESS(r->start);
 
 	/* check RWTCSRA wrflg */
 	reg8 = __raw_readb(base + RWTCSRA);
@@ -199,7 +192,7 @@ int rmu2_rwdt_stop(void)
 		__func__, __LINE__, ret);
 		return ret;
 	}
-	base = r->start;
+	base = IO_ADDRESS(r->start);
 
 	cancel_delayed_work_sync(dwork);
 	flush_workqueue(wq);
@@ -391,7 +384,7 @@ static int rmu2_rwdt_start(void)
 		__func__, __LINE__, ret);
 		return ret;
 	}
-	base = r->start;
+	base = IO_ADDRESS(r->start);
 
 	for (;;) {
 		hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
@@ -504,7 +497,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 		__func__, __LINE__, ret);
 		goto clk_get_err;
 	}
-	base = r->start;
+	base = IO_ADDRESS(r->start);
 
 	rmu2_rwdt_clk = clk_get(NULL, "rwdt0");
 	if (true == IS_ERR(rmu2_rwdt_clk)) {
