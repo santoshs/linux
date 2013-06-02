@@ -268,6 +268,9 @@ int vcd_spuv_func_control_power_supply(int effective)
 					goto rtn;
 				}
 			}
+
+			vcd_pr_if_pm_runtime(SPUV_FUNC_PM_RUNTIME_GET_LOG);
+
 		}
 
 		/* clkgen get clock */
@@ -404,6 +407,8 @@ int vcd_spuv_func_control_power_supply(int effective)
 			/* put clock */
 			clk_put(g_spuv_func_clkgen_clk);
 		}
+
+		vcd_pr_if_pm_runtime(SPUV_FUNC_PM_RUNTIME_PUT_LOG);
 
 		/* release power supply */
 		for (loop_count = 0;
