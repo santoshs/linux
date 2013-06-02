@@ -522,6 +522,7 @@ int vcd_execute(const struct vcd_execute_command *args)
 {
 	int ret = VCD_ERR_NONE;
 	int loop_count = 0;
+	int loop_max = ARRAY_SIZE(vcd_func_table);
 
 	/* semaphore start */
 	down(&g_vcd_semaphore);
@@ -537,7 +538,7 @@ int vcd_execute(const struct vcd_execute_command *args)
 	vcd_pr_start_if_user("args->command[%d].\n", args->command);
 
 	/* function switcher */
-	for (loop_count = 0; loop_count < VCD_COMMAND_MAX; loop_count++) {
+	for (loop_count = 0; loop_count < loop_max; loop_count++) {
 		if (vcd_func_table[loop_count].command == args->command) {
 			/* execute private function */
 			ret = vcd_func_table[loop_count].func(args->arg);
@@ -572,6 +573,7 @@ int vcd_execute_test_call(const struct vcd_execute_command *args)
 {
 	int ret = VCD_ERR_NONE;
 	int loop_count = 0;
+	int loop_max = ARRAY_SIZE(vcd_loopback_func_table);
 
 	/* semaphore start */
 	down(&g_vcd_semaphore);
@@ -587,7 +589,7 @@ int vcd_execute_test_call(const struct vcd_execute_command *args)
 	vcd_pr_start_if_user("args->command[%d].\n", args->command);
 
 	/* function switcher */
-	for (loop_count = 0; loop_count < VCD_COMMAND_MAX; loop_count++) {
+	for (loop_count = 0; loop_count < loop_max; loop_count++) {
 		if (vcd_loopback_func_table[loop_count].command
 							== args->command) {
 			/* execute private function */
@@ -945,8 +947,7 @@ static int vcd_set_call_mode(void *arg)
 		goto rtn;
 	}
 
-	if ((VCD_LOOPBACK_MODE_INTERFACE > option.loopback_mode) ||
-		(VCD_LOOPBACK_MODE_DELAY  < option.loopback_mode)) {
+	if (VCD_LOOPBACK_MODE_DELAY  < option.loopback_mode) {
 		vcd_pr_err("parameter error. option.loopback_mode[%d].\n",
 						option.loopback_mode);
 		ret = VCD_ERR_PARAM;
@@ -2648,7 +2649,7 @@ rtn:
 static unsigned int vcd_fops_poll
 (struct file *fp, struct poll_table_struct *wait)
 {
-	unsigned int	retmask = 0;
+	unsigned int retmask = 0;
 
 	vcd_pr_start_interface_function();
 

@@ -148,6 +148,9 @@ source "drivers/devfreq/Kconfig"
 
 source "drivers/sensors/Kconfig"
 
+# for PARAM
+source "drivers/param/Kconfig"
+
 source "drivers/smeco/Kconfig"
 
 source "drivers/thermal/thermal_sensor/Kconfig"

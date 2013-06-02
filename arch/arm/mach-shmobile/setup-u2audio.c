@@ -96,7 +96,8 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 	int debounce_ms;
 
 #if defined(CONFIG_MACH_LOGANLTE)
-	if (RLTE_BOARD_REV_0_1 < u2_board_rev) {
+	if ((RLTE_BOARD_REV_0_1 < u2_board_rev) &&
+		(RLTE_BOARD_REV_0_4 > u2_board_rev)) {
 		d2153_pdata.audio.aad_codec_detect_enable = true;
 		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
 		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
@@ -116,12 +117,13 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 #else
 	return;	/* not supported */
 #endif
-
 	d2153_pdata.audio.aad_jack_debounce_ms = debounce_ms;
 	d2153_pdata.audio.aad_jackout_debounce_ms =
 						D2153_AAD_JACKOUT_DEBOUNCE_MS;
 	d2153_pdata.audio.aad_button_debounce_ms =
 						D2153_AAD_BUTTON_DEBOUNCE_MS;
+	d2153_pdata.audio.aad_button_sleep_debounce_ms =
+					D2153_AAD_BUTTON_SLEEP_DEBOUNCE_MS;
 	d2153_pdata.audio.aad_gpio_detect_enable = true;
 	d2153_pdata.audio.aad_gpio_port = GPIO_PORT7;
 
@@ -158,11 +160,9 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 
 void u2audio_init(unsigned int u2_board_rev)
 {
+#if defined(CONFIG_MACH_LOGANLTE)
 	u8 fm34_device;
-	/**
-	 * @todo check initial value.
-	 */
-	u8 d2153_ear_detect = 0;
+#endif /* CONFIG_MACH_LOGANLTE */
 
 	u2audio_gpio_init();
 
@@ -207,8 +207,6 @@ void u2audio_init(unsigned int u2_board_rev)
 	} else {
 		printk(KERN_ERR "%s Failed proc_mkdir\n", __func__);
 	}
-
-	d2153_pdata.audio.ear_detect_enable = d2153_ear_detect;
 
 #ifndef D2153_DEFAULT_SET_MICBIAS
 	u2audio_codec_micbias_level_init();

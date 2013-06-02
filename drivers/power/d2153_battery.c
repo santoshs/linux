@@ -26,14 +26,14 @@
 #include <linux/delay.h>
 #include <linux/wakelock.h>
 #include <linux/gpio.h>
+#ifdef CONFIG_D2153_HW_TIMER
+#include <linux/irq.h>
+#include <mach/irqs.h>
+#endif
 
-#include <linux/atomic.h>
-#include <mach/r8a7373.h>
 #include <linux/io.h>
 #include <mach/common.h>
 #include <linux/jiffies.h>
-#include <linux/hwspinlock.h>
-#include <linux/kthread.h>
 #include <linux/spa_power.h>
 
 #include "linux/err.h"
@@ -72,7 +72,7 @@ static const char __initdata d2153_battery_banner[] = \
 #define MAX_ADD_DIS_PERCENT_FOR_WEIGHT   	14    // 18 15
 #define MIN_ADD_DIS_PERCENT_FOR_WEIGHT  	(-30)
 
-#define LAST_CHARGING_WEIGHT      			450   // 900
+#define LAST_CHARGING_WEIGHT      			380   // 900
 
 #elif USED_BATTERY_CAPACITY == BAT_CAPACITY_2100MA
 #define ADC_VAL_100_PERCENT            		3645   // About 4280mV 
@@ -134,13 +134,12 @@ static const char __initdata d2153_battery_banner[] = \
 static int  d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channel);
 static int  d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel channel);
 
-/* Static Variable Declaration */
-struct hwspinlock *r8a73734_hwlock_pmic_d2153;
-static wait_queue_head_t d2153_modem_reset_event;
-static struct task_struct *d2153_modem_reset_thread;
-static atomic_t modem_reset_handing = ATOMIC_INIT(0);
-
 static struct d2153_battery *gbat = NULL;
+#ifdef CONFIG_D2153_HW_TIMER
+static struct timeval suspend_time = {0, 0};
+static struct timeval resume_time = {0, 0};
+#endif
+
 static u8  is_called_by_ticker = 0;
 static u16 ACT_4P2V_ADC = 0;
 static u16 ACT_3P4V_ADC = 0;
@@ -160,27 +159,25 @@ static struct adc_cont_in_auto adc_cont_inven[D2153_ADC_CHANNEL_MAX - 1] = {
 	},
 	/* TEMP_1 channel */
 	[D2153_ADC_TEMPERATURE_1] = {
-		.adc_preset_val = D2153_TEMP1_ISRC_EN_BIT,   /* 10uA Current Source enabled */
-		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK 
-							| D2153_TEMP1_ISRC_EN_MASK),   /* 10uA Current Source enabled */
+		.adc_preset_val = D2153_TEMP1_ISRC_EN_MASK,	 
+		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK),
 		.adc_msb_res = D2153_TBAT1_RES_TEMP1_RES_REG,
 		.adc_lsb_res = D2153_ADC_RES_AUTO1_REG,
 		.adc_lsb_mask = ADC_RES_MASK_MSB,
 	},
-	/*  TEMP_2 channel */
+	/*	TEMP_2 channel */
 	[D2153_ADC_TEMPERATURE_2] = {
-		.adc_preset_val =  D2153_TEMP2_ISRC_EN_BIT,   /* 10uA Current Source enabled */
-		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK 
-							| D2153_TEMP2_ISRC_EN_MASK),   /* 10uA Current source enabled */
+		.adc_preset_val =  D2153_TEMP2_ISRC_EN_MASK,
+		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK),
 		.adc_msb_res = D2153_TBAT2_RES_TEMP2_RES_REG,
 		.adc_lsb_res = D2153_ADC_RES_AUTO3_REG,
 		.adc_lsb_mask = ADC_RES_MASK_LSB,
 	},
 	/* VF channel */
 	[D2153_ADC_VF] = {
-		.adc_preset_val = D2153_AUTO_VF_EN_BIT,      /* 10uA Current Source enabled */
+		.adc_preset_val = D2153_AD4_ISRC_ENVF_ISRC_EN_MASK,
 		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK 
-							| D2153_AD4_ISRC_ENVF_ISRC_EN_MASK | D2153_AUTO_VF_EN_MASK),
+							| D2153_AUTO_VF_EN_MASK),
 		.adc_msb_res = D2153_ADCIN4_RES_VF_RES_REG,
 		.adc_lsb_res = D2153_ADC_RES_AUTO2_REG,
 		.adc_lsb_mask = ADC_RES_MASK_LSB,
@@ -189,7 +186,7 @@ static struct adc_cont_in_auto adc_cont_inven[D2153_ADC_CHANNEL_MAX - 1] = {
 	[D2153_ADC_AIN] = {
 		.adc_preset_val = 0,
 		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK
-							| D2153_AD4_ISRC_ENVF_ISRC_EN_MASK),
+							| D2153_AUTO_AIN_EN_MASK),
 		.adc_msb_res = D2153_ADCIN5_RES_AIN_RES_REG,
 		.adc_lsb_res = D2153_ADC_RES_AUTO2_REG,
 		.adc_lsb_mask = ADC_RES_MASK_MSB
@@ -242,7 +239,7 @@ static struct adc2soc_lookuptbl adc2soc_lut = {
 };
 
 //Discharging Weight(Room/Low/low low)          //     0,    1,     3,    5,    7,   10,   20,   30,   40,   50,   60,   70,   80,   90,  100
-static u16 adc_weight_section_discharge[]       = {14100, 9100,  7585, 2418, 1025,  375,  101,   98,  142,  356,  355,  514,  769, 1228, 2495};
+static u16 adc_weight_section_discharge[]       = {14100, 9100,  7585, 2418, 1235,  375,  101,   98,  142,  356,  355,  514,  769, 1228, 2495};
 static u16 adc_weight_section_discharge_rlt[]   = {14100, 9100,  8985, 1585,  525,  352,  132,  119,  165,  375,  355,  514,  769, 1228, 2495};
 static u16 adc_weight_section_discharge_lt[]    = {14100, 9100,  8985, 1585,  525,  352,  132,  119,  165,  375,  355,  514,  769, 1228, 2495};
 static u16 adc_weight_section_discharge_lmt[]   = {14100, 9100,  8985, 1585,  525,  352,  132,  119,  165,  375,  355,  514,  769, 1228, 2495};
@@ -558,251 +555,6 @@ static ssize_t d2153_battery_attrs_show(struct device *pdev,
 
 
 /*
- * d2153_get_hw_sem_timeout() - lock an hwspinlock with timeout limit
- * @hwlock: the hwspinlock to be locked
- * @timeout: timeout value in msecs
- */
-static int d2153_get_hwsem_timeout(struct hwspinlock *hwlock,
-		unsigned int time_out)
-{
-	int ret;
-	unsigned long expire;
-
-	expire = msecs_to_jiffies(time_out) + jiffies;
-
-	for (;;) {
-		/* Try to take the hwspinlock */
-		ret = hwspin_trylock_nospin(hwlock);
-		if (ret == 0)
-			break;
-
-		/*
-		 * The lock is already taken, try again
-		 */
-		if (time_is_before_eq_jiffies(expire))
-			return -ETIMEDOUT;
-
-		/*
-		 * Wait 1 millisecond for another round
-		 */
-		mdelay(1);
-	}
-
-	return ret;
-}
-
-/*
- * d2153_force_release_hwsem() - force to release hw semaphore
- * @hwsem_id: Hardware semaphore ID
-		0x01: AP Realtime side
- *		0x40: AP System side
- *		0x93: Baseband side
- * return: void
- */
-static void d2153_force_release_hwsem(u8 hwsem_id)
-{
-	void *ptr;
-	u32 value = 0;
-	unsigned long expire = msecs_to_jiffies(5) + jiffies;
-
-	/*Check input hwsem_id*/
-	switch (hwsem_id) {
-		case RT_CPU_SIDE:
-		case SYS_CPU_SIDE:
-		case BB_CPU_SIDE:
-			break;
-		default:
-			return;
-	}
-
-	ptr = ioremap(0xe6001830, 4);
-	value = ioread32(ptr);
-	iounmap(ptr);
-
-	dlg_info("%s: ID (0x%x) is using HW semaphore\n", \
-			__func__, value >> 24);
-
-	if ((value >> 24) != hwsem_id)
-		return;
-
-	/*enable master access*/
-	ptr = ioremap(0xE6001604, 4);
-	for (;;) {
-
-		/* Try to enable master access */
-		iowrite32(0xC0000000, ptr);
-		value = ioread32(ptr);
-		if (value == 0xC0000000) {
-			iounmap(ptr);
-			break;
-		}
-
-		/*
-		 * Cannot enable master access, try again
-		 */
-		if (time_is_before_eq_jiffies(expire)) {
-			iounmap(ptr);
-			return;
-		}
-
-		/*
-		 * Wait 50 nanosecond for another round
-		 */
-		ndelay(50);
-	}
-
-	/*Force clear HW sem*/
-	expire = msecs_to_jiffies(5) + jiffies;
-
-	ptr = ioremap(0xe6001830, 4);
-	for (;;) {
-		/* Try to force clear HW sem */
-		iowrite32(0, ptr);
-		value = ioread32(ptr);
-		if (value == 0x0) {
-			iounmap(ptr);
-			dlg_err("%s: Force to release HW sem from ID 0x%x) successful\n",
-				__func__, hwsem_id);
-			break;
-		}
-
-		/*
-		 * Cannot force clear HW sem, try again
-		 */
-		if (time_is_before_eq_jiffies(expire)) {
-			iounmap(ptr);
-			dlg_err(
-				"%s: Fail to release HW sem from ID (0x%x)\n",
-					__func__, hwsem_id);
-			break;
-		}
-
-		/*
-		 * Wait 50 nanosecond for another round
-		 */
-		ndelay(50);
-	}
-
-	/*Disable master access*/
-	expire = msecs_to_jiffies(5) + jiffies;
-	ptr = ioremap(0xE6001604, 4);
-	for (;;) {
-		/* Try to disable master access */
-		iowrite32(0, ptr);
-		value = ioread32(ptr);
-		if (value == 0x0) {
-			iounmap(ptr);
-			break;
-		}
-
-		/*
-		 * Cannot disable master access, try again
-		 */
-		if (time_is_before_eq_jiffies(expire)) {
-			iounmap(ptr);
-			return;
-		}
-
-		/*
-		 * Wait 50 nanosecond for another round
-		 */
-		ndelay(50);
-	}
-}
-
-/*
- * d2153_force_release_swsem() - force to release sw semaphore
- * @swsem_id: Software semaphore ID
-		0x01: AP Realtime side
- *		0x40: AP System side
- *		0x93: Baseband side
- * return: void
- */
-static void d2153_force_release_swsem(u8 swsem_id)
-{
-	u32 lock_id;
-	unsigned long expire = msecs_to_jiffies(10) + jiffies;
-
-	/*Check input swsem_id*/
-	switch (swsem_id) {
-	case RT_CPU_SIDE:
-	case SYS_CPU_SIDE:
-	case BB_CPU_SIDE:
-		break;
-	default:
-		return;
-	}
-
-	/* Check which CPU (Real time or Baseband or System) is using SW sem*/
-	lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic_d2153);
-
-	dlg_info("%s: ID (0x%x) is using SW semaphore\n", \
-				__func__, lock_id);
-
-	if (lock_id != swsem_id)
-		return;
-
-	for (;;) {
-		/* Try to force to unlock SW sem*/
-		hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
-		lock_id = hwspin_get_lock_id_nospin(r8a73734_hwlock_pmic_d2153);
-		if (lock_id == 0) {
-			dlg_err(
-		"%s: Forcing to release SW sem from ID (0x%x) is successful\n",
-				__func__, swsem_id);
-			break;
-		}
-
-		/*
-		 * Cannot force to unlock SW sem, try again
-		 */
-		if (time_is_before_eq_jiffies(expire)) {
-			dlg_err(
-				"%s: Fail to release HW sem from ID (0x%x)\n",
-					__func__, swsem_id);
-			return;
-		}
-
-		/*
-		 * Wait 100 nanosecond for another round
-		 */
-		ndelay(100);
-	}
-
-}
-
-/*
- * d2153_handle_modem_reset: Handle modem reset
- * return: void
- */
-void d2153_handle_modem_reset(void)
-{
-	atomic_set(&modem_reset_handing, 1);
-	wake_up_interruptible(&d2153_modem_reset_event);
-}
-EXPORT_SYMBOL(d2153_handle_modem_reset);
-
-
-/*
- * d2153_modem_thread: start thread to handle modem reset
- * @ptr:
- * return: 0
- */
-static int d2153_modem_thread(void *ptr)
-{
-	while (!kthread_should_stop()) {
-		wait_event_interruptible(d2153_modem_reset_event,
-					atomic_read(&modem_reset_handing));
-
-		d2153_force_release_hwsem(BB_CPU_SIDE);
-		d2153_force_release_swsem(BB_CPU_SIDE);
-
-		atomic_set(&modem_reset_handing, 0);
-	}
-	return 0;
-}
-
-/* 
  * Name : chk_lut
  *
  */
@@ -1057,8 +809,9 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 		pr_err("%s. Invalid parameter. \n", __func__);
 		return -EINVAL;
 	}
-
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 	pr_info("%s. Getting SOC\n", __func__);
+#endif
 
 	pbat_data = &pbat->battery_data;
 
@@ -1081,6 +834,9 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 			pbat_data->soc = FULL_CAPACITY;
 		}
 	}
+#ifdef CONFIG_D2153_BATTERY_DEBUG
+	pr_info("%s. 0. SOC = %d\n", __func__, soc);
+#endif
 
 	pr_info("%s. 0. SOC = %d\n", __func__, soc);
 
@@ -1271,15 +1027,15 @@ static int d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channe
 		pr_err("%s. Invalid channel(%d) in auto mode\n", __func__, channel);
 		return -EINVAL;
 	}
-
-	ret = d2153_get_hwsem_timeout(r8a73734_hwlock_pmic_d2153, CONST_HPB_WAIT);
 	
+	mutex_lock(&pbat->meoc_lock);
+
+	ret = d2153_get_adc_hwsem();
 	if (ret < 0) {
+			mutex_unlock(&pbat->meoc_lock);
 			pr_err("%s:lock is already taken.\n", __func__);
 			return -EBUSY;
 	}
-	
-	mutex_lock(&pbat->meoc_lock);
 
 	pbat_data->adc_res[channel].is_adc_eoc = FALSE;
 	pbat_data->adc_res[channel].read_adc = 0;
@@ -1312,10 +1068,9 @@ static int d2153_read_adc_in_auto(struct d2153_battery *pbat, adc_channel channe
 			(adc_cont_inven[channel].adc_lsb_mask == ADC_RES_MASK_MSB ? 4 : 0)));
 
 out:
+	d2153_put_adc_hwsem();
 	mutex_unlock(&pbat->meoc_lock);
-	
-	hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
-	
+
 	return ret;
 }
 
@@ -1329,16 +1084,16 @@ static int d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel chan
 	int ret, retries = D2153_MANUAL_READ_RETRIES;
 	struct d2153_battery_data *pbat_data = &pbat->battery_data;
 	struct d2153 *d2153 = pbat->pd2153;
-
-	ret = d2153_get_hwsem_timeout(r8a73734_hwlock_pmic_d2153, CONST_HPB_WAIT);
 	
+	mutex_lock(&pbat->meoc_lock);
+
+	ret = d2153_get_adc_hwsem();
 	if (ret < 0) {
+			mutex_unlock(&pbat->meoc_lock);
 			pr_err("%s:lock is already taken.\n", __func__);
 			return -EBUSY;
 	}
 	
-	mutex_lock(&pbat->meoc_lock);
-
 	pbat_data->adc_res[channel].is_adc_eoc = FALSE;
 	pbat_data->adc_res[channel].read_adc = 0;
 
@@ -1373,15 +1128,14 @@ static int d2153_read_adc_in_manual(struct d2153_battery *pbat, adc_channel chan
 		flag = pbat_data->adc_res[channel].is_adc_eoc;
 	} while(retries-- && (flag == FALSE));
 
+out:
+	d2153_put_adc_hwsem();
+	mutex_unlock(&pbat->meoc_lock);
+	
 	if(flag == FALSE) {
 		pr_warn("%s. Failed manual ADC conversion. channel(%d)\n", __func__, channel);
 		ret = -EIO;
 	}
-
-out:
-	mutex_unlock(&pbat->meoc_lock);
-	
-	hwspin_unlock_nospin(r8a73734_hwlock_pmic_d2153);
 	
 	return ret;    
 }
@@ -1392,7 +1146,7 @@ out:
 static int d2153_get_calibration_offset(int voltage, int y1, int y0)
 {
 	int x1 = D2153_CAL_HIGH_VOLT, x0 = D2153_CAL_LOW_VOLT;
-	int x = voltage, y;
+	int x = voltage, y = 0;
 
 	y = y0 + ((x-x0)*y1 - (x-x0)*y0) / (x1-x0);
 
@@ -1528,15 +1282,34 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 	int charging_index = 0;
 #ifdef CONFIG_CHARGER_SMB328A
 	int charging_status;
+#ifdef CONFIG_D2153_EOC_CTRL
+	struct power_supply *ps_bat = NULL;
+	union power_supply_propval value;
+
+	ps_bat = power_supply_get_by_name("battery");
+	if(ps_bat == NULL) {
+		pr_err("%s. Failed a battery supply instance\n", __func__);
+		return -EINVAL;
+	}
+	ps_bat->get_property(ps_bat, POWER_SUPPLY_PROP_STATUS, &value);
+#endif
 #endif
 
 #ifdef CONFIG_CHARGER_SMB328A
 	charging_status = smb328a_check_charging_status();
-	if(charging_status)
+	if(charging_status) {
 		pbat_data->is_charging = 1;
-	else
+#ifdef CONFIG_D2153_EOC_CTRL
+		if(pbat_data->charger_ctrl_status == D2153_BAT_CHG_MAX)
+			pbat_data->charger_ctrl_status = D2153_BAT_CHG_START;
+#endif /* CONFIG_D2153_EOC_CTRL */
+	} else {
 		pbat_data->is_charging = 0;
-	pr_info("## %s. is_charging = %d\n", __func__, pbat_data->is_charging);
+#ifdef CONFIG_D2153_EOC_CTRL
+		if(value.intval != POWER_SUPPLY_STATUS_FULL)
+			pbat_data->charger_ctrl_status = D2153_BAT_CHG_MAX;
+#endif /* CONFIG_D2153_EOC_CTRL */
+	}
 #endif
 
 	// Read voltage ADC
@@ -1625,9 +1398,10 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 
 					base_weight = base_weight 
 						+ (base_weight*MIN_ADD_DIS_PERCENT_FOR_WEIGHT)/100;
-
+#if defined(CONFIG_D2153_BATTERY_DEBUG)
 					pr_info("Charging. Recalculated base_weight = %d, new_vol_adc = %d\n",
 								base_weight, new_vol_adc);
+#endif
 				
 					pbat_data->sum_total_adc -= (offset_with_new * base_weight);
 				
@@ -1639,8 +1413,9 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 					} else {
 						new_vol_adc = pbat_data->average_volt_adc;
 					}
+#if defined(CONFIG_D2153_BATTERY_DEBUG)
 					pr_info("Charging. Recalculated new_vol_adc = %d\n", new_vol_adc);
-
+#endif
 				}
 #endif /* !CONFIG_D2153_SOC_GO_DOWN_IN_CHG */
 
@@ -1761,7 +1536,9 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 						pbat_data->voltage_adc[pbat_data->voltage_idx] = new_vol_adc;
 						pbat_data->voltage_idx = (pbat_data->voltage_idx+1) % AVG_SIZE;
 					}
+#ifndef CONFIG_D2153_HW_TIMER
 					is_called_by_ticker=0;
+#endif
 				}
 			}
 		} else {
@@ -1961,11 +1738,13 @@ int d2153_get_rf_temperature(void)
 		pbat_data->current_rf_temp_adc = (sum_temp_adc / j);
 		pbat_data->current_rf_temperature =
 		degree_k2c(adc_to_degree_k(pbat_data->current_rf_temp_adc));
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 		pr_info("%s. RF_TEMP_ADC = %d, RF_TEMPERATURE = %3d.%d\n",
 				__func__,
 				pbat_data->current_rf_temp_adc,
 				(pbat_data->current_rf_temperature/10),
 				(pbat_data->current_rf_temperature%10));
+#endif
 		return pbat_data->current_rf_temperature;
 	} else {
 		pr_err("%s:ERROR in reading RF temperature.\n", __func__);
@@ -2014,7 +1793,9 @@ int d2153_battery_read_status(int type)
 				return val;
 			if(pbat->battery_data.adc_res[ch].is_adc_eoc) {
 				val = adc_to_vbat(pbat->battery_data.adc_res[ch].read_adc, 0);
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 				printk("%s: read adc to bat value = %d\n",__func__, val);
+#endif
 			} else {
 				val = -EINVAL;
 			}
@@ -2031,8 +1812,13 @@ int d2153_battery_read_status(int type)
 
 		case D2153_BATTERY_SLEEP_MONITOR:
 			is_called_by_ticker = 1;
+#ifdef CONFIG_D2153_HW_TIMER
+			do_gettimeofday(&suspend_time);
+			wake_lock(&pbat->battery_data.sleep_monitor_wakeup);
+#else
 			wake_lock_timeout(&pbat->battery_data.sleep_monitor_wakeup,
 									D2153_SLEEP_MONITOR_WAKELOCK_TIME);
+#endif
 			cancel_delayed_work_sync(&pbat->monitor_temp_work);
 			cancel_delayed_work_sync(&pbat->monitor_volt_work);
 			schedule_delayed_work(&pbat->monitor_temp_work, 0);
@@ -2064,19 +1850,15 @@ int d2153_battery_set_status(int type, int status)
 		case D2153_STATUS_CHARGING :
 			/* Discharging = 0, Charging = 1 */
 			pbat->battery_data.is_charging = status;
-#ifdef CONFIG_D2153_EOC_CTRL
-			if(pbat->battery_data.is_charging == D2153_BATTERY_STATUS_CHARGING) {
-				pbat->battery_data.charger_ctrl_status = D2153_BAT_CHG_START;
-			} else {
-				pbat->battery_data.charger_ctrl_status = D2153_BAT_CHG_MAX;
-			}
-#endif
 			break;
 		case D2153_RESET_SW_FG :
 			/* Reset SW fuel gauge */
 			cancel_delayed_work_sync(&pbat->monitor_volt_work);	
 			val = d2153_reset_sw_fuelgauge(pbat);
 			schedule_delayed_work(&gbat->monitor_volt_work, 0);
+			break;
+		case D2153_STATUS_EOC_CTRL:
+			pbat->battery_data.charger_ctrl_status = status;
 			break;
 		default :
 			return -EINVAL;
@@ -2109,9 +1891,7 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 		return;
 	}
 
-	mutex_lock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	ret = d2153_read_voltage(pbat,ps);
-	mutex_unlock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	if(ret < 0)
 	{
 		pr_err("%s. Read voltage ADC failure\n", __func__);
@@ -2123,50 +1903,53 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 	}
 	else {
 #ifdef CONFIG_D2153_EOC_CTRL
-		if(pbat_data->volt_adc_init_done && pbat_data->is_charging) {
-			struct power_supply *ps;
-			union power_supply_propval value;
-
-			ps = power_supply_get_by_name("battery");
-			if(ps == NULL) {
-				pr_err("%s. Failed a battery supply instance\n", __func__);
-				goto err_adc_read;
-			}
-
-			ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
-			if( value.intval == POWER_SUPPLY_STATUS_FULL) {
-				if(((pbat_data->charger_ctrl_status == D2153_BAT_RECHG_FULL)
-					||(pbat_data->charger_ctrl_status == D2153_BAT_CHG_BACKCHG_FULL))
-					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
-					spa_event_handler(SPA_EVT_EOC, 0);
-					pbat_data->charger_ctrl_status = D2153_BAT_RECHG_FULL;
-					pr_info("%s. Recharging Done.(4) full > discharge > Recharge\n", __func__);
+				if(pbat_data->volt_adc_init_done && pbat_data->is_charging) {
+					struct power_supply *ps;
+					union power_supply_propval value;
+		
+					ps = power_supply_get_by_name("battery");
+					if(ps == NULL) {
+						pr_err("%s. Failed a battery supply instance\n", __func__);
+						goto err_adc_read;
+					}
+		
+					pr_info("%s. Battery PROP_STATUS = %d\n", __func__, value.intval);
+		
+					ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
+					if( value.intval == POWER_SUPPLY_STATUS_FULL) {
+						if(((pbat_data->charger_ctrl_status == D2153_BAT_RECHG_FULL)
+							|| (pbat_data->charger_ctrl_status == D2153_BAT_CHG_BACKCHG_FULL))
+							&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
+							spa_event_handler(SPA_EVT_EOC, 0);
+							pbat_data->charger_ctrl_status = D2153_BAT_RECHG_FULL;
+							pr_info("%s. Recharging Done.(3) 2nd full > discharge > Recharge\n", __func__);
+						} else if((pbat_data->charger_ctrl_status == D2153_BAT_CHG_FRST_FULL)
+									&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
+							pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
+							spa_event_handler(SPA_EVT_EOC, 0);
+							pr_info("%s. Recharging Done.(4) 1st full > 2nd full\n", __func__);
+						}
+					} else {
+						// Will stop charging when a voltage approach to first full charge level.
+						if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
+							&& (pbat_data->average_voltage >= D2153_BAT_CHG_FRST_FULL_LVL)) {
+							spa_event_handler(SPA_EVT_EOC, 0);
+							pbat_data->charger_ctrl_status = D2153_BAT_CHG_FRST_FULL;
+							pr_info("%s. First charge done.(1)\n", __func__);
+						} else if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
+							&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
+							spa_event_handler(SPA_EVT_EOC, 0);
+							spa_event_handler(SPA_EVT_EOC, 0);
+							pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
+							pr_info("%s. Fully charged.(2)(Back-charging done)\n", __func__);
+						}
+					}
 				}
-			} else {
-				// Will stop charging when a voltage approach to first full charge level.
-				if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_BACKCHG_FULL) 
-					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
-					spa_event_handler(SPA_EVT_EOC, 0);
-					pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
-					pr_info("%s. Fully charged.(1)(Back-charging done)\n", __func__);
-				} else if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
-					&& (pbat_data->average_voltage >= D2153_BAT_CHG_FRST_FULL_LVL)) {
-					spa_event_handler(SPA_EVT_EOC, 0);
-					pbat_data->charger_ctrl_status = D2153_BAT_CHG_FRST_FULL;
-					pr_info("%s. First charge dond.(2)\n", __func__);
-				} else if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
-					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
-					spa_event_handler(SPA_EVT_EOC, 0);
-					spa_event_handler(SPA_EVT_EOC, 0);
-					pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
-					pr_info("%s. Fully charged.(3)(Back-charging done)\n", __func__);
-				}
-			}
-		}
 #endif
 		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_FAST);
 	}
 
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 	pr_info("# SOC = %3d.%d %%, ADC(read) = %4d, ADC(avg) = %4d, Voltage(avg) = %4d mV, ADC(VF) = %4d\n",
 				(pbat->battery_data.soc/10),
 				(pbat->battery_data.soc%10),
@@ -2175,6 +1958,13 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 				pbat->battery_data.average_voltage,
 				pbat->battery_data.vf_adc);
 
+#endif
+#ifdef CONFIG_D2153_HW_TIMER
+	if(is_called_by_ticker ==1) {
+		is_called_by_ticker=0;
+		wake_unlock(&gbat->battery_data.sleep_monitor_wakeup);
+	}
+#endif
 	return;
 
 err_adc_read:
@@ -2188,9 +1978,7 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
 	struct d2153_battery *pbat = container_of(work, struct d2153_battery, monitor_temp_work.work);
 	int ret;
 
-	mutex_lock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	ret = d2153_read_temperature(pbat);
-	mutex_unlock(&pbat->pd2153->d2153_audio_ldo_mutex);
 	if(ret < 0) {
 		pr_err("%s. Failed to read_temperature\n", __func__);
 		schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_FAST);
@@ -2204,11 +1992,12 @@ static void d2153_monitor_temperature_work(struct work_struct *work)
 		schedule_delayed_work(&pbat->monitor_temp_work, D2153_TEMPERATURE_MONITOR_FAST);
 	}
 
+#ifdef CONFIG_D2153_BATTERY_DEBUG
 	pr_info("# TEMP_BOARD(ADC) = %4d, Board Temperauter(Celsius) = %3d.%d\n",
 				pbat->battery_data.average_temp_adc,
 				(pbat->battery_data.average_temperature/10),
 				(pbat->battery_data.average_temperature%10));
-
+#endif
 	return ;
 }
 
@@ -2251,6 +2040,170 @@ static void d2153_battery_data_init(struct d2153_battery *pbat)
 	return;
 }
 
+#ifdef CONFIG_D2153_HW_TIMER
+#define CMSTR17				IO_ADDRESS(0xE6130700U)
+#define CMCSR17				IO_ADDRESS(0xE6130710U)
+#define CMCNT17				IO_ADDRESS(0xE6130714U)
+#define CMCOR17				IO_ADDRESS(0xE6130718U)
+#define CMT17_SPI			100U
+
+#define ICD_ISR0 0xF0001080
+#define ICD_IPTR0 0xf0001800
+
+static DEFINE_SPINLOCK(cmt_lock);
+#define CONFIG_D2153_BAT_CMT_OVF 60*5
+
+#define CMT_OVF		((256*CONFIG_D2153_BAT_CMT_OVF) - 2)
+
+static inline u32 dec2hex(u32 dec)
+{
+	return dec;
+}
+
+
+/*
+ * rmu2_cmt_start: start CMT
+ * input: none
+ * output: none
+ * return: none
+ */
+static void d2153_battery_cmt_start(void)
+{
+	unsigned long flags, wrflg, i = 0;
+
+	printk(KERN_INFO "START < %s >\n", __func__);
+	dlg_info("< %s >CMCLKE=%08x\n", __func__, __raw_readl(CMCLKE));
+	dlg_info("< %s >CMSTR17=%08x\n", __func__, __raw_readl(CMSTR17));
+	dlg_info("< %s >CMCSR17=%08x\n", __func__, __raw_readl(CMCSR17));
+	dlg_info("< %s >CMCNT17=%08x\n", __func__, __raw_readl(CMCNT17));
+	dlg_info("< %s >CMCOR17=%08x\n", __func__, __raw_readl(CMCOR17));
+
+	spin_lock_irqsave(&cmt_lock, flags);
+	__raw_writel(__raw_readl(CMCLKE) | (1<<7), CMCLKE);
+	spin_unlock_irqrestore(&cmt_lock, flags);
+
+	mdelay(8);
+
+	__raw_writel(0, CMSTR17);
+	__raw_writel(0U, CMCNT17);
+	__raw_writel(0x000000a6U, CMCSR17);	/* Int enable */
+	__raw_writel(dec2hex(CMT_OVF), CMCOR17);
+
+	do {
+		wrflg = ((__raw_readl(CMCSR17) >> 13) & 0x1);
+		i++;
+	} while (wrflg != 0x00 && i < 0xffffffff);
+
+	__raw_writel(1, CMSTR17);
+
+	dlg_info("< %s >CMCLKE=%08x\n", __func__, __raw_readl(CMCLKE));
+	dlg_info("< %s >CMSTR17=%08x\n", __func__, __raw_readl(CMSTR17));
+	dlg_info("< %s >CMCSR17=%08x\n", __func__, __raw_readl(CMCSR17));
+	dlg_info("< %s >CMCNT17=%08x\n", __func__, __raw_readl(CMCNT17));
+	dlg_info("< %s >CMCOR17=%08x\n", __func__, __raw_readl(CMCOR17));
+}
+
+/*
+ * rmu2_cmt_stop: stop CMT
+ * input: none
+ * output: none
+ * return: none
+ */
+void d2153_battery_cmt_stop(void)
+{
+	unsigned long flags, wrflg, i = 0;
+
+	printk(KERN_INFO "START < %s >\n", __func__);
+	__raw_readl(CMCSR17);
+	__raw_writel(0x00000186U, CMCSR17);	/* Int disable */
+	__raw_writel(0U, CMCNT17);
+	__raw_writel(0, CMSTR17);
+
+	do {
+		wrflg = ((__raw_readl(CMCSR17) >> 13) & 0x1);
+		i++;
+	} while (wrflg != 0x00 && i < 0xffffffff);
+
+	mdelay(12);
+	spin_lock_irqsave(&cmt_lock, flags);
+	__raw_writel(__raw_readl(CMCLKE) & ~(1<<7), CMCLKE);
+	spin_unlock_irqrestore(&cmt_lock, flags);
+}
+
+#if 0
+/*
+ * rmu2_cmt_clear: CMT counter clear
+ * input: none
+ * output: none
+ * return: none
+ */
+static void d2153_battery_cmt_clear(void)
+{
+
+	int wrflg, i = 0;
+	printk(KERN_INFO "START < %s >\n", __func__);
+	__raw_writel(0, CMSTR17);	/* Stop counting */
+
+	__raw_writel(0U, CMCNT17);	/* Clear the count value */
+
+	do {
+		wrflg = ((__raw_readl(CMCSR17) >> 13) & 0x1);
+		i++;
+	} while (wrflg != 0x00 && i < 0xffffffff);
+	__raw_writel(1, CMSTR17);	/* Enable counting again */
+}
+#endif
+
+/*
+ * rmu2_cmt_irq: IRQ handler for CMT
+ * input:
+ *		@irq: interrupt number
+ *		@dev_id: device ID
+ * output: none
+ * return:
+ *		IRQ_HANDLED: irq handled
+ */
+static irqreturn_t d2153_battery_cmt_irq(int irq, void *dev_id)
+{
+	unsigned int reg_val = __raw_readl(CMCSR17);
+
+	reg_val &= ~0x0000c000U;
+	__raw_writel(reg_val, CMCSR17);
+
+	printk(KERN_ERR "d2153_battery_cmt_irq!!!!!!!!!!!!!!!!!!..");
+
+	d2153_battery_read_status(D2153_BATTERY_SLEEP_MONITOR);
+
+	return IRQ_HANDLED;
+}
+
+/*
+ * rmu2_cmt_init_irq: IRQ initialization handler for CMT
+ * input: none
+ * output: none
+ * return: none
+ */
+static void d2153_battery_cmt_init_irq(void)
+{
+	int ret;
+	unsigned int irq;
+
+	pr_info(" < %s >\n", __func__);
+
+	irq = gic_spi(CMT17_SPI);
+	set_irq_flags(irq, IRQF_VALID);
+	ret = request_threaded_irq(irq, NULL, d2153_battery_cmt_irq, IRQF_ONESHOT,
+				"CMT17_RWDT0", (void *)irq);
+	if (0 > ret) {
+		pr_err("%s:%d request_irq failed err=%d\n",
+				__func__, __LINE__, ret);
+		free_irq(irq, (void *)irq);
+		return;
+	}
+
+	enable_irq_wake(irq);
+}
+#endif /* CONFIG_D2153_HW_TIMER */
 
 /* 
  * Name : d2153_battery_probe
@@ -2259,7 +2212,7 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 {
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_battery *pbat = &d2153->batt;
-	int ret, i;
+	int i;
 
 	pr_info("Start %s\n", __func__);
 
@@ -2268,12 +2221,6 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	r8a73734_hwlock_pmic_d2153 = hwspin_lock_request_specific(SMGP000);
-	if (r8a73734_hwlock_pmic_d2153 == NULL) {
-		pr_err("%s Unable to register hw spinlock for pmic driver\n",__func__);
-		return -EIO;
-	}
-	
 	gbat = pbat;
 	pbat->pd2153 = d2153;
 
@@ -2298,16 +2245,6 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, 1);
 
-	/* Init thread to handle modem reset */
-	init_waitqueue_head(&d2153_modem_reset_event);
-	d2153_modem_reset_thread = kthread_run(d2153_modem_thread,
-					NULL, "d2153_modem_reset_thread");
-	if (NULL == d2153_modem_reset_thread) {
-		ret = -ENOMEM;
-		dlg_err("%s:%d d2153_modem_reset_thread failed\n",\
-				__func__, __LINE__);
-		goto err_default;
-	}
 
 #ifdef CONFIG_D2153_DEBUG_FEATURE
 	for (i = 0; i < D2153_PROP_MAX ; i++) {
@@ -2315,13 +2252,12 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 	}
 #endif
 
+#ifdef CONFIG_D2153_HW_TIMER
+	d2153_battery_cmt_init_irq();
+#endif
+	
+	pr_info("%s. End...\n", __func__);
 	return 0;
-
-err_default:
-	kfree(pbat);
-
-	return ret;
-
 }
 
 
@@ -2343,6 +2279,15 @@ static int d2153_battery_suspend(struct platform_device *pdev, pm_message_t stat
 	cancel_delayed_work_sync(&pbat->monitor_temp_work);
 	cancel_delayed_work_sync(&pbat->monitor_volt_work);
 
+
+#ifdef CONFIG_D2153_HW_TIMER
+	if(suspend_time.tv_sec == 0) {
+		do_gettimeofday(&suspend_time);
+		pr_info("##### suspend_time = %ld\n", suspend_time.tv_sec);
+	}
+
+	d2153_battery_cmt_start();
+#endif /* CONFIG_D2153_HW_TIMER */
 	pr_info("%s. Leave\n", __func__);
 
 	return 0;
@@ -2356,6 +2301,10 @@ static int d2153_battery_resume(struct platform_device *pdev)
 {
 	struct d2153_battery *pbat = platform_get_drvdata(pdev);
 	struct d2153 *d2153 = pbat->pd2153;
+#ifdef CONFIG_D2153_HW_TIMER
+	u8 do_sampling = 0;
+	unsigned long monitor_work_start = 0;
+#endif
 
 	pr_info("%s. Enter\n", __func__);
 
@@ -2364,10 +2313,37 @@ static int d2153_battery_resume(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+#ifdef CONFIG_D2153_HW_TIMER
+	d2153_battery_cmt_stop();
+#endif
 	// Start schedule of dealyed work for monitoring voltage and temperature.
 	if(!is_called_by_ticker) {
+#ifdef CONFIG_D2153_HW_TIMER
+		do_gettimeofday(&resume_time);
+
+		pr_info("##### suspend_time = %ld, resume_time = %ld\n",
+					suspend_time.tv_sec, resume_time.tv_sec);
+		if((resume_time.tv_sec - suspend_time.tv_sec) > 10) {
+			memset(&suspend_time, 0, sizeof(struct timeval));
+			do_sampling = 1;
+			pr_info("###### Sampling voltage & temperature ADC\n");
+		}
+
+		if(do_sampling) {
+			monitor_work_start = 0;
+
+			wake_lock_timeout(&pbat->battery_data.sleep_monitor_wakeup,
+										D2153_SLEEP_MONITOR_WAKELOCK_TIME);
+		}
+		else {
+			monitor_work_start = 1 * HZ;
+		}
+		schedule_delayed_work(&pbat->monitor_temp_work, monitor_work_start);
+		schedule_delayed_work(&pbat->monitor_volt_work, monitor_work_start);
+#else
 		schedule_delayed_work(&pbat->monitor_temp_work, 0);
 		schedule_delayed_work(&pbat->monitor_volt_work, 0);
+#endif
 	}
 
 	pr_info("%s. Leave\n", __func__);
@@ -2404,7 +2380,7 @@ static __devexit int d2153_battery_remove(struct platform_device *pdev)
 	d2153_free_irq(d2153, D2153_IRQ_ETBAT2);
 #endif /* D2153_REG_TBAT2_IRQ */
 
-	hwspin_lock_free(r8a73734_hwlock_pmic_d2153);
+	d2153_put_adc_hwsem();
 
 #ifdef CONFIG_D2153_DEBUG_FEATURE
 	for (i = 0; i < D2153_PROP_MAX ; i++) {

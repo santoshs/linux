@@ -119,10 +119,10 @@ struct brt_value brt_table_ktd[] = {
    { 129,  22 },    
    { 140,  21 },    
    { 151,  20 }, 
-   { 162,  19 }, //default value       
-   { 170,  18 },    
-   { 178,  17 },     
-   { 186,  16 },       
+   { 162,  20 }, //default value       
+   { 170,  19 },
+   { 178,  18 },     
+   { 186,  17 },       
    { 194,  15 },   
    { 202,  14 },   
    { 210,  13 },   
@@ -249,7 +249,7 @@ static void ktd259b_backlight_earlysuspend(struct early_suspend *desc)
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
 
-        printk("[%02d:%02d:%02d.%03lu][BACKLIGHT] earlysuspend\n", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+        printk("[%02d:%02d:%02d.%03lu][BACKLIGHT] early suspend\n", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
 }
 
 static void ktd259b_backlight_lateresume(struct early_suspend *desc)

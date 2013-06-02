@@ -1,6 +1,6 @@
 /*
 *   Smeco device driver implementation for Linux Kernel.
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+*   Copyright ?Renesas Mobile Corporation 2011. All rights reserved
 *
 *   This material, including documentation and any related source code
 *   and information, is protected by copyright controlled by Renesas.
@@ -49,6 +49,8 @@ Description :  File created
 #include <linux/if_arp.h>
 #include <linux/if_phonet.h>
 #include <linux/skbuff.h>
+
+#include <net/sch_generic.h>
 
 #include "smc_linux.h"
 #include "smc_linux_ioctl.h"
@@ -153,27 +155,6 @@ MODULE_LICENSE("Dual BSD/GPL");
         &smc_ctrldevice1,
     };
 #endif
-#endif
-
-
-
-#ifdef SMC_NETDEV_WAKELOCK_IN_TX
-
-    static struct wake_lock* wakelock_tx    = NULL;
-
-    static inline struct wake_lock* get_wake_lock_tx(void)
-    {
-        if( wakelock_tx==NULL )
-        {
-            SMC_TRACE_PRINTF_DEBUG("get_wake_lock: initialize...");
-            wakelock_tx = (struct wake_lock*)SMC_MALLOC_IRQ( sizeof( struct wake_lock ) );
-
-            wake_lock_init(wakelock_tx, WAKE_LOCK_SUSPEND, "smc_wakelock_tx");
-         }
-
-        return wakelock_tx;
-    }
-
 #endif
 
 
@@ -344,7 +325,7 @@ static int smc_net_device_driver_open_channels(struct net_device* device)
     SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_open_channels: Device '%s' 0x%08X...", device->name, (uint32_t)device);
 
     smc_priv = netdev_priv(device);
-
+    
     if( smc_priv != NULL && smc_priv->smc_dev_config != NULL )
     {
         smc_conf_t* smc_instance_conf = smc_priv->smc_dev_config->smc_conf( device->name );
@@ -483,40 +464,21 @@ static int smc_net_device_driver_close(struct net_device* device)
 
 static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* device)
 {
-    int                       ret_val      = SMC_DRIVER_ERROR;
-    smc_device_driver_priv_t* smc_net_dev  = NULL;
-    smc_t*                    smc_instance = NULL;
-    uint8_t                   drop_packet  = 0;
+    int                       ret_val           = SMC_DRIVER_ERROR;
+    smc_device_driver_priv_t* smc_net_dev       = NULL;
+    smc_t*                    smc_instance      = NULL;
+    uint8_t                   drop_packet       = 0;
+    smc_channel_t*            smc_channel       = NULL;
+    uint16_t                  skb_queue_mapping = 0xFF;
 
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
-    wake_lock( get_wake_lock_tx() );
-#endif
-
-#ifdef SMC_TRACE_APE_EXTENDED_MHI_FILE_ENABLED
-    /* TODO Special traces to be cleaned */
-
-    if( skb->protocol == htons(ETH_P_MHI) )
-    {
-        SMC_TRACE_PRINTF_ALWAYS("smc_net_device_driver_xmit: device 0x%08X, MHI protocol 0x%04X len %d, queue %d...", (uint32_t)device, skb->protocol, skb->len, skb->queue_mapping );
-    }
+    struct netdev_queue*      tx_queue     = NULL;
+    int    tx_queue_len                    = 0;
 #endif
 
     SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: device 0x%08X, protocol 0x%04X, queue %d...", (uint32_t)device, skb->protocol, skb->queue_mapping );
     SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: SKB Data (len %d, queue):", skb->len, skb->queue_mapping);
     SMC_TRACE_PRINTF_TRANSMIT_DATA( skb->len , skb->data );
-
-    if (skb->len < PHONET_MIN_MTU)
-    {
-        drop_packet = 6;
-        goto DROP_PACKET;
-    }
-
-        /* 32-bit alignment check */
-    if ((skb->len & 3) && skb_pad(skb, 4 - (skb->len & 3)))
-    {
-        drop_packet = 5;
-        goto DROP_PACKET;
-    }
 
     smc_net_dev  = netdev_priv(device);
     smc_instance = smc_net_dev->smc_instance;
@@ -525,13 +487,34 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
     {
         if (skb->queue_mapping < smc_instance->smc_channel_list_count)
         {
-            smc_channel_t*  smc_channel = NULL;
-            uint16_t        skb_queue_mapping = skb->queue_mapping;
+            skb_queue_mapping = skb->queue_mapping;
 
             smc_channel = SMC_CHANNEL_GET(smc_instance, skb_queue_mapping);
 
+#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+            if( smc_channel->smc_tx_wakelock != NULL )
+            {
+                SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: wake_lock 0x%08X", (uint32_t)smc_channel->smc_tx_wakelock );
+                wake_lock( (struct wake_lock*)smc_channel->smc_tx_wakelock );
+            }
+#endif
+
+            if (skb->len < PHONET_MIN_MTU)
+            {
+                drop_packet = 6;
+                goto DROP_PACKET;
+            }
+
+                /* 32-bit alignment check */
+            if ((skb->len & 3) && skb_pad(skb, 4 - (skb->len & 3)))
+            {
+                drop_packet = 5;
+                goto DROP_PACKET;
+            }
+
                 /* Prevent the remote side to wake up the queue during the send */
             SMC_LOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+
 #ifdef SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM
             if( TRUE )
 #else
@@ -548,8 +531,7 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                 SMC_UNLOCK_TX_BUFFER( smc_channel->lock_tx_queue );
 
                 SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: deliver to upper layer TX function...");
-                if (smc_net_dev->smc_dev_config != NULL)
-					ret_val = smc_net_dev->smc_dev_config->skb_tx_function(skb, device);
+                ret_val = smc_net_dev->smc_dev_config->skb_tx_function(skb, device);
 
                 if (unlikely(ret_val))
                 {
@@ -578,7 +560,7 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                         assert(0);
                     }
 #endif
-                    if (smc_net_dev->smc_dev_config->driver_modify_send_data && smc_net_dev->smc_dev_config)
+                    if (smc_net_dev->smc_dev_config && smc_net_dev->smc_dev_config->driver_modify_send_data)
                     {
                         SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: upper layer wants to modify send packet");
                         smc_net_dev->smc_dev_config->driver_modify_send_data(skb, &userdata);
@@ -765,26 +747,31 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
 
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
 
-        /* Lock the list */
+            /* Check if the TX queue is empty */
+        tx_queue = netdev_get_tx_queue(device, 0);
+        tx_queue_len = qdisc_qlen(tx_queue->qdisc);
 
-        /*
-        if( skb_queue_empty(const struct sk_buff_head *list) )
-        SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: SMC");
-        SMC_TRACE_PRINTF_STARTUP("smc_net_device_driver_xmit: SKB 0x%08X, prev: 0x%08X, next: 0x%08X",
-                (uint32_t)skb, (uint32_t)skb->prev, (uint32_t)skb->next);
-        */
-        if( 0 )
+        SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_xmit: channel %d: wake unlock device TX queue len %d", skb_queue_mapping, tx_queue_len);
+
+        if( tx_queue_len == 0 )
         {
-            wake_unlock( get_wake_lock_tx() );
+            if( smc_channel->smc_tx_wakelock != NULL )
+            {
+                SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: channel %d: wake_unlock 0x%08X", skb_queue_mapping, (uint32_t)smc_channel->smc_tx_wakelock );
+                wake_unlock( (struct wake_lock*)smc_channel->smc_tx_wakelock );
+            }
         }
         else
         {
-            wake_lock_timeout( get_wake_lock_tx(), msecs_to_jiffies(SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS) );
+            SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: channel %d: wake_lock not unlocked: device TX queue len %d", skb_queue_mapping, tx_queue_len);
+
+            if( (tx_queue_len+1) > smc_channel->tx_queue_peak )
+            {
+                smc_channel->tx_queue_peak = tx_queue_len+1;
+            }
         }
 
-        /* Unlock the list */
 #endif
-
         return ret_val;
      }
      else
@@ -811,7 +798,11 @@ DROP_PACKET:
         {
             SMC_TRACE_PRINTF_WARNING("SMC TX Packet 0x%08X, len %d dropped (total %ld): SKB TX failed", (uint32_t)skb->data, skb->len, device->stats.tx_dropped);
         }
-       else if( drop_packet == 5 )
+        else if( drop_packet == 4 )
+        {
+            SMC_TRACE_PRINTF_WARNING("SMC TX Packet 0x%08X, len %d dropped (total %ld): No channel for queue", (uint32_t)skb->data, skb->len, device->stats.tx_dropped);
+        }
+        else if( drop_packet == 5 )
         {
             SMC_TRACE_PRINTF_WARNING("SMC TX Packet 0x%08X, len %d dropped (total %ld): data not 32-bit aligned", (uint32_t)skb->data, skb->len, device->stats.tx_dropped);
         }
@@ -833,17 +824,39 @@ DROP_PACKET:
         SMC_TRACE_PRINTF_WARNING("smc_net_device_driver_xmit: packet 0x%08X, len %d (reason %d)", (uint32_t)skb->data, skb->len, drop_packet);
     }
 
+#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+
+        /* Check if the TX queue is empty */
+    tx_queue = netdev_get_tx_queue(device, 0);
+    tx_queue_len = qdisc_qlen(tx_queue->qdisc);
+
+    SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_xmit: channel %d: wake unlock device TX queue len %d", skb_queue_mapping, tx_queue_len);
+
+    if( tx_queue_len == 0 )
+    {
+        if( smc_channel->smc_tx_wakelock != NULL )
+        {
+            SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: channel %d: wake_unlock 0x%08X", skb_queue_mapping, (uint32_t)smc_channel->smc_tx_wakelock );
+            wake_unlock( (struct wake_lock*)smc_channel->smc_tx_wakelock );
+        }
+    }
+    else
+    {
+        if( (tx_queue_len+1) > smc_channel->tx_queue_peak )
+        {
+            smc_channel->tx_queue_peak = tx_queue_len+1;
+        }
+    }
+
+#endif
+
+    ret_val = SMC_DRIVER_ERROR;
+
         /* If skb_pad fails, it frees the packet, so not freeing it here */
     if( drop_packet != 5 )
     {
         dev_kfree_skb_any(skb);
     }
-
-    ret_val = SMC_DRIVER_ERROR;
-
-#ifdef SMC_NETDEV_WAKELOCK_IN_TX
-        wake_unlock( get_wake_lock_tx() );
-#endif
 
     return ret_val;
 }
@@ -897,14 +910,7 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
         uint32_t        lb_rounds    = 0;
 
         smc_instance = smc_net_dev->smc_instance;
-        if( smc_instance != NULL )
-        {
-	        smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc->if_channel_id);
-        }
-        else
-        {
-            ret_val = SMC_DRIVER_ERROR;
-        }
+        smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc->if_channel_id);
 
         lb_data_len = if_req_smc->if_loopback_payload_length;
         lb_rounds   = if_req_smc->if_loopback_rounds;
@@ -939,10 +945,8 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
         smc_t*          smc_instance = NULL;
         smc_channel_t*  smc_channel  = NULL;
 
-		if ( NULL != smc_net_dev->smc_instance )
-			smc_instance = smc_net_dev->smc_instance;
-
-	    smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc_msg->if_channel_id);
+        smc_instance = smc_net_dev->smc_instance;
+        smc_channel  = SMC_CHANNEL_GET(smc_instance, if_req_smc_msg->if_channel_id);
 
         SMC_TRACE_PRINTF_DEBUG("smc_net_device_driver_ioctl: SIOCDEV_MSG_INTERNAL, message 0x%08X, param 0x%08X", if_req_smc_msg->if_msg_id, if_req_smc_msg->if_msg_parameter);
 
@@ -1197,7 +1201,7 @@ static int smc_device_notify(struct notifier_block *me, unsigned long event, voi
 
 	wake_lock_init(&smc_wakelock_conf, WAKE_LOCK_SUSPEND, "smc_wakelock_conf");
 
-	switch(event)
+	switch(event) 
 	{
 		case NETDEV_REGISTER:	/* 0x05 */
 		{
@@ -1232,7 +1236,7 @@ static int smc_device_notify(struct notifier_block *me, unsigned long event, voi
 				}
 				else
 				{
-					SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP, not smc",
+					SMC_TRACE_PRINTF_DEBUG("smc_device_notify: device '%s' NETDEV_UP, not smc", 
 						dev!=NULL?dev->name:"<NO NAME>");
 				}
 			}

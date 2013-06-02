@@ -1,5 +1,5 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+*   Copyright ?Renesas Mobile Corporation 2011. All rights reserved
 *
 *   This material, including documentation and any related source code
 *   and information, is protected by copyright controlled by Renesas.
@@ -14,9 +14,13 @@
 /*
 Change history:
 
+Version:       44   24-May-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Timer function fixed
+
 Version:       27   03-Jul-2012     Andrey Derkach
 Status:        draft
-Description :  FIFO polling function updated to keep polling forever since it is
+Description :  FIFO polling function updated to keep polling forever since it is 
                used only for XFile and core dump transfers
 
 Version:       12   04-Feb-2012     Heikki Siikaluoma
@@ -649,7 +653,7 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
                         SMC_LOCK_IRQ( channel->lock_mdb );
 
                         mdb_ptr = smc_mdb_alloc(channel, data_length);
-
+                        
                         SMC_UNLOCK_IRQ( channel->lock_mdb );
                         /*
                          * Critical section ends
@@ -979,7 +983,7 @@ void smc_fifo_poll( const smc_channel_t* smc_channel )
         }
 
         while(delay > 0 ) delay--;
-    }
+    }                            
     while( fifo_item_count == 0);
 
 }
@@ -1163,11 +1167,7 @@ uint8_t smc_channel_send_config( smc_channel_t* smc_channel, uint32_t configurat
     if( wait_reply )
     {
         reply_var = (uint32_t*)SMC_MALLOC_IRQ( sizeof( uint32_t) );
-
-       	if (reply_var == NULL)
-			return SMC_ERROR;
-
-		*reply_var = (uint32_t)0x00000000;
+        *reply_var = 0x00000000;
         userdata.userdata5 = (int32_t)reply_var;
     }
     else
@@ -1578,11 +1578,7 @@ uint8_t smc_send_crash_indication( smc_channel_t* smc_channel, char* crash_messa
         iCrashMessageLen += strlen(crash_message) + 1;
 
         crash_data_message = (char*)SMC_MALLOC(iCrashMessageLen);
-		if( crash_data_message == NULL )
-		{
-			ret_val = SMC_ERROR;
-			return ret_val;
-		}
+
         strcpy(crash_data_message+iIndex, SMC_CPU_NAME);
         iIndex += iCpuNameLen;
         strcpy(crash_data_message+iIndex, CRASH_INFO_PREFIX);
@@ -1612,19 +1608,22 @@ uint8_t smc_send_crash_indication( smc_channel_t* smc_channel, char* crash_messa
     userdata.userdata3 = 0;
     userdata.userdata4 = 0;
     userdata.userdata5 = 0;
-	if( crash_data_message != NULL )
-	{
-    	if( smc_send_ext(smc_channel, (uint8_t *)crash_data_message, strlen(crash_data_message)+1, &userdata) != SMC_OK )
-    	{
-        	SMC_FREE(crash_data_message);
-        	SMC_TRACE_PRINTF_ERROR("smc_send_crash_indication: Failed to send crash information");
-        	ret_val = SMC_ERROR;
-    	}
-    	else
-    	{
-        	SMC_TRACE_PRINTF_ERROR("smc_send_crash_indication: crash information successfully sent");
-    	}
-	}
+
+    if( smc_send_ext(smc_channel, (uint8_t*)crash_data_message, strlen(crash_data_message)+1, &userdata) != SMC_OK )
+    {
+        if( crash_data_message != NULL )
+        {
+            SMC_FREE(crash_data_message);
+        }
+
+        SMC_TRACE_PRINTF_ERROR("smc_send_crash_indication: Failed to send crash information");
+        ret_val = SMC_ERROR;
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_send_crash_indication: crash information successfully sent");
+    }
+
     return ret_val;
 }
 
@@ -1874,10 +1873,6 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                             {
                                     /* Read the version from user data field 1 */
                                 uint32_t* version_info = (uint32_t*)SMC_MALLOC_IRQ( sizeof( uint32_t ) );
-								if (NULL == version_info) {
-									SMC_TRACE_PRINTF_ERROR("SMC Memory IRQ allocation failed");
-									return;
-								}
 
                                 *version_info = celldata.userdata1;
 
@@ -1894,7 +1889,8 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
 
                                 smc_channel->smc_event_cb( smc_channel, SMC_VERSION_INFO_REMOTE, (void*)version_info );
 
-                                if( version_info != NULL ) {
+                                if( version_info != NULL )
+                                {
                                     SMC_FREE( version_info );
                                     version_info = NULL;
                                 }
@@ -2230,7 +2226,6 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
                                 {
                                     SMC_TRACE_PRINTF_ERROR("smc_channel_interrupt_handler: channel %d: SMC_MSG_FLAG_SHM_VAR_ADDRESS_REQ, No memory for shared variable name", smc_channel->id);
                                 }
-
 
                                 userdata_free.flags     = SMC_MSG_FLAG_FREE_MEM_MDB;
                                 userdata_free.userdata1 = userdata.userdata1;
@@ -2622,16 +2617,12 @@ uint8_t smc_add_channel(smc_t* smc_instance, smc_channel_t* smc_channel, smc_cha
     uint8_t           ret_val           = SMC_OK;
     smc_channel_t**   old_channel_array = NULL;
     smc_shm_config_t* channel_shm       = NULL;
-    //smc_lock_t*       local_lock        = NULL;
     smc_semaphore_t*  local_mutex        = NULL;
 
     assert( smc_instance != NULL );
     assert( smc_channel_conf != NULL );
 
     SMC_TRACE_PRINTF_DEBUG("smc_add_channel: channel 0x%08X to SMC instance 0x%08X starts...", (uint32_t)smc_channel, (uint32_t)smc_instance);
-
-    //local_lock = get_local_lock_smc_channel();
-    //SMC_LOCK_IRQ( local_lock );
 
     local_mutex = get_local_mutex_smc_channel();
     SMC_LOCK_MUTEX( local_mutex );
@@ -2961,7 +2952,7 @@ void smc_signal_remove_handler( smc_signal_handler_t* signal_handler )
 
             if( signal_handler_count > 0 )
             {
-				signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(*signal_handler_ptr_array) * signal_handler_count );
+                signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(signal_handler_ptr_array) * signal_handler_count );
             }
             else
             {
@@ -3371,6 +3362,11 @@ static uint8_t smc_channel_buffer_fifo_flush( smc_channel_t* channel )
                     index = 0;
                 }
             }
+            else
+            {
+                break;
+            }
+
             counter++;
         }
 
@@ -3512,7 +3508,7 @@ uint8_t smc_shared_variable_add( smc_shared_variable_address_info* shm_var_info 
 
     g_smc_shared_variable_address_info_count++;
 
-    g_smc_shared_variable_address_info_array = (smc_shared_variable_address_info **)SMC_MALLOC( sizeof(smc_shared_variable_address_info) * g_smc_shared_variable_address_info_count );
+    g_smc_shared_variable_address_info_array = (smc_shared_variable_address_info**)SMC_MALLOC( sizeof(smc_shared_variable_address_info) * g_smc_shared_variable_address_info_count );
 
     if( old_ptr_array )
     {
@@ -3619,6 +3615,8 @@ void smc_instance_dump(smc_t* smc_instance)
             SMC_TRACE_PRINTF_ALWAYS("SMC:     Out of MDB mem send %d times, Fifo buffer delivered %d, lost %d, buffered %d bytes",
                     channel->dropped_packets_mdb_out, channel->send_packets_fifo_buffer,channel->dropped_packets_fifo_buffer,
                     channel->fifo_buffer_copied_total);
+
+            SMC_TRACE_PRINTF_ALWAYS("SMC:     TX queue peak %d, RX queue peak %d", channel->tx_queue_peak, channel->rx_queue_peak );
 
             /* Dump the FIFO, SIGNAL and MDB data */
 

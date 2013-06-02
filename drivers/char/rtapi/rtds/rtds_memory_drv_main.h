@@ -28,6 +28,15 @@
 #define RTDS_MEM_MPRO_ACTIVE	(1)
 #define RTDS_MEM_MPRO_INACTIVE	(0)
 
+#define RTDS_MEM_WAIT_TIMEOUT	(40000)	/* timeout value (msec) */
+
+#define RTDS_MEM_DOWN_TIMEOUT(sem)					\
+	do {								\
+		if (0 != down_timeout(sem, g_rtds_memory_sem_jiffies))	\
+			panic("[RTDSK]ERR|[%s]L.[%d]down time out!\n",	\
+						__func__, __LINE__);	\
+	} while (0)
+
 /* ****************************** STRUCTURE ******************************* */
 
 /* IOCTL memory info */
@@ -232,6 +241,7 @@ extern spinlock_t			g_rtds_memory_lock_create_mem;
 extern struct list_head			g_rtds_memory_list_map_rtmem;
 extern spinlock_t			g_rtds_memory_lock_map_rtmem;
 extern struct semaphore			g_rtds_memory_send_sem;
+extern long				g_rtds_memory_sem_jiffies;
 
 #ifdef RTDS_SUPPORT_CMA
 extern spinlock_t			g_rtds_memory_lock_cma;

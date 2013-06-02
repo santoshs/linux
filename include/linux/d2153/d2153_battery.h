@@ -131,6 +131,7 @@ enum {
 enum {
 	D2153_STATUS_CHARGING = 0,
 	D2153_RESET_SW_FG,
+	D2153_STATUS_EOC_CTRL,
 	D2153_STATUS_MAX
 };
 
@@ -142,7 +143,7 @@ enum {
 	D2153_BAT_RECHG_FULL,
 	D2153_BAT_CHG_MAX,
 };
-#endif
+#endif /* CONFIG_D2153_EOC_CTRL */
 
 typedef enum d2153_adc_channel {
 	D2153_ADC_VOLTAGE = 0,

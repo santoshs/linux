@@ -1082,7 +1082,9 @@ static irqreturn_t sh_mmcif_intr(int irq, void *dev_id)
 		sh_mmcif_writel(host->addr, MMCIF_CE_INT, ~INT_BUFRE);
 		sh_mmcif_bitclr(host, MMCIF_CE_INT_MASK, MASK_MBUFRE);
 	} else if (state & INT_DTRANE) {
-		sh_mmcif_writel(host->addr, MMCIF_CE_INT, ~INT_DTRANE);
+		sh_mmcif_writel(host->addr, MMCIF_CE_INT,
+			 ~(INT_CMD12DRE | INT_CMD12RBE |
+                          INT_CMD12CRE | INT_DTRANE ));
 		sh_mmcif_bitclr(host, MMCIF_CE_INT_MASK, MASK_MDTRANE);
 	} else if (state & INT_CMD12RBE) {
 		sh_mmcif_writel(host->addr, MMCIF_CE_INT,
@@ -1184,7 +1186,7 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 					| MMC_CAP_ERASE;
 	if (pd->caps)
 		mmc->caps |= pd->caps;
-	mmc->max_segs = 32;
+	mmc->max_segs = 128;
 	mmc->max_blk_size = 512;
 	mmc->max_req_size = PAGE_CACHE_SIZE * mmc->max_segs;
 	mmc->max_blk_count = mmc->max_req_size / mmc->max_blk_size;

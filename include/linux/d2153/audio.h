@@ -230,6 +230,7 @@ struct d2153_audio {
 	int aad_jack_debounce_ms;
 	int aad_jackout_debounce_ms;
 	int aad_button_debounce_ms;
+	int aad_button_sleep_debounce_ms;
 	bool aad_codec_detect_enable;	/* d2153 detect configuration */
 	bool aad_gpio_detect_enable;	/* gpio detect configuration */
 	int aad_gpio_port;		/* gpio port for jack detect */

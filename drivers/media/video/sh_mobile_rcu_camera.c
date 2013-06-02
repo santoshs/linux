@@ -43,7 +43,7 @@
 #include <linux/sh_clk.h>
 #include <linux/spinlock.h>
 #include <linux/earlysuspend.h>
-#include <linux/semaphore.h>
+#include <linux/wakelock.h>
 
 #include <media/v4l2-common.h>
 #include <media/v4l2-dev.h>
@@ -56,6 +56,7 @@
 
 #include <media/videobuf2-memops.h>
 #include <mach/hardware.h>
+#include <mach/pm.h>
 
 /* camera device info */
 bool cam_class_init;
@@ -64,6 +65,9 @@ struct device *sec_main_cam_dev; /* /sys/class/camera/rear/rear_type */
 EXPORT_SYMBOL(sec_main_cam_dev);
 struct device *sec_sub_cam_dev;  /* /sys/class/camera/rear/rear_type */
 EXPORT_SYMBOL(sec_sub_cam_dev);
+
+static int cam_status0;
+static int cam_status1;
 
 static bool rear_flash_state;
 static int (*rear_flash_set)(int, int);
@@ -157,9 +161,6 @@ spinlock_t lock_log;
 #define ROUNDDOWN(size, X)	(0 == (X) ? (size) : ((size) / (X)) * (X))
 
 #define PRINT_FOURCC(fourcc)	(fourcc) & 0xff, ((fourcc) >> 8) & 0xff, ((fourcc) >> 16) & 0xff, ((fourcc) >> 24) & 0xff
-
-#define init_MUTEX(sem) sema_init(sem, 1)
-#define init_MUTEX_LOCKED(sem) sema_init(sem, 0)
 
 /* register offsets for r8a73734 */
 
@@ -411,13 +412,10 @@ struct sh_mobile_rcu_dev {
 	unsigned int mmap_size;
 	struct page **mmap_pages;
 
+	struct wake_lock rcu_wakelock_state;
+	int rcu_early_suspend_clock_state;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend rcu_suspend_pm;
-	struct semaphore sem_rcu_early_suspend;
-	struct semaphore sem_rcu_late_resume;
-	struct semaphore sem_rcu_state;
-	bool rcu_add_device_state;
-	bool rcu_early_suspend_state;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 };
 
@@ -485,16 +483,15 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 	u32 reg_set = 0x20;		/* NORMAL */
 	u32 read_reg = 0;
 	u32 reg_actst1;
-	if (mode)
-		reg_set = 0x60;		/* FORCE */
+
 	if ((SH_RCU_MODE_IMAGE == pcdev->image_mode) && (!pcdev->output_ext)) {
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL, reg_set);
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL_C, reg_set);
 		return;
 	}
 	reg_actst1 = meram_read(pcdev, RCU_MERAM_ACTST1);
-	reg_actst1 = (3 & (reg_actst1 >> (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
-
+	reg_actst1 =
+		(0x3 & (reg_actst1 >> (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
 
 	if (RCU_MERAM_FRAMEA == pcdev->meram_frame) {
 		if ((RCU_MERAM_STP_FORCE == mode) && !(reg_actst1 & 0x1)) {
@@ -512,8 +509,15 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL, reg_set);
 		read_reg = meram_ch_read(pcdev, RCU_MERAM_CTRL_C);
 		if (read_reg & 0x60)
-			meram_ch_write(pcdev, RCU_MERAM_CTRL_C,
-				read_reg | 0x60);
+			dev_warn(pcdev->icd->parent,
+				"MERAM Next %s is active:"
+				"  ACTST1[%08x] "
+				"    CTRL[%08x] "
+				"  CTRL_C[%08x]\n",
+				pcdev->meram_frame ? "A" : "B",
+				meram_read(pcdev, RCU_MERAM_ACTST1),
+				meram_ch_read(pcdev, RCU_MERAM_CTRL),
+				read_reg);
 	} else {
 		if ((RCU_MERAM_STP_FORCE == mode) && !(reg_actst1 & 0x2)) {
 			dev_warn(pcdev->icd->parent,
@@ -530,7 +534,15 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL_C, reg_set);
 		read_reg = meram_ch_read(pcdev, RCU_MERAM_CTRL);
 		if (read_reg & 0x60)
-			meram_ch_write(pcdev, RCU_MERAM_CTRL, read_reg | 0x60);
+			dev_warn(pcdev->icd->parent,
+				"MERAM Next %s is active:"
+				"  ACTST1[%08x] "
+				"    CTRL[%08x] "
+				"  CTRL_C[%08x]\n",
+				pcdev->meram_frame ? "A" : "B",
+				meram_read(pcdev, RCU_MERAM_ACTST1),
+				read_reg,
+				meram_ch_read(pcdev, RCU_MERAM_CTRL_C));
 	}
 	if (read_reg & 0x60)
 		dev_err(pcdev->icd->parent,
@@ -1651,63 +1663,6 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 
 	dev_geo(icd->parent, "%s():\n", __func__);
 
-#ifdef RCU_POWAREA_MNG_ENABLE
-	dev_info(icd->parent, "Start A4LC power area(RCU)\n");
-	system_handle = system_pwmng_new();
-
-	/* Notifying the Beginning of Using Power Area */
-	powarea_start_notify.handle		= system_handle;
-	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
-	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
-	if (ret != SMAP_LIB_PWMNG_OK)
-		dev_warn(icd->parent, "powarea_start_notify err!\n");
-
-	pmg_delete.handle = system_handle;
-	system_pwmng_delete(&pmg_delete);
-#endif
-
-	if (pcdev->icd)
-		return -EBUSY;
-
-	/* request irq */
-	ret = request_irq(pcdev->irq, sh_mobile_rcu_irq, IRQF_DISABLED,
-			  dev_name(pcdev->ici.v4l2_dev.dev), pcdev);
-	if (ret) {
-		dev_err(pcdev->ici.v4l2_dev.dev, "Unable to register RCU interrupt.\n");
-		return ret;
-	}
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	if (down_interruptible(&pcdev->sem_rcu_state))
-		dev_err(pcdev->ici.v4l2_dev.dev,
-			"%s down_interruptible -ERESTARTSYS\n", __func__);
-	pcdev->rcu_add_device_state = true;
-	if (pcdev->rcu_early_suspend_state) {
-		up(&pcdev->sem_rcu_state);
-		ret = down_timeout(&pcdev->sem_rcu_late_resume,
-			msecs_to_jiffies(RCU_LATE_RESUME_WAIT_MSEC));
-		if (ret) {
-			dev_err(pcdev->ici.v4l2_dev.dev,
-				"%s timeout ret=%d\n", __func__, ret);
-			return ret;
-			}
-	} else {
-		up(&pcdev->sem_rcu_state);
-		}
-#endif /* CONFIG_HAS_EARLYSUSPEND */
-
-	dev_info(icd->parent,
-		 "SuperH Mobile RCU driver attached to camera %d\n",
-		 icd->devnum);
-
-	pm_runtime_get_sync(ici->v4l2_dev.dev);
-
-	pcdev->buf_total = 0;
-
-	pcdev->icd = icd;
-
-	sh_mobile_rcu_soft_reset(pcdev);
-
 	csi2_sd = find_csi2(pcdev);
 	if (csi2_sd) {
 		csi2_sd->grp_id = soc_camera_grp_id(icd);
@@ -1726,6 +1681,65 @@ static int sh_mobile_rcu_add_device(struct soc_camera_device *icd)
 	 */
 	if (ret == -ENODEV && csi2_sd)
 		csi2_sd->grp_id = 0;
+
+	if (pcdev->icd)
+		return -EBUSY;
+
+#ifdef RCU_POWAREA_MNG_ENABLE
+	dev_info(icd->parent, "Start A4LC power area(RCU)\n");
+	system_handle = system_pwmng_new();
+
+	/* Notifying the Beginning of Using Power Area */
+	powarea_start_notify.handle		= system_handle;
+	powarea_start_notify.powerarea_name	= RT_PWMNG_POWERAREA_A4LC;
+	ret = system_pwmng_powerarea_start_notify(&powarea_start_notify);
+	if (ret != SMAP_LIB_PWMNG_OK)
+		dev_warn(icd->parent, "powarea_start_notify err!\n");
+
+	pmg_delete.handle = system_handle;
+	system_pwmng_delete(&pmg_delete);
+#endif
+
+	/* request irq */
+	ret = request_irq(pcdev->irq, sh_mobile_rcu_irq, IRQF_DISABLED,
+			  dev_name(pcdev->ici.v4l2_dev.dev), pcdev);
+	if (ret) {
+		dev_err(pcdev->ici.v4l2_dev.dev, "Unable to register RCU interrupt.\n");
+#ifdef RCU_POWAREA_MNG_ENABLE
+		system_handle = system_pwmng_new();
+		powarea_start_notify.handle         = system_handle;
+		powarea_start_notify.powerarea_name = RT_PWMNG_POWERAREA_A4LC;
+		ret = system_pwmng_powerarea_end_notify(
+			&powarea_start_notify);
+		if (ret != SMAP_LIB_PWMNG_OK) {
+			dev_warn(icd->parent,
+				"powarea_end_notify err!\n");
+		}
+		pmg_delete.handle = system_handle;
+		system_pwmng_delete(&pmg_delete);
+#endif /* RCU_POWAREA_MNG_ENABLE */
+		return ret;
+	}
+
+	memset(&pcdev->rcu_wakelock_state, 0, sizeof(struct wake_lock));
+	wake_lock_init(&pcdev->rcu_wakelock_state, WAKE_LOCK_SUSPEND,
+		"camera_wake");
+	wake_lock(&pcdev->rcu_wakelock_state);
+	pcdev->rcu_early_suspend_clock_state =
+		disable_early_suspend_clock();
+
+	dev_info(icd->parent,
+		 "SuperH Mobile RCU driver attached to camera %d\n",
+		 icd->devnum);
+
+	pm_runtime_get_sync(ici->v4l2_dev.dev);
+
+	pcdev->buf_total = 0;
+
+	pcdev->icd = icd;
+
+	sh_mobile_rcu_soft_reset(pcdev);
+
 	pcdev->icd = icd;
 
 	return 0;
@@ -1751,10 +1765,6 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 
 	BUG_ON(icd != pcdev->icd);
 
-	v4l2_subdev_call(csi2_sd, core, s_power, 0);
-	if (csi2_sd)
-		csi2_sd->grp_id = 0;
-
 	/* disable capture, disable interrupts */
 	rcu_write(pcdev, RCEIER, 0);
 	sh_mobile_rcu_soft_reset(pcdev);
@@ -1775,16 +1785,6 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 	dev_info(icd->parent,
 		 "SuperH Mobile RCU driver detached from camera %d\n",
 		 icd->devnum);
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	if (down_interruptible(&pcdev->sem_rcu_state))
-		dev_err(pcdev->ici.v4l2_dev.dev,
-			"%s down_interruptible -ERESTARTSYS\n", __func__);
-	pcdev->rcu_add_device_state = false;
-	if (pcdev->rcu_early_suspend_state)
-		up(&pcdev->sem_rcu_early_suspend);
-	up(&pcdev->sem_rcu_state);
-#endif /* CONFIG_HAS_EARLYSUSPEND */
 
 	kfree(pcdev->mmap_pages);
 	pcdev->mmap_pages = NULL;
@@ -1807,6 +1807,16 @@ static void sh_mobile_rcu_remove_device(struct soc_camera_device *icd)
 	pmg_delete.handle = system_handle;
 	system_pwmng_delete(&pmg_delete);
 #endif
+
+	v4l2_subdev_call(csi2_sd, core, s_power, 0);
+	if (csi2_sd)
+		csi2_sd->grp_id = 0;
+
+	if (0 == pcdev->rcu_early_suspend_clock_state)
+		enable_early_suspend_clock();
+	wake_unlock(&pcdev->rcu_wakelock_state);
+	wake_lock_destroy(&pcdev->rcu_wakelock_state);
+
 	pcdev->icd = NULL;
 }
 
@@ -2970,6 +2980,12 @@ static int sh_mobile_rcu_get_ctrl(struct soc_camera_device *icd,
 	case V4L2_CID_GET_DUMP_SIZE_USER:
 		ctrl->value = SH_RCU_DUMP_LOG_SIZE_USER;
 		return 0;
+	case V4L2_CID_GET_CAMSTS0:
+		ctrl->value = cam_status0;
+		return 0;
+	case V4L2_CID_GET_CAMSTS1:
+		ctrl->value = cam_status1;
+		return 0;
 	}
 
 	return -ENOIOCTLCMD;
@@ -3186,6 +3202,12 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		}
 		pcdev->mmap_size = page_num;
 		return 0;
+	case V4L2_CID_SET_CAMSTS0:
+		cam_status0 = ctrl->value;
+		return 0;
+	case V4L2_CID_SET_CAMSTS1:
+		cam_status1 = ctrl->value;
+		return 0;
 	}
 	return -ENOIOCTLCMD;
 }
@@ -3235,46 +3257,11 @@ static int bus_notify(struct notifier_block *nb,
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void sh_mobile_rcu_early_suspend(struct early_suspend *h)
 {
-	struct sh_mobile_rcu_dev *pcdev;
-	int ret;
-
-	pcdev = container_of(h, struct sh_mobile_rcu_dev, rcu_suspend_pm);
-
-	if (down_interruptible(&pcdev->sem_rcu_state))
-		dev_err(pcdev->ici.v4l2_dev.dev,
-			"%s down_interruptible -ERESTARTSYS\n", __func__);
-	pcdev->rcu_early_suspend_state = true;
-	if (pcdev->rcu_add_device_state) {
-		up(&pcdev->sem_rcu_state);
-		while (1) {
-			ret = down_timeout(&pcdev->sem_rcu_early_suspend,
-				msecs_to_jiffies(
-					RCU_EARLY_SUSPEND_POLLING_MSEC));
-			if (ret)
-				dev_err(pcdev->ici.v4l2_dev.dev,
-					"%s timeout ret=%d\n", __func__, ret);
-			else
-				break;
-		}
-	} else {
-		up(&pcdev->sem_rcu_state);
-	}
 	return;
 }
 
 static void sh_mobile_rcu_late_resume(struct early_suspend *h)
 {
-	struct sh_mobile_rcu_dev *pcdev;
-
-	pcdev = container_of(h, struct sh_mobile_rcu_dev, rcu_suspend_pm);
-
-	if (down_interruptible(&pcdev->sem_rcu_state))
-		dev_err(pcdev->ici.v4l2_dev.dev,
-			"%s down_interruptible -ERESTARTSYS\n", __func__);
-	pcdev->rcu_early_suspend_state = false;
-	if (pcdev->rcu_add_device_state)
-		up(&pcdev->sem_rcu_late_resume);
-	up(&pcdev->sem_rcu_state);
 	return;
 }
 #endif /* CONFIG_HAS_EARLYSUSPEND */
@@ -3375,13 +3362,6 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	pcdev->rcu_suspend_pm.suspend = sh_mobile_rcu_early_suspend;
 	pcdev->rcu_suspend_pm.resume = sh_mobile_rcu_late_resume;
 	register_early_suspend(&pcdev->rcu_suspend_pm);
-
-	pcdev->rcu_add_device_state = false;
-	pcdev->rcu_early_suspend_state = false;
-
-	init_MUTEX_LOCKED(&pcdev->sem_rcu_early_suspend);
-	init_MUTEX_LOCKED(&pcdev->sem_rcu_late_resume);
-	init_MUTEX(&pcdev->sem_rcu_state);
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
 	pcdev->video_limit = 0; /* only enabled if second resource exists */
@@ -3703,6 +3683,8 @@ static int __init sh_mobile_rcu_init(void)
 	sec_sub_cam_dev = NULL;
 	rear_flash_state = true;
 	rear_flash_set = NULL;
+	cam_status0 = -1;
+	cam_status1 = -1;
 	dump_addr_flg = false;
 #ifdef SH_RCU_DUMP_LOG_ENABLE
 	dumplog_order = 0;

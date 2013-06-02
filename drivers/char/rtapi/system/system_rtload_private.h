@@ -22,14 +22,14 @@
 #define __SYSTEM_RTLOAD_PRIVATE_H__
 
 #include "system_rtload_internal.h"
-#include <mach/r8a7373.h>
 
 #define RT_FILENAME "/boot/RTFM_SH4AL_DSP_MU200.bin"
 
 #define SYSTEM_RTLOAD_LEVEL2			(2)
 #define RT_BOOT_SIZE					0xb00
 
-#define REG_RT_BOOT_ADDR	RBARPhys
+#define RBAR				(0xE618001C)
+#define REG_RT_BOOT_ADDR	RBAR
 #define RD_BOOT_ADDR(x)		(readl((x)) & ~0xf)
 
 int system_sub_load_rtimage(void);

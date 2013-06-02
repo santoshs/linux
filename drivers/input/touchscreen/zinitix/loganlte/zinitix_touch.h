@@ -35,15 +35,20 @@
 #define MAX_SUPPORTED_BUTTON_NUM	8
 #define SUPPORTED_BUTTON_NUM		2
 
+#if defined(CONFIG_SEC_MAKE_LCD_TEST)
+#define TOUCH_ONESHOT_UPGRADE		0
+#define TOUCH_FORCE_UPGRADE		0
+#else
 /* Upgrade Method*/
 #define TOUCH_ONESHOT_UPGRADE		1
 /* if you use isp mode, you must add i2c device :
 name = "zinitix_isp" , addr 0x50*/
+#define TOUCH_FORCE_UPGRADE		1
+#endif
 
 /* resolution offset */
 #define ABS_PT_OFFSET			(-1)
 
-#define TOUCH_FORCE_UPGRADE		1
 #define USE_CHECKSUM			1
 #define CHECK_HWID				1
 

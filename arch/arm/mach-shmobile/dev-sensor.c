@@ -101,6 +101,7 @@ static struct mpu6k_input_platform_data mpu6k_pdata = {
 
 
 #if defined  (CONFIG_SENSORS_K3DH)
+#define ACCEL_INT_GPIO_PIN 109
 static struct k3dh_platform_data k3dh_platform_data = {
 	.orientation = {
 #if defined (CONFIG_MACH_LOGANLTE)
@@ -117,6 +118,7 @@ static struct k3dh_platform_data k3dh_platform_data = {
 	0, 0, 1
 #endif
         },
+	.irq_gpio = ACCEL_INT_GPIO_PIN,
 };
 #endif
 

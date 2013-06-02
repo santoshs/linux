@@ -2042,91 +2042,53 @@ static void d2153_setup(struct snd_soc_codec *codec)
 			    D2153_EP_AMP_OE, D2153_EP_AMP_OE);
 }
 
-static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int value);
+static int d2153_codec_write(struct snd_soc_codec *codec,
+		unsigned int reg, unsigned int value);
+
 #ifdef CONFIG_PM
 static int d2153_suspend(struct snd_soc_codec *codec)
 {
-	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	struct d2153_codec_priv *d2153_codec =
+			snd_soc_codec_get_drvdata(codec);
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
-	// u8 val;
-	// struct regulator *regulator;
 
-	flush_delayed_work_sync(&d2153_aad->jack_monitor_work);
-	flush_delayed_work_sync(&d2153_aad->button_monitor_work);
-#if 1
-	if(d2153_codec->switch_state == D2153_HEADSET){
+	if ((d2153_codec->switch_state == D2153_HEADSET) &&
+			(d2153_aad->chip_rev < D2153_AC_Silicon))
 		return 0;
-	}
-	d2153_codec_power(codec,0);
-#else
-	snd_soc_update_bits(codec, D2153_AIF_CTRL, D2153_AIF_EN, 0);
-
-	d2153_codec->spk_mixer_out= snd_soc_read(codec, D2153_MIXOUT_SP_CTRL);
-	d2153_codec->spk_amp= snd_soc_read(codec, D2153_SP_CTRL);
-
-	snd_soc_write(codec, D2153_MIXOUT_SP_CTRL,0x00);
-	snd_soc_write(codec, D2153_SP_CTRL,0x00);
 	
-	d2153_set_bias_level(codec,SND_SOC_BIAS_OFF);
-
-	snd_soc_update_bits(codec, D2153_PLL_CTRL,
-			    D2153_PLL_EN, 0);
-	
-	regulator = regulator_get(NULL, "aud2");
-	if (IS_ERR(regulator))
-		return -1;
-	regulator_disable(regulator);
-	regulator_put(regulator);
-#endif
-	
+	d2153_codec_power(codec, 0);
 	return 0;
 }
 
 static int d2153_resume(struct snd_soc_codec *codec)
 {
-	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
+	struct d2153_codec_priv *d2153_codec =
+			snd_soc_codec_get_drvdata(codec);
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
-	//struct regulator *regulator;
 	u8 *cache = codec->reg_cache;
 	int i;
-#if 1
-		//snd_soc_update_bits(codec, D2153_HP_L_CTRL,
-		//	    D2153_HP_AMP_EN, D2153_HP_AMP_EN);
-		//snd_soc_update_bits(codec, D2153_HP_R_CTRL,
-		//	    D2153_HP_AMP_EN, D2153_HP_AMP_EN);
 
-	if(d2153_codec->switch_state == D2153_HEADSET)
+	if ((d2153_codec->switch_state == D2153_HEADSET) &&
+			(d2153_aad->chip_rev < D2153_AC_Silicon))
 		return 0;
 
 	d2153_codec_power(codec,1);
+
 	cache[D2153_SYSTEM_MODES_CFG3] = 0;
 	for(i =0 ; i<ARRAY_SIZE(d2153_reg_defaults) ; i++) {
-		if((d2153_volatile_register(codec,i) == 0) && (cache[i] != d2153_reg_defaults[i]))
-		{
+		if (0 == (d2153_volatile_register(codec, i)) &&
+				(cache[i] != d2153_reg_defaults[i])) {
 			d2153_codec_write(codec,i,cache[i]);
 		}
 	}
+
 	d2153_aad_resume(codec);
-	schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(100));
-#else
-	snd_soc_update_bits(codec, D2153_AIF_CTRL, D2153_AIF_EN, D2153_AIF_EN);
 
-	snd_soc_update_bits(codec, D2153_PLL_CTRL,
-			    D2153_PLL_EN, D2153_PLL_EN);
-
-	d2153_set_bias_level(codec,SND_SOC_BIAS_STANDBY);
-
-	snd_soc_write(codec, D2153_MIXOUT_SP_CTRL,d2153_codec->spk_mixer_out);
-	snd_soc_write(codec, D2153_SP_CTRL,d2153_codec->spk_amp);
-
-	regulator = regulator_get(NULL, "aud2");
-	if (IS_ERR(regulator))
-		return -1;
-	regulator_enable(regulator);
-	regulator_put(regulator);
-#endif
+	if (d2153_aad->chip_rev < D2153_AC_Silicon)
+		schedule_delayed_work(&d2153_aad->jack_monitor_work,
+				msecs_to_jiffies(100));
 	return 0;
 }
 #else
@@ -2134,139 +2096,18 @@ static int d2153_resume(struct snd_soc_codec *codec)
 #define d2153_resume NULL
 #endif
 
-int d2153_codec_power(struct snd_soc_codec *codec, int on)
-{
-	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
-	//u8 *cache = codec->reg_cache, i;
-	struct regulator *regulator;
-	u8 status=0;
-	
-	if(on ==1 && d2153_codec->power_mode==0){
-
-		dlg_info("%s() Start power = %d \n",__FUNCTION__,on);
-		
-		regulator = regulator_get(NULL, "aud1");
-		if (IS_ERR(regulator))
-			return -1;
-		regulator_set_voltage(regulator,1800000,1800000);
-		regulator_enable(regulator);
-		regulator_put(regulator);
-
-		regulator = regulator_get(NULL, "aud2");
-		if (IS_ERR(regulator))
-			return -1;
-		regulator_set_voltage(regulator,2700000,2700000);
-		regulator_enable(regulator);
-		regulator_put(regulator);
-		
-		d2153_codec->power_mode=1;				
-		
-	}		
-	else if(on ==0 && d2153_codec->power_mode==1){
-
-		dlg_info("%s() Start power = %d \n",__FUNCTION__,on);
-
-		if(d2153_codec->switch_state == D2153_HEADSET)
-			return 0;
-
-		mutex_lock(&d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
-		snd_soc_write(codec, D2153_SYSTEM_MODES_CFG3,0x01);
-		snd_soc_write(codec, D2153_CIF_CTRL,0x80);	
-	
-		regulator = regulator_get(NULL, "aud1");
-		if (IS_ERR(regulator)) {
-			mutex_unlock(&d2153_codec->\
-					d2153_pmic->d2153_audio_ldo_mutex);
-			return -1;
-		}
-
-		regulator_disable(regulator);
-		regulator_put(regulator);
-
-		msleep(1);
-		d2153_reg_read(d2153_codec->d2153_pmic, 0x9c, &status);
-		d2153_reg_read(d2153_codec->d2153_pmic, 0x9c, &status);
-
-		regulator = regulator_get(NULL, "aud2");
-		if (IS_ERR(regulator)) {
-			mutex_unlock(&d2153_codec->\
-					d2153_pmic->d2153_audio_ldo_mutex);
-			return -1;
-		}
-
-		regulator_disable(regulator);
-		regulator_put(regulator);
-		
-		d2153_codec->power_mode=0;
-		mutex_unlock(&d2153_codec->d2153_pmic->d2153_audio_ldo_mutex);
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(d2153_codec_power);
-
-
 #ifdef CONFIG_SND_SOC_D2153_AAD
-extern int d2153_aad_write_ex(u8 reg, u8 value);
-
-int d2153_aad_enable(struct snd_soc_codec *codec)
-{
-	struct d2153_codec_priv *d2153_codec =
-		snd_soc_codec_get_drvdata(codec);
-	struct i2c_client *client = d2153_codec->aad_i2c_client;
-	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
-	int aad_codec_detect_enable = d2153_aad->codec_detect_enable;
-
-	d2153_aad_write(client,D2153_ACCDET_UNLOCK_AO,0x4a);
-	
-	d2153_aad_write(client,D2153_ACCDET_TST2,0x10);
-	d2153_aad_write(client,D2153_ACCDET_THRESH1,0x1a); //james 0x0f);
-	d2153_aad_write(client,D2153_ACCDET_THRESH2,0x56);
-	d2153_aad_write(client,D2153_ACCDET_THRESH3,0x0e);
-	d2153_aad_write(client,D2153_ACCDET_THRESH4,0x44);
-
-	snd_soc_write(codec,D2153_REFERENCES,0x88);
-	
-	d2153_aad_write(client,D2153_ACCDET_CFG1,0x5f);
-//	d2153_aad_write(client,D2153_ACCDET_CFG2,0xBB);
-	d2153_aad_write(client,D2153_ACCDET_CFG2,0x00);
-	d2153_aad_write(client,D2153_ACCDET_CFG3,0x03);
-	if (D2153_AA_Silicon == d2153_aad->chip_rev) 
-		d2153_aad_write(client,D2153_ACCDET_CFG4,0x07);
-//	d2153_aad_write(client,D2153_ACCDET_CFG5,0x2b);
-	
-	d2153_aad->first_check_done = 0;	
-
-	snd_soc_write(codec,D2153_UNLOCK,0x8b);
-
-#ifndef D2153_DEFAULT_SET_MICBIAS
-	snd_soc_write(codec, D2153_MICBIAS1_CTRL, d2153_codec->micbias1_level);
-#else
-	snd_soc_write(codec, D2153_MICBIAS1_CTRL, D2153_MICBIAS_LEVEL_2_6V);
-#endif	/* D2153_DEFAULT_SET_MICBIAS */
-
-	if (aad_codec_detect_enable)
-		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x08);
-	else
-		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x80);
-
-	d2153_aad->button.status = D2153_BUTTON_PRESS; //ignore the fist interrupt	
-
-	return 0;
-}
-
 int d2153_aad_resume(struct snd_soc_codec *codec)
 {
 	struct d2153_codec_priv *d2153_codec =
 		snd_soc_codec_get_drvdata(codec);
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
-	int aad_codec_detect_enable = d2153_aad->codec_detect_enable;
 
 	d2153_aad_write(client,D2153_ACCDET_UNLOCK_AO,0x4a);
 	
 	d2153_aad_write(client,D2153_ACCDET_TST2,0x10);
-	d2153_aad_write(client,D2153_ACCDET_THRESH1,0x1a); //james 0x0f);
+	d2153_aad_write(client, D2153_ACCDET_THRESH1, 0x1a);
 	d2153_aad_write(client,D2153_ACCDET_THRESH2,0x56);
 	d2153_aad_write(client,D2153_ACCDET_THRESH3,0x0e);
 	d2153_aad_write(client,D2153_ACCDET_THRESH4,0x44);
@@ -2274,20 +2115,31 @@ int d2153_aad_resume(struct snd_soc_codec *codec)
 	d2153_aad_write(client,D2153_ACCDET_CFG1,0x5f);
 	d2153_aad_write(client,D2153_ACCDET_CFG2,0x00);
 	d2153_aad_write(client,D2153_ACCDET_CFG3,0x03);
-	if (D2153_AA_Silicon == d2153_aad->chip_rev) 
-	d2153_aad_write(client,D2153_ACCDET_CFG4,0x07);
-//	d2153_aad_write(client,D2153_ACCDET_CFG5,0x2b);
 
-	d2153_aad->first_check_done = 0;
+	if (D2153_AA_Silicon == d2153_aad->chip_rev)
+		d2153_aad_write(client, D2153_ACCDET_CFG4, 0x07);
 
-	if (aad_codec_detect_enable)
-		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x08);
-	else
-		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x80);
+	if (d2153_aad->chip_rev < D2153_AC_Silicon) {
+		if (d2153_aad->codec_detect_enable)
+			d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x88);
+		else
+			d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x80);
 
-	d2153_aad->switch_data.state = D2153_NO_JACK;
-	d2153_aad->button.status = D2153_BUTTON_PRESS; //ignore the fist interrupt	
-	
+		d2153_aad->switch_data.state = D2153_NO_JACK;
+	} else {
+		if (d2153_codec->switch_state == D2153_HEADSET) {
+			if (d2153_aad->codec_detect_enable)
+				d2153_aad_write(client,
+					D2153_ACCDET_CONFIG, 0x88);
+			else
+				d2153_aad_write(client,
+					D2153_ACCDET_CONFIG, 0x80);
+		}
+	}
+
+	if (D2153_AA_Silicon == d2153_aad->chip_rev)
+		/* ignore the fist interrupt */
+		d2153_aad->button.status = D2153_BUTTON_PRESS;
 	return 0;
 }
 
@@ -2338,7 +2190,7 @@ static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsi
 	u8 data[2];
 	int ret;
 
-//	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
 
 	
 	reg &= 0xff;
@@ -2347,7 +2199,7 @@ static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsi
 
 	ret = i2c_master_send(d2153_codec->i2c_client, data, 2);
 
-//	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
 	
 	if (ret == 2)
 		return 0;
@@ -2390,6 +2242,8 @@ static int d2153codec_i2c_read_device(struct d2153_codec_priv *d2153_codec,char 
 	struct i2c_msg msgs[2];
 	struct i2c_adapter *adap = d2153_codec->i2c_client->adapter;
 
+	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+	
 	if(reg > 0x6b && reg < 0x80){
 		msgs[0].addr = D2153_AAD_I2C_ADDR;
 	}
@@ -2412,6 +2266,8 @@ static int d2153codec_i2c_read_device(struct d2153_codec_priv *d2153_codec,char 
 
 	ret = i2c_transfer(adap,msgs,ARRAY_SIZE(msgs));
 
+	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+	
 	if (ret < 0 )
 		return ret;
 	else if (ret == ARRAY_SIZE(msgs))
@@ -2435,6 +2291,8 @@ static int d2153codec_i2c_write_device(struct d2153_codec_priv *d2153_codec,char
 
 	BUG_ON(bytes >= ARRAY_SIZE(data));
 
+	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+	
 	if(reg > 0x6b && reg < 0x80){
 		msgs[0].addr = D2153_AAD_I2C_ADDR;
 	}
@@ -2450,6 +2308,8 @@ static int d2153codec_i2c_write_device(struct d2153_codec_priv *d2153_codec,char
 
 	ret = i2c_transfer(adap,msgs,ARRAY_SIZE(msgs));
 
+	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
+	
 	if (ret < 0 )
 		return ret;
 	else if (ret == ARRAY_SIZE(msgs))

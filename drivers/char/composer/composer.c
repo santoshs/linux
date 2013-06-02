@@ -62,14 +62,12 @@ static int debug;    /* default debug level */
 /******************************************************/
 /* define prototype                                   */
 /******************************************************/
-static ssize_t core_read(struct file *filp, char __user *buf, \
-		size_t sz, loff_t *off);
 static long core_ioctl(struct file *filep, \
 		unsigned int cmd, unsigned long arg);
 static int core_open(struct inode *inode, struct file *filep);
 static int core_release(struct inode *inode, struct file *filep);
 
-/* modulue interface */
+/* module interface */
 static int composer_queue(
 	void *data,
 	int   data_size,
@@ -99,6 +97,7 @@ static void complete_work_dispdraw_hdmi(struct composer_rh *rh);
 static void work_dispdraw(struct localwork *work);
 static int work_create_handle(unsigned long *args __always_unused);
 static int work_delete_handle(unsigned long *args __always_unused);
+static int work_re_initialize_handle(unsigned long *args __always_unused);
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 static void work_dispdraw_hdmi(struct localwork *work);
 static int work_alloc_memory_hdmi(unsigned long *args) __maybe_unused;
@@ -126,6 +125,11 @@ static void pm_early_suspend(struct early_suspend *h);
 static void pm_late_resume(struct early_suspend *h);
 #endif
 
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+/* output control. */
+static int composer_enable_hdmioutput(int enable, int mode);
+#endif
+
 /******************************************************/
 /* define local define                                */
 /******************************************************/
@@ -133,9 +137,7 @@ static void pm_late_resume(struct early_suspend *h);
 #define RTAPI_FATAL_ERROR_THRESHOLD  (-256)
 
 #if INTERNAL_DEBUG
-#define INTERNAL_LOG_MSG_SIZE 8192
-/* define for trace log */
-#define SEQID_NOMORE_LOG     65535
+#define INTERNAL_LOG_MSG_SIZE 16384
 #endif
 
 #define MAX_OPEN      32
@@ -173,20 +175,28 @@ static void pm_late_resume(struct early_suspend *h);
 #define DISPLAY_FLAG_UNBLANK      (true)
 #define DISPLAY_FLAG_UNBLANK_SKIP (2)
 
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+#define HDMI_OUTPUT_MASK_HDMISET  1
+#define HDMI_OUTPUT_MASK_HDMIMEM  2
+#define HDMI_OUTPUT_MASK_HDMIMEM2 4
+#endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI */
+
 #if _TIM_DBG
 /* define slot ID for timerecord */
 #define TIMID_BUSYLOCK       0
 #define TIMID_QUEUE          1
-#define TIMID_SWSYNC         2
-#define TIMID_BLEND_HDMI_S   3
-#define TIMID_BLEND_HDMI_E   4
-#define TIMID_DISP_HDMI_S    5
-#define TIMID_DISP_HDMI_E    6
-#define TIMID_BLEND_S        7
-#define TIMID_BLEND_E        8
-#define TIMID_DISP_S         9
-#define TIMID_DISP_E         10
-#define TIMID_CALLBACK       11
+#define TIMID_SWSYNC1        2
+#define TIMID_SWSYNC2        3
+#define TIMID_BLEND_HDMI_S   4
+#define TIMID_BLEND_HDMI_E   5
+#define TIMID_DISP_HDMI_S    6
+#define TIMID_DISP_HDMI_O    7
+#define TIMID_DISP_HDMI_E    8
+#define TIMID_BLEND_S        9
+#define TIMID_BLEND_E        10
+#define TIMID_DISP_S         11
+#define TIMID_DISP_E         12
+#define TIMID_CALLBACK       13
 #endif
 
 /* variable of workqueue used to process LCD */
@@ -224,7 +234,7 @@ static void pm_late_resume(struct early_suspend *h);
 #endif
 
 #define NUM_OF_FRAMEBUFFER_MAXIMUM        1
-#define NUM_OF_HDMI_FRAMEBUFFER_MAXIMUM   1
+#define NUM_OF_HDMI_FRAMEBUFFER_MAXIMUM   2
 #define BLEND_REQ_LCD                     0x01
 #define BLEND_REQ_HDMI                    0x02
 
@@ -251,7 +261,6 @@ static void pm_late_resume(struct early_suspend *h);
 /******************************************************/
 static const struct file_operations composer_fops = {
 	.owner		= THIS_MODULE,
-	.read		= core_read,
 	.write		= NULL,
 	.unlocked_ioctl	= core_ioctl,
 	.open		= core_open,
@@ -273,7 +282,7 @@ static  struct early_suspend    early_suspend = {
 static int composer_prohibited_count = NUM_OF_COMPOSER_PROHIBITE_AT_START;
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
-static spinlock_t             irqlock;
+static DEFINE_SPINLOCK(irqlock);
 static DEFINE_SEMAPHORE(sem);
 static int                    num_open;
 
@@ -286,9 +295,10 @@ static struct localworkqueue  *workqueue_schedule;
 
 /* task for blending */
 static void                   *graphic_handle;
+static int                    set_blend_size_flag;
 
 /* blend timing control */
-static spinlock_t             irqlock_list;
+static DEFINE_SPINLOCK(irqlock_list);
 static struct   list_head     top_lcd_list;
 static struct   list_head     top_hdmi_list;
 static DEFINE_SEMAPHORE(sem_framebuf_useable);
@@ -299,6 +309,7 @@ static DEFINE_SEMAPHORE(sem_framebuf_useable);
 static struct localworkqueue  *workqueue_hdmi;
 #endif
 static int                    hdmi_output_enable;
+static int                    hdmi_output_enable_mask;
 static void                   *graphic_handle_hdmi;
 static DEFINE_SEMAPHORE(sem_hdmi_framebuf_useable);
 
@@ -328,7 +339,7 @@ static struct composer_rh     kernel_request[MAX_KERNELREQ];
 
 #if FEATURE_FRAMEACCESS
 /* confirm framebuffer is available. */
-static spinlock_t               irqlock_framebuffer;
+static DEFINE_SPINLOCK(irqlock_framebuffer);
 static int                      available_num_framebuffer[2];
 static DECLARE_WAIT_QUEUE_HEAD(wait_framebuffer_available);
 #endif
@@ -345,15 +356,18 @@ struct sw_fence_handle         *swsync_handle_hdmi;
 #endif
 
 #if INTERNAL_DEBUG
-static int         internal_log_seqid = -1;
 static char        *internal_log_msg;
 static int         internal_log_msgsize;
-static int         internal_log_length;
-static int         internal_log_remain;
 #endif
 
 #if _TIM_DBG
 static ktime_t     ktime_busylock;
+#endif
+
+#if _ATR_DBG
+static int        atrace_hdmi_display_request;
+static int        atrace_hdmi_display_complete;
+static int        atrace_hdmi_display_used;
 #endif
 
 /******************************************************/
@@ -529,6 +543,38 @@ static int  ioc_setfbaddr(struct composer_fh *fh, unsigned long *addr)
 	rc = composer_set_address(FB_SCREEN_BUFFERID0,
 		fb_addr, fb_size);
 
+	if (rc == 0) {
+		printk_dbg2(3, "down\n");
+		down(&sem);
+
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
+		rc = composer_enable_hdmioutput(false,
+						HDMI_OUTPUT_MASK_HDMIMEM2);
+
+		if (rc) {
+			/* nothing to do */
+			printk_err1("failed to stop output\n");
+			rc = -EINVAL;
+		} else {
+#endif
+			/* update graphic handle. */
+			rc = indirect_call(workqueue,
+				work_re_initialize_handle, 0, NULL);
+
+			if (rc || !graphic_handle) {
+				/* report error */
+				printk_err("lost graphic handle, need restart.\n");
+				rc = -EINVAL;
+			}
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
+		}
+
+		composer_enable_hdmioutput(true, HDMI_OUTPUT_MASK_HDMIMEM2);
+#endif
+
+		up(&sem);
+	}
+
 	DBGLEAVE("%d\n", rc);
 	return rc;
 }
@@ -601,7 +647,9 @@ err:
 static int iocg_getfence(struct composer_fh *fh, struct cmp_getfence *get_fence)
 {
 	int    prev_queueflag = true;
+#if FEATURE_FRAMEACCESS
 	int    wait_mode;
+#endif
 	DBGENTER("fh:%p get_fence:%p\n", fh, get_fence);
 
 	if (fh->sync_fence.release_lcd_fd == -1 &&
@@ -642,9 +690,7 @@ static int iocg_getfence(struct composer_fh *fh, struct cmp_getfence *get_fence)
 					SYNC_FD_TYPE_BLIT);
 		} else {
 			/* wait complete blending. */
-			printk_dbg2(3, "sw_sync is not available " \
-				"wait complete processing.\n");
-			ioc_waitcomp(NULL);
+			printk_dbg1(3, "sw_sync is not available.\n");
 #endif
 			get_fence->release_lcd_fd = -1;
 			get_fence->release_hdmi_fd = -1;
@@ -664,6 +710,7 @@ static int iocg_getfence(struct composer_fh *fh, struct cmp_getfence *get_fence)
 		get_fence->release_lcd_fd, get_fence->release_hdmi_fd);
 #endif
 
+#if FEATURE_FRAMEACCESS
 	wait_mode = 0;
 #if (FEATURE_FRAMEACCESS & 1) && (NUM_OF_ANDROID_USABLE_FB > 1)
 	wait_mode |= FRAMEACESS_FB_FOR_LCD;
@@ -671,31 +718,65 @@ static int iocg_getfence(struct composer_fh *fh, struct cmp_getfence *get_fence)
 #if (FEATURE_FRAMEACCESS & 2) && (NUM_OF_ANDROID_USABLE_HDMI_FB > 1)
 	wait_mode |= FRAMEACESS_FB_FOR_HDMI;
 #endif
-	/* wait to garante signal of previous queue. */
+	/* wait to guarantee signal of previous queue. */
 	if (wait_mode) {
 		if (wait_ready_usable_framebuffer(wait_mode) == 0) {
 			/* error report */
 			printk_err("time out previous queue complete.\n");
 		}
 	}
+#endif
 
 	DBGLEAVE("\n");
 	return 0;
 }
 
-static int iocs_hdmimem(struct composer_fh *fh, unsigned long *size)
+static int iocs_hdmimem(struct composer_fh *fh, struct cmp_hdmimem *mem)
 {
 	int rc = -EINVAL;
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
 	unsigned long args[1];
 #endif
-	DBGENTER("fh:%p size:%p\n", fh, size);
-	printk_dbg2(3, "size:%ld\n", *size);
+	DBGENTER("fh:%p mem:%p\n", fh, mem);
+	printk_dbg2(3, "size:%d\n", mem->size);
 
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
-	args[0] = *size;
+	printk_dbg2(3, "down\n");
+	down(&sem);
 
-	if (*size == 0) {
+	rc = composer_enable_hdmioutput(false, HDMI_OUTPUT_MASK_HDMIMEM);
+
+	if (rc) {
+		/* nothing to do */
+		printk_err1("failed to stop output\n");
+	} else {
+		/* success to stop output.       */
+		/* update registerd information. */
+		info_hdmi.max_width  = 1920;
+		info_hdmi.max_height = 1088;
+
+		/* update graphic handle. */
+		rc = indirect_call(workqueue,
+			work_re_initialize_handle, 0, NULL);
+
+		if (rc || !graphic_handle) {
+			/* report error */
+			printk_err("lost graphic handle, need restart.\n");
+			rc = CMP_NG;
+		}
+	}
+
+	composer_enable_hdmioutput(true, HDMI_OUTPUT_MASK_HDMIMEM);
+
+	up(&sem);
+
+	args[0] = mem->size;
+
+	if (rc) {
+		/* previous operation failed. */
+		rc = -EINVAL;
+	} else if (mem->size == 0) {
+		/* free reserved memory. */
 		printk_dbg2(3, "down\n");
 		down(&sem_hdmimemory);
 
@@ -713,6 +794,7 @@ static int iocs_hdmimem(struct composer_fh *fh, unsigned long *size)
 
 		up(&sem_hdmimemory);
 	} else {
+		/* reserve memory. */
 		printk_dbg2(3, "down\n");
 		down(&sem_hdmimemory);
 
@@ -739,10 +821,8 @@ static int iocs_hdmimem(struct composer_fh *fh, unsigned long *size)
 #if FEATURE_FRAMEACCESS
 static void increment_usable_framebuffer(int type)
 {
-	unsigned long flags;
-
 	printk_dbg2(3, "spinlock\n");
-	spin_lock_irqsave(&irqlock_framebuffer, flags);
+	spin_lock(&irqlock_framebuffer);
 
 #if FEATURE_FRAMEACCESS & 1
 	if (type & FRAMEACESS_FB_FOR_LCD) {
@@ -763,7 +843,7 @@ static void increment_usable_framebuffer(int type)
 	}
 #endif
 
-	spin_unlock_irqrestore(&irqlock_framebuffer, flags);
+	spin_unlock(&irqlock_framebuffer);
 
 	wake_up_all(&wait_framebuffer_available);
 }
@@ -802,7 +882,6 @@ static int  wait_ready_usable_framebuffer(int type)
 }
 static int decrement_usable_framebuffer(int type)
 {
-	unsigned long flags;
 	int      rc;
 
 	rc = wait_ready_usable_framebuffer(type);
@@ -821,7 +900,7 @@ static int decrement_usable_framebuffer(int type)
 	}
 
 	printk_dbg2(3, "spinlock\n");
-	spin_lock_irqsave(&irqlock_framebuffer, flags);
+	spin_lock(&irqlock_framebuffer);
 
 #if FEATURE_FRAMEACCESS & 1
 	if (type & FRAMEACESS_FB_FOR_LCD) {
@@ -840,7 +919,7 @@ static int decrement_usable_framebuffer(int type)
 	}
 #endif
 
-	spin_unlock_irqrestore(&irqlock_framebuffer, flags);
+	spin_unlock(&irqlock_framebuffer);
 
 	return rc;
 }
@@ -853,40 +932,15 @@ static void sh_mobile_composer_notifyfatalerror(void)
 	printk_err("set hang-up flag\n");
 }
 
-static void append_list_blend_request(struct composer_rh *rh)
-{
-	unsigned long flags;
-
-	printk_dbg2(3, "spinlock\n");
-	spin_lock_irqsave(&irqlock_list, flags);
-#if _LOG_DBG > 1
-#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-	if (!list_empty(&rh->hdmi_list))
-		printk_err("link list for hdmi_list invalid.\n");
-#endif
-	if (!list_empty(&rh->lcd_list))
-		printk_err("link list for lcd_list invalid.\n");
-#endif
-
-#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-	if (rh->hdmi_data.valid)
-		list_add_tail(&rh->hdmi_list, &top_hdmi_list);
-#endif
-	if (rh->lcd_data.valid)
-		list_add_tail(&rh->lcd_list, &top_lcd_list);
-	spin_unlock_irqrestore(&irqlock_list, flags);
-}
-
 static void handle_list_blend_request(int mask)
 {
-	unsigned long flags;
 	struct composer_rh *rh;
 
 	/***********************************
 	* handle blend request for LCD
 	***********************************/
 	if ((mask & BLEND_REQ_LCD) == 0) {
-		/* do not handle blend requet for LCD. */
+		/* do not handle blend request for LCD. */
 		goto skip_lcd_blend;
 	}
 
@@ -895,7 +949,7 @@ static void handle_list_blend_request(int mask)
 		printk_dbg2(3, "not ready to blend for LCD.\n");
 	} else {
 		printk_dbg2(3, "spinlock\n");
-		spin_lock_irqsave(&irqlock_list, flags);
+		spin_lock(&irqlock_list);
 
 		if (!list_empty(&top_lcd_list)) {
 			rh = list_first_entry(&top_lcd_list,
@@ -907,7 +961,7 @@ static void handle_list_blend_request(int mask)
 			/* blend request not found. */
 			rh = NULL;
 		}
-		spin_unlock_irqrestore(&irqlock_list, flags);
+		spin_unlock(&irqlock_list);
 
 		if (rh) {
 			if ((rh->refmask_disp & REFFLAG_DISPLAY_LCD) == 0)
@@ -936,7 +990,7 @@ skip_lcd_blend:;
 	* handle blend request for HDMI
 	***********************************/
 	if ((mask & BLEND_REQ_HDMI) == 0) {
-		/* do not handle blend requet for HDMI. */
+		/* do not handle blend request for HDMI. */
 		goto skip_hdmi_blend;
 	}
 
@@ -945,7 +999,7 @@ skip_lcd_blend:;
 		printk_dbg2(3, "not ready to blend for HDMI.\n");
 	} else {
 		printk_dbg2(3, "spinlock\n");
-		spin_lock_irqsave(&irqlock_list, flags);
+		spin_lock(&irqlock_list);
 
 		if (!list_empty(&top_hdmi_list)) {
 			rh = list_first_entry(&top_hdmi_list,
@@ -957,7 +1011,7 @@ skip_lcd_blend:;
 			/* blend request not found. */
 			rh = NULL;
 		}
-		spin_unlock_irqrestore(&irqlock_list, flags);
+		spin_unlock(&irqlock_list);
 
 		if (rh) {
 			if ((rh->refmask_disp & REFFLAG_DISPLAY_HDMI) == 0)
@@ -988,7 +1042,6 @@ skip_hdmi_blend:;
 #if FEATURE_SKIP_HDMI || FEATURE_SKIP_LCD
 static int skip_confirm_condition(struct composer_rh *rh, int mode)
 {
-	unsigned long flags;
 	struct list_head *head;
 	int    skip_limit;
 	int    skip = false;
@@ -996,7 +1049,7 @@ static int skip_confirm_condition(struct composer_rh *rh, int mode)
 	printk_dbg2(2, "mode:%d current task %p.\n", mode, rh);
 
 	printk_dbg2(3, "spinlock\n");
-	spin_lock_irqsave(&irqlock_list, flags);
+	spin_lock(&irqlock_list);
 
 	if (mode == SKIP_MODE_LCD) {
 		/* for LCD */
@@ -1021,11 +1074,11 @@ static int skip_confirm_condition(struct composer_rh *rh, int mode)
 	}
 #endif
 	if (!list_empty(head)) {
-		/* there is subsequece request. */
+		/* there is subsequence request. */
 		skip = true;
 	}
 
-	spin_unlock_irqrestore(&irqlock_list, flags);
+	spin_unlock(&irqlock_list);
 
 	if (skip) {
 		/* increment contig skip count. */
@@ -1048,41 +1101,72 @@ static int skip_confirm_condition(struct composer_rh *rh, int mode)
 static void work_schedule(struct localwork *work)
 {
 	struct composer_rh *rh;
-#ifdef CONFIG_SYNC
-	int wait_mask;
-#endif
+
+	ATRACE_BEGIN("schedule");
 
 	rh = container_of(work, struct composer_rh, rh_wqtask_schedule);
 
 	DBGENTER("work:%p\n", work);
 
-	/* handle sync_wait */
-#ifdef CONFIG_SYNC
-	printk_dbg2(3, "wait sync fence.\n");
-	wait_mask = 0;
+#if _LOG_DBG > 1
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-	if (rh->hdmi_data.valid) {
-		/* wait all bufer signalled. */
-		wait_mask |= BUFFER_USAGE_OUTPUT;
-	}
+	if (!list_empty(&rh->hdmi_list))
+		printk_err("link list for hdmi_list invalid.\n");
 #endif
-	if (rh->lcd_data.valid) {
-		/* wait all bufer signalled. */
-		wait_mask |= BUFFER_USAGE_BLEND;
-	}
-	fence_wait(rh, WORK_DISPDRAW_SWFENCE_WAITTIME, wait_mask);
-#endif
-
-#if _TIM_DBG
-	timerecord_record(rh->timerecord, TIMID_SWSYNC);
+	if (!list_empty(&rh->lcd_list))
+		printk_err("link list for lcd_list invalid.\n");
 #endif
 
 	/* blend request add to control. */
-	append_list_blend_request(rh);
+	if (rh->lcd_data.valid) {
+		/* handle sync_wait */
+#ifdef CONFIG_SYNC
+		printk_dbg2(3, "wait sync fence.\n");
+		fence_wait(rh, WORK_DISPDRAW_SWFENCE_WAITTIME,
+			BUFFER_USAGE_BLEND);
+#if _TIM_DBG
+		timerecord_record(rh->timerecord, TIMID_SWSYNC1);
+#endif
+#endif
+		/* append lists */
+		printk_dbg2(3, "spinlock\n");
+		spin_lock(&irqlock_list);
 
-	/* issue blend request if available. */
-	handle_list_blend_request(BLEND_REQ_LCD | BLEND_REQ_HDMI);
+		list_add_tail(&rh->lcd_list, &top_lcd_list);
 
+		spin_unlock(&irqlock_list);
+
+		/* issue blend request if available. */
+		handle_list_blend_request(BLEND_REQ_LCD);
+	}
+
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+	/* blend request add to control. */
+	if (rh->hdmi_data.valid) {
+		/* handle sync_wait */
+#ifdef CONFIG_SYNC
+		printk_dbg2(3, "wait sync fence.\n");
+		fence_wait(rh, WORK_DISPDRAW_SWFENCE_WAITTIME,
+			BUFFER_USAGE_OUTPUT);
+#if _TIM_DBG
+		timerecord_record(rh->timerecord, TIMID_SWSYNC2);
+#endif
+#endif
+
+		/* append lists */
+		printk_dbg2(3, "spinlock\n");
+		spin_lock(&irqlock_list);
+
+		list_add_tail(&rh->hdmi_list, &top_hdmi_list);
+
+		spin_unlock(&irqlock_list);
+
+		/* issue blend request if available. */
+		handle_list_blend_request(BLEND_REQ_HDMI);
+	}
+#endif
+
+	ATRACE_END("schedule");
 	DBGLEAVE("\n");
 	return;
 }
@@ -1091,6 +1175,8 @@ static int work_delete_handle(unsigned long *args __always_unused)
 {
 	TRACE_ENTER(FUNC_WQ_DELETE);
 	DBGENTER("\n");
+
+	ATRACE_BEGIN("del_handle");
 
 	if (down_trylock(&sem) == 0) {
 		/* error report */
@@ -1104,6 +1190,17 @@ static int work_delete_handle(unsigned long *args __always_unused)
 
 		graphic_handle = NULL;
 	}
+#if FEATURE_FRAMEACCESS & 1
+#if NUM_OF_ANDROID_USABLE_FB > 1
+	if (info_fb.direct_display[0]) {
+		info_fb.direct_display[0] = false;
+		/* finish using framebuffer of current display */
+		increment_usable_framebuffer(FRAMEACESS_FB_FOR_LCD);
+	}
+#endif
+#endif
+
+	ATRACE_END("del_handle");
 	TRACE_LEAVE(FUNC_WQ_DELETE);
 	DBGLEAVE("\n");
 	return 0;
@@ -1111,8 +1208,13 @@ static int work_delete_handle(unsigned long *args __always_unused)
 
 static int work_create_handle(unsigned long *args __always_unused)
 {
+	int lcd_width, lcd_height;
+	int hdmi_width, hdmi_height;
+
 	TRACE_ENTER(FUNC_WQ_CREATE);
 	DBGENTER("\n");
+
+	ATRACE_BEGIN("create_handle");
 
 	if (down_trylock(&sem) == 0) {
 		/* error report */
@@ -1133,10 +1235,40 @@ static int work_create_handle(unsigned long *args __always_unused)
 	}
 
 	/* create graphic handle */
-	graphic_handle = lcd_rtapi_create();
+	lcd_get_resolution(&lcd_width, &lcd_height, &info_fb);
+
+	hdmi_width = 0;
+	hdmi_height = 0;
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI > 1
+	hdmi_width = info_hdmi.max_width;
+	hdmi_height = info_hdmi.max_height;
+#endif
+
+	if (!set_blend_size_flag) {
+		graphic_handle = lcd_rtapi_create(lcd_width, lcd_height,
+			hdmi_width, hdmi_height);
+		set_blend_size_flag = true;
+	} else {
+		/* skip configure blend image size */
+		graphic_handle = lcd_rtapi_create(0, 0, 0, 0);
+	}
 
 finish:
+	ATRACE_END("create_handle");
 	TRACE_LEAVE(FUNC_WQ_CREATE);
+	DBGLEAVE("\n");
+	return 0;
+}
+
+static int work_re_initialize_handle(unsigned long *args __always_unused)
+{
+	TRACE_ENTER(FUNC_WQ_CREATE);
+	DBGENTER("\n");
+
+	work_delete_handle(NULL);
+	set_blend_size_flag = false;
+	work_create_handle(NULL);
+
 	DBGLEAVE("\n");
 	return 0;
 }
@@ -1145,9 +1277,11 @@ static void complete_work_blend(struct composer_rh *rh)
 {
 	DBGENTER("rh:%p\n", rh);
 
+	ATRACE_BEGIN("blend_lcd comp");
+
 #if SH_MOBILE_COMPOSER_USE_SW_SYNC_API
 #if _LOG_DBG > 1
-	/* detect un-expeted condition. */
+	/* detect un-expected condition. */
 	WARN_ON(swsync_handle &&
 		rh->fence_signal_flag_c[FENCE_SIGNAL_BLEND]);
 #endif
@@ -1168,24 +1302,30 @@ static void complete_work_blend(struct composer_rh *rh)
 
 #if NUM_OF_ANDROID_USABLE_FB > 1
 	{
-		int old_mode[2];
+		int direct = false;
 
-		old_mode[1] = info_fb.fb_direct_display[1];
-		old_mode[0] = info_fb.fb_direct_display[0];
-
-		printk_dbg2(2, "direct display %d %d\n",
-			old_mode[0], old_mode[1]);
+		if (rh->lcd_data.display == DISPLAY_FLAG_UNBLANK &&
+			!rh->lcd_data.need_blend) {
+			/* this buffer is directly    */
+			/* display after this event.  */
+			direct = true;
+		}
 
 		/* backup previous display mode */
-		info_fb.fb_direct_display[1] = info_fb.fb_direct_display[0];
-		/* assume not direct display */
-		info_fb.fb_direct_display[0] = false;
+		info_fb.direct_display[1] = info_fb.direct_display[0];
 
-		if (old_mode[1]) {
+		/* set direct display flag */
+		info_fb.direct_display[0] = direct;
+
+		printk_dbg2(2, "direct display %d %d\n",
+			info_fb.direct_display[0],
+			info_fb.direct_display[1]);
+
+		if (info_fb.direct_display[1]) {
 			/* finish using framebuffer of previous display */
 			increment_usable_framebuffer(FRAMEACESS_FB_FOR_LCD);
 		}
-		if (!old_mode[0]) {
+		if (!info_fb.direct_display[0]) {
 			/* finish using framebuffer of current display */
 			increment_usable_framebuffer(FRAMEACESS_FB_FOR_LCD);
 		}
@@ -1197,6 +1337,7 @@ static void complete_work_blend(struct composer_rh *rh)
 
 #endif
 
+	ATRACE_END("blend_lcd comp");
 	DBGLEAVE("\n");
 	return;
 }
@@ -1207,10 +1348,12 @@ static void work_blend(struct localwork *work)
 	int  rc;
 	int  blend_flag = 0;
 
-	rh = container_of(work, struct composer_rh, rh_wqtask);
-
 	TRACE_ENTER(FUNC_WQ_BLEND);
 	DBGENTER("work:%p\n", work);
+
+	ATRACE_BEGIN("blend_lcd");
+
+	rh = container_of(work, struct composer_rh, rh_wqtask);
 
 #if _TIM_DBG
 	timerecord_record(rh->timerecord, TIMID_BLEND_S);
@@ -1219,7 +1362,7 @@ static void work_blend(struct localwork *work)
 	printk_dbg2(2, "lcd_data.valid:%d\n", rh->lcd_data.valid);
 
 #if _LOG_DBG > 1
-	/* detect un-expeted condition. */
+	/* detect un-expected condition. */
 	WARN_ON(rh->lcd_data.valid == false || rh->active == false);
 #endif
 
@@ -1272,13 +1415,16 @@ static void work_blend(struct localwork *work)
 
 finish:
 
+#if FEATURE_SKIP_LCD
 	if (blend_flag == 2) {
 		/* reserved for skip */
 		if (rh->lcd_data.display) {
 			/* change display type as skip */
 			rh->lcd_data.display = DISPLAY_FLAG_UNBLANK_SKIP;
 		}
-	} else if (!blend_flag || rc != CMP_OK) {
+	}
+#endif
+	if (!blend_flag || rc != CMP_OK) {
 		/* disable display to avoid illegal display. */
 		rh->lcd_data.display = DISPLAY_FLAG_BLANK;
 	}
@@ -1328,6 +1474,7 @@ finish:
 	work_dispdraw(&rh->rh_wqtask_disp);
 #endif
 
+	ATRACE_END("blend_lcd");
 	TRACE_LEAVE(FUNC_WQ_BLEND);
 	DBGLEAVE("\n");
 	return;
@@ -1336,6 +1483,8 @@ finish:
 static void complete_work_dispdraw(struct composer_rh *rh)
 {
 	DBGENTER("rh:%p\n", rh);
+
+	ATRACE_BEGIN("disp_lcd comp");
 
 	up(&sem_framebuf_useable);
 	if (sem_framebuf_useable.count > NUM_OF_FRAMEBUFFER_MAXIMUM)
@@ -1362,6 +1511,7 @@ static void complete_work_dispdraw(struct composer_rh *rh)
 	/* handle blend request */
 	handle_list_blend_request(BLEND_REQ_LCD);
 
+	ATRACE_END("disp_lcd comp");
 	DBGLEAVE("\n");
 	return;
 }
@@ -1372,6 +1522,8 @@ static void work_dispdraw(struct localwork *work)
 
 	DBGENTER("work:%p\n", work);
 	TRACE_ENTER(FUNC_WQ_DISP);
+
+	ATRACE_BEGIN("disp_lcd");
 
 	rh = container_of(work, struct composer_rh, rh_wqtask_disp);
 
@@ -1425,6 +1577,7 @@ finish:
 
 	complete_work_dispdraw(rh);
 
+	ATRACE_END("disp_lcd");
 	TRACE_LEAVE(FUNC_WQ_DISP);
 	DBGLEAVE("\n");
 	return;
@@ -1462,6 +1615,8 @@ static int work_delete_handle_hdmi(unsigned long *args __always_unused)
 	TRACE_ENTER(FUNC_WQ_DELETE_HDMI);
 	DBGENTER("\n");
 
+	ATRACE_BEGIN("del_handle hdmi");
+
 	if (graphic_handle_hdmi) {
 #ifdef CONFIG_MACH_KOTA2
 		/* Kota2 not support graphic output. */
@@ -1476,7 +1631,17 @@ static int work_delete_handle_hdmi(unsigned long *args __always_unused)
 		graphic_handle_hdmi = NULL;
 #endif
 	}
+#if FEATURE_FRAMEACCESS & 2
+#if NUM_OF_ANDROID_USABLE_HDMI_FB > 1
+	if (info_hdmi.direct_display[0]) {
+		info_hdmi.direct_display[0] = false;
+		/* finish using framebuffer of previous display */
+		increment_usable_framebuffer(FRAMEACESS_FB_FOR_HDMI);
+	}
+#endif
+#endif
 
+	ATRACE_END("del_handle hdmi");
 	TRACE_LEAVE(FUNC_WQ_DELETE_HDMI);
 	DBGLEAVE("\n");
 	return 0;
@@ -1486,6 +1651,8 @@ static int work_create_handle_hdmi(unsigned long *args __always_unused)
 {
 	TRACE_ENTER(FUNC_WQ_CREATE_HDMI);
 	DBGENTER("\n");
+
+	ATRACE_BEGIN("create_handle hdmi");
 
 	/* currently not implemented. */
 	if (rtapi_hungup) {
@@ -1504,6 +1671,7 @@ static int work_create_handle_hdmi(unsigned long *args __always_unused)
 #endif
 	}
 
+	ATRACE_END("create_handle hdmi");
 	TRACE_LEAVE(FUNC_WQ_CREATE_HDMI);
 	DBGLEAVE("\n");
 	return 0;
@@ -1515,9 +1683,11 @@ static void complete_work_blend_hdmi(struct composer_rh *rh)
 {
 	DBGENTER("rh:%p\n", rh);
 
+	ATRACE_BEGIN("blend_hdmi comp");
+
 #if SH_MOBILE_COMPOSER_USE_SW_SYNC_API
 #if _LOG_DBG > 1
-	/* detect un-expeted condition. */
+	/* detect un-expected condition. */
 	WARN_ON(swsync_handle_hdmi &&
 		rh->fence_signal_flag_c[FENCE_SIGNAL_OUTPUT]);
 #endif
@@ -1538,25 +1708,40 @@ static void complete_work_blend_hdmi(struct composer_rh *rh)
 
 #if NUM_OF_ANDROID_USABLE_HDMI_FB > 1
 	{
-		int old_mode[2];
+		int direct = false;
 
-		old_mode[1] = info_hdmi.hdmi_direct_display[1];
-		old_mode[0] = info_hdmi.hdmi_direct_display[0];
-
-		printk_dbg2(2, "direct display %d %d\n",
-			old_mode[0], old_mode[1]);
+		if (rh->hdmi_data.display == DISPLAY_FLAG_UNBLANK &&
+			!rh->hdmi_data.need_blend) {
+			switch (rh->hdmi_data.layer[0].image.format) {
+			case RT_GRAPHICS_COLOR_ARGB8888:
+			case RT_GRAPHICS_COLOR_YUV420SP:
+			case RT_GRAPHICS_COLOR_YUV422SP:
+				/* this buffer is not directly */
+				/* display after this event.   */
+				break;
+			default:
+				/* other buffer is directly    */
+				/* display after this event.   */
+				direct = true;
+				break;
+			}
+		}
 
 		/* backup previous display mode */
-		info_hdmi.hdmi_direct_display[1] =
-			info_hdmi.hdmi_direct_display[0];
-		/* assume not direct display */
-		info_hdmi.hdmi_direct_display[0] = false;
+		info_hdmi.direct_display[1] = info_hdmi.direct_display[0];
 
-		if (old_mode[1]) {
+		/* set direct display flag */
+		info_hdmi.direct_display[0] = direct;
+
+		printk_dbg2(2, "direct display %d %d\n",
+			info_hdmi.direct_display[0],
+			info_hdmi.direct_display[1]);
+
+		if (info_hdmi.direct_display[1]) {
 			/* finish using framebuffer of previous display */
 			increment_usable_framebuffer(FRAMEACESS_FB_FOR_HDMI);
 		}
-		if (!old_mode[0]) {
+		if (!info_hdmi.direct_display[0]) {
 			/* finish using framebuffer of current display */
 			increment_usable_framebuffer(FRAMEACESS_FB_FOR_HDMI);
 		}
@@ -1568,6 +1753,7 @@ static void complete_work_blend_hdmi(struct composer_rh *rh)
 
 #endif
 
+	ATRACE_END("blend_hdmi comp");
 	DBGLEAVE("\n");
 	return;
 }
@@ -1580,6 +1766,8 @@ static void work_blend_hdmi(struct localwork *work)
 
 	TRACE_ENTER(FUNC_WQ_BLEND_HDMI);
 	DBGENTER("work:%p\n", work);
+
+	ATRACE_BEGIN("blend_hdmi");
 
 	rh = container_of(work, struct composer_rh, rh_wqtask_hdmi_blend);
 
@@ -1597,7 +1785,7 @@ static void work_blend_hdmi(struct localwork *work)
 	}
 
 #if _LOG_DBG > 1
-	/* detect un-expeted condition. */
+	/* detect un-expected condition. */
 	WARN_ON(rh->hdmi_data.valid == false || rh->active == false);
 #endif
 
@@ -1658,13 +1846,16 @@ finish2:
 
 finish:
 
+#if FEATURE_SKIP_HDMI
 	if (blend_flag == 2) {
 		/* reserved for skip */
 		if (rh->hdmi_data.display) {
 			/* change display type as skip */
 			rh->hdmi_data.display = DISPLAY_FLAG_UNBLANK_SKIP;
 		}
-	} else if (!blend_flag || rc != CMP_OK) {
+	}
+#endif
+	if (!blend_flag || rc != CMP_OK) {
 		/* disable display to avoid illegal display. */
 		rh->hdmi_data.display = DISPLAY_FLAG_BLANK;
 	}
@@ -1714,6 +1905,7 @@ finish:
 	work_dispdraw_hdmi(&rh->rh_wqtask_hdmi);
 #endif
 
+	ATRACE_END("blend_hdmi");
 	TRACE_LEAVE(FUNC_WQ_BLEND_HDMI);
 	DBGLEAVE("\n");
 	return;
@@ -1722,6 +1914,8 @@ finish:
 static void complete_work_dispdraw_hdmi(struct composer_rh *rh)
 {
 	DBGENTER("rh:%p\n", rh);
+
+	ATRACE_BEGIN("disp_hdmi comp");
 
 	up(&sem_hdmi_framebuf_useable);
 	if (sem_hdmi_framebuf_useable.count > NUM_OF_HDMI_FRAMEBUFFER_MAXIMUM)
@@ -1743,6 +1937,64 @@ static void complete_work_dispdraw_hdmi(struct composer_rh *rh)
 	/* handle blend request */
 	handle_list_blend_request(BLEND_REQ_HDMI);
 
+	ATRACE_END("disp_hdmi comp");
+	DBGLEAVE("\n");
+	return;
+}
+
+static void work_dispdraw_hdmicomp(struct localwork *work)
+{
+	struct composer_rh *rh;
+
+	TRACE_ENTER(FUNC_WQ_DISP_HDMICOMP);
+	DBGENTER("work:%p\n", work);
+
+	ATRACE_BEGIN("disp_hdmi2");
+
+	rh = container_of(work, struct composer_rh, rh_wqtask_hdmi_comp);
+
+	if ((rh->refmask_disp & REFFLAG_DISPLAY_HDMI) == 0) {
+		printk_err("illegal scheduling\n");
+		/* nothing to do */
+	} else {
+#if _ATR_DBG
+		if (rh->hdmi_data.display) {
+			int use_id = atrace_hdmi_display_complete & 1;
+
+			if (!(atrace_hdmi_display_used & (1 << use_id)))
+				printk_err("ATRACE_DEBUG not " \
+					"propery implemented.\n");
+
+			atrace_hdmi_display_used &= ~(1 << use_id);
+			atrace_hdmi_display_complete++;
+			if (use_id) {
+				/* mark used buffer */
+				ATRACE_INT("hdmi0", 0);
+			} else {
+				/* mark used buffer */
+				ATRACE_INT("hdmi1", 0);
+			}
+		}
+#endif
+
+		printk_dbg2(2, "output state: %d\n",
+			rh->rh_wqwait_hdmi.status);
+
+		if (!rh->hdmi_data.need_blend) {
+			/* complete blend task. */
+			complete_work_blend_hdmi(rh);
+		}
+
+#if _TIM_DBG
+		timerecord_record(rh->timerecord, TIMID_DISP_HDMI_E);
+#endif
+
+		/* complete output task. */
+		complete_work_dispdraw_hdmi(rh);
+	}
+
+	ATRACE_END("disp_hdmi2");
+	TRACE_LEAVE(FUNC_WQ_DISP_HDMICOMP);
 	DBGLEAVE("\n");
 	return;
 }
@@ -1750,9 +2002,12 @@ static void complete_work_dispdraw_hdmi(struct composer_rh *rh)
 static void work_dispdraw_hdmi(struct localwork *work)
 {
 	struct composer_rh *rh;
+	int  output_flag = false;
 
 	TRACE_ENTER(FUNC_WQ_DISP_HDMI);
 	DBGENTER("work:%p\n", work);
+
+	ATRACE_BEGIN("disp_hdmi1");
 
 	rh = container_of(work, struct composer_rh, rh_wqtask_hdmi);
 
@@ -1818,13 +2073,17 @@ static void work_dispdraw_hdmi(struct localwork *work)
 		} else {
 			/* output */
 			rc = hdmi_rtapi_output(graphic_handle_hdmi, rh);
+			if (rc == CMP_OK) {
+				/* set output flag */
+				output_flag = true;
+			}
 		}
 
 finish:
 		printk_dbg1(2, "results rc:%d\n", rc);
 		if (rc != CMP_OK) {
 			/* report error */
-			printk_err1("output result is error.\n");
+			printk_err1("output request result is error.\n");
 		}
 	}
 #endif
@@ -1832,18 +2091,44 @@ finish:
 #if FEATURE_SKIP_HDMI
 finish2:
 #endif
-	if (!rh->hdmi_data.need_blend) {
-		/* complete blend task. */
-		complete_work_blend_hdmi(rh);
+	if (output_flag) {
+#if _ATR_DBG
+		int use_id = atrace_hdmi_display_request & 1;
+
+		if (atrace_hdmi_display_used & (1 << use_id))
+			printk_err("ATRACE_DEBUG not propery implemented.\n");
+
+		atrace_hdmi_display_used |= (1 << use_id);
+		atrace_hdmi_display_request++;
+		if (use_id) {
+			/* mark used buffer */
+			ATRACE_INT("hdmi0", 1);
+		} else {
+			/* mark used buffer */
+			ATRACE_INT("hdmi1", 1);
+		}
+#endif
+#if _TIM_DBG
+		timerecord_record(rh->timerecord, TIMID_DISP_HDMI_O);
+#endif
+		/* task completion is delayed until call back occurs. */
+	} else {
+		/* forcely off display to return current display buffer */
+		if (graphic_handle_hdmi) {
+			if (!rh->hdmi_data.display) {
+				/* destroy handle of HDMI. */
+				work_delete_handle_hdmi(NULL);
+			}
+		}
+
+		/* schedule to complete. */
+		localwork_flush(VAR_WORKQUEUE_HDMI,
+			&rh->rh_wqtask_hdmi_comp);
+		localwork_queue(VAR_WORKQUEUE_HDMI,
+			&rh->rh_wqtask_hdmi_comp);
 	}
 
-#if _TIM_DBG
-	timerecord_record(rh->timerecord, TIMID_DISP_HDMI_E);
-#endif
-
-	/* complete output task. */
-	complete_work_dispdraw_hdmi(rh);
-
+	ATRACE_END("disp_hdmi1");
 	TRACE_LEAVE(FUNC_WQ_DISP_HDMI);
 	DBGLEAVE("\n");
 	return;
@@ -1870,7 +2155,7 @@ static int composer_unset_address(unsigned int id)
 	int rc;
 
 	/* currently not acquire semaphore.         */
-	/* because core_release already acqurie it. */
+	/* because core_release already acquire it. */
 
 	rc = lcd_unset_address(id, workqueue, &info_fb);
 
@@ -1902,7 +2187,7 @@ static unsigned char *composer_get_RT_address(unsigned char *address)
 	rt_addr = (char *)sh_mobile_rtmem_conv_phys2rtmem(p_addr);
 
 	if (rt_addr == NULL) {
-		/* resolve conversioin by RT-API */
+		/* resolve conversion by RT-API */
 		if (graphic_handle == NULL) {
 			/* currently not open handle */
 			printk_dbg2(3, "not open rt-api handle\n");
@@ -1956,18 +2241,37 @@ static unsigned char *module_composer_phy_change_rtaddr(unsigned long p_adr)
 
 
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-static int module_composer_hdmiset(int mode)
+static int composer_enable_hdmioutput(int enable, int mode)
 {
+	int mask;
 	int rc = CMP_OK;
-	TRACE_ENTER(FUNC_HDMISET);
-	DBGENTER("mode:%d\n", mode);
 
-	printk_dbg2(3, "down\n");
-	down(&sem);
+	if (down_trylock(&sem) == 0) {
+		/* error report */
+		printk_err("acquire semaphore needs to exclusive-control\n");
+		up(&sem);
+	}
 
-	if (mode == CMP_HDMISET_STOP) {
-		/* disable output hdmi */
-		hdmi_output_enable = false;
+	if (enable) {
+		/* clear mask */
+		hdmi_output_enable_mask &= ~mode;
+		mask = hdmi_output_enable_mask;
+		printk_dbg2(3, "hdmi_output_enable_mask:%d\n", mask);
+
+		if (!hdmi_output_enable && !mask) {
+			/* enable output. */
+			hdmi_output_enable = true;
+		}
+	} else {
+		/* set mask */
+		hdmi_output_enable_mask |= mode;
+		mask = hdmi_output_enable_mask;
+		printk_dbg2(3, "hdmi_output_enable_mask:%d\n", mask);
+
+		if (hdmi_output_enable) {
+			/* disable output. */
+			hdmi_output_enable = false;
+		}
 
 		/* confirm that the graphics handle for HDMI need release. */
 		if (graphic_handle_hdmi) {
@@ -1989,15 +2293,36 @@ static int module_composer_hdmiset(int mode)
 			printk_dbg2(3, "release graphic handle failed.\n");
 			rc = CMP_NG;
 		}
+	}
+	printk_dbg2(2, "hdmi_output_enable:%d\n", hdmi_output_enable);
+	return rc;
+}
+
+static int module_composer_hdmiset(int mode)
+{
+	int rc = CMP_OK;
+	TRACE_ENTER(FUNC_HDMISET);
+	DBGENTER("mode:%d\n", mode);
+
+	printk_dbg2(3, "down\n");
+	down(&sem);
+
+	if (mode == CMP_HDMISET_STOP) {
+		/* disable output hdmi */
+
+		rc = composer_enable_hdmioutput(false,
+			HDMI_OUTPUT_MASK_HDMISET);
+
 		TRACE_LOG1(FUNC_HDMISET, rc);
 	} else if (mode == CMP_HDMISET_STOP_CANCEL) {
 		/* enable output hdmi */
-		hdmi_output_enable = true;
+
+		rc = composer_enable_hdmioutput(true,
+			HDMI_OUTPUT_MASK_HDMISET);
+
 		TRACE_LOG1(FUNC_HDMISET, rc);
 	}
 	up(&sem);
-
-	printk_dbg2(3, "hdmi output enable:%d\n", hdmi_output_enable);
 
 	DBGLEAVE("rc:%d\n", rc);
 	TRACE_LEAVE(FUNC_HDMISET);
@@ -2090,9 +2415,9 @@ static int handle_queue_data_type0(
 	rh->hdmi_data.valid = true;
 	rh->hdmi_data.display = false;
 	if (i >= 0) {
+		rh->hdmi_data.need_blend = false;
 		rh->hdmi_data.display = true;
-		rh->hdmi_data.output.output_image = post->layer[i].image;
-		rh->hdmi_data.output.rotate = post->extlayer.rotate;
+		rh->hdmi_data.layer[0] = post->layer[i];
 	} else {
 		if (!graphic_handle_hdmi)
 			rh->hdmi_data.valid = false;
@@ -2211,7 +2536,7 @@ static int handle_queue_data_type1(
 	memset(&rh->buffer_usage, 0, sizeof(rh->buffer_usage));
 
 	/**********************************
-	 resoleve buffer address.
+	 resolve buffer address.
 	**********************************/
 	memset(&rh->buffer_address, 0, sizeof(rh->buffer_address));
 
@@ -2395,7 +2720,7 @@ static int composer_queue(
 	rh->user_callback  = callback;
 	rh->user_data      = user_data;
 
-	/* get resouece to access contol frame buffer. */
+	/* get resource to access control frame buffer. */
 #if FEATURE_FRAMEACCESS
 	{
 		int fb_access_type = 0;
@@ -2547,219 +2872,168 @@ static void process_composer_queue_callback(struct composer_rh *rh)
 }
 
 #if INTERNAL_DEBUG
-
-#define DBGMSG_APPEND(FMT, ARG...) \
-{ c = snprintf(p, n, FMT, ##ARG); if (c < n) { p += c; n -= c; } }
-
-#define DBGMSG_WORKQUEUE(ARG) { if (ARG) \
-		DBGMSG_APPEND("  " #ARG " run:%d priority:%d\n", \
-			!list_empty(&ARG->top), ARG->priority); }
-
-#define DBGMSG_WORKTASK(NAME, ARG) { DBGMSG_APPEND("  " #NAME \
-	" queue:%d status:%d\n", !list_empty(&ARG.link), ARG.status); }
-
-static void internal_debug_create_message(struct composer_fh *fh)
+#ifdef CONFIG_DEBUG_FS
+static void sh_mobile_composer_debug_info_static(struct seq_file *s)
 {
-	char *p = internal_log_msg;
-	int  n  = internal_log_msgsize;
-	int  c;
-	int  i;
-
-	/* about internal_log_seqid */
-	/*  bit7-0:  reserved for index number of same log type */
-	/*  bit15-8: reserved for log type.                     */
-	/*  there is define of special value                    */
-	/*     -1: need initialize before begin create message. */
-	/*  65535: no more message .                            */
-
-	int  log_type  = (internal_log_seqid >> 8) & 0xff;
-	int  log_index =  internal_log_seqid       & 0xff;
-
-	if (p == NULL) {
-		internal_log_seqid = SEQID_NOMORE_LOG;
-		goto err_exit;
-	}
-	/* record sequence */
-	if (internal_log_seqid == -1) {
-		/* set next logtype */
-		internal_log_seqid = 0 << 8;
-	} else if (log_type == 0) {
-		/* log of static variable */
-		DBGMSG_APPEND("[semaphore]\n")
-		DBGMSG_APPEND("  sem:%d\n", sem.count)
-		DBGMSG_APPEND("  kernel_queue_sem:%d\n",
-			kernel_queue_sem.count)
-		DBGMSG_APPEND("  sem_framebuf_useable:%d\n",
-			sem_framebuf_useable.count)
+	/* log of static variable */
+	seq_printf(s, "[semaphore]\n");
+	seq_printf(s, "  sem:%d\n", sem.count);
+	seq_printf(s, "  kernel_queue_sem:%d\n",
+		kernel_queue_sem.count);
+	seq_printf(s, "  sem_framebuf_useable:%d\n",
+		sem_framebuf_useable.count);
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-		DBGMSG_APPEND("  sem_hdmi_framebuf_useable:%d\n",
-			sem_hdmi_framebuf_useable.count)
-		DBGMSG_APPEND("  sem_hdmimemory:%d\n",
-			sem_hdmimemory.count)
+	seq_printf(s, "  sem_hdmi_framebuf_useable:%d\n",
+		sem_hdmi_framebuf_useable.count);
+	seq_printf(s, "  sem_hdmimemory:%d\n",
+		sem_hdmimemory.count);
 #endif
 #if SH_MOBILE_COMPOSER_USE_SW_SYNC_API
-		DBGMSG_APPEND("  sem_get_syncfd:%d\n",
-			sem_get_syncfd.count)
+	seq_printf(s, "  sem_get_syncfd:%d\n",
+		sem_get_syncfd.count);
 #endif
-		DBGMSG_APPEND("[static]\n")
-		DBGMSG_APPEND("  num_open:%d\n", num_open);
-		DBGMSG_APPEND("  debug:%d\n", debug);
-		DBGMSG_APPEND("  rtapi_hungup:%d\n", rtapi_hungup);
+	seq_printf(s, "[static]\n");
+	seq_printf(s, "  num_open:%d\n", num_open);
+	seq_printf(s, "  debug:%d\n", debug);
+	seq_printf(s, "  rtapi_hungup:%d\n", rtapi_hungup);
+	seq_printf(s, "  set_blend_size_flag:%d\n", set_blend_size_flag);
 #if FEATURE_FRAMEACCESS
-		DBGMSG_APPEND("  available_num_framebuffer: " \
-			"lcd[%d] hdmi[%d]\n",
-			available_num_framebuffer[0],
-			available_num_framebuffer[1]);
+	seq_printf(s, "  available_num_framebuffer: " \
+		"lcd[%d] hdmi[%d]\n",
+		available_num_framebuffer[0],
+		available_num_framebuffer[1]);
 #endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
-		DBGMSG_APPEND("  in_early_suspend:%d\n", in_early_suspend);
+	seq_printf(s, "  in_early_suspend:%d\n", in_early_suspend);
 #endif
-		DBGMSG_APPEND("  graphic_handle:%p\n", graphic_handle);
+	seq_printf(s, "  graphic_handle:%p\n", graphic_handle);
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-		DBGMSG_APPEND("  graphic_handle_hdmi:%p\n",
-			graphic_handle_hdmi);
-		DBGMSG_APPEND("  hdmi_output_enable:%d\n", hdmi_output_enable);
+	seq_printf(s, "  graphic_handle_hdmi:%p\n",
+		graphic_handle_hdmi);
+	seq_printf(s, "  hdmi_output_enable:%d\n", hdmi_output_enable);
+	seq_printf(s, "  hdmi_output_enable_mask:%d\n",
+		hdmi_output_enable_mask);
 #endif
-		DBGMSG_APPEND("  fb    addr:0x%lx-0x%lx map_handle:%p\n",
-			info_fb.queue_fb_map_address,
-			info_fb.queue_fb_map_endaddress,
-			info_fb.queue_fb_map_handle)
-		DBGMSG_APPEND("        offset:0x%x 0x%x\n" \
-			"        yline:0x%x 0x%x\n",
-			info_fb.fb_offset_info[0][0],
-			info_fb.fb_offset_info[1][0],
-			info_fb.fb_offset_info[0][1],
-			info_fb.fb_offset_info[1][1]);
-		DBGMSG_APPEND("        doublebuffer:%d display_count:%d\n",
-			info_fb.fb_double_buffer,
-			info_fb.fb_count_display);
-		DBGMSG_APPEND("  gpufb addr:0x%lx-0x%lx map_handle:%p\n",
-			info_fb.queue_fb_map_address2,
-			info_fb.queue_fb_map_endaddress2,
-			info_fb.queue_fb_map_handle2)
-		DBGMSG_APPEND("        fb_direct_display:%d\n",
-			info_fb.fb_direct_display[1]);
+	seq_printf(s, "  fb    addr:0x%lx-0x%lx map_handle:%p\n",
+		info_fb.queue_fb_map_address,
+		info_fb.queue_fb_map_endaddress,
+		info_fb.queue_fb_map_handle);
+	seq_printf(s, "        offset:0x%x 0x%x\n" \
+		"        yline:0x%x 0x%x\n",
+		info_fb.fb_offset_info[0][0],
+		info_fb.fb_offset_info[1][0],
+		info_fb.fb_offset_info[0][1],
+		info_fb.fb_offset_info[1][1]);
+	seq_printf(s, "        doublebuffer:%d display_count:%d\n",
+		info_fb.fb_double_buffer,
+		info_fb.fb_count_display);
+	seq_printf(s, "  gpufb addr:0x%lx-0x%lx map_handle:%p\n",
+		info_fb.queue_fb_map_address2,
+		info_fb.queue_fb_map_endaddress2,
+		info_fb.queue_fb_map_handle2);
+	seq_printf(s, "        direct_display:%d\n",
+		info_fb.direct_display[0]);
+	seq_printf(s, "        blend_bufferid:%d\n",
+		info_fb.blend_bufferid);
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-		DBGMSG_APPEND("  hdmi  memsize:0x%lx\n",
-			info_hdmi.allocatesize);
-		DBGMSG_APPEND("        memhandle:%p\n",
-			info_hdmi.hdmi_map_handle);
-		DBGMSG_APPEND("        display_count:%d\n",
-			info_hdmi.hdmi_count_display);
-		DBGMSG_APPEND("        hdmi_direct_display:%d\n",
-			info_hdmi.hdmi_direct_display[1]);
+	seq_printf(s, "  hdmi  memsize:0x%lx\n",
+		info_hdmi.allocatesize);
+	seq_printf(s, "        memhandle:%p\n",
+		info_hdmi.hdmi_map_handle);
+	seq_printf(s, "        max width:%d height:%d\n",
+		info_hdmi.max_width, info_hdmi.max_height);
+	seq_printf(s, "        display_count:%d\n",
+		info_hdmi.hdmi_count_display);
+	seq_printf(s, "        direct_display:%d\n",
+		info_hdmi.direct_display[0]);
+	seq_printf(s, "        blend_bufferid:%d\n",
+		info_hdmi.blend_bufferid);
 #endif
 #if SH_MOBILE_COMPOSER_USE_SW_SYNC_API
-		DBGMSG_APPEND("  swsync_handle:%p\n", swsync_handle);
-		if (swsync_handle) {
-			DBGMSG_APPEND("    timeline_count:%d\n",
-				swsync_handle->timeline_count);
-			DBGMSG_APPEND("    timeline_inc:%d\n",
-				swsync_handle->timeline_inc);
-		}
-		DBGMSG_APPEND("  swsync_handle_hdmi:%p\n", swsync_handle_hdmi);
-		if (swsync_handle_hdmi) {
-			DBGMSG_APPEND("    timeline_count:%d\n",
-				swsync_handle_hdmi->timeline_count);
-			DBGMSG_APPEND("    timeline_inc:%d\n",
-				swsync_handle_hdmi->timeline_inc);
-		}
+	seq_printf(s, "  swsync_handle:%p\n", swsync_handle);
+	if (swsync_handle) {
+		seq_printf(s, "    timeline_count:%d\n",
+			swsync_handle->timeline_count);
+		seq_printf(s, "    timeline_inc:%d\n",
+			swsync_handle->timeline_inc);
+	}
+	seq_printf(s, "  swsync_handle_hdmi:%p\n", swsync_handle_hdmi);
+	if (swsync_handle_hdmi) {
+		seq_printf(s, "    timeline_count:%d\n",
+			swsync_handle_hdmi->timeline_count);
+		seq_printf(s, "    timeline_inc:%d\n",
+			swsync_handle_hdmi->timeline_inc);
+	}
 #endif
-		DBGMSG_APPEND("  top_lcd_list: %d top_hdmi_list: %d\n",
-			list_empty(&top_lcd_list), list_empty(&top_hdmi_list));
+	seq_printf(s, "  top_lcd_list: %d top_hdmi_list: %d\n",
+		list_empty(&top_lcd_list), list_empty(&top_hdmi_list));
 #if FEATURE_SKIP_HDMI || FEATURE_SKIP_LCD
-		DBGMSG_APPEND("  display skip count:%d %d [%d %d]\n",
-			skip_frame_count[0][0], skip_frame_count[1][0],
-			skip_frame_count[0][1], skip_frame_count[1][1]);
+	seq_printf(s, "  display skip count:%d %d [%d %d]\n",
+		skip_frame_count[0][0], skip_frame_count[1][0],
+		skip_frame_count[0][1], skip_frame_count[1][1]);
 #endif
-		/* set next logtype */
-		internal_log_seqid = 1 << 8;
-	} else if (log_type == 1) {
-		/* log of queue */
-		struct composer_rh *rh;
+}
 
-		if (log_index < MAX_KERNELREQ) {
-			/* set pointer */
-			rh = &kernel_request[log_index];
-		} else {
-			/* clear pointer */
-			rh = NULL;
-		}
+#define DBGMSG_WORKQUEUE(ARG) { if (ARG) \
+		seq_printf(s, "  " #ARG " run:%d priority:%d\n", \
+			!list_empty(&ARG->top), ARG->priority); }
 
-		if (rh) {
-			DBGMSG_APPEND("[queue-%d]\n", log_index)
+#define DBGMSG_WORKTASK(NAME, ARG) { seq_printf(s, "  " #NAME \
+	" queue:%d status:%d\n", !list_empty(&ARG.link), ARG.status); }
 
-			c = sh_mobile_composer_dump_rhandle(p, n, rh);
-			if (c < n) {
-				p += c;
-				n -= c;
-			}
-		}
+static void sh_mobile_composer_debug_info_queue(struct seq_file *s)
+{
+	int i;
+	struct composer_rh *rh;
 
-		/* set next logtype */
-		if (rh)
-			internal_log_seqid++;
-		else
-			internal_log_seqid = 2 << 8;
-	} else if (log_type == 2) {
-		/* state of task for local workqueue */
+	/* queue info */
+	for (i = 0; i < MAX_KERNELREQ; i++) {
+		rh = &kernel_request[i];
 
-		DBGMSG_APPEND("[workqueue]\n")
-		DBGMSG_WORKQUEUE(workqueue);
-		DBGMSG_WORKQUEUE(workqueue_schedule);
-#if SH_MOBILE_COMPOSER_SUPPORT_HDMI && FEATURE_HDMI_WORKQUEUE
-		DBGMSG_WORKQUEUE(workqueue_hdmi);
-#endif
-#if FEATURE_LCD_WORKQUEUE
-		DBGMSG_WORKQUEUE(workqueue_lcd);
-#endif
-		DBGMSG_APPEND("[worktask]\n");
+		seq_printf(s, "[queue-%d]\n", i);
 
-		for (i = 0; i < MAX_KERNELREQ; i++) {
-			DBGMSG_APPEND("  kernel_request[%d]\n", i);
+		*internal_log_msg = 0;
+		sh_mobile_composer_dump_rhandle(
+			internal_log_msg, internal_log_msgsize, rh);
 
-			DBGMSG_WORKTASK(rh_wqtask,
-				kernel_request[i].rh_wqtask);
-			DBGMSG_WORKTASK(rh_wqtask_disp,
-				kernel_request[i].rh_wqtask_disp);
-			DBGMSG_WORKTASK(rh_wqtask_hdmi_blend,
-				kernel_request[i].rh_wqtask_hdmi_blend);
-#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
-			DBGMSG_WORKTASK(rh_wqtask_hdmi,
-				kernel_request[i].rh_wqtask_hdmi);
-#endif
-			DBGMSG_WORKTASK(rh_wqtask_schedule,
-				kernel_request[i].rh_wqtask_schedule);
-		}
-
-		/* set next logtype */
-		internal_log_seqid = 3 << 8;
-	} else if (log_type == 3) {
-		/* trace log */
-		DBGMSG_APPEND("[TRACELOG]\n")
-		c = sh_mobile_composer_tracelog_read(p, n);
-		if (c < n) {
-			p += c;
-			n -= c;
-		}
-		DBGMSG_APPEND("\n")
-
-		/* set next logtype */
-		internal_log_seqid = 4<<8;
-	} else {
-		/* end of debug log */
-		internal_log_seqid = SEQID_NOMORE_LOG;
-		p = internal_log_msg;
+		seq_printf(s, "%s\n", internal_log_msg);
 	}
 
-err_exit:
-	internal_log_length = p - internal_log_msg;
-	internal_log_remain = internal_log_length;
+	/* workqueue */
+
+	seq_printf(s, "[workqueue]\n");
+
+	DBGMSG_WORKQUEUE(workqueue);
+	DBGMSG_WORKQUEUE(workqueue_schedule);
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI && FEATURE_HDMI_WORKQUEUE
+	DBGMSG_WORKQUEUE(workqueue_hdmi);
+#endif
+#if FEATURE_LCD_WORKQUEUE
+	DBGMSG_WORKQUEUE(workqueue_lcd);
+#endif
+	seq_printf(s, "[worktask]\n");
+
+	for (i = 0; i < MAX_KERNELREQ; i++) {
+		seq_printf(s, "  kernel_request[%d]\n", i);
+
+		DBGMSG_WORKTASK(rh_wqtask,
+			kernel_request[i].rh_wqtask);
+		DBGMSG_WORKTASK(rh_wqtask_disp,
+			kernel_request[i].rh_wqtask_disp);
+		DBGMSG_WORKTASK(rh_wqtask_hdmi_blend,
+			kernel_request[i].rh_wqtask_hdmi_blend);
+#if SH_MOBILE_COMPOSER_SUPPORT_HDMI
+		DBGMSG_WORKTASK(rh_wqtask_hdmi,
+			kernel_request[i].rh_wqtask_hdmi);
+#endif
+		DBGMSG_WORKTASK(rh_wqtask_schedule,
+			kernel_request[i].rh_wqtask_schedule);
+	}
 }
-#undef DBGMSG_APPEND
 #undef DBGMSG_WORKQUEUE
 #undef DBGMSG_WORKTASK
 
+#endif
 #endif
 
 #if SH_MOBILE_COMPOSER_USE_SW_SYNC_API
@@ -2816,81 +3090,6 @@ static void swsync_delete_handle(void)
 /******************************************************/
 /* file operation entry function                      */
 /******************************************************/
-static ssize_t core_read(struct file *filp, char __user *buf, \
-		size_t sz, loff_t *off)
-{
-	int rc = -EIO;
-#if INTERNAL_DEBUG
-	struct composer_fh     *fh;
-	char   *msg, *p;
-	int    n,    c;
-#endif
-
-	DBGENTER("filp:%p buf:%p sz:%d off:%p\n", filp, buf, sz, off);
-
-#if INTERNAL_DEBUG
-	fh = (struct composer_fh *)filp->private_data;
-
-	/* allocate temporary memory. */
-	msg = kmalloc(sz, GFP_KERNEL);
-	if (msg == NULL || internal_log_msg == NULL) {
-		printk_err2("memory allocatioin failed.\n");
-		rc = -ENOMEM;
-		goto err_exit;
-	}
-
-	/* initialize */
-	p = &msg[0];
-	n = sz;
-
-	if (off != NULL && *off == 0) {
-		/* reset sequence number */
-		internal_log_seqid = -1;
-	}
-
-	while (n > 0) {
-		if (internal_log_remain) {
-			/* append message */
-			char *src = internal_log_msg;
-			c = min(n, internal_log_remain);
-			src += internal_log_length - internal_log_remain;
-
-			if (c) {
-				memcpy(p, src, c);
-				internal_log_remain -= c;
-				p                   += c;
-				n                   -= c;
-				continue;
-			}
-		} else if  (internal_log_seqid == SEQID_NOMORE_LOG) {
-			/* no more log */
-			break;
-		} else {
-			/* create message */
-			internal_debug_create_message(fh);
-		}
-	}
-
-	rc = p-msg;
-	if (rc) {
-		if (copy_to_user(buf, msg, rc)) {
-			printk_err2("fail in copy_to_user\n");
-			rc = -EINVAL;
-		} else if (off) {
-			/* increase offset */
-			*off += rc;
-		}
-	}
-err_exit:
-	if (msg) {
-		/* free temporary memory. */
-		kfree(msg);
-	}
-#endif
-	DBGLEAVE("%d\n", rc);
-	return rc;
-}
-
 static long core_ioctl(struct file *filep, \
 		unsigned int cmd, unsigned long arg)
 {
@@ -2907,9 +3106,9 @@ static long core_ioctl(struct file *filep, \
 	parg = fh->ioctl_args;
 	parg_size = CORE_IOCTL_MAX_ARG_LENGTH * 4;
 
-/********************/
-/* ProLoge of IOCTL */
-/********************/
+/*********************/
+/* Prologue of IOCTL */
+/*********************/
 	if (sz != 0 && ((dir & (_IOC_WRITE|_IOC_READ)) != 0)) {
 		if (sz >= parg_size) {
 			printk_err2("ioctl argument size too large\n");
@@ -2956,9 +3155,9 @@ static long core_ioctl(struct file *filep, \
 
 	up(&fh->fh_sem);
 
-/********************/
-/* EpiLoge of IOCTL */
-/********************/
+/*********************/
+/* Epilogue of IOCTL */
+/*********************/
 	if (rc == 0 && sz != 0 && (dir & _IOC_READ) != 0) {
 		printk_dbg2(3, "copy_to_user\n");
 		if (copy_to_user((void __user *)arg, parg, sz)) {
@@ -3120,7 +3319,7 @@ static int core_release(struct inode *inode, struct file *filep)
 		}
 #endif
 
-		printk_dbg2(3, "relase FB related resource "     \
+		printk_dbg2(3, "release FB related resource "     \
 			"fb_info(%p) queue_fb_map_handle(%p)\n", \
 			info_fb.fb_info, info_fb.queue_fb_map_handle);
 		if (info_fb.queue_fb_map_handle) {
@@ -3172,9 +3371,6 @@ static void pm_early_suspend(struct early_suspend *h)
 		}
 
 		up(&sem);
-
-		/* confirm complete of request queue. */
-		ioc_waitcomp(NULL);
 	} else {
 		printk_dbg2(3, "already release graphic handle\n");
 		/* nothing to do */
@@ -3202,6 +3398,9 @@ static void pm_early_suspend(struct early_suspend *h)
 	up(&sem);
 #endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI*/
 
+	/* confirm complete of request queue. */
+	ioc_waitcomp(NULL);
+
 #if FEATURE_LCD_WORKQUEUE
 	printk_dbg2(3, "wait display task complete\n");
 	localworkqueue_flush(VAR_WORKQUEUE_LCD);
@@ -3212,7 +3411,7 @@ static void pm_early_suspend(struct early_suspend *h)
 #endif
 
 #if SH_MOBILE_COMPOSER_USE_SW_SYNC_API
-	/* timeline increase to guarante all sync object be signaled. */
+	/* timeline increase to guarantee all sync object be signaled. */
 	fence_reset_timeline(swsync_handle);
 	fence_reset_timeline(swsync_handle_hdmi);
 #endif
@@ -3310,6 +3509,7 @@ static int __init sh_mobile_composer_init(void)
 	sema_init(&sem, 1);
 	num_open = 0;
 	graphic_handle = NULL;
+	set_blend_size_flag = false;
 
 	spin_lock_init(&irqlock_list);
 
@@ -3329,6 +3529,8 @@ static int __init sh_mobile_composer_init(void)
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 		localwork_init(&rh->rh_wqtask_hdmi_blend, work_blend_hdmi);
 		localwork_init(&rh->rh_wqtask_hdmi, work_dispdraw_hdmi);
+		localwork_init(&rh->rh_wqtask_hdmi_comp,
+			work_dispdraw_hdmicomp);
 #endif
 
 		localwork_init(&rh->rh_wqtask_schedule, work_schedule);
@@ -3342,6 +3544,7 @@ static int __init sh_mobile_composer_init(void)
 #endif
 		INIT_LIST_HEAD(&rh->lcd_list);
 		INIT_LIST_HEAD(&rh->hdmi_list);
+		INIT_LIST_HEAD(&rh->hdmi_wait_list);
 	}
 	INIT_LIST_HEAD(&top_lcd_list);
 	INIT_LIST_HEAD(&top_hdmi_list);
@@ -3369,6 +3572,7 @@ static int __init sh_mobile_composer_init(void)
 #if SH_MOBILE_COMPOSER_SUPPORT_HDMI
 	sema_init(&sem_hdmi_framebuf_useable, NUM_OF_HDMI_FRAMEBUFFER_MAXIMUM);
 	hdmi_output_enable = true;
+	hdmi_output_enable_mask = 0;
 	graphic_handle_hdmi = NULL;
 #endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI*/
 
@@ -3378,7 +3582,7 @@ static int __init sh_mobile_composer_init(void)
 	swsync_handle_hdmi = NULL;
 #endif
 
-	/* initialilze function call */
+	/* initialize function call */
 	indirect_call_init();
 
 #if INTERNAL_DEBUG
@@ -3430,7 +3634,7 @@ static int __init sh_mobile_composer_init(void)
 	}
 #endif
 
-	/* regist device */
+	/* register device */
 	ret = misc_register(&composer_device);
 	if (ret) {
 		printk_err("fail to misc_register (MISC_DYNAMIC_MINOR)\n");

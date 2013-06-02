@@ -136,7 +136,7 @@ struct sh_mobile_i2c_data {
 	int curr_msg;
 	int pos;
 	int sr;
-	u_int8_t bus_data_delay;
+	int8_t bus_data_delay;
 };
 
 #define IIC_FLAG_HAS_ICIC67	(1 << 0)

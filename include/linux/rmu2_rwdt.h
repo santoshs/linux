@@ -56,10 +56,6 @@
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 
-#ifndef IO_ADDRESS
-#define IO_ADDRESS(x)	x
-#endif	/* IO_ADDRESS */
-
 #ifdef CONFIG_RWDT_DEBUG
 #define RWDT_DEBUG(fmt, ...)	printk(KERN_DEBUG "" fmt, ##__VA_ARGS__)
 #else /* CONFIG_RWDT_DEBUG */

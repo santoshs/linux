@@ -286,7 +286,10 @@ static struct regulator_init_data d2153_ldo10 = {
 // LDO11
 __weak struct regulator_consumer_supply d2153_ldo11_supplies[] = {
 	REGULATOR_SUPPLY("key_led", NULL),	// key led
-#if defined(CONFIG_BOARD_VERSION_GARDA) || defined(CONFIG_BOARD_VERSION_LOGANLTE) || defined(CONFIG_BOARD_VERSION_LT02LTE)
+#if defined(CONFIG_BOARD_VERSION_GARDA) || \
+	defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
+	defined(CONFIG_BOARD_VERSION_LT02LTE) || \
+	defined(CONFIG_BOARD_VERSION_LOGANLTE_LATIN)
 	REGULATOR_SUPPLY("vled", "leds-regulator.0"),	// key led
 #endif /* CONFIG_BOARD_VERSION_GARDA || CONFIG_BOARD_VERSION_LOGANLTE || CONFIG_BOARD_VERSION_LT02LTE*/
 };
@@ -373,7 +376,11 @@ static struct regulator_init_data d2153_ldo15 = {
 };
 
 // LDO16
-#if defined(CONFIG_BOARD_VERSION_GARDA) || defined(CONFIG_BOARD_VERSION_LOGANLTE) || defined(CONFIG_BOARD_VERSION_LT02LTE)
+#if defined(CONFIG_BOARD_VERSION_GARDA) || \
+	defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
+	defined(CONFIG_BOARD_VERSION_LT02LTE) || \
+	defined(CONFIG_BOARD_VERSION_LOGANLTE_LATIN)
+
 __weak struct regulator_consumer_supply d2153_ldo16_supplies[] = {
 	REGULATOR_SUPPLY("vdd_motor_pmic", NULL),	// Motor
 	REGULATOR_SUPPLY("vdd_auxi_pmic", NULL),	// GPS
@@ -538,21 +545,23 @@ static struct d2153_regl_init_data d2153_regulators_init_data[D2153_NUMBER_OF_RE
 	[D2153_LDO_AUD2] = { D2153_LDO_AUD2, &d2153_ldoaud2 },
 };
 
-#if defined(CONFIG_BOARD_VERSION_GARDA) || defined(CONFIG_BOARD_VERSION_LOGANLTE) || defined(CONFIG_BOARD_VERSION_LT02LTE)
-struct d2153_battery_platform_data pbat_pdata = {
-	.battery_technology = POWER_SUPPLY_TECHNOLOGY_LION,
-	.battery_capacity = 1800,
-	.vf_lower    = 250,
-	.vf_upper = 510,
-};
+#if defined(CONFIG_BOARD_VERSION_GARDA) || \
+	defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
+    defined(CONFIG_BOARD_VERSION_LOGANLTE_LATIN)
+#define BATTERY_CAPACITY 1800
+#elif defined(CONFIG_BOARD_VERSION_LT02LTE)
+#define BATTERY_CAPACITY 4000
 #else
+#define BATTERY_CAPACITY 1300
+#endif
+
 struct d2153_battery_platform_data pbat_pdata = {
 	.battery_technology = POWER_SUPPLY_TECHNOLOGY_LION,
-	.battery_capacity = 1300,
-	.vf_lower    = 250,
+	.battery_capacity = BATTERY_CAPACITY,
+	.vf_lower = 250,
 	.vf_upper = 510,
 };
-#endif
+
 
 struct d2153_platform_data d2153_pdata = {
 	.pbat_platform  = &pbat_pdata,
@@ -598,7 +607,7 @@ struct d2153_platform_data d2153_pdata = {
 		D2153_MCTL_MODE_INIT(D2153_LDO_1,  0x56, D2153_REGULATOR_LPM_IN_DSM),	//VDIG_RF_1.1
 
 #if defined(CONFIG_BOARD_VERSION_LT02LTE)
-		D2153_MCTL_MODE_INIT(D2153_LDO_2,  0x54, D2153_REGULATOR_OFF_IN_DSM),	/* VLCD_1V2 */		
+		D2153_MCTL_MODE_INIT(D2153_LDO_2,  0x54, D2153_REGULATOR_OFF_IN_DSM),	/* VLCD_1V2 */
 #else
 		D2153_MCTL_MODE_INIT(D2153_LDO_2,  0x00, D2153_REGULATOR_OFF_IN_DSM),	/* VDD_MHL_1.2V */
 		//D2153_MCTL_MODE_INIT(D2153_LDO_3,  0x54/*0x56*/, D2153_REGULATOR_OFF_IN_DSM),	// VMMC_2.85V
@@ -606,7 +615,7 @@ struct d2153_platform_data d2153_pdata = {
 		D2153_MCTL_MODE_INIT(D2153_LDO_3,  0x55, D2153_REGULATOR_ON_IN_DSM),	// VMMC_2.85V
 		D2153_MCTL_MODE_INIT(D2153_LDO_4,  0x54, D2153_REGULATOR_OFF_IN_DSM),	// VREG_TCXO_1.8V
 		D2153_MCTL_MODE_INIT(D2153_LDO_5,  0x56, D2153_REGULATOR_LPM_IN_DSM),	// VMIPI_1.8V
-		D2153_MCTL_MODE_INIT(D2153_LDO_6,  0x56, D2153_REGULATOR_LPM_IN_DSM),	// VUSIM1_1.8V
+		D2153_MCTL_MODE_INIT(D2153_LDO_6,  0x00, D2153_REGULATOR_LPM_IN_DSM),	// VUSIM1_1.8V	// sim is control by CP. by RMC comments
 		D2153_MCTL_MODE_INIT(D2153_LDO_7,  0x55, D2153_REGULATOR_ON_IN_DSM),	/* SENSOR_3V */
 		D2153_MCTL_MODE_INIT(D2153_LDO_8,  0x54, D2153_REGULATOR_OFF_IN_DSM),	// VLCD_3.0V
 		D2153_MCTL_MODE_INIT(D2153_LDO_9,  0x54, D2153_REGULATOR_OFF_IN_DSM),	// VLCD_1.8V
@@ -624,7 +633,7 @@ struct d2153_platform_data d2153_pdata = {
 		D2153_MCTL_MODE_INIT(D2153_LDO_AUD1, 0x56, D2153_REGULATOR_LPM_IN_DSM),	// LDO_AUD1 1.8
 		D2153_MCTL_MODE_INIT(D2153_LDO_AUD2, 0x56, D2153_REGULATOR_LPM_IN_DSM),	// LDO_AUD2 3.3
 
-#else	// Current setting on 26 Nov 2012  
+#else	// Current setting on 26 Nov 2012
 		D2153_MCTL_MODE_INIT(D2153_BUCK_1, 0xDE, D2153_REGULATOR_LPM_IN_DSM),	// VCORE_1.125
 		D2153_MCTL_MODE_INIT(D2153_BUCK_2, 0x56, D2153_REGULATOR_MAX), // VIO2_1.225V
 		D2153_MCTL_MODE_INIT(D2153_BUCK_3, 0x56, D2153_REGULATOR_MAX), // VIO1_1.825V

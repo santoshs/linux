@@ -675,9 +675,6 @@ struct device_attribute *attr,
 
 	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
 
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
-
 	return snprintf(buf, 13, "CONTROL: %02x\n", value);
 }
 
@@ -728,8 +725,6 @@ struct device_attribute *attr,
 	int ret;
 
 	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	if ((value & ~CON_MANUAL_SW) !=	(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
 		return 0;
@@ -1066,8 +1061,6 @@ void tsu6712_manual_switching(int path)
 	int ret;
 
 	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
-	if (value < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	if ((value & ~CON_MANUAL_SW) !=	(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
 		return;

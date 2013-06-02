@@ -223,6 +223,13 @@ config BATTERY_D2153
 	help
 	  This feature is depend on Power Supply class support
 
+config D2153_HW_TIMER
+    tristate "Wakeup during suspend to update battery parameter"
+    depends on BATTERY_D2153
+    help
+      This feature enables the device to come out of sleep periodically 
+		to update battery capacity, voltage and other parameters
+
 config BATTERY_MAX17042
 	tristate "Maxim MAX17042/8997/8966 Fuel Gauge"
 	depends on I2C

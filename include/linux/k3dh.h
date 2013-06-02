@@ -72,6 +72,10 @@ struct k3dh_acceldata {
 #define INT1_SRC		0x31
 #define INT1_THS		0x32
 #define INT1_DURATION		0x33
+#define INT2_CFG		0x34
+#define INT2_SRC		0x35
+#define INT2_THS		0x36
+#define INT2_DURATION		0x37
 #define CLICK_CFG		0x38
 #define CLICK_SRC		0x39
 #define CLICK_THS		0x3A
@@ -90,11 +94,13 @@ struct k3dh_acceldata {
 #define CTRL_REG1_Xen		(1 << 0)
 
 #define PM_OFF			0x00
+#define LOW_PWR_MODE            0x4F /* 50HZ */
+#define FASTEST_MODE            0x9F /* 1344Hz */
 #define ENABLE_ALL_AXES		0x07
 
 #define ODR1			0x10  /* 1Hz output data rate */
 #define ODR10			0x20  /* 10Hz output data rate */
-#define ODR25			0x30  /* 10Hz output data rate */
+#define ODR25			0x30  /* 25Hz output data rate */
 #define ODR50			0x40  /* 50Hz output data rate */
 #define ODR100			0x50  /* 100Hz output data rate */
 #define ODR200			0x60  /* 100Hz output data rate */
@@ -175,5 +181,10 @@ struct k3dh_acceldata {
 
 /* Register Auto-increase */
 #define AC			(1 << 7)
+
+ /* For movement recognition*/
+#if defined(CONFIG_MACH_LOGANLTE)
+#define USES_MOVEMENT_RECOGNITION
+#endif
 
 #endif

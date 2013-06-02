@@ -522,6 +522,7 @@ static int esd_irq_requested;
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
 #define ESD_CHECK_DISABLE 0
 #define ESD_CHECK_ENABLE 1
+
 static struct mutex esd_check_mutex;
 static int esd_check_flag;
 #endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
@@ -589,7 +590,7 @@ static int nt35510_panel_simple_reset(void)
 	system_handle = system_pwmng_new();
 #endif
 
-	printk(KERN_DEBUG "%s\n", __func__);
+	printk(KERN_ALERT "%s\n", __func__);
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 	esd_duration = SHORT_DURATION_TIME;
@@ -1360,13 +1361,11 @@ static int nt35510_panel_init(unsigned int mem_size)
 
 	screen_handle =  screen_display_new();
 
-	/* GPIO control */
-	gpio_request(reset_gpio, NULL);
-	gpio_direction_output(reset_gpio, 1);
-
 	regulator_enable(power_ldo_1v8);
 	usleep_range(1000, 1000);
 	regulator_enable(power_ldo_3v);
+
+	power_supplied = true;
 
 	power_supplied = true;
 	/* Setting peculiar to panel */
@@ -1400,6 +1399,7 @@ static int nt35510_panel_init(unsigned int mem_size)
 		printk(KERN_ALERT "disp_start_lcd err!\n");
 		goto out;
 	}
+
 retry:
 	is_dsi_read_enabled = 1;
 
@@ -1810,6 +1810,10 @@ static int nt35510_panel_probe(struct fb_info *info,
 
 	reset_gpio = hw_info.gpio_reg;
 
+	/* GPIO control */
+	gpio_request(reset_gpio, NULL);
+	gpio_direction_output(reset_gpio, 1);
+
 	/* fb parent device info to platform_device */
 	pdev = to_platform_device(info->device);
 
@@ -1873,6 +1877,12 @@ static int nt35510_panel_probe(struct fb_info *info,
 		return -ENODEV;
 	}
 	esd_irq_portno = res_irq_port->start;
+
+	/* GPIO control */
+	gpio_request(esd_irq_portno, NULL);
+	gpio_direction_input(esd_irq_portno);
+	gpio_pull_off_port(esd_irq_portno);
+
 	printk(KERN_INFO "GPIO_PORT%d : for ESD detect\n", esd_irq_portno);
 
 	lcd_wq = create_workqueue("lcd_esd_irq_wq");
@@ -1902,6 +1912,13 @@ static int nt35510_panel_remove(struct fb_info *info)
 	mutex_lock(&esd_check_mutex);
 	mutex_destroy(&esd_check_mutex);
 #endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
+
+#if defined(CONFIG_FB_LCD_ESD)
+	free_irq(esd_detect_irq, &esd_irq_requested);
+	gpio_free(esd_irq_portno);
+#endif /* CONFIG_FB_LCD_ESD */
+
+	gpio_free(reset_gpio);
 
 	/* unregister sysfs for LCD frequency control */
 	nt35510_lcd_frequency_unregister();

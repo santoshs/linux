@@ -1,7 +1,7 @@
 /*
  * Driver for Samsung S5K4ECGX  Camera
  *
- * Copyright (C) 2012 Renesas Mobile Corp.
+ * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -41,7 +41,7 @@ static ssize_t subcamtype_S5K4ECGX_show(struct device *dev,
 static ssize_t subcamfw_S5K4ECGX_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	char *sensorfw = "S5K4ECGX";
+	char *sensorfw = "N";
 	return sprintf(buf, "%s\n", sensorfw);
 }
 

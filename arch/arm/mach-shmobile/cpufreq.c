@@ -103,6 +103,7 @@ struct cpufreq_resource {
 struct shmobile_cpuinfo {
 	struct cpufreq_resource upper_lowspeed;
 	struct cpufreq_resource highspeed;
+	struct cpufreq_resource disable_early_clock;
 	unsigned int freq;
 	unsigned int req_rate[CONFIG_NR_CPUS];
 	unsigned int limit_maxfrq;
@@ -550,6 +551,9 @@ int __clk_get_rate(struct clk_rate *rate)
 
 	if (the_cpuinfo.clk_state == MODE_SUSPEND)
 		clkmode = 0;
+	else if ((the_cpuinfo.disable_early_clock.used)
+		&& (the_cpuinfo.clk_state == MODE_EARLY_SUSPEND))
+		clkmode = MODE_NORMAL * MODE_PER_STATE + level + 1;
 	else
 		clkmode = the_cpuinfo.clk_state * MODE_PER_STATE + level + 1;
 
@@ -716,6 +720,93 @@ static inline int __set_all_clocks(unsigned int z_freq)
 
 	return ret;
 }
+
+/*
+ * disable_early_suspend_clock:
+ *  force to use the clock setting for Normal state even at Early Suspend state
+ *  Manage status and "disable_early_clock" structure for changeing
+ *  the Normal frequency in  __clk_get_rate().
+ *
+ * Argument:	none
+ * Return:	0: normal
+ *		negative: operation fail
+*/
+int disable_early_suspend_clock(void)
+{
+	int usage_count = 0;
+	int ret = 0;
+
+	spin_lock(&the_cpuinfo.lock);
+
+	if (!atomic_read(&the_cpuinfo.disable_early_clock.usage_count)) {
+		the_cpuinfo.disable_early_clock.used = true;
+		if (MODE_EARLY_SUSPEND == the_cpuinfo.clk_state) {
+			ret = __set_all_clocks(the_cpuinfo.freq);
+			if (ret < 0) {
+				the_cpuinfo.disable_early_clock.used = false;
+				spin_unlock(&the_cpuinfo.lock);
+
+				pr_err("[%s][%d]: cannot __set_all_clocks\n",
+					__func__, ret);
+				return ret;
+			}
+		}
+	}
+
+	atomic_inc(&the_cpuinfo.disable_early_clock.usage_count);
+	usage_count = atomic_read(&the_cpuinfo.disable_early_clock.usage_count);
+	spin_unlock(&the_cpuinfo.lock);
+
+	pr_info("[%s]: count(%d) state(%d)\n",
+		__func__, usage_count, the_cpuinfo.clk_state);
+
+	return ret;
+}
+EXPORT_SYMBOL(disable_early_suspend_clock);
+
+/*
+ * API:remove the restriction for function of "disable_early_suspend_clock".
+ *
+ * Argument:	none
+ * Return:	none
+ * NOTE: call this function only once after disable_early_suspend_clock
+ * succeeded (returned 0)
+*/
+void enable_early_suspend_clock(void)
+{
+	int usage_count = 0;
+	int ret = 0;
+
+	spin_lock(&the_cpuinfo.lock);
+	usage_count = atomic_read(&the_cpuinfo.disable_early_clock.usage_count);
+	if (usage_count <= 0) {
+		spin_unlock(&the_cpuinfo.lock);
+		pr_err("[%s]: error! invalid count\n", __func__);
+		return;
+	}
+
+	if (atomic_dec_and_test(
+		&the_cpuinfo.disable_early_clock.usage_count)) {
+		the_cpuinfo.disable_early_clock.used = false;
+		if (MODE_EARLY_SUSPEND == the_cpuinfo.clk_state) {
+			ret = __set_all_clocks(the_cpuinfo.freq);
+			if (ret < 0) {
+				spin_unlock(&the_cpuinfo.lock);
+				pr_err("[%s][%d]: cannot __set_all_clocks\n",
+					__func__, ret);
+				return;
+			}
+		}
+	}
+
+	usage_count = atomic_read(&the_cpuinfo.disable_early_clock.usage_count);
+	spin_unlock(&the_cpuinfo.lock);
+
+	pr_info("[%s]: count(%d) state(%d)\n",
+		__func__, usage_count, the_cpuinfo.clk_state);
+
+}
+EXPORT_SYMBOL(enable_early_suspend_clock);
 
 /*
  * is_cpufreq_clk_state_earlysuspend:
@@ -1596,6 +1687,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	the_cpuinfo.scaling_locked = 0;
 	the_cpuinfo.highspeed.used = false;
 	the_cpuinfo.upper_lowspeed.used = false;
+	the_cpuinfo.disable_early_clock.used = false;
 	if (0 != zclk12_flg) {
 		the_cpuinfo.freq_max = FREQ_MAX12;
 		the_cpuinfo.freq_mid_upper_limit = FREQ_MID_UPPER_LIMIT12;
@@ -1613,6 +1705,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	}
 	atomic_set(&the_cpuinfo.highspeed.usage_count, 0);
 	atomic_set(&the_cpuinfo.upper_lowspeed.usage_count, 0);
+	atomic_set(&the_cpuinfo.disable_early_clock.usage_count, 0);
 
 	/*
 	 * loader had set the frequency to MAX, already.

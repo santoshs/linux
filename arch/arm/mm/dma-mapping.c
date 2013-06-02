@@ -848,7 +848,6 @@ int dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
 		if (dma_mapping_error(dev, s->dma_address))
 			goto bad_mapping;
 	}
-	debug_dma_map_sg(dev, sg, nents, nents, dir);
 	return nents;
 
  bad_mapping:
@@ -874,7 +873,6 @@ void dma_unmap_sg(struct device *dev, struct scatterlist *sg, int nents,
 	struct scatterlist *s;
 	int i;
 
-	debug_dma_unmap_sg(dev, sg, nents, dir);
 
 	for_each_sg(sg, s, nents, i)
 		__dma_unmap_page(dev, sg_dma_address(s), sg_dma_len(s), dir);
@@ -903,7 +901,6 @@ void dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
 				      s->length, dir);
 	}
 
-	debug_dma_sync_sg_for_cpu(dev, sg, nents, dir);
 }
 EXPORT_SYMBOL(dma_sync_sg_for_cpu);
 
@@ -929,7 +926,6 @@ void dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
 				      s->length, dir);
 	}
 
-	debug_dma_sync_sg_for_device(dev, sg, nents, dir);
 }
 EXPORT_SYMBOL(dma_sync_sg_for_device);
 
