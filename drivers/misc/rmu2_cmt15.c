@@ -269,6 +269,9 @@ void rmu2_cmt_clear(void)
 {
 	int wrflg = 0;
 	int i = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(0, CMSTR15);       /* Stop counting */
 	__raw_writel(0U, CMCNT15);      /* Clear the count value */
 
@@ -278,6 +281,7 @@ void rmu2_cmt_clear(void)
 	} while (wrflg != 0x00 && i < 0xffffffff);
 
 	__raw_writel(1, CMSTR15);       /* Enable counting again */
+	spin_unlock_irqrestore(&cmt_lock, flags);
 	/*printk(KERN_INFO "START < %s >\n", __func__);*/
 }
 
