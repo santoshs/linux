@@ -126,6 +126,8 @@ static struct platform_device rmu2_cmt_dev = {
 	.id = -1,
 };
 
+static bool running;
+
 /*
  * cpg_check_init: CPG Check initialization
  * input: none
@@ -228,6 +230,8 @@ static void rmu2_cmt_start(void)
 					__raw_readl(CMCNT15));
 	printk(KERN_INFO "< %s >CMCOR15=%08x\n", __func__,
 					__raw_readl(CMCOR15));
+
+	running = true;
 }
 
 /*
@@ -241,6 +245,8 @@ void rmu2_cmt_stop(void)
 	unsigned long flags = 0;
 	unsigned long wrflg = 0;
 	unsigned long i = 0;
+
+	running = false;
 
 	__raw_readl(CMCSR15);
 	__raw_writel(0x00000186U, CMCSR15);     /* Int disable */
@@ -270,6 +276,12 @@ void rmu2_cmt_clear(void)
 	int wrflg = 0;
 	int i = 0;
 	unsigned long flags;
+
+	if (!running)
+		return;
+
+	if (__raw_readl(CMCNT15) < CMT_OVF / 8)
+		return;
 
 	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(0, CMSTR15);       /* Stop counting */
