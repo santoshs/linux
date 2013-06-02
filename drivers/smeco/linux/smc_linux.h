@@ -65,6 +65,7 @@ typedef void (* upper_layer_device_driver_setup )(struct net_device* dev);
     /* SMC Configuration creation function prototype */
 typedef smc_conf_t* ( *smc_device_create_conf )( char* device_name );
 
+typedef void (* upper_layer_device_driver_close )(struct net_device* dev);
 
     /*
      * Net Device specific configuration
@@ -91,6 +92,8 @@ typedef struct _smc_device_driver_config
 
         /* Link to the device */
     struct _smc_device_driver_priv_t* device_driver_priv;
+
+    upper_layer_device_driver_close device_driver_close;
 
 } smc_device_driver_config;
 

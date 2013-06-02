@@ -109,5 +109,7 @@ uint32_t    smc_fifo_calculate_required_shared_mem( uint32_t fifo_len );
 void        smc_fifo_dump     ( char* indent, smc_fifo_t* p_fifo, int32_t mem_offset );
 void        smc_fifo_dump_data( smc_fifo_t* p_fifo );
 
+uint8_t     smc_fifo_is_full  ( smc_fifo_t* p_fifo, uint8_t use_cache_control );
+
 #endif /* EOF */
 

@@ -84,6 +84,7 @@ smc_device_driver_config dev_config_control =
     .driver_modify_send_data = smc_control_modify_send_data,
     .driver_setup            = smc_control_layer_device_driver_setup,
     .device_driver_priv      = NULL,
+    .device_driver_close     = NULL,
 };
 
 

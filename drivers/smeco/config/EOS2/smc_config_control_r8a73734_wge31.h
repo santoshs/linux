@@ -75,13 +75,18 @@ static smc_instance_conf_channel_t smc_instance_conf_control_channels[SMC_CONF_C
             .copy_scheme_slave                   = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
 
             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
-            .fifo_full_check_timeout_usec_slave  = 500,
+            .fifo_full_check_timeout_usec_slave  =  500,
+
+            .rx_mem_realloc_check_timeout_usec_master    = 1000,
+            .rx_mem_realloc_check_timeout_usec_slave     =  500,
 
             .trace_features_master               = SMC_TRACE_HISTORY_DATA_TYPE_NONE,
             .trace_features_slave                = SMC_TRACE_HISTORY_DATA_TYPE_NONE,
             .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_NONE,
             .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
             .wakelock_timeout_ms                 = SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC,
+            .history_data_max_master             = 20,
+            .history_data_max_slave              = 20,
      }
 };
 
@@ -112,6 +117,8 @@ static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
 
         .channel_config_count         = SMC_CONF_CHANNEL_COUNT_CONTROL,
         .channel_config_array         = smc_instance_conf_control_channels,
+        .initialization_flags_master  = SMC_INIT_FLAGS_NONE,
+        .initialization_flags_slave   = SMC_INIT_FLAGS_NONE,
     }
 };
 
