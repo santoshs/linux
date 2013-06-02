@@ -103,8 +103,12 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 		msleep(20);
 	}
 
+	mutex_lock_nested(&codec->card->dapm_mutex,
+		SND_SOC_DAPM_CLASS_PCM);
 	dapm_mark_dirty(w, "fsi_d2153_set_active");
 	w->active = active;
+	mutex_unlock(&codec->card->dapm_mutex);
+
 	printk(KERN_INFO "w->name[%s] w->active[%d]\n",
 		w->name, w->active);
 	snd_soc_dapm_sync(&codec->dapm);
@@ -158,6 +162,8 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 
 	sndp_log_info("start\n");
 
+	mutex_lock_nested(&codec->card->dapm_mutex,
+		SND_SOC_DAPM_CLASS_PCM);
 	if (!status) {
 		snd_soc_dapm_disable_pin(&codec->dapm, "Headphone Jack Left");
 		snd_soc_dapm_disable_pin(&codec->dapm, "Headphone Jack Right");
@@ -169,6 +175,7 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_enable_pin(&codec->dapm, "Speaker");
 		snd_soc_dapm_enable_pin(&codec->dapm, "Earpiece");
 	}
+	mutex_unlock(&codec->card->dapm_mutex);
 
 	fsi_d2153_set_active(codec, D2153_PLAYBACK_STREAM_NAME, status);
 
