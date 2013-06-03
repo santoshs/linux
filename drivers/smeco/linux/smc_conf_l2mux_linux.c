@@ -42,6 +42,163 @@ Description :  File created
   #include "smc_test.h"
 #endif
 
+
+
+typedef struct _smc_skb_receive_data_t
+{
+    struct  net_device* device;
+    struct  _smc_channel_t* channel;
+    struct _smc_user_data_t userdata;
+    struct  sk_buff *skb;
+    void*   data;
+    int32_t data_length;
+
+} smc_skb_receive_data_t;
+
+#ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED
+
+#define SMC_SKB_DATA_ITEM_BUFFER_SIZE   15
+
+static smc_lock_t* g_local_lock_smc_skb_data_buffer = NULL;
+
+static inline smc_lock_t* get_local_lock_smc_skb_data_buffer(void)
+{
+    if( g_local_lock_smc_skb_data_buffer == NULL ) g_local_lock_smc_skb_data_buffer = smc_lock_create();
+    return g_local_lock_smc_skb_data_buffer;
+}
+
+static smc_skb_receive_data_t* g_smc_skb_receive_data_buffer[SMC_SKB_DATA_ITEM_BUFFER_SIZE];
+
+static inline void smc_create_skb_receive_data_item_buffer( uint8_t from_irq )
+{
+    SMC_LOCK_IRQ( get_local_lock_smc_skb_data_buffer() );
+
+    for(int i = 0; i < SMC_SKB_DATA_ITEM_BUFFER_SIZE; i++)
+    {
+        smc_skb_receive_data_t* item = NULL;
+
+        if( from_irq )
+        {
+            item = (smc_skb_receive_data_t*)SMC_MALLOC_IRQ( sizeof( smc_skb_receive_data_t ) );
+        }
+        else
+        {
+            item = (smc_skb_receive_data_t*)SMC_MALLOC( sizeof( smc_skb_receive_data_t ) );
+        }
+
+        if( item != NULL )
+        {
+            item->device      = NULL;
+            item->channel     = NULL;
+
+            item->userdata.flags = 0x00;
+            item->userdata.userdata1 = 0x00;
+            item->userdata.userdata2 = 0x00;
+            item->userdata.userdata3 = 0x00;
+            item->userdata.userdata4 = 0x00;
+            item->userdata.userdata5 = 0x00;
+
+            item->skb         = NULL;
+            item->data        = NULL;
+            item->data_length = 0;
+
+            g_smc_skb_receive_data_buffer[i] = item;
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_ASSERT("smc_create_skb_receive_data_item_buffer: no memory for the buffer");
+            assert(0);
+        }
+   }
+
+    SMC_UNLOCK_IRQ( get_local_lock_smc_skb_data_buffer() );
+}
+
+static inline void smc_destroy_skb_receive_data_item_buffer( void )
+{
+    smc_skb_receive_data_t* item = NULL;
+
+    SMC_LOCK_IRQ( get_local_lock_smc_skb_data_buffer() );
+
+    for(int i = 0; i < SMC_SKB_DATA_ITEM_BUFFER_SIZE; i++)
+    {
+        item = g_smc_skb_receive_data_buffer[i];
+
+        item->device             = NULL;
+        item->channel            = NULL;
+
+        item->userdata.flags     = 0x00;
+        item->userdata.userdata1 = 0x00;
+        item->userdata.userdata2 = 0x00;
+        item->userdata.userdata3 = 0x00;
+        item->userdata.userdata4 = 0x00;
+        item->userdata.userdata5 = 0x00;
+
+        item->skb                = NULL;
+        item->data               = NULL;
+        item->data_length        = 0;
+
+        SMC_FREE( item );
+
+        g_smc_skb_receive_data_buffer[i] = NULL;
+    }
+
+    SMC_UNLOCK_IRQ( get_local_lock_smc_skb_data_buffer() );
+}
+
+
+static inline smc_skb_receive_data_t* smc_alloc_skb_receive_data_item( void )
+{
+    smc_skb_receive_data_t* item = NULL;
+
+    SMC_LOCK_IRQ( get_local_lock_smc_skb_data_buffer() );
+
+    for(int i = 0; i < SMC_SKB_DATA_ITEM_BUFFER_SIZE; i++)
+    {
+        item = g_smc_skb_receive_data_buffer[i];
+
+        if( item              != NULL &&
+            item->device      == NULL &&
+            item->channel     == NULL &&
+            item->skb         == NULL &&
+            item->data        == NULL &&
+            item->data_length == 0)
+        {
+            break;
+        }
+    }
+
+    SMC_UNLOCK_IRQ( get_local_lock_smc_skb_data_buffer() );
+
+    return item;
+}
+
+static inline void smc_free_skb_receive_data_item( smc_skb_receive_data_t* item )
+{
+    SMC_LOCK_IRQ( get_local_lock_smc_skb_data_buffer() );
+
+    if( item != NULL )
+    {
+        item->device      = NULL;
+        item->channel     = NULL;
+
+        item->userdata.flags = 0x00;
+        item->userdata.userdata1 = 0x00;
+        item->userdata.userdata2 = 0x00;
+        item->userdata.userdata3 = 0x00;
+        item->userdata.userdata4 = 0x00;
+        item->userdata.userdata5 = 0x00;
+
+        item->skb         = NULL;
+        item->data        = NULL;
+        item->data_length = 0;
+    }
+
+    SMC_UNLOCK_IRQ( get_local_lock_smc_skb_data_buffer() );
+}
+
+#endif
+
 /*
  * Start / stop lock mechanism
  */
@@ -52,6 +209,20 @@ static inline smc_lock_t* get_local_lock_smc_start_stop(void)
     if( g_local_lock_smc_start_stop == NULL ) g_local_lock_smc_start_stop = smc_lock_create();
     return g_local_lock_smc_start_stop;
 }
+
+#ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED
+    /**
+     * Memory reallocation timer callback function.
+     */
+  static void smc_rx_mem_realloc_timer_expired(uint32_t timer_data);
+
+#endif
+
+/*
+ * SKB RX handler that delivers the SKB to upper layers (L2MUX)
+ */
+static inline uint8_t smc_receive_skb_l2mux(smc_skb_receive_data_t* skb_receive_data);
+static inline uint8_t smc_receive_skb_l2mux_free_mem(smc_skb_receive_data_t* skb_receive_data);
 
 /*
  * Callback functions for SMC
@@ -74,6 +245,8 @@ static uint16_t l2mux_net_device_driver_select_queue( struct net_device *device,
 static int      l2mux_modify_send_data( struct sk_buff *skb, smc_user_data_t* smc_user_data );
 static void     l2mux_layer_device_driver_setup(struct net_device* dev);
 
+static void     l2mux_device_device_driver_close(struct net_device* dev);
+
 /*
  * The one and only L2MUX device configuration
  */
@@ -89,6 +262,7 @@ smc_device_driver_config dev_config_l2mux =
     .driver_modify_send_data = l2mux_modify_send_data,
     .driver_setup            = l2mux_layer_device_driver_setup,
     .device_driver_priv      = NULL,
+    .device_driver_close     = l2mux_device_device_driver_close,
 };
 
 #if 0
@@ -169,9 +343,9 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
 #endif
 
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
-    SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock enabled, timeout %d ms", device_name, SMC_NETDEV_WAKELOCK_IN_TX_TIMEOUT_MS);
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock enabled", device_name );
 #else
-    SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock not enabled", device_name);
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock not enabled", device_name );
 #endif
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
@@ -212,12 +386,337 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
 #else
         SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: IRQ calls CB", device_name, i);
 #endif
-
     }
+
+#ifdef SMC_RX_USE_HIGHMEM
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX highmem option in use", device_name);
+#else
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX highmem option not in use", device_name);
+#endif
+
+#ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX uses memory reallocation timer", device_name);
+    smc_create_skb_receive_data_item_buffer( TRUE );
+#else
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX memory reallocation timer not used", device_name);
+#endif
 
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: completed, return SMC instance configuration 0x%08X", (uint32_t)smc_conf);
 
     return smc_conf;
+}
+
+
+#ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED
+/**
+ * Callback for timer allocating memory.
+ */
+static void smc_rx_mem_realloc_timer_expired(uint32_t data)
+{
+    if( data != 0x00000000 )
+    {
+        smc_timer_t*            timer            = (smc_timer_t*)data;
+        smc_skb_receive_data_t* skb_receive_data = NULL;
+
+        if( timer->timer_data == 0x00000000 )
+        {
+            SMC_TRACE_PRINTF_ERROR("smc_rx_mem_realloc_timer_expired: invalid timer_data pointer <NULL> inside timer");
+            return;
+        }
+
+        skb_receive_data = (smc_skb_receive_data_t*)timer->timer_data;
+
+        if( skb_receive_data != NULL )
+        {
+            struct net_device*        device             = NULL;
+            smc_channel_t*            smc_channel        = NULL;
+            struct _smc_user_data_t*  userdata           = NULL;
+            struct  sk_buff*          skb                = NULL;
+            void*                     data               = NULL;
+            int32_t                   data_length        = 0;
+
+            device      = skb_receive_data->device;
+            smc_channel = skb_receive_data->channel;
+            data        = skb_receive_data->data;
+            data_length = skb_receive_data->data_length;
+            userdata    = &skb_receive_data->userdata;
+
+            if( device==NULL || smc_channel==NULL || data==NULL || userdata==NULL)
+            {
+                SMC_TRACE_PRINTF_ERROR("smc_rx_mem_realloc_timer_expired: skb_receive_data contains NULL data, unable to continue: device==0x%08X, smc_channel=0x%08X, data==0x%08X",
+                (uint32_t)device, (uint32_t)smc_channel, (uint32_t)data);
+                return;
+            }
+
+            SMC_TRACE_PRINTF_TIMER("smc_rx_mem_realloc_timer_expired: channel %d: allocate memory for data 0x%08X, len %d, userdata=0x%08X",
+                    smc_channel->id, (uint32_t)data, data_length, (uint32_t)userdata);
+
+            SMC_LOCK_IRQ( smc_channel->lock_read );
+
+                /* First try to allocate from LOW MEM */
+            skb = netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE );
+
+#ifdef SMC_RX_USE_HIGHMEM
+            if( unlikely(!skb) )
+            {
+                SMC_TRACE_PRINTF_TIMER("smc_rx_mem_realloc_timer_expired: No low memory available, trying high memory...");
+
+                skb = __netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE, GFP_ATOMIC|__GFP_HIGHMEM);
+            }
+#endif
+                /* Update the SKB */
+            skb_receive_data->skb = skb;
+
+            if( unlikely(!skb) )
+            {
+                SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: No low or high memory for RX SKB");
+
+                if( smc_timer_start( smc_channel->rx_mem_alloc_timer,
+                                     (void*)smc_rx_mem_realloc_timer_expired,
+                                     (uint32_t)skb_receive_data ) != SMC_OK )
+                {
+                    SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: mem reallocation timer restart failed, packet dropped");
+                    device->stats.rx_dropped++;
+                }
+
+                SMC_UNLOCK_IRQ( smc_channel->lock_read );
+                /*
+                 * Critical section ends
+                 * ========================================
+                 */
+            }
+            else
+            {
+                /* We have memory for SKB -> send data and open lockings */
+
+               SMC_TRACE_PRINTF_TIMER("smc_rx_mem_realloc_timer_expired: channel %d: SKB 0x%08X created, send data (userdata: 0x%08X,0x%08X)...",
+               smc_channel->id, (uint32_t)skb, userdata->flags, userdata->userdata1);
+
+               if( smc_receive_skb_l2mux( skb_receive_data ) == SMC_OK )
+               {
+                   smc_device_driver_priv_t* smc_net_dev = NULL;
+
+                   SMC_UNLOCK_IRQ( smc_channel->lock_read );
+                   /*
+                    * Critical section ends
+                    * ========================================
+                    */
+
+                   /* SKB is modified in receive function*/
+                   SMC_TRACE_PRINTF_INFO("smc_rx_mem_realloc_timer_expired: Deliver SKB (length %d) to upper layer RX ...", skb->len);
+                   SMC_TRACE_PRINTF_INFO_DATA( skb->len , skb->data );
+
+                   smc_net_dev = netdev_priv( device );
+                   smc_net_dev->smc_dev_config->skb_rx_function( skb, device );
+               }
+               else
+               {
+                   SMC_UNLOCK_IRQ( smc_channel->lock_read );
+                   /*
+                    * Critical section ends
+                    * ========================================
+                    */
+                   SMC_TRACE_PRINTF_ERROR("smc_rx_mem_realloc_timer_expired: smc_receive_skb_l2mux() failed");
+               }
+
+               SMC_TRACE_PRINTF_TIMER("smc_rx_mem_realloc_timer_expired: channel %d: free the skb item data 0x%08X...", smc_channel->id, (uint32_t)skb_receive_data );
+
+               smc_free_skb_receive_data_item( skb_receive_data );
+
+               SMC_TRACE_PRINTF_TIMER("smc_rx_mem_realloc_timer_expired: channel %d: enable receive mode", smc_channel->id );
+
+               if( smc_channel_enable_receive_mode( smc_channel, TRUE ) == SMC_OK )
+               {
+                   SMC_TRACE_PRINTF_TIMER("smc_rx_mem_realloc_timer_expired: channel %d: flush channel...", smc_channel->id );
+                   smc_channel_interrupt_handler(smc_channel);
+
+                   /* --- TODO Prevent remote to send data --- */
+               }
+               else
+               {
+                   SMC_TRACE_PRINTF_ERROR("smc_rx_mem_realloc_timer_expired: channel %d: enabling receive state failed", smc_channel->id );
+               }
+            }
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_ERROR("smc_rx_mem_realloc_timer_expired: invalid receive data pointer <NULL>");
+        }
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_rx_mem_realloc_timer_expired: invalid timer data pointer <NULL>");
+    }
+
+    SMC_TRACE_PRINTF_TIMER("smc_rx_mem_realloc_timer_expired: completed");
+}
+
+#endif /* #ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED */
+
+/**
+ * Function to free memory of the data sent to remote host.
+ */
+static inline uint8_t smc_receive_skb_l2mux_free_mem(smc_skb_receive_data_t* skb_receive_data)
+{
+    uint8_t                   ret_val            = SMC_OK;
+    struct  _smc_channel_t*   channel            = NULL;
+    struct _smc_user_data_t*  userdata           = NULL;
+    //struct  sk_buff*          skb                = NULL;
+    void*                     data               = NULL;
+    int32_t                   data_length        = 0;
+
+    if( skb_receive_data == NULL )
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_receive_skb_l2mux_free_mem: skb_receive_data is NULL");
+        return SMC_ERROR;
+    }
+
+    /*device      = skb_receive_data->device;*/
+    channel     = skb_receive_data->channel;
+    /*skb         = skb_receive_data->skb;*/
+    data        = skb_receive_data->data;
+    data_length = skb_receive_data->data_length;
+    userdata    = &skb_receive_data->userdata;
+
+    if( channel==NULL || data==NULL || userdata==NULL)
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_receive_skb_l2mux_free_mem: skb_receive_data contains NULL data, channel=0x%08X, data=0x%08X, userdata=0x%08X",
+        (uint32_t)channel, (uint32_t)data, (uint32_t)userdata);
+        return SMC_ERROR;
+    }
+
+    if( SMC_COPY_SCHEME_RECEIVE_IS_COPY( channel->copy_scheme ) )
+    {
+        SMC_TRACE_PRINTF_DEBUG("smc_receive_skb_l2mux_free_mem: free the original data 0x%08X from local mem", (uint32_t)data);
+        smc_channel_free_ptr_local( channel, data, userdata );
+    }
+    else
+    {
+        smc_user_data_t userdata_free;
+
+        userdata_free.flags     = SMC_MSG_FLAG_FREE_MEM_MDB;
+        userdata_free.userdata1 = userdata->userdata1;
+        userdata_free.userdata2 = userdata->userdata2;
+        userdata_free.userdata3 = userdata->userdata3;
+        userdata_free.userdata4 = userdata->userdata4;
+        userdata_free.userdata5 = userdata->userdata5;
+
+        SMC_TRACE_PRINTF_DEBUG("smc_receive_skb_l2mux_free_mem: free the original data 0x%08X from SHM...", (uint32_t)data);
+
+            /* Free the MDB SHM data PTR from remote */
+        if( smc_send_ext( channel, data, 0, &userdata_free) != SMC_OK )
+        {
+            SMC_TRACE_PRINTF_ERROR("smc_receive_skb_l2mux_free_mem: channel %d: MDB memory 0x%08X free from remote failed",
+                    channel->id, (uint32_t)data);
+        }
+    }
+
+    return ret_val;
+}
+
+
+/**
+ * SKB RX handler.
+ */
+static inline uint8_t smc_receive_skb_l2mux( smc_skb_receive_data_t* skb_receive_data )
+{
+    uint8_t                   ret_val            = SMC_OK;
+    char*                     skb_data_buffer    = NULL;
+    struct                    net_device* device = NULL;
+    struct  _smc_channel_t*   channel            = NULL;
+    struct _smc_user_data_t*  userdata           = NULL;
+    struct  sk_buff*          skb                = NULL;
+    void*                     data               = NULL;
+    int32_t                   data_length        = 0;
+
+    if( skb_receive_data == NULL )
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_receive_skb_l2mux: skb_receive_data is NULL");
+        return SMC_ERROR;
+    }
+
+    device      = skb_receive_data->device;
+    channel     = skb_receive_data->channel;
+    skb         = skb_receive_data->skb;
+    data        = skb_receive_data->data;
+    data_length = skb_receive_data->data_length;
+    userdata    = &skb_receive_data->userdata;
+
+    if( device==NULL || channel==NULL || data==NULL || userdata==NULL || skb==NULL)
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_receive_skb_l2mux: skb_receive_data contains NULL data: device==0x%08X, channel==0x%08X, data==0x%08X, userdata==0x%08X, skb==0x%08X",
+            (uint32_t)device, (uint32_t)channel, (uint32_t)data, (uint32_t)userdata, (uint32_t)skb);
+        return SMC_ERROR;
+    }
+
+    skb_data_buffer = skb_put(skb, data_length);
+
+#ifdef SMC_DMA_TRANSFER_ENABLED
+    if( SMC_COPY_SCHEME_RECEIVE_USE_DMA( channel->copy_scheme ) )
+    {
+#if 0   /* Not in use yet */
+        SMC_TRACE_PRINTF_DMA("smc_receive_skb_l2mux: DMA copy message data 0x%08X to SKB buffer 0x%08X (0x%08X)...",
+                                                    (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
+
+        if( channel->smc_dma != NULL )
+        {
+            /*
+             * Start the DMA transfer
+             * NOTE: Currently NO DMA copy implementation, just use memcpy
+             */
+            SMC_TRACE_PRINTF_DMA("smc_receive_skb_l2mux: DMA copy by SMC DMA transfer API...");
+
+            int dma_ret_val = smc_dma_transfer_mdb(channel->smc_dma, skb_data_buffer, SMC_MEMORY_VIRTUAL_TO_PHYSICAL( channel->smc_instance, data ), data_length, 0x01);
+
+            if( dma_ret_val != SMC_DRIVER_OK )
+            {
+                SMC_TRACE_PRINTF_ERROR("smc_receive_skb_l2mux: DMA copy from 0x%08X to SKB buffer 0x%08X (0x%08X) FAILED",
+                                                                                (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
+            }
+        }
+        else
+#endif
+        {
+            memcpy( skb_data_buffer, data, data_length);
+        }
+    }
+    else
+#endif
+    {
+        SMC_TRACE_PRINTF_DEBUG("smc_receive_skb_l2mux: memcpy message data 0x%08X to SKB buffer 0x%08X (0x%08X)...",
+                                (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
+        memcpy( skb_data_buffer, data, data_length);
+    }
+
+        /* Ensure the cache cleanup */
+    SMC_TRACE_PRINTF_DEBUG("smc_receive_skb_l2mux clean 0x%08X->0x%08X (len %d)",
+            (uint32_t)skb_data_buffer, (uint32_t)(skb_data_buffer+data_length), data_length );
+
+    __raw_readl( ((void __iomem *)(skb_data_buffer+data_length)) );
+
+    SMC_TRACE_PRINTF_DEBUG("smc_receive_skb_l2mux: free the original data 0x%08X", (uint32_t)data);
+
+    if( smc_receive_skb_l2mux_free_mem( skb_receive_data ) != SMC_OK )
+    {
+        SMC_TRACE_PRINTF_ASSERT("smc_receive_skb_l2mux: smc_receive_skb_l2mux_free_mem failed");
+        assert(0);
+    }
+
+    skb_push(skb, SMC_L2MUX_HEADER_SIZE);
+
+    SMC_TRACE_PRINTF_INFO("smc_receive_skb_l2mux: Push L2MUX header 0x%08X into the SKB 0x%08X",
+            userdata->userdata1, (uint32_t)skb->data);
+
+    *(uint32_t*)(skb->data) = userdata->userdata1;
+
+        /* Put the metadata */
+    skb->dev        = device;
+    skb->ip_summed  = CHECKSUM_UNNECESSARY;
+
+    device->stats.rx_packets++;
+
+    SMC_TRACE_PRINTF_INFO("smc_receive_skb_l2mux: completed by return value %d", ret_val);
+    return ret_val;
 }
 
 
@@ -247,7 +746,7 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
         }
         else
         {
-            struct sk_buff *skb = NULL;
+            struct sk_buff         *skb = NULL;
 
             /* ========================================
              * Critical section begins
@@ -255,12 +754,84 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
              */
             SMC_LOCK( channel->lock_read );
 
-            skb = netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE /*+ SMC_L2MUX_HEADER_OVERHEAD*/ );
+            skb = netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE );
+
+#ifdef SMC_RX_USE_HIGHMEM
+            if( unlikely(!skb) )
+            {
+                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: No low memory available, trying high memory...");
+
+                    /* Try to allocate from HIGHMEM MEM */
+                skb = __netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE, GFP_ATOMIC | __GFP_HIGHMEM );
+            }
+#endif
 
             if( unlikely(!skb) )
             {
-                SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: No memory for RX skb");
+#ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED
+                    /* TODO Check that this is locked */
+                smc_skb_receive_data_t* skb_rcv_ptr = smc_alloc_skb_receive_data_item();
+
+                if( skb_rcv_ptr != NULL )
+                {
+                    skb_rcv_ptr->device      = device;
+                    skb_rcv_ptr->channel     = (smc_channel_t*)channel;
+                    skb_rcv_ptr->userdata    = *(smc_user_data_t*)userdata;
+                    skb_rcv_ptr->skb         = skb;
+                    skb_rcv_ptr->data        = data;
+                    skb_rcv_ptr->data_length = data_length;
+                }
+                else
+                {
+                    SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: No FREE BLOCKS for RX SKB");
+                }
+
+                SMC_TRACE_PRINTF_TIMER("smc_receive_data_callback_channel_l2mux: start memory reallocation timer, data=0x%08X len %d, userdata 0x%08X: 0x%08X,0x%08X...",
+                (uint32_t)data, data_length, (uint32_t)userdata, userdata->flags, userdata->userdata1);
+
+                if( skb_rcv_ptr == NULL || channel->rx_mem_alloc_timer == NULL ||
+                    smc_timer_start( channel->rx_mem_alloc_timer,
+                                    (void*)smc_rx_mem_realloc_timer_expired,
+                                    (uint32_t)skb_rcv_ptr ) != SMC_OK )
+                {
+                    SMC_TRACE_PRINTF_TIMER("smc_receive_data_callback_channel_l2mux: memory reallocation timer not started");
+
+
+
+                    if( smc_receive_skb_l2mux_free_mem( skb_rcv_ptr ) != SMC_OK )
+                    {
+                        SMC_TRACE_PRINTF_ASSERT("smc_receive_data_callback_channel_l2mux: smc_receive_skb_l2mux_free_mem failed");
+                        assert(0);
+                    }
+
+                    smc_free_skb_receive_data_item( skb_rcv_ptr );
+
+                    SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: No low or high memory for RX SKB");
+                    device->stats.rx_dropped++;
+                }
+                else
+                {
+                    smc_channel_enable_receive_mode( (smc_channel_t*)channel, FALSE );
+
+                    SMC_TRACE_PRINTF_TIMER("smc_receive_data_callback_channel_l2mux: memory reallocation timer started, receive locked");
+
+                    /* --- TODO Prevent remote to send data --- */
+                }
+#else   /* #ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED */
+                smc_skb_receive_data_t skb_receive_data;
+
+                skb_receive_data.device      = device;
+                skb_receive_data.channel     = (smc_channel_t*)channel;
+                skb_receive_data.userdata    = *(smc_user_data_t*)userdata;
+                skb_receive_data.skb         = NULL;
+                skb_receive_data.data        = data;
+                skb_receive_data.data_length = data_length;
+
+                smc_receive_skb_l2mux_free_mem( &skb_receive_data );
+
+                SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: No low or high memory for RX SKB");
                 device->stats.rx_dropped++;
+#endif  /* #ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED */
 
                 SMC_UNLOCK( channel->lock_read );
                 /*
@@ -270,122 +841,41 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
             }
             else
             {
-                smc_device_driver_priv_t* smc_net_dev = NULL;
-                char* skb_data_buffer = NULL;
+                smc_skb_receive_data_t skb_receive_data;
 
-                /*skb_reserve(skb, SMC_L2MUX_HEADER_OVERHEAD);*/
-                skb_data_buffer = skb_put(skb, data_length);
+                skb_receive_data.device      = device;
+                skb_receive_data.channel     = (smc_channel_t*)channel;
+                skb_receive_data.userdata    = *(smc_user_data_t*)userdata;
+                skb_receive_data.skb         = skb;
+                skb_receive_data.data        = data;
+                skb_receive_data.data_length = data_length;
 
-#ifdef SMC_DMA_TRANSFER_ENABLED
-                if( SMC_COPY_SCHEME_RECEIVE_USE_DMA( channel->copy_scheme ) )
+                if( smc_receive_skb_l2mux( &skb_receive_data ) == SMC_OK )
                 {
-#if 0   /* Not in use yet */
-                    SMC_TRACE_PRINTF_DMA("smc_receive_data_callback_channel_l2mux: DMA copy message data 0x%08X to SKB buffer 0x%08X (0x%08X)...",
-                                                                (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
+                    smc_device_driver_priv_t* smc_net_dev        = NULL;
 
-                    if( channel->smc_dma != NULL )
-                    {
-                        /*
-                         * Start the DMA transfer
-                         * NOTE: Currently NO DMA copy implementation, just use memcpy
-                         */
-                        SMC_TRACE_PRINTF_DMA("smc_receive_data_callback_channel_l2mux: DMA copy by SMC DMA transfer API...");
+                    SMC_UNLOCK( channel->lock_read );
+                    /*
+                     * Critical section ends
+                     * ========================================
+                     */
 
-                        int dma_ret_val = smc_dma_transfer_mdb(channel->smc_dma, skb_data_buffer, SMC_MEMORY_VIRTUAL_TO_PHYSICAL( channel->smc_instance, data ), data_length, 0x01);
+                    /* SKB is modified in receive function*/
+                    SMC_TRACE_PRINTF_INFO("smc_receive_data_callback_channel_l2mux: Deliver SKB (length %d) to upper layer RX ...", skb->len);
+                    SMC_TRACE_PRINTF_INFO_DATA( skb->len , skb->data );
 
-                        if( dma_ret_val != SMC_DRIVER_OK )
-                        {
-                            SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: DMA copy from 0x%08X to SKB buffer 0x%08X (0x%08X) FAILED",
-                                                                                            (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
-                        }
-                    }
-                    else
-#endif
-                    {
-                        memcpy( skb_data_buffer, data, data_length);
-                    }
-                }
-                else
-#endif
-                {
-                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: memcpy message data 0x%08X to SKB buffer 0x%08X (0x%08X)...",
-                                            (uint32_t)data, (uint32_t)skb->data, (uint32_t)skb_data_buffer);
-                    memcpy( skb_data_buffer, data, data_length);
-                }
-
-                    /* Ensure the cache cleanup */
-                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux clean 0x%08X->0x%08X (len %d)",
-                        (uint32_t)skb_data_buffer, (uint32_t)(skb_data_buffer+data_length), data_length );
-
-                __raw_readl( ((void __iomem *)(skb_data_buffer+data_length)) );
-
-                SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X", (uint32_t)data);
-
-                /* TODO Create common free function for freeing RECEIVE data -> detects there if data is from remote */
-
-                if( SMC_COPY_SCHEME_RECEIVE_IS_COPY( channel->copy_scheme ) )
-                {
-                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X from local mem", (uint32_t)data);
-                    smc_channel_free_ptr_local( (smc_channel_t*)channel, data, (smc_user_data_t*)userdata );
+                    smc_net_dev = netdev_priv( device );
+                    smc_net_dev->smc_dev_config->skb_rx_function( skb, device );
                 }
                 else
                 {
-                    smc_user_data_t userdata_free;
-
-                    userdata_free.flags     = SMC_MSG_FLAG_FREE_MEM_MDB;
-                    userdata_free.userdata1 = userdata->userdata1;
-                    userdata_free.userdata2 = userdata->userdata2;
-                    userdata_free.userdata3 = userdata->userdata3;
-                    userdata_free.userdata4 = userdata->userdata4;
-                    userdata_free.userdata5 = userdata->userdata5;
-
-                    SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: free the original data 0x%08X from SHM...", (uint32_t)data);
-
-                        /* Free the MDB SHM data PTR from remote */
-                    if( smc_send_ext( (smc_channel_t*)channel, data, 0, &userdata_free) != SMC_OK )
-                    {
-                        SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: channel %d: MDB memory 0x%08X free from remote failed",
-                                channel->id, (uint32_t)data);
-                    }
+                    SMC_UNLOCK( channel->lock_read );
+                    /*
+                     * Critical section ends
+                     * ========================================
+                     */
+                    SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: smc_receive_skb_l2mux() failed");
                 }
-
-                /* TODO Implement the fragments for SKB ( hsi_logical_skb_to_msg in hsi_locigal.c ) */
-
-                skb_push(skb, SMC_L2MUX_HEADER_SIZE);
-
-                SMC_TRACE_PRINTF_INFO("smc_receive_data_callback_channel_l2mux: Push L2MUX header 0x%08X into the SKB 0x%08X",
-                        userdata->userdata1, (uint32_t)skb->data);
-
-                *(uint32_t*)(skb->data) = userdata->userdata1;
-
-                    /* Put the metadata */
-                skb->dev        = device;
-
-                /* TODO Check to put protocol ETH_xxx from channel information */
-                /*skb->protocol = eth_type_trans(skb, dev);*/
-                skb->ip_summed  = CHECKSUM_UNNECESSARY;
-
-                smc_net_dev = netdev_priv( device );
-
-                device->stats.rx_packets++;
-
-
-                if( (channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_MESSAGE)==SMC_CHANNEL_WAKELOCK_MESSAGE )
-                {
-                    /*SMC_TRACE_PRINTF_SLEEP_CONTROL("smc_receive_data_callback_channel_l2mux: channel %d: set wakelock data: 0x%08X", channel->id, userdata->userdata1);*/
-                    smc_wake_lock( userdata->userdata1 );
-                }
-
-                SMC_UNLOCK( channel->lock_read );
-                /*
-                 * Critical section ends
-                 * ========================================
-                 */
-
-                SMC_TRACE_PRINTF_INFO("smc_receive_data_callback_channel_l2mux: Deliver SKB (length %d) to upper layer RX ...", skb->len);
-                SMC_TRACE_PRINTF_INFO_DATA( skb->len , skb->data );
-
-                smc_net_dev->smc_dev_config->skb_rx_function( skb, device );
             }
         }
     }
@@ -481,8 +971,6 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
                     netif_wake_subqueue(device, queue_ind);
 
                     SMC_CHANNEL_STATE_CLEAR_SEND_IS_DISABLED( smc_channel->state );
-
-                    //SMC_TRACE_PRINTF_ALWAYS("Channel %d: TX is enabled (from %s)", smc_channel->id, (event == SMC_RESUME_SEND)?"remote":"local");
                 }
                 else
                 {
@@ -640,9 +1128,7 @@ static uint16_t l2mux_net_device_driver_select_queue( struct net_device *device,
     else if (skb->protocol == htons(ETH_P_MHI))
     {
         SMC_TRACE_PRINTF_TRANSMIT("l2mux_net_device_driver_select_queue: protocol ETH_P_MHI");
-
-            /* No audio, return medium */
-        subqueue = SMC_L2MUX_QUEUE_1_PHONET;
+        subqueue = SMC_L2MUX_QUEUE_2_MHI;
     }
     else if (skb->protocol == htons(ETH_P_MHDP))
     {
@@ -689,5 +1175,22 @@ static void l2mux_layer_device_driver_setup(struct net_device* device)
     device->tx_queue_len    = 500;
 
 }
+
+static void l2mux_device_device_driver_close(struct net_device* device)
+{
+
+    /*SMC_TRACE_PRINTF_STARTUP("Channel %d is synchronized with the remote", smc_channel->id);*/
+
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX device driver is closing", device->name);
+
+#ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED
+
+    smc_destroy_skb_receive_data_item_buffer();
+#endif
+
+
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX device driver is closed", device->name);
+}
+
 
 /* EOF */
