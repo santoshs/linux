@@ -27,13 +27,6 @@
 #define VIB_OFF 0
 #define MIN_TIME_MS 100
 
-#ifdef CONFIG_BOARD_VERSION_GARDA
-extern unsigned int read_board_rev(void);
-extern void vibtonz_en(bool en);
-extern void vibtonz_pwm(int nForce);
-extern int vibtonz_is_enabled(void);
-extern void vibtonz_set_enable(int val);
-#endif
 
 #if defined(CONFIG_HAS_WAKELOCK)
 static struct wake_lock vib_wl;
@@ -51,57 +44,29 @@ static void vibrator_ctrl_regulator(int on_off)
 {
 	int ret=0;
 	printk(KERN_NOTICE "Vibrator: %s\n",(on_off?"ON":"OFF"));
-	
+
 	if(on_off==VIB_ON)
 	{
-#ifdef CONFIG_BOARD_VERSION_GARDA		
-		if(read_board_rev() < 3)
+		if (!regulator_is_enabled(vib_regulator))
 		{
-			mutex_lock(&ss_vibrator_mutex_lock);
-			if(!vibtonz_is_enabled())
-			{
-				vibtonz_en(1);
-				vibtonz_pwm(100);
-				vibtonz_set_enable(1);
-			}
-			mutex_unlock(&ss_vibrator_mutex_lock);			
-		}
-		else
-#endif
-		{
-			if(!regulator_is_enabled(vib_regulator))
-			{
-				regulator_set_voltage(vib_regulator,vib_voltage,vib_voltage);
-				regulator_enable(vib_regulator);
-				printk(KERN_NOTICE "Vibrator: enable\n");
-			}
+			regulator_set_voltage(vib_regulator,
+						vib_voltage,
+						 vib_voltage);
+
+			regulator_enable(vib_regulator);
+			printk(KERN_NOTICE "Vibrator: enable\n");
 		}
 	}
 	else
 	{
-#ifdef CONFIG_BOARD_VERSION_GARDA		
-		if(read_board_rev() < 3)
+		if (regulator_is_enabled(vib_regulator))
 		{
-			mutex_lock(&ss_vibrator_mutex_lock);
-			if(vibtonz_is_enabled())
-			{
-				vibtonz_pwm(0);
-				vibtonz_en(0);
-				vibtonz_set_enable(0);
-			}
-			mutex_unlock(&ss_vibrator_mutex_lock);
-		}
-		else
-#endif
-		{
-			if(regulator_is_enabled(vib_regulator))
-			{
-				ret = regulator_disable(vib_regulator);
-				if(!ret)
+			ret = regulator_disable(vib_regulator);
+			if (!ret)
 				printk(KERN_NOTICE "Vibrator: disable\n");
-				else
-					printk(KERN_ERR "Vibrator: disable failed. check why vib_regulator isn't disabled:ErrorCode:%d\n",ret);
-			}
+			else
+				printk(KERN_ERR "Vibrator: disable" \
+					" failed : %d\n", ret);
 		}
 	}
 }
@@ -146,10 +111,10 @@ static void vibrator_enable_set_timeout(struct timed_output_dev *sdev,
 	vibrator_ctrl_regulator(VIB_ON);
 	if(timeout < MIN_TIME_MS)
 		timeout *= 2;
-   
+
 	cancel_delayed_work_sync(&vibrator_off_work);
 	queue_delayed_work(vib_workqueue, &vibrator_off_work, msecs_to_jiffies(timeout));
-   
+
 	is_vibrating = 0;
 }
 
@@ -165,11 +130,7 @@ static int vibrator_probe(struct platform_device *pdev)
 	int ret = 0;
 
 	vib_regulator = regulator_get(NULL, (const char *)(pdev->dev.platform_data));
-#ifdef CONFIG_BOARD_VERSION_GARDA
-	if(3 > read_board_rev())
-		regulator_enable(vib_regulator);
-#endif	
-   
+
 	/* Setup timed_output obj */
 	vibrator_timed_dev.name = "vibrator";
 	vibrator_timed_dev.enable = vibrator_enable_set_timeout;
@@ -183,7 +144,7 @@ static int vibrator_probe(struct platform_device *pdev)
 #else
 	vib_voltage = 3000000;
 #endif
-   
+
 #if defined(CONFIG_HAS_WAKELOCK)
 	wake_lock_init(&vib_wl, WAKE_LOCK_SUSPEND, __stringify(vib_wl));
 #endif
@@ -199,27 +160,27 @@ static int vibrator_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&vibrator_off_work, vibrator_off_worker);
 
 	return 0;
-   
+
 error:
 #if defined(CONFIG_HAS_WAKELOCK)
-   wake_lock_destroy(&vib_wl);
+	wake_lock_destroy(&vib_wl);
 #endif
-  regulator_put(vib_regulator); 
-  vib_regulator=NULL;
-   return ret;
+	regulator_put(vib_regulator);
+	vib_regulator = NULL;
+	return ret;
 }
 
 static int __devexit vibrator_remove(struct platform_device *pdev)
 {
 	timed_output_dev_unregister(&vibrator_timed_dev);
-   if (vib_regulator) 
-	{
-         regulator_put(vib_regulator);
-         vib_regulator = NULL;
-   }
-   
+
+	if (vib_regulator) {
+		regulator_put(vib_regulator);
+		vib_regulator = NULL;
+	}
+
 	destroy_workqueue(vib_workqueue);
-   
+
 	return 0;
 }
 
