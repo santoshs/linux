@@ -30,11 +30,9 @@
 
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-//#include "arm.h"
-//#include "ssa.h"
+
+
 .global  hw_sec_rom_pub_bridge
-//.include "arm.inc"
-//.include "ssa.inc"
 .extern  hw_mmu_physical_address_get
 
 .text
@@ -87,7 +85,7 @@ ENTRY(hw_sec_rom_pub_bridge)
         MOV     R5, R9
         MOV     R6, R10
         MOV     R7, R11
-                
+
         PUSH    {R4-R7}
 
 @ Save function name (@R0) to R4 and flags (@R1) to R5 and ap (@R2) to R6 for later use.
@@ -99,7 +97,7 @@ ENTRY(hw_sec_rom_pub_bridge)
 @ Calculate the physical va_start pointer value and save it to R11 for later
 @ use.
 @ REGS: R4,R5,R6,R12-R13
-        MOV     R0, R6        
+        MOV     R0, R6
         BL      hw_mmu_physical_address_get @ not on same page, calculate!
 
         MOV     R11, R0
@@ -253,8 +251,8 @@ ENTRY(ret_from_sec_mode)
         BX      R7                      @ Jump from virtual address in here
         NOP
         NOP
-        NOP 
-r0002:  NOP                             @ .. to physical address in here
+        NOP
+r0002:  NOP                             @ to physical address in here
 
 @ Interrupts will also be kept disabled, so we do not restore original CPSR.
 
@@ -456,7 +454,7 @@ ENTRY(sec_entry_settings)
         MOV     R0, #0          @ clean up to point of unification
         MOV     R1, #0
                 .extern hw_arm_dcache_maintenance
-        BL      hw_arm_dcache_maintenance       
+        BL      hw_arm_dcache_maintenance
         POP     {R0-R2, LR}
 
 @ Read secure mode flags from stack to R5 for later use.
@@ -541,7 +539,7 @@ ses40:
         NOP
         NOP
         NOP
-        NOP        
+        NOP
 @ L2 cache disabling is not needed (and actually cannot be done in non-secure
 @ mode). Also, it is not necessary to check here that L2 is Cleaned or
 @ cleaned and invalidated as TrustZone takes care that those operations
@@ -570,7 +568,7 @@ PUB_SMI_LABEL_0:
 PUB_SMI_LABEL_1:
 .endif
         DSB
-	.arch_extension sec
+        .arch_extension sec
         SMC    0                               @ Call secure application
         DSB
         NOP
@@ -578,11 +576,9 @@ PUB_SMI_LABEL_1:
         NOP
         NOP
         NOP
-        NOP        
+        NOP
         B      ret_from_sec_mode
 ENDPROC(sec_entry_settings)
 
 .end
 
-/* vim: set autoindent shiftwidth=8 smarttab expandtab : */
-/* -*- mode: C; c-basic-indent: 8; indent-tabs-mode: nil -*- */
