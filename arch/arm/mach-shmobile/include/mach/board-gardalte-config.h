@@ -92,6 +92,7 @@ static struct platform_device mmcif_device = {
 static struct mmcoops_platform_data mmcoops_info = {
 #ifdef CONFIG_CRASHLOG_EMMC
 	.pdev			= &mmcif_device,
+#endif
 	.start			= MMCOOPS_START_OFFSET,
 	.size			= MMCOOPS_LOG_SIZE,
 	.record_size		= MMCOOPS_RECORD_SIZE,
@@ -100,19 +101,8 @@ static struct mmcoops_platform_data mmcoops_info = {
 	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE,
 	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE,
 	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE,
-#else
-	.start			= MMCOOPS_START_OFFSET_DDR,
-	.size			= MMCOOPS_LOG_SIZE_DDR,
-	.record_size		= MMCOOPS_RECORD_SIZE_DDR,
-	.kmsg_size		= MMCOOPS_KMSG_SIZE_DDR,
-	.logcat_main_size	= MMCOOPS_LOGCAT_MAIN_SIZE_DDR,
-	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE_DDR,
-	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE_DDR,
-	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE_DDR,
-#endif
 	.local_version		= MMCOOPS_LOCAL_VERSION,
 	.soft_version		= RMC_LOCAL_VERSION,
-	/*512 byte blocks */
 };
 
 static struct platform_device mmcoops_device = {
