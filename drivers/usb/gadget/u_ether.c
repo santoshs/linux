@@ -588,7 +588,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 
 	if (multiframe->skb == NULL) {
-		multiframe->skb = netdev_alloc_skb(net, skb_headlen(skb));
+		multiframe->skb = netdev_alloc_skb(net, 4);
 
 		if (unlikely(!multiframe->skb)) {
 			ERROR(dev, "multiframe allocation failed");
