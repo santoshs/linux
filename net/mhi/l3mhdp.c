@@ -1044,11 +1044,11 @@ static void tx_timer_timeout_tasklet(unsigned long arg)
 {
 	struct mhdp_tunnel *tunnel = (struct mhdp_tunnel *) arg;
 
-	spin_lock(&tunnel->timer_lock);
+	spin_lock_bh(&tunnel->timer_lock);
 
 	mhdp_submit_queued_skb(tunnel, 1);
 
-	spin_unlock(&tunnel->timer_lock);
+	spin_unlock_bh(&tunnel->timer_lock);
 }
 
 /**
@@ -1072,7 +1072,7 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	mhdp_check_wake_lock(dev);
 
-	spin_lock(&tunnel->timer_lock);
+	spin_lock_bh(&tunnel->timer_lock);
 
 	SKBPRINT(skb, "SKB: TX");
 
@@ -1206,11 +1206,11 @@ xmit_again:
 			mhdp_submit_queued_skb(tunnel, 1);
 	}
 
-	spin_unlock(&tunnel->timer_lock);
+	spin_unlock_bh(&tunnel->timer_lock);
 	return NETDEV_TX_OK;
 
 tx_error:
-	spin_unlock(&tunnel->timer_lock);
+	spin_unlock_bh(&tunnel->timer_lock);
 	stats->tx_errors++;
 	dev_kfree_skb(skb);
 	return NETDEV_TX_OK;
