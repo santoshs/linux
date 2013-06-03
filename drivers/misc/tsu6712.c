@@ -258,17 +258,13 @@ static void tsu6712_push_queue(struct interrupt_element* val)
 	if(__MUIC_INTERRUPT_QUEUE_INDEX >= 10)
 	{
 		pr_err("%s : index overflow %d\n", __func__, __MUIC_INTERRUPT_QUEUE_INDEX);
-		__MUIC_INTERRUPT_QUEUE_INDEX = 0;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].intr = val->intr;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].dev = val->dev;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].adc = val->adc;
+		__MUIC_INTERRUPT_QUEUE_INDEX = -1;
+	}
 
-	} else {
-		__MUIC_INTERRUPT_QUEUE_INDEX++;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].intr = val->intr;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].dev = val->dev;
-		__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].adc = val->adc;
-		}
+	__MUIC_INTERRUPT_QUEUE_INDEX++;
+	__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].intr = val->intr;
+	__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].dev = val->dev;
+	__MUIC_INTERRUPT_QUEUE[__MUIC_INTERRUPT_QUEUE_INDEX].adc = val->adc;
 	mutex_unlock(&__MUIC_INTERRUPT_QUEUE_LOCK);
 }
 #endif
@@ -654,6 +650,9 @@ struct device_attribute *attr,
 
 	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
 
+	if (value < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, value);
+
 	return snprintf(buf, 13, "CONTROL: %02x\n", value);
 }
 
@@ -666,6 +665,8 @@ struct device_attribute *attr,
 	u8 value;
 
 	tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&value);
+	if (value < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	return snprintf(buf, 11, "DEVICE_TYPE: %02x\n", value);
 }
@@ -678,6 +679,8 @@ struct device_attribute *attr, char *buf)
 	u8 value;
 
 	tsu6712_read_reg(client,TSU6712_REG_MANSW1,&value);
+	if (value < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	if (value == SW_VAUDIO)
 		return snprintf(buf, 7, "VAUDIO\n");
@@ -704,6 +707,8 @@ struct device_attribute *attr,
 	int ret;
 
 	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
+	if (value < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	if ((value & ~CON_MANUAL_SW) !=	(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
 		return 0;
@@ -1090,6 +1095,8 @@ void tsu6712_manual_switching(int path)
 	int ret;
 
 	tsu6712_read_reg(client,TSU6712_REG_CTRL,&value);
+	if (value < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, value);
 
 	if ((value & ~CON_MANUAL_SW) !=	(CON_SWITCH_OPEN | CON_RAW_DATA | CON_WAIT))
 		return;

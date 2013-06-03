@@ -664,14 +664,11 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	int bcn_li_bcn;
 #endif /* ENABLE_BCN_LI_BCN_WAKEUP */
 #ifdef PASS_ALL_MCAST_PKTS
-	struct dhd_info *dhdinfo;
+	struct dhd_info *dhdinfo = dhd->info;
 	uint32 allmulti;
 	uint i;
 #endif /* PASS_ALL_MCAST_PKTS */
-	if (!dhd)
-        	return -ENODEV;
 
-	dhdinfo = dhd->info;
 	DHD_TRACE(("%s: enter, value = %d in_suspend=%d\n",
 		__FUNCTION__, value, dhd->in_suspend));
 

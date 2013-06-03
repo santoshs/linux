@@ -3643,6 +3643,7 @@ fail_hw_cal:
 				return -1;
 			}
 		}
+
 		up(&misc_touch_dev->raw_data_lock);
 		return 0;
 

@@ -773,6 +773,8 @@ static void spa_back_charging_work(struct work_struct *work)
 	if(spa_power_iter->charging_status.phase == POWER_SUPPLY_STATUS_FULL)
 	{
 		spa_power_iter->charging_status.status = SPA_STATUS_NONE;
+		
+		d2153_battery_set_status(D2153_STATUS_EOC_CTRL, D2153_BAT_CHG_BACKCHG_FULL);
 	}
 	else
 	{

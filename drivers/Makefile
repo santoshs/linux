@@ -22,7 +22,7 @@ obj-$(CONFIG_ARM_AMBA)		+= amba/
 # Many drivers will want to use DMA so this has to be made available
 # really early.
 obj-$(CONFIG_DMA_ENGINE)	+= dma/
-
+obj-$(CONFIG_SAMSUNG_PARAM)	+= param/
 obj-$(CONFIG_VIRTIO)		+= virtio/
 obj-$(CONFIG_XEN)		+= xen/
 

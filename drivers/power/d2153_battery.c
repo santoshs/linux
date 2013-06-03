@@ -76,7 +76,7 @@ static const char __initdata d2153_battery_banner[] = \
 #define MAX_ADD_DIS_PERCENT_FOR_WEIGHT   	14    // 18 15
 #define MIN_ADD_DIS_PERCENT_FOR_WEIGHT  	(-30)
 
-#define LAST_CHARGING_WEIGHT      			450   // 900
+#define LAST_CHARGING_WEIGHT      			380   // 900
 
 #elif USED_BATTERY_CAPACITY == BAT_CAPACITY_2100MA
 #define ADC_VAL_100_PERCENT            		3645   // About 4280mV 
@@ -1864,6 +1864,9 @@ int d2153_battery_set_status(int type, int status)
 			val = d2153_reset_sw_fuelgauge(pbat);
 			schedule_delayed_work(&gbat->monitor_volt_work, 0);
 			break;
+		case D2153_STATUS_EOC_CTRL:
+			pbat->battery_data.charger_ctrl_status = status;
+			break;
 		default :
 			return -EINVAL;
 	}
@@ -1907,46 +1910,48 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 	}
 	else {
 #ifdef CONFIG_D2153_EOC_CTRL
-		if(pbat_data->volt_adc_init_done && pbat_data->is_charging) {
-			struct power_supply *ps;
-			union power_supply_propval value;
-
-			ps = power_supply_get_by_name("battery");
-			if(ps == NULL) {
-				pr_err("%s. Failed a battery supply instance\n", __func__);
-				goto err_adc_read;
-			}
-
-			ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
-			if( value.intval == POWER_SUPPLY_STATUS_FULL) {
-				if(((pbat_data->charger_ctrl_status == D2153_BAT_RECHG_FULL)
-					||(pbat_data->charger_ctrl_status == D2153_BAT_CHG_BACKCHG_FULL))
-					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
-					spa_event_handler(SPA_EVT_EOC, 0);
-					pbat_data->charger_ctrl_status = D2153_BAT_RECHG_FULL;
-					pr_info("%s. Recharging Done.(4) full > discharge > Recharge\n", __func__);
+				if(pbat_data->volt_adc_init_done && pbat_data->is_charging) {
+					struct power_supply *ps;
+					union power_supply_propval value;
+		
+					ps = power_supply_get_by_name("battery");
+					if(ps == NULL) {
+						pr_err("%s. Failed a battery supply instance\n", __func__);
+						goto err_adc_read;
+					}
+		
+					pr_info("%s. Battery PROP_STATUS = %d\n", __func__, value.intval);
+		
+					ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
+					if( value.intval == POWER_SUPPLY_STATUS_FULL) {
+						if(((pbat_data->charger_ctrl_status == D2153_BAT_RECHG_FULL)
+							|| (pbat_data->charger_ctrl_status == D2153_BAT_CHG_BACKCHG_FULL))
+							&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
+							spa_event_handler(SPA_EVT_EOC, 0);
+							pbat_data->charger_ctrl_status = D2153_BAT_RECHG_FULL;
+							pr_info("%s. Recharging Done.(3) 2nd full > discharge > Recharge\n", __func__);
+						} else if((pbat_data->charger_ctrl_status == D2153_BAT_CHG_FRST_FULL)
+									&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
+							pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
+							spa_event_handler(SPA_EVT_EOC, 0);
+							pr_info("%s. Recharging Done.(4) 1st full > 2nd full\n", __func__);
+						}
+					} else {
+						// Will stop charging when a voltage approach to first full charge level.
+						if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
+							&& (pbat_data->average_voltage >= D2153_BAT_CHG_FRST_FULL_LVL)) {
+							spa_event_handler(SPA_EVT_EOC, 0);
+							pbat_data->charger_ctrl_status = D2153_BAT_CHG_FRST_FULL;
+							pr_info("%s. First charge done.(1)\n", __func__);
+						} else if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
+							&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
+							spa_event_handler(SPA_EVT_EOC, 0);
+							spa_event_handler(SPA_EVT_EOC, 0);
+							pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
+							pr_info("%s. Fully charged.(2)(Back-charging done)\n", __func__);
+						}
+					}
 				}
-			} else {
-				// Will stop charging when a voltage approach to first full charge level.
-				if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_BACKCHG_FULL) 
-					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
-					spa_event_handler(SPA_EVT_EOC, 0);
-					pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
-					pr_info("%s. Fully charged.(1)(Back-charging done)\n", __func__);
-				} else if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
-					&& (pbat_data->average_voltage >= D2153_BAT_CHG_FRST_FULL_LVL)) {
-					spa_event_handler(SPA_EVT_EOC, 0);
-					pbat_data->charger_ctrl_status = D2153_BAT_CHG_FRST_FULL;
-					pr_info("%s. First charge done.(2)\n", __func__);
-				} else if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
-					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
-					spa_event_handler(SPA_EVT_EOC, 0);
-					spa_event_handler(SPA_EVT_EOC, 0);
-					pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
-					pr_info("%s. Fully charged.(3)(Back-charging done)\n", __func__);
-				}
-			}
-		}
 #endif
 		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_FAST);
 	}
