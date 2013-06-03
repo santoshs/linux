@@ -523,12 +523,14 @@ static void tsu6712_uart_cb(bool attached)
       printk("UART attached : send switch state 200");
       usb_uart_switch_state = 200;
       switch_set_state(&switch_usb_uart,200);
+      KERNEL_LOG = 1;
    }
    else
    {
       printk("UART detached : send switch state 201");
       usb_uart_switch_state = 201;
       switch_set_state(&switch_usb_uart,201);
+      KERNEL_LOG = 0;
    }
 #endif
 

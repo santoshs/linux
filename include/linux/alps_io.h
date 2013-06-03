@@ -1,4 +1,4 @@
-ifndef ___ALPS_IO_H_INCLUDED
+#ifndef ___ALPS_IO_H_INCLUDED
 #define ___ALPS_IO_H_INCLUDED
 
 #include <linux/ioctl.h>

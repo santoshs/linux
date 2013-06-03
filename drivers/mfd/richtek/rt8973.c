@@ -472,10 +472,12 @@ static void uart_attach(uint8_t attached)
 	if (attached) {	
 		usb_uart_switch_state = 200;
 		switch_set_state(&switch_usb_uart, 200);
+		KERNEL_LOG = 1;
 	}
 	else {
 		usb_uart_switch_state = 201;
 		switch_set_state(&switch_usb_uart, 201);
+		KERNEL_LOG = 0;
 	}
 }
 
