@@ -103,8 +103,12 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 		msleep(20);
 	}
 
+	mutex_lock_nested(&codec->card->dapm_mutex,
+		SND_SOC_DAPM_CLASS_PCM);
 	dapm_mark_dirty(w, "fsi_d2153_set_active");
 	w->active = active;
+	mutex_unlock(&codec->card->dapm_mutex);
+
 	printk(KERN_INFO "w->name[%s] w->active[%d]\n",
 		w->name, w->active);
 	snd_soc_dapm_sync(&codec->dapm);
@@ -158,6 +162,8 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 
 	sndp_log_info("start\n");
 
+	mutex_lock_nested(&codec->card->dapm_mutex,
+		SND_SOC_DAPM_CLASS_PCM);
 	if (!status) {
 		snd_soc_dapm_disable_pin(&codec->dapm, "Headphone Jack Left");
 		snd_soc_dapm_disable_pin(&codec->dapm, "Headphone Jack Right");
@@ -169,6 +175,7 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_enable_pin(&codec->dapm, "Speaker");
 		snd_soc_dapm_enable_pin(&codec->dapm, "Earpiece");
 	}
+	mutex_unlock(&codec->card->dapm_mutex);
 
 	fsi_d2153_set_active(codec, D2153_PLAYBACK_STREAM_NAME, status);
 
@@ -765,6 +772,34 @@ static int fsi_hifi_d2153_init(struct snd_soc_pcm_runtime *rtd)
 
 	return 0;
 }
+#ifdef CONFIG_PM
+static int fsi_d2153_suspend_pre(struct snd_soc_card *card)
+{
+	int i, ret;
+
+	spin_lock(&fsi_d2153_lock);
+	if (!card) {
+		ret = -EINVAL;
+	} else {
+		ret = 0;
+		for (i = 0; i < card->num_rtd; i++) {
+			if (card->rtd[i].dai_link->ignore_suspend)
+				goto out;
+		}
+		if (playback_widget)
+			playback_widget->active = 0;
+		if (capture_widget)
+			capture_widget->active = 0;
+		sndp_log_info("p->active[%d] c->active[%d]",
+			playback_widget->active, capture_widget->active);
+	}
+out:
+	spin_unlock(&fsi_d2153_lock);
+	return ret;
+}
+#else
+#define fsi_d2153_suspend_pre NULL
+#endif /* CONFIG_PM */
 
 static struct snd_soc_dai_link fsi_dai_link[] = {
 	{
@@ -791,6 +826,7 @@ static struct snd_soc_card fsi_soc_card = {
 	.name = "FSI",
 	.dai_link = fsi_dai_link,
 	.num_links = ARRAY_SIZE(fsi_dai_link),
+	.suspend_pre = fsi_d2153_suspend_pre,
 };
 
 static __devinit int fsi_d2153_driver_probe(struct platform_device *pdev)

@@ -1,16 +1,23 @@
-/* *********************************************************************** **
-**                              Renesas                                    **
-** *********************************************************************** */
-
-/* ************************** COPYRIGHT INFORMATION ********************** **
-** This program contains proprietary information that is a trade secret of **
-** Renesas and also is protected as an unpublished work under              **
-** applicable Copyright laws. Recipient is to retain this program in       **
-** confidence and is not permitted to use or make copies thereof other than**
-** as permitted in a written agreement with Renesas.                       **
-**                                                                         **
-** All rights reserved. Company confidential.                              **
-* ************************************************************************ */
+/*
+ * drivers/sec_hal/rt/inc/sec_serv_api.h
+ *
+ * Copyright (c) 2010-2013, Renesas Mobile Corporation.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
 
 #if defined _SEC_SERV_API_H_
 #error "Multiply included"

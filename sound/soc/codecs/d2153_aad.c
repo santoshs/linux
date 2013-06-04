@@ -17,6 +17,7 @@
 #include <linux/i2c.h>
 #include <mach/common.h>
 #include <sound/soc.h>
+#include <sound/soc-dapm.h>
 #include <sound/jack.h>
 #include <sound/soundpath/soundpath.h>
 #include <linux/gpio.h>
@@ -504,6 +505,8 @@ static void d2153_aad_jackdet_monitor_timer_work(struct work_struct *work)
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state;
 	int state_gpio;
+	struct snd_soc_codec *codec =
+		d2153_aad->d2153_codec->codec;
 
 	dlg_info("[%s] start!\n", __func__);
 
@@ -626,12 +629,15 @@ static void d2153_aad_jackdet_monitor_timer_work(struct work_struct *work)
 		switch_set_state(&d2153_aad->switch_data.sdev, state);
 	}
 
+	mutex_lock_nested(&codec->card->dapm_mutex,
+		SND_SOC_DAPM_CLASS_PCM);
 	if (state == D2153_NO_JACK)
 		snd_soc_dapm_disable_pin(&d2153_aad->d2153_codec->codec->dapm,
 			"Headphone Enable");
 	else
 		snd_soc_dapm_enable_pin(&d2153_aad->d2153_codec->codec->dapm,
 			"Headphone Enable");
+	mutex_unlock(&codec->card->dapm_mutex);
 }
 
 static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
@@ -643,6 +649,8 @@ static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
 	struct i2c_client *client = d2153_aad->i2c_client;
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state,state_gpio;
+	struct snd_soc_codec *codec =
+		d2153_aad->d2153_codec->codec;
 	dlg_info("[%s] start!\n", __func__);
 
 	if (d2153_aad->d2153_codec == NULL ||
@@ -742,12 +750,15 @@ static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
 		switch_set_state(&d2153_aad->switch_data.sdev, state);
 	}
 
+	mutex_lock_nested(&codec->card->dapm_mutex,
+		SND_SOC_DAPM_CLASS_PCM);
 	if (state == D2153_NO_JACK)
 		snd_soc_dapm_disable_pin(&d2153_aad->d2153_codec->codec->dapm,
 			"Headphone Enable");
 	else
 		snd_soc_dapm_enable_pin(&d2153_aad->d2153_codec->codec->dapm,
 			"Headphone Enable");
+	mutex_unlock(&codec->card->dapm_mutex);
 }
 
 static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
