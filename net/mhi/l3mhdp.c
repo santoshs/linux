@@ -1080,7 +1080,7 @@ xmit_again:
 
 		if (!tunnel->skb) {
 			EPRINTK("mhdp_netdev_xmit error1");
-			BUG();
+			goto tx_error;
 		}
 
 		/* Place holder for the mhdp packet count */
