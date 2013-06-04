@@ -1,15 +1,22 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -136,6 +143,12 @@ extern uint8_t smc_test_case_dma( uint8_t* test_input_data, uint16_t test_input_
     /* RPCL test */
 static uint8_t smc_test_case_rpcl( uint8_t* test_input_data, uint16_t test_input_data_len );
 
+    /* Test to set various channel states*/
+static uint8_t smc_test_case_channel_state( uint8_t* test_input_data, uint16_t test_input_data_len );
+
+    /* Special tests for FIFO in the channel */
+static uint8_t smc_test_case_channel_fifo( uint8_t* test_input_data, uint16_t test_input_data_len );
+
     /* ========================================================
      * SMC Test Case functions
      * First index is 0x00
@@ -159,6 +172,8 @@ smc_test_case_function smc_test_cases[] =
     smc_test_case_dma,                              /* 0x0D */
     smc_test_case_shm_variable,                     /* 0x0E */
     smc_test_case_rpcl,                             /* 0x0F */
+    smc_test_case_channel_state,                    /* 0x10 */
+    smc_test_case_channel_fifo,                     /* 0x11 */
     0
 };
 
@@ -559,8 +574,17 @@ static uint8_t smc_test_case_function_ping( uint8_t* test_input_data, uint16_t t
     {
         uint8_t channel_id      = test_input_data[0];
         uint8_t smc_instance_id = 0x00;                 /* TODO Take instance id into use */
+        uint8_t wait_for_reply  = TRUE;
 
         smc_t* smc = smc_test_get_instance_by_test_instance_id( smc_instance_id );
+
+        if( test_input_data_len > 1 )
+        {
+            if( test_input_data[1] == 0 )
+            {
+                wait_for_reply  = FALSE;
+            }
+        }
 
         if( smc != NULL )
         {
@@ -570,7 +594,7 @@ static uint8_t smc_test_case_function_ping( uint8_t* test_input_data, uint16_t t
             {
                 SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: Sending ping to channel %d using SMC instance %d ", channel_id, smc_instance_id );
 
-                test_status = smc_channel_send_ping( smc_channel, TRUE );
+                test_status = smc_channel_send_ping( smc_channel, wait_for_reply );
 
                 SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_function_ping: Sending ping to channel %d completed", channel_id);
             }
@@ -2222,6 +2246,190 @@ static uint8_t smc_test_case_rpcl( uint8_t* test_input_data, uint16_t test_input
 
     return test_status;
 }
+
+static uint8_t smc_test_case_channel_state( uint8_t* test_input_data, uint16_t test_input_data_len )
+{
+    uint8_t  test_status = SMC_ERROR;
+
+    uint16_t test_input_len_required = 3;
+
+    if( test_input_data_len >= test_input_len_required )
+    {
+        uint32_t       data_index      = 0;
+        uint8_t        smc_instance_id = test_input_data[data_index++];
+        uint8_t        smc_channel_id  = test_input_data[data_index++];
+        smc_channel_t* smc_channel     = NULL;
+        smc_t*         smc             = smc_test_get_instance_by_test_instance_id( smc_instance_id );
+        uint8_t        test_case       = test_input_data[data_index++];
+
+
+        if( smc == NULL )
+        {
+            SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_channel_state: Unable to get SMC instance %d", smc_instance_id);
+            return SMC_ERROR;
+        }
+
+        smc_channel = smc_channel_get(smc, smc_channel_id);
+
+        if( smc_channel == NULL )
+        {
+            SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_channel_state: Unable to get SMC channel %d from instance %d",
+                                            smc_channel_id, smc_instance_id);
+            return SMC_ERROR;
+        }
+
+        switch(test_case)
+        {
+            case 0x00:
+            {
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: Stop receiving data in channel %d", smc_instance_id, smc_channel->id);
+
+                if( smc_channel_enable_receive_mode( smc_channel, FALSE ) == SMC_OK )
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: channel %d receive disable OK", smc_instance_id, smc_channel->id);
+                    test_status = SMC_OK;
+                }
+                else
+                {
+                    SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_channel_state: SMC instance %d: channel %d receive disable FAILED", smc_instance_id, smc_channel->id);
+                    test_status = SMC_ERROR;
+                }
+
+                break;
+            }
+            case 0x01:
+            {
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: Resume receiving data in channel %d", smc_instance_id, smc_channel->id);
+
+                if( smc_channel_enable_receive_mode( smc_channel, TRUE ) == SMC_OK )
+                {
+                        /* Caller of the smc_channel_enable_receive_mode() must take care of reading FIFO */
+                    smc_channel_interrupt_handler(smc_channel);
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: channel %d receive enable OK", smc_instance_id, smc_channel->id);
+                    test_status = SMC_OK;
+                }
+                else
+                {
+                    SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_channel_state: SMC instance %d: channel %d receive enable FAILED", smc_instance_id, smc_channel->id);
+                    test_status = SMC_ERROR;
+                }
+
+                break;
+            }
+            default:
+            {
+                SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_channel_state: Invalid test case 0x%02X", test_case);
+                test_status = SMC_ERROR;
+                break;
+            }
+        }
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: not enough test input data (received %d, expected %d)",
+                                    test_input_data_len, test_input_len_required);
+        test_status = SMC_ERROR;
+    }
+
+    return test_status;
+}
+
+static uint8_t smc_test_case_channel_fifo( uint8_t* test_input_data, uint16_t test_input_data_len )
+{
+    uint8_t  test_status = SMC_ERROR;
+
+    uint16_t test_input_len_required = 3;
+
+    if( test_input_data_len >= test_input_len_required )
+    {
+        uint32_t       data_index      = 0;
+        uint8_t        smc_instance_id = test_input_data[data_index++];
+        uint8_t        smc_channel_id  = test_input_data[data_index++];
+        smc_channel_t* smc_channel     = NULL;
+        smc_t*         smc             = smc_test_get_instance_by_test_instance_id( smc_instance_id );
+        uint8_t        test_case       = test_input_data[data_index++];
+
+
+        if( smc == NULL )
+        {
+            SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_channel_fifo: Unable to get SMC instance %d", smc_instance_id);
+            return SMC_ERROR;
+        }
+
+        smc_channel = smc_channel_get(smc, smc_channel_id);
+
+        if( smc_channel == NULL )
+        {
+            SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_channel_fifo: Unable to get SMC channel %d from instance %d",
+                                            smc_channel_id, smc_instance_id);
+            return SMC_ERROR;
+        }
+
+        switch(test_case)
+        {
+            case 0x00:
+            {
+                uint8_t read_count = 1;
+
+                if( test_input_data_len > 3 )
+                {
+                    read_count = test_input_data[data_index++];
+                }
+
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_fifo: SMC instance %d: Channel %d: Read %d FIFO items...", smc_instance_id, smc_channel->id, read_count);
+
+                test_status = SMC_OK;
+
+                for(int i = 0; i < read_count; i++ )
+                {
+                    int32_t fifo_count = SMC_FIFO_READ_TO_EMPTY;
+                    smc_fifo_cell_t celldata;
+                    smc_user_data_t userdata;
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_fifo: SMC instance %d: channel %d: Read item %d...", smc_instance_id, smc_channel->id, (i+1));
+
+                    SMC_LOCK_IRQ( smc_channel->lock_read );
+
+                    fifo_count = smc_fifo_get_cell( smc_channel->fifo_in, &celldata, smc_channel->smc_shm_conf_channel->use_cache_control );
+
+                    SMC_UNLOCK_IRQ( smc_channel->lock_read );
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_fifo: SMC instance %d: channel %d: Item %d read, fifo count value = %d...", smc_instance_id, smc_channel->id, (i+1), fifo_count);
+                }
+
+                /*
+                if( smc_channel_enable_receive_mode( smc_channel, FALSE ) == SMC_OK )
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_fifo: SMC instance %d: channel %d receive disable OK", smc_instance_id, smc_channel->id);
+                    test_status = SMC_OK;
+                }
+                else
+                {
+                    SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_channel_fifo: SMC instance %d: channel %d receive disable FAILED", smc_instance_id, smc_channel->id);
+                    test_status = SMC_ERROR;
+                }
+                */
+                break;
+            }
+            default:
+            {
+                SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_channel_state: Invalid test case 0x%02X", test_case);
+                test_status = SMC_ERROR;
+                break;
+            }
+        }
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_fifo: not enough test input data (received %d, expected %d)",
+                                    test_input_data_len, test_input_len_required);
+        test_status = SMC_ERROR;
+    }
+
+    return test_status;
+}
+
 
 
 /* EOF */

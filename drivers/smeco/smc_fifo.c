@@ -1,15 +1,22 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -288,7 +295,7 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
     }
     else
     {
-        SMC_TRACE_PRINTF_WARNING("smc_fifo_put_cell: ERROR: FIFO 0x%08X is FULL, n_in_fifo=%d, fifo len %d (WI: %d, RI: %d)",
+        SMC_TRACE_PRINTF_DEBUG("smc_fifo_put_cell: ERROR: FIFO 0x%08X is FULL, n_in_fifo=%d, fifo len %d (WI: %d, RI: %d)",
                 (uint32_t)p_fifo, n_in_fifo, p_fifo->length, write_index, read_index);
 
         return_value = SMC_FIFO_ERROR_FIFO_FULL;
@@ -522,6 +529,12 @@ int32_t smc_fifo_peek( smc_fifo_t *p_fifo, uint8_t use_cache_control )
 
     return items_in_fifo;
 }
+
+uint8_t smc_fifo_is_full( smc_fifo_t* p_fifo, uint8_t use_cache_control )
+{
+    return (smc_fifo_peek( p_fifo, use_cache_control) >= p_fifo->length);
+}
+
 
 uint32_t smc_fifo_calculate_required_shared_mem( uint32_t fifo_len )
 {

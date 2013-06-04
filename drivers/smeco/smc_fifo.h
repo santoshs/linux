@@ -1,15 +1,22 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -108,6 +115,8 @@ int32_t     smc_fifo_get_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_
 uint32_t    smc_fifo_calculate_required_shared_mem( uint32_t fifo_len );
 void        smc_fifo_dump     ( char* indent, smc_fifo_t* p_fifo, int32_t mem_offset );
 void        smc_fifo_dump_data( smc_fifo_t* p_fifo );
+
+uint8_t     smc_fifo_is_full  ( smc_fifo_t* p_fifo, uint8_t use_cache_control );
 
 #endif /* EOF */
 

@@ -1,18 +1,29 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
+
+Version:       52   04-Jun-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.52
 
 Version:       51   25-Apr-2013     Heikki Siikaluoma
 Status:        draft
@@ -199,7 +210,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.51"     /* Update for releases */
+#define SMC_SW_VERSION  "0.0.52"     /* Update for releases */
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -440,14 +451,17 @@ Description :  File created
 
     /* SMC history data collection flags */
 
-#define SMC_TRACE_HISTORY_DATA_ARRAY_SIZE           20        /* Data array size is for both send and receive */
+#define SMC_TRACE_HISTORY_DATA_ARRAY_SIZE            20        /* Data array size is for both send and receive */
 
-#define SMC_TRACE_HISTORY_DATA_TYPE_NONE            0x00
-#define SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND    0x01
-#define SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE 0x02
+#define SMC_TRACE_HISTORY_DATA_TYPE_NONE             0x00
+#define SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND     0x01
+#define SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE  0x02
+#define SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_INTERNAL 0x04
 
 #define SMC_TRACE_HISTORY_DATA_SEND_ENABLED( flag )      (((flag)&SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND)==SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND )
 #define SMC_TRACE_HISTORY_DATA_RECEIVE_ENABLED( flag )   (((flag)&SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE)==SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_RECEIVE )
+#define SMC_TRACE_HISTORY_DATA_INTERNAL_ENABLED( flag )  (((flag)&SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_INTERNAL)==SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_INTERNAL )
+
 
 #define SMC_MESSAGE_REPLY_FLAG_VALUE              0x01234567
 
@@ -465,6 +479,10 @@ Description :  File created
 #define SMC_CHANNEL_WAKELOCK_NONE                 0x00      /* No wakelock at all */
 #define SMC_CHANNEL_WAKELOCK_TIMER                0x01      /* Wakelock uses timer for releasing */
 #define SMC_CHANNEL_WAKELOCK_MESSAGE              0x02      /* Wakelock is enabled but the message receiver releases that */
+
+
+#define SMC_INIT_FLAGS_NONE                           0x00000000
+#define SMC_INIT_FLAGS_SYNC_ALL_BEFORE_COMMUNICATION  0x00000001     /* If set, all channels must be synchronized before communication can start */
 
     /*
      * SMC specific types
@@ -534,7 +552,6 @@ typedef struct _smc_channel_t
     uint8_t                             wake_lock_flags;                 /* Channel specific Wakeup lock policy */
 
     struct _smc_t*                      smc_instance;                    /* Pointer to SMC instance the channel belongs to */
-
     uint32_t                            state;                           /* Indicates the current status of the SMC Channel */
 
     smc_fifo_t*                         fifo_out;                        /* FIFO for outgoing data */
@@ -544,6 +561,7 @@ typedef struct _smc_channel_t
     uint32_t                            fifo_size_out;                   /* The size of the FIFO sending data (local) */
 
     smc_timer_t*                        fifo_timer;                      /* Timer to use when out FIFO is full */
+    smc_timer_t*                        rx_mem_alloc_timer;              /* Timer to use when RX fails to allocate memory and tries to reallocate mem */
 
     smc_lock_t*                         lock_write;                      /* Lock for write operations */
     smc_lock_t*                         lock_read;                       /* Lock for read operations  */
@@ -569,8 +587,8 @@ typedef struct _smc_channel_t
 
     smc_fifo_cell_t*                    fifo_buffer;                     /* FIFO buffer. Used when FIFO is not ready */
 
-    uint8_t                             fifo_buffer_item_count;          /* Count of items in the FIFO buffer */
-    uint8_t                             fifo_buffer_flushing;            /* Flag indicating that the buffer flush is ongoing*/
+    uint8_t                             fifo_buffer_current_index;          /* Count of items in the FIFO buffer */
+    uint8_t                             fifo_buffer_data_count;            /* Count of items in the buffer */
     uint8_t                             protocol;
     uint8_t                             trace_features;                  /* Trace feature bits (msg send/receive history) */
 
@@ -587,10 +605,14 @@ typedef struct _smc_channel_t
 
     uint16_t                            tx_queue_peak;                    /* For TX statistics */
     uint16_t                            rx_queue_peak;                    /* For RX statistics */
+
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
     void*                               smc_tx_wakelock;                  /* Channel specific TX wakelock item */
     char*                               smc_tx_wakelock_name;             /* Name of the wakelock */
 #endif
+
+    void*                               smc_rx_wakelock;                  /* Channel specific RX wakelock item */
+    char*                               smc_rx_wakelock_name;             /* Name of the wakelock */
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
     struct _smc_dma_t*                  smc_dma;
@@ -604,6 +626,9 @@ typedef struct _smc_channel_t
     uint16_t                            smc_history_len_received;
     uint16_t                            smc_history_index_sent;
     uint16_t                            smc_history_index_received;
+
+    uint16_t                            smc_history_items_max;
+    uint16_t                            fill1;
 
 #endif /* #ifdef SMC_HISTORY_DATA_COLLECTION_ENABLED */
 
@@ -629,11 +654,12 @@ typedef struct _smc_t
 
     uint8_t           wakeup_event_sense_local;     /* Wakeup event sense of this SMC end point */
     uint8_t           init_status;                  /* Initialization statuses of local and remote instance */
-    uint8_t           tx_wakelock_count;            /* Wakelock index */
-    uint8_t           fill1;
+    uint8_t           tx_wakelock_count;            /* TX Wakelock index */
+    uint8_t           rx_wakelock_count;            /* RX Wakelock index */
 
     char*             instance_name;                /* Name of the instance, get from configuration used */
 
+    uint32_t          initialization_flags;         /* Initialization configuration flags */
 } smc_t;
 
 
@@ -679,7 +705,11 @@ typedef struct _smc_message_history_data_t
     int32_t  userdata4;
     int32_t  userdata5;
 
-
+    uint32_t data1;                 /* First 8 bytes */
+    uint32_t data2;                 /* Next  8 bytes */
+    uint32_t data3;                 /* Next  8 bytes */
+    uint32_t data4;                 /* Next  8 bytes */
+    uint32_t data5;                 /* Next  8 bytes */
 
 } smc_message_history_data_t;
 
@@ -858,6 +888,14 @@ uint8_t  smc_shared_variable_address_request_send(smc_channel_t* smc_channel, ch
 void*    smc_shared_variable_address_get_local( char* shared_variable_name );
 uint8_t  smc_shared_variable_add( smc_shared_variable_address_info* shm_var_info );
 smc_shared_variable_address_info* smc_shared_variable_info_get( char* shared_variable_name );
+
+
+
+static inline uint32_t smc_swap_uint32( uint32_t val )
+{
+    val = ((val << 8) & 0xFF00FF00 ) | ((val >> 8) & 0xFF00FF );
+    return (val << 16) | (val >> 16);
+}
 
 
 #ifdef SMC_DMA_TRANSFER_ENABLED

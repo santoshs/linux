@@ -1,15 +1,22 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -51,6 +58,7 @@ smc_conf_t* smc_conf_create( void )
     conf->smc_channel_conf_count     = 0;
     conf->smc_channel_conf_ptr_array = NULL;
     conf->smc_shm_conf               = NULL;
+    conf->initialization_flags       = SMC_INIT_FLAGS_NONE;
 
     return conf;
 }
@@ -65,19 +73,19 @@ smc_channel_conf_t* smc_channel_conf_create( void )
         /*
          * Initialize empty values
          */
-    conf->channel_id      = 0;
-    conf->priority        = SMC_CHANNEL_PRIORITY_DEFAULT;
-    conf->copy_scheme     = SMC_COPY_SCHEME_COPY_IN_SEND + SMC_COPY_SCHEME_COPY_IN_RECEIVE;
-    conf->wake_lock_flags = SMC_CHANNEL_WAKELOCK_NONE;
-    conf->protocol        = 0;
+    conf->channel_id                    = 0;
+    conf->priority                      = SMC_CHANNEL_PRIORITY_DEFAULT;
+    conf->copy_scheme                   = SMC_COPY_SCHEME_COPY_IN_SEND + SMC_COPY_SCHEME_COPY_IN_RECEIVE;
+    conf->wake_lock_flags               = SMC_CHANNEL_WAKELOCK_NONE;
+    conf->protocol                      = 0;
 
-    conf->fifo_size_in    = 0;
-    conf->fifo_size_out   = 0;
-    conf->mdb_size_in     = 0;
-    conf->mdb_size_out    = 0;
+    conf->fifo_size_in                  = 0;
+    conf->fifo_size_out                 = 0;
+    conf->mdb_size_in                   = 0;
+    conf->mdb_size_out                  = 0;
 
-    conf->signal_remote   = NULL;
-    conf->signal_local    = NULL;
+    conf->signal_remote                 = NULL;
+    conf->signal_local                  = NULL;
 
     conf->smc_receive_data_cb           = NULL;
     conf->smc_receive_data_allocator_cb = NULL;
@@ -85,8 +93,11 @@ smc_channel_conf_t* smc_channel_conf_create( void )
     conf->smc_event_cb                  = NULL;
 
     conf->fifo_full_check_timeout_usec  = 0;
+    conf->rx_mem_realloc_check_timeout_usec = 0;
+
     conf->trace_features                = 0x00;
     conf->wakelock_timeout_ms           = 0;
+    conf->history_data_max              = 0;
 
     return conf;
 }
@@ -221,16 +232,21 @@ smc_conf_t* smc_conf_create_from_instance_conf( char* smc_cpu_name, smc_instance
     smc_shm_conf->shm_area_start_address = (uint8_t*)smc_instance_conf->shm_start_address;
     smc_shm_conf->size                   = smc_instance_conf->shm_size;
     smc_conf->name                       = smc_instance_conf->user_name;
+
     if( smc_conf->is_master )
     {
+        smc_conf->initialization_flags              = smc_instance_conf->initialization_flags_master;
+
         smc_shm_conf->use_cache_control             = smc_instance_conf->shm_use_cache_control_master;
         smc_shm_conf->cache_line_len                = smc_instance_conf->shm_cache_line_len_master;
         smc_shm_conf->remote_cpu_memory_offset_type = smc_instance_conf->shm_memory_offset_type_master_to_slave;
     }
     else
     {
-        smc_shm_conf->use_cache_control = smc_instance_conf->shm_use_cache_control_slave;
-        smc_shm_conf->cache_line_len    = smc_instance_conf->shm_cache_line_len_slave;
+        smc_conf->initialization_flags              = smc_instance_conf->initialization_flags_slave;
+
+        smc_shm_conf->use_cache_control             = smc_instance_conf->shm_use_cache_control_slave;
+        smc_shm_conf->cache_line_len                = smc_instance_conf->shm_cache_line_len_slave;
 
             /* The remote side offset type is opposite or equal */
         if( smc_instance_conf->shm_memory_offset_type_master_to_slave == SMC_SHM_OFFSET_MDB_OFFSET )
@@ -314,10 +330,14 @@ smc_channel_conf_t* smc_channel_conf_create_from_instance_conf( smc_instance_con
             smc_channel_conf->signal_local  = smc_signal_create( smc_instance_conf_channel->signal_id_master_from_slave, smc_instance_conf_channel->signal_type_master_from_slave );
 
             smc_channel_conf->fifo_full_check_timeout_usec = smc_instance_conf_channel->fifo_full_check_timeout_usec_master;
+
+            smc_channel_conf->rx_mem_realloc_check_timeout_usec = smc_instance_conf_channel->rx_mem_realloc_check_timeout_usec_master;
+
             smc_channel_conf->trace_features = smc_instance_conf_channel->trace_features_master;
 
             smc_channel_conf->wake_lock_flags = smc_instance_conf_channel->wake_lock_flags_master;
 
+            smc_channel_conf->history_data_max = smc_instance_conf_channel->history_data_max_master;
         }
         else
         {
@@ -335,9 +355,14 @@ smc_channel_conf_t* smc_channel_conf_create_from_instance_conf( smc_instance_con
             smc_channel_conf->signal_local   = smc_signal_create( smc_instance_conf_channel->signal_id_slave_from_master, smc_instance_conf_channel->signal_type_slave_from_master);
 
             smc_channel_conf->fifo_full_check_timeout_usec = smc_instance_conf_channel->fifo_full_check_timeout_usec_slave;
+
+            smc_channel_conf->rx_mem_realloc_check_timeout_usec = smc_instance_conf_channel->rx_mem_realloc_check_timeout_usec_slave;
+
             smc_channel_conf->trace_features = smc_instance_conf_channel->trace_features_slave;
 
             smc_channel_conf->wake_lock_flags = smc_instance_conf_channel->wake_lock_flags_slave;
+
+            smc_channel_conf->history_data_max = smc_instance_conf_channel->history_data_max_slave;
         }
 
         smc_channel_conf->priority            = smc_instance_conf_channel->priority;

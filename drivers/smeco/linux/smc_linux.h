@@ -1,17 +1,22 @@
 /*
-*   Common Smeco header used in Linux Kernel.
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -65,6 +70,7 @@ typedef void (* upper_layer_device_driver_setup )(struct net_device* dev);
     /* SMC Configuration creation function prototype */
 typedef smc_conf_t* ( *smc_device_create_conf )( char* device_name );
 
+typedef void (* upper_layer_device_driver_close )(struct net_device* dev);
 
     /*
      * Net Device specific configuration
@@ -91,6 +97,8 @@ typedef struct _smc_device_driver_config
 
         /* Link to the device */
     struct _smc_device_driver_priv_t* device_driver_priv;
+
+    upper_layer_device_driver_close device_driver_close;
 
 } smc_device_driver_config;
 

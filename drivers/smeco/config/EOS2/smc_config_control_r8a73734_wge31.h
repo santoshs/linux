@@ -1,16 +1,23 @@
 /*
-*   Common SMC instance configuration for SMC control channel
-*   Copyright © Renesas Mobile Corporation 2012. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
+
 #if 0
 /*
 Change history:
@@ -75,13 +82,18 @@ static smc_instance_conf_channel_t smc_instance_conf_control_channels[SMC_CONF_C
             .copy_scheme_slave                   = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
 
             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
-            .fifo_full_check_timeout_usec_slave  = 500,
+            .fifo_full_check_timeout_usec_slave  =  500,
+
+            .rx_mem_realloc_check_timeout_usec_master    = 1000,
+            .rx_mem_realloc_check_timeout_usec_slave     =  500,
 
             .trace_features_master               = SMC_TRACE_HISTORY_DATA_TYPE_NONE,
             .trace_features_slave                = SMC_TRACE_HISTORY_DATA_TYPE_NONE,
             .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_NONE,
             .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
             .wakelock_timeout_ms                 = SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC,
+            .history_data_max_master             = 20,
+            .history_data_max_slave              = 20,
      }
 };
 
@@ -112,6 +124,8 @@ static smc_instance_conf_t smc_instance_conf_control[SMC_CONF_COUNT_CONTROL] =
 
         .channel_config_count         = SMC_CONF_CHANNEL_COUNT_CONTROL,
         .channel_config_array         = smc_instance_conf_control_channels,
+        .initialization_flags_master  = SMC_INIT_FLAGS_NONE,
+        .initialization_flags_slave   = SMC_INIT_FLAGS_NONE,
     }
 };
 

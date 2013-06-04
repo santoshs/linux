@@ -1,15 +1,22 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -82,6 +89,11 @@ typedef struct
 
     uint32_t          wakelock_timeout_ms;              /* Timeout in milliseconds to keep UE wake after handling a message */
 
+    uint16_t          history_data_max;                 /* Maximum amount of history data items collected in master */
+    uint16_t          fill1;
+
+    uint16_t          rx_mem_realloc_check_timeout_usec;     /* Timeout in microseconds for timer to check if there is mem available */
+
 } smc_channel_conf_t;
 
 
@@ -98,6 +110,7 @@ typedef struct
 
     smc_shm_config_t*    smc_shm_conf;                  /* Global shared memory configuration (in SMC instance level) */
     char*                name;
+    uint32_t             initialization_flags;          /* Various instance initialization flags */
 
 } smc_conf_t;
 
@@ -138,6 +151,9 @@ typedef struct _smc_instance_conf_channel_t
     uint16_t fifo_full_check_timeout_usec_master;
     uint16_t fifo_full_check_timeout_usec_slave;
 
+    uint16_t rx_mem_realloc_check_timeout_usec_master;
+    uint16_t rx_mem_realloc_check_timeout_usec_slave;
+
     uint8_t  priority;
     uint8_t  copy_scheme_master;                    /* Copy scheme used in the master */
     uint8_t  copy_scheme_slave;                     /* Copy scheme used in the slave */
@@ -146,9 +162,12 @@ typedef struct _smc_instance_conf_channel_t
     uint8_t  trace_features_slave;                  /* Slave  Runtime trace features: SMC_TRACE_HISTORY_MESSAGE_SEND, SMC_TRACE_HISTORY_MESSAGE_RECEIVE */
     uint8_t  wake_lock_flags_master;                /* Wakelock policy in master side */
     uint8_t  wake_lock_flags_slave;                 /* Wakelock policy in slave side  */
-    uint8_t  fill1;
+    uint8_t  fill1;                                 /*  */
 
     uint32_t wakelock_timeout_ms;                   /* Timeout in milliseconds to keep UE wake after handling a message */
+
+    uint16_t history_data_max_master;               /* Maximum amount of history data items collected in master */
+    uint16_t history_data_max_slave;                /* Maximum amount of history data items collected in slave */
 
 } smc_instance_conf_channel_t;
 
@@ -184,7 +203,8 @@ typedef struct _smc_instance_conf_t
     uint8_t  fill2;
     uint8_t  fill1;
 
-
+    uint32_t initialization_flags_master;
+    uint32_t initialization_flags_slave;
 
 } smc_instance_conf_t;
 
