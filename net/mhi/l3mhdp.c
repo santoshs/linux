@@ -783,6 +783,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 	struct page *page = NULL;
 	struct sk_buff *newskb = NULL;
 	struct mhdp_hdr *mhdpHdr;
+	struct mhdp_hdr *mhdpHdr_tmp = NULL;
 	int offset, length;
 	int err = 0, i, pdn_id;
 	int mhdp_header_len;
@@ -819,7 +820,12 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 		mhdpHdr = kmalloc(mhdp_header_len,
 				GFP_ATOMIC);
 
-		if (skbheadlen == 0) {
+		if(NULL == mhdpHdr)
+			goto error;
+
+		mhdpHdr_tmp = mhdpHdr;
+
+		if ((skbheadlen == 0) && (has_frag)) {
 			memcpy((__u8 *)mhdpHdr,	page_address(page) +
 						frag->page_offset,
 						mhdp_header_len);
@@ -833,7 +839,11 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 			       mhdp_header_len - skbheadlen);
 
 			start = mhdp_header_len - skbheadlen;
+		} else {
+			EPRINTK("not a valid mhdp frame");
+			goto error;
 		}
+
 
 		DPRINTK("page start: %d", start);
 	} else {
@@ -859,7 +869,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 
 			newskb = skb_clone(skb, GFP_ATOMIC);
 			if (unlikely(!newskb))
-				goto error;
+				goto error_1;
 
 			skb_pull(newskb, mhdp_header_len + offset);
 
@@ -873,7 +883,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 			newskb = netdev_alloc_skb(dev, skb_headlen(skb));
 
 			if (unlikely(!newskb))
-				goto error;
+				goto error_1;
 
 			get_page(page);
 			skb_add_rx_frag(newskb,
@@ -889,12 +899,11 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 					((mhdp_header_len - skb_headlen(skb)) +
 					offset)));
 			if ((ip_ver>>4) != VER_IPv4 &&
-				(ip_ver>>4) != VER_IPv6) {
-				goto error;
-			}
+				(ip_ver>>4) != VER_IPv6)
+				goto error_1;
 		} else {
 			DPRINTK("Error in the data received");
-			goto error;
+			goto error_1;
 		}
 
 		skb_reset_network_header(newskb);
@@ -928,17 +937,18 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 	}
 	rcu_read_unlock();
 
-	if (mhdp_header_len > skb_headlen(skb))
-		kfree(mhdpHdr);
+	if (mhdpHdr_tmp)
+		kfree(mhdpHdr_tmp);
 
 	dev_kfree_skb(skb);
 
 	return err;
 
-
+error_1:
+	rcu_read_unlock();
 error:
-	if (mhdp_header_len > skb_headlen(skb))
-		kfree(mhdpHdr);
+	if (mhdpHdr_tmp)
+		kfree(mhdpHdr_tmp);
 
 	EPRINTK("%s - error detected\n", __func__);
 
