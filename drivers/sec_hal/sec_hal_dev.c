@@ -153,6 +153,7 @@ static inline int is_recovery(void)
  * STATIC writable data
  * *********************************************************************/
 static struct device_data g_device_data;
+static sec_hal_public_id_t g_pub_id;
 /* initial DBGREG values, for Rnd.
  * Eventually should be read from general purpose register
  * which are accessible by hw debuggers. */
@@ -266,7 +267,6 @@ static long sec_hal_usr_ioctl(
 
 	switch (cmd) {
 	case SD_INIT:
-	case SD_EXIT:
 		ret = 0;
 		break;
 	case SD_KEY_INFO:
@@ -284,6 +284,11 @@ static long sec_hal_usr_ioctl(
 	case SD_AUTH_DATA_GET:
 	case SD_SELFTEST:
 		ret = sec_hal_rt_ioctl(cmd, NULL, &input);
+		break;
+	case SD_PUBLIC_ID:
+		ret = copy_to_user((void *)input.param0,
+			g_pub_id.public_id,
+			SEC_HAL_MAX_PUBLIC_ID_LENGTH);
 		break;
 #ifdef CONFIG_ARM_SEC_HAL_DRM_WVN
 	case SD_DRM_ENTER_PLAY:
@@ -825,7 +830,7 @@ int sec_hal_rpc_init(void);
  * *********************************************************************/
 static int sec_hal_pdev_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret, i = 0;
 	sec_hal_init_info_t rt_init;
 
 	(void) pdev;
@@ -864,66 +869,25 @@ static int sec_hal_pdev_probe(struct platform_device *pdev)
 	if (ret)
 		goto e2;
 
+	ret = sec_hal_public_id_get(&g_pub_id);
+	if (ret)
+		goto e2;
+
+	printk("DEVICE PUBLIC ID: ");
+	for (i=0; i < SEC_HAL_MAX_PUBLIC_ID_LENGTH; i++) {
+		printk("%02x", g_pub_id.public_id[i]);
+	}
+	printk("\n");
+
 	init_timer(&g_integ_timer);
 	g_integ_timer.data = (unsigned long)&g_integ_timer;
 	g_integ_timer.function = sec_hal_timeout;
 	g_integ_timer.expires = jiffies + msecs_to_jiffies(INIT_TIMER_MSECS);
 	add_timer(&g_integ_timer);
 
-#ifdef CONFIG_ARM_SEC_HAL_SDTOC
-	/* sdtoc_init */
-	sdtoc_root = (DATA_TOC_ENTRY *) ioremap_nocache(SDTOC_ADDRESS, SDTOC_SIZE);
-
-	/* ask production mode from sdtoc we can decide if we need to use public to
-	 * for imei and other customer data. */
-#ifdef CONFIG_ARM_SEC_HAL_PUBLIC_TOC
-	/*toc_init*/
-	public_toc_root = kmalloc(PUBLIC_TOC_SIZE, GFP_KERNEL);
-	SEC_HAL_TRACE("public_toc_root: 0x%08x",public_toc_root);
-	toc_initialize(public_toc_root,PUBLIC_TOC_SIZE);
-
-	toc_put_payload(public_toc_root,0x12341234,"abcdefghijklmnopqstuv",20,NULL,0,0);
-	toc_put_payload(public_toc_root,0xffeeddcc,"1111111166666666",16,NULL,0,0);
-
-	uint32_t length;
-	void *item_data;
-	item_data = toc_get_payload(public_toc_root,0x12341234, &length);
-	SEC_HAL_TRACE("item_data addr: 0x%08x",item_data);
-	item_data = toc_get_payload(public_toc_root,0xffeeddcc, &length);
-	SEC_HAL_TRACE("item_data addr: 0x%08x",item_data);
-
-	toc_put_payload(public_toc_root,SECURED_DATA_PUBLIC_ID,"eeeeeeeeaaaaaaaa1111111166666666",32,NULL,0,0);
-#endif
-	public_id = toc_get_payload(sdtoc_root,SECURED_DATA_PUBLIC_ID, &public_id_size);
-	if (public_id != NULL) {
-		printk("DEVICE PUBLIC ID (length %d): ",public_id_size);
-		uint8_t* tmp = public_id;
-		int i;
-		for (i=0; i < public_id_size; i++) {
-			printk("%02x",*tmp);
-			tmp++;
-		}
-		printk("\n");
-	} else {
-		printk("DEVICE PUBLIC ID could not be read!\n");
-	}
-#else /*CONFIG_ARM_SEC_HAL_SDTOC*/
-	{
-		int i;
-		sec_hal_public_id_t pub_id;
-		ret = sec_hal_public_id_get(&pub_id);
-		if (ret)
-			goto e2;
-		printk("DEVICE PUBLIC ID: ");
-		for (i=0; i < SEC_HAL_MAX_PUBLIC_ID_LENGTH; i++) {
-			printk("%02x", pub_id.public_id[i]);
-		}
-		printk("\n");
-	}
-#endif /*CONFIG_ARM_SEC_HAL_SDTOC*/
-
 	SEC_HAL_TRACE_EXIT();
 	return ret;
+
 e2:	sec_hal_cdev_exit(&g_device_data);
 e1:
 e0:

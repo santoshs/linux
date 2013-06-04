@@ -106,7 +106,7 @@ typedef struct {
 #define SD_PERIODIC_ICHECK      _IOWR(SD_MAGICNUM, 16, sd_ioctl_params_t*)
 #define SD_SELFTEST             _IOWR(SD_MAGICNUM, 17, sd_ioctl_params_t*)
 #define SD_TOC_READ             _IOWR(SD_MAGICNUM, 18, sd_ioctl_params_t*)
-#define SD_EXIT                 _IOWR(SD_MAGICNUM, 19, sd_ioctl_params_t*)
+#define SD_PUBLIC_ID            _IOWR(SD_MAGICNUM, 19, sd_ioctl_params_t*)
 
 #define SD_DRM_ENTER_PLAY       _IOWR(SD_MAGICNUM, 20, sd_ioctl_params_t*)
 #define SD_DRM_EXIT_PLAY        _IOWR(SD_MAGICNUM, 21, sd_ioctl_params_t*)
