@@ -500,6 +500,11 @@
 #define SPUV_FUNC_RW_32_GADDR_CTRL_X	(SPUV_FUNC_DSP0_REG_TOP + 0x000001D8)
 #define SPUV_FUNC_RW_32_GADDR_CTRL_Y	(SPUV_FUNC_DSP0_REG_TOP + 0x000001DC)
 
+/* pm runtime message log */
+#define SPUV_FUNC_PM_RUNTIME_GET_LOG		\
+		"[ -> PM   ] PM_RUNTIME_GET\n"
+#define SPUV_FUNC_PM_RUNTIME_PUT_LOG		\
+		"[ -> PM   ] PM_RUNTIME_PUT\n"
 
 /*
  * define macro declaration

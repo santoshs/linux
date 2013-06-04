@@ -270,6 +270,9 @@ static uint g_loopplay;
 /* Callback function for audience */
 static struct sndp_extdev_callback_func *g_sndp_extdev_callback;
 
+/* for PM ctrl check */
+static int g_pm_cnt;
+
 /*!
    @brief Print Log informs of data receiving
 
@@ -612,6 +615,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	/* RuntimePM */
 	pm_runtime_enable(g_sndp_power_domain);
 	iRet = pm_runtime_resume(g_sndp_power_domain);
+	g_pm_cnt = 0;
 	if (iRet < 0) {
 		sndp_log_err("pm_runtime_resume failed\n");
 		goto power_domain_err;
@@ -1161,6 +1165,10 @@ int sndp_soc_put(
 			return iRet;
 		}
 
+		/* for PM ctrl check */
+		g_pm_cnt++;
+		sndp_log_info("pm:get:%d\n", g_pm_cnt);
+
 		/* Wake Lock */
 		sndp_wake_lock(E_LOCK);
 
@@ -1188,6 +1196,10 @@ int sndp_soc_put(
 				SET_SNDP_STATUS(uiDirection, uiSaveStatus);
 				return iRet;
 			}
+
+			/* for PM ctrl check */
+			g_pm_cnt++;
+			sndp_log_info("pm:get:%d\n", g_pm_cnt);
 		}
 		/* Wake Lock */
 		sndp_wake_lock(E_LOCK);
@@ -2401,6 +2413,10 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 			     SNDP_GET_AUDIO_DEVICE(work->old_value),
 			     SNDP_EXTDEV_STOP);
 
+	/* for PM ctrl check */
+	g_pm_cnt--;
+	sndp_log_info("pm:put:%d\n", g_pm_cnt);
+
 	/* Disable the power domain */
 	iRet = pm_runtime_put_sync(g_sndp_power_domain);
 	if (ERROR_NONE != iRet)
@@ -2992,6 +3008,10 @@ static void sndp_work_incomm_stop(const u_int old_value)
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(old_value),
 			     SNDP_GET_AUDIO_DEVICE(old_value),
 			     SNDP_EXTDEV_STOP);
+
+	/* for PM ctrl check */
+	g_pm_cnt--;
+	sndp_log_info("pm:put:%d\n", g_pm_cnt);
 
 	/* Disable the power domain */
 	ret = pm_runtime_put_sync(g_sndp_power_domain);
@@ -3588,6 +3608,10 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 			fsi_soft_reset();
 		}
 
+		/* for PM ctrl check */
+		g_pm_cnt++;
+		sndp_log_info("pm:get:%d\n", g_pm_cnt);
+
 
 		if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
 			/* FSI master */
@@ -3680,6 +3704,11 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 		sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->old_value),
 				     SNDP_GET_AUDIO_DEVICE(work->old_value),
 				     SNDP_EXTDEV_STOP);
+
+		/* for PM ctrl check */
+		g_pm_cnt--;
+		sndp_log_info("pm:put:%d\n", g_pm_cnt);
+
 		pm_runtime_put_sync(g_sndp_power_domain);
 	}
 
@@ -3863,6 +3892,10 @@ static void sndp_work_start(const int direction)
 			/* CPG soft reset */
 			fsi_soft_reset();
 		}
+
+		/* for PM ctrl checl */
+		g_pm_cnt++;
+		sndp_log_info("pm:get:%d\n", g_pm_cnt);
 	}
 
 	/* FSI slave setting ON for switch */
@@ -4051,6 +4084,11 @@ static void sndp_work_stop(
 			sndp_extdev_set_state(SNDP_GET_MODE_VAL(uiValue),
 					     SNDP_GET_AUDIO_DEVICE(uiValue),
 					     SNDP_EXTDEV_STOP);
+
+			/* for PM ctrl check */
+			g_pm_cnt--;
+			sndp_log_info("pm:put:%d\n", g_pm_cnt);
+
 			pm_runtime_put_sync(g_sndp_power_domain);
 		}
 	}
@@ -4154,6 +4192,10 @@ static void sndp_after_of_work_call_capture_stop(
 
 	/* stop CLKGEN */
 	clkgen_stop();
+
+	/* for PM ctrl check */
+	g_pm_cnt--;
+	sndp_log_info("pm:put:%d\n", g_pm_cnt);
 
 	/* Disable the power domain */
 	iRet = pm_runtime_put_sync(g_sndp_power_domain);
