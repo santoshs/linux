@@ -477,8 +477,9 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 	struct iphdr *ipv4header;
 	struct udphdr *udphdr;
 	int ret = 0;
-	unsigned char *next_hdr;
-	unsigned char next_hdr_lgth;
+	__be16 frag_off;
+	int offset = 0;
+	u8 next_hdr;
 	unsigned int size_of_previous_hdr;
 	struct sk_buff *newskb;
 	unsigned long flags;
@@ -490,6 +491,7 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 		return 0;
 	}
 	spin_unlock_irqrestore(&mhdpn->udp_lock, flags);
+
 
 	/*if udp, check port number*/
 	if (skb->protocol == htons(ETH_P_IP)) {
@@ -507,77 +509,47 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 				size_of_previous_hdr = ipv4header->ihl *
 							sizeof(unsigned int);
 				ret = 1;
-				DPRINTK("MHDP_FILTER: IPv4 packet filtered out");
+				DPRINTK("MHDP_FIL: IPv4 packet filtered out\n");
 			}
 		}
 
 	} else if (skb->protocol == htons(ETH_P_IPV6)) {
 
 		ipv6header = ipv6_hdr(skb);
-		next_hdr = &ipv6header->nexthdr;
+		next_hdr = ipv6header->nexthdr;
 
-		DPRINTK("MHDP_FILTER: IPv6 packet found 0x%02x", *next_hdr);
 
-		if ((*next_hdr != UDP_PROT_TYPE) &&
-			(*next_hdr != NEXTHDR_TCP))  {
+		if ((next_hdr == NEXTHDR_TCP) || (next_hdr == NEXTHDR_ICMP))
+			goto no_filter;
+		else if (next_hdr == UDP_PROT_TYPE)
+			goto treat_udp;
 
-			DPRINTK("MHDP_FILTER: parsing header stack");
 
-			next_hdr = (unsigned char *)ipv6header +
-						sizeof(struct ipv6hdr);
-
-			/*parse the supported next_hdr until UDP is found*/
-			while ((*next_hdr != NEXTHDR_UDP) &&
-					(*next_hdr != NEXTHDR_TCP) &&
-					(*next_hdr != NEXTHDR_ICMP) &&
-					(*next_hdr != NEXTHDR_NONE) &&
-			((u32)(ipv6header + htons(ipv6header->payload_len)
-					+ sizeof(struct ipv6hdr))
-				> (u32)next_hdr)) {
-
-				DPRINTK("MHDP_FILTER: 0x%02x @ 0x%x",
-						*next_hdr,
-						next_hdr);
-
-				if (*next_hdr == NEXTHDR_FRAGMENT) {
-
-					next_hdr += 8*sizeof(char);
-
-				} else if (*next_hdr == NEXTHDR_IPV6) {
-
-					next_hdr += sizeof(struct ipv6hdr);
-
-				} else if ((*next_hdr == NEXTHDR_HOP) ||
-					(*next_hdr == NEXTHDR_ROUTING) ||
-					(*next_hdr == NEXTHDR_DEST)) {
-
-					next_hdr_lgth = *(next_hdr +
-								sizeof(char))
-								+8*sizeof(char);
-					next_hdr += next_hdr_lgth;
-
-					DPRINTK("MHDP_FILTER: next_hdr_lgth = %d, next_hdr = 0x%x",
-						next_hdr_lgth,
-						next_hdr);
-
-				} else {
-					/*Not supported, force to none
-					and leave*/
-					*next_hdr = NEXTHDR_NONE;
-
-					DPRINTK("MHDP_FILTER: next_hdr NONE");
-				}
-			}
-			DPRINTK("MHDP_FILTER: finish parsing header stack");
+		if (!ipv6_ext_hdr(next_hdr)) {
+			DPRINTK("!ipv6_ext_hdr(next_hdr): %d\n",
+					next_hdr);
+			goto no_filter;
 		}
 
-		if (*next_hdr == UDP_PROT_TYPE) {
+		offset = ipv6_skip_exthdr(skb,
+					sizeof(struct ipv6hdr),
+					&next_hdr,
+					&frag_off);
 
-			/*UDP header*/
+		if (offset < 0) {
+			DPRINTK("MHDP_FILTER offset < 0: %d\n",
+					next_hdr);
+			goto no_filter;
+		}
+
+treat_udp:
+		if (next_hdr == UDP_PROT_TYPE) {
+
 			udphdr = (struct udphdr *)((unsigned char *)ipv6header +
-				sizeof(struct ipv6hdr));
+							sizeof(struct ipv6hdr) +
+							offset);
 
-			DPRINTK("MHDP_FILTER: UDP header found");
+			DPRINTK("MHDP_FILTER: UDP header found\n");
 
 			if (htons(udphdr->dest) == mhdpn->udp_filter.port_id) {
 				ret = 1;
@@ -585,11 +557,9 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 					(unsigned int)(
 						(unsigned char *)udphdr -
 						(unsigned char *)ipv6header);
-				DPRINTK("MHDP_FILTER: IPv6 packet filtered out");
-			}
-			else
-			{
-				DPRINTK("MHDP_FILTER: wrong port %d != %d",
+				DPRINTK("MHDP_FIL: IPv6 packet filtered out\n");
+			} else {
+				DPRINTK("MHDP_FILTER: wrong port %d != %d\n",
 					htons(udphdr->dest),
 					mhdpn->udp_filter.port_id);
 			}
@@ -602,7 +572,7 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 
 		if (unlikely(!newskb)) {
 			ret = 0;
-			goto error;
+			goto no_filter;
 		}
 
 		skb_pull(newskb, (size_of_previous_hdr + sizeof(unsigned int)));
@@ -618,7 +588,7 @@ mhdp_is_filtered(struct mhdp_net *mhdpn, struct sk_buff *skb)
 				MHI_L3_MHDP_UDP_FILTER,
 				newskb->len);
 	}
-error:
+no_filter:
 
 	return ret;
 }
@@ -1044,11 +1014,11 @@ static void tx_timer_timeout_tasklet(unsigned long arg)
 {
 	struct mhdp_tunnel *tunnel = (struct mhdp_tunnel *) arg;
 
-	spin_lock(&tunnel->timer_lock);
+	spin_lock_bh(&tunnel->timer_lock);
 
 	mhdp_submit_queued_skb(tunnel, 1);
 
-	spin_unlock(&tunnel->timer_lock);
+	spin_unlock_bh(&tunnel->timer_lock);
 }
 
 /**
@@ -1072,7 +1042,7 @@ mhdp_netdev_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	mhdp_check_wake_lock(dev);
 
-	spin_lock(&tunnel->timer_lock);
+	spin_lock_bh(&tunnel->timer_lock);
 
 	SKBPRINT(skb, "SKB: TX");
 
@@ -1206,11 +1176,11 @@ xmit_again:
 			mhdp_submit_queued_skb(tunnel, 1);
 	}
 
-	spin_unlock(&tunnel->timer_lock);
+	spin_unlock_bh(&tunnel->timer_lock);
 	return NETDEV_TX_OK;
 
 tx_error:
-	spin_unlock(&tunnel->timer_lock);
+	spin_unlock_bh(&tunnel->timer_lock);
 	stats->tx_errors++;
 	dev_kfree_skb(skb);
 	return NETDEV_TX_OK;
