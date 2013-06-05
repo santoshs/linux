@@ -1071,8 +1071,6 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
 
         if_req_smc_history->history_item_count = history_count_available;
 
-        //if_req_smc_history->history_item_array = (struct ifreq_smc_history_item*)SMC_MALLOC( sizeof(struct ifreq_smc_history_item) * if_req_smc_history->history_item_count);
-
         for(int i = 0; i < if_req_smc_history->history_item_count; i++ )
         {
             if_req_smc_history->history_item_array[i].channel_id        = (i+1);

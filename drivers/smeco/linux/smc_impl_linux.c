@@ -1097,6 +1097,8 @@ smc_semaphore_t* smc_semaphore_create( void )
 {
     smc_semaphore_t* semaphore = (smc_semaphore_t*)SMC_MALLOC( sizeof( smc_semaphore_t ) );
 
+    assert( semaphore != NULL );
+
     mutex_init( &(semaphore->smc_mutex) );
 
     SMC_TRACE_PRINTF_INFO("smc_semaphore_create: semaphore 0x%08X...", (uint32_t)semaphore);
@@ -1151,6 +1153,9 @@ uint8_t smc_timer_start( smc_timer_t* timer, smc_timer_callback* timer_cb, uint3
         SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X create new timer list...", (uint32_t)timer, (uint32_t)timer_cb);
 
         timer->smc_timer_list = (struct timer_list*)SMC_MALLOC_IRQ( sizeof(struct timer_list) );
+
+        assert( timer->smc_timer_list != NULL );
+
         timer->smc_timer_list->data     = (unsigned long)timer;
         timer->smc_timer_list->function = (void*)timer_cb;
         timer->prev_jiffies             = jiffies;
@@ -1702,6 +1707,7 @@ smc_dma_t* smc_dma_create( void )
 {
     smc_dma_t* dma = (smc_dma_t*)SMC_MALLOC( sizeof( smc_dma_t ) );
 
+    assert( dma != NULL );
     //dma->device      = NULL;
     //dma->dma_channel = NULL;
 
@@ -1925,6 +1931,8 @@ struct tasklet_struct* smc_create_tasklet(smc_signal_handler_t* signal_handler, 
 void* smc_wakelock_create( char* wakelock_name )
 {
     struct wake_lock* wakelock = (struct wake_lock*)SMC_MALLOC_IRQ( sizeof( struct wake_lock ) );
+
+    assert( wakelock != NULL );
 
     wake_lock_init(wakelock, WAKE_LOCK_SUSPEND, wakelock_name);
 
