@@ -501,10 +501,12 @@ static void renesas_sdhi_cmd_done(
 		}
 	}
 
-	if (cmd->flags & MMC_RSP_BUSY) {
-		/* wait DATA0 == 1 */
-		while (!(sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DAT0))
-			;
+	if (!(host->cmd->error || (host->data && host->data->error))) {
+		if (cmd->flags & MMC_RSP_BUSY) {
+			/* wait DATA0 == 1 */
+			while (!(sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DAT0))
+				;
+		}
 	}
 
 	if (host->app_mode)
