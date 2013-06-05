@@ -71,6 +71,7 @@
 /* register mask define */
 #define RESCSR_HEADER		0xA5A5A500U
 #define RESCNT_CLEAR_DATA	0x5A5AFF00U
+#define RESCNT_LOW_VAL		0xFF20
 #define RESCNT2_RWD0A_MASK	0x00003000U
 #define RESCNT2_PRES_MASK	0x80000000U
 #define RWTCSRA_TME_MASK	0x80U
@@ -85,9 +86,21 @@
 /* default starting cpu number */
 #define DEFAULT_CPU_NUMBER	0U
 
+#ifdef CONFIG_RMU2_RWDT
 int rmu2_rwdt_cntclear(void);
 int rmu2_rwdt_stop(void);
+#else
+static inline int rmu2_rwdt_cntclear(void)
+{
+	return 0;
+}
+static inline int rmu2_rwdt_stop(void)
+{
+	return 0;
+}
+#endif
 void rmu2_rwdt_software_reset(void);
+
 #endif  /* _LINUX_RWDT_H */
 
 /* End of File */
