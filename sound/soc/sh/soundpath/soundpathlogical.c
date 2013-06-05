@@ -267,8 +267,6 @@ static uint g_bluetooth_band_frequency;
 
 static uint g_loopplay;
 
-static bool g_dfs_mode_min_flag;
-
 /* Callback function for audience */
 static struct sndp_extdev_callback_func *g_sndp_extdev_callback;
 
@@ -648,8 +646,6 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		       WAKE_LOCK_SUSPEND,
 		       "snd-soc-fsi");
 
-	g_dfs_mode_min_flag = false;
-
 	sndp_log_debug_func("end\n");
 	return ERROR_NONE;
 
@@ -761,16 +757,6 @@ static int sndp_proc_write(
 	if (kstrtoull(proc_buf, 0, &uiIn)) {
 		sndp_log_err("kstrtoull error\n");
 		return -EFAULT;
-	}
-
-	if (10 == ((u_int)uiIn & LOG_LEVEL_MAX)) {
-		g_dfs_mode_min_flag = true;
-		sndp_log_info("SET DFS MIN DISABLE\n");
-		return count;
-	} else if (11 == ((u_int)uiIn & LOG_LEVEL_MAX)) {
-		g_dfs_mode_min_flag = false;
-		sndp_log_info("SET DFS HIGH\n");
-		return count;
 	}
 
 	g_sndp_log_level = (u_int)uiIn & LOG_LEVEL_MAX;
@@ -1214,14 +1200,6 @@ int sndp_soc_put(
 			/* for PM ctrl check */
 			g_pm_cnt++;
 			sndp_log_info("pm:get:%d\n", g_pm_cnt);
-
-			if (g_dfs_mode_min_flag) {
-				sndp_log_info("disable dfs mode min\n");
-				disable_dfs_mode_min();
-			} else {
-				sndp_log_info("stop cpufreq\n");
-				stop_cpufreq();
-			}
 		}
 		/* Wake Lock */
 		sndp_wake_lock(E_LOCK);
@@ -3058,14 +3036,6 @@ static void sndp_work_incomm_stop(const u_int old_value)
 	ret = fsi_d2153_disable_ignore_suspend(card, 0);
 	if (ERROR_NONE != ret)
 		sndp_log_err("release ignore_suspend error(code=%d)\n", ret);
-
-	if (g_dfs_mode_min_flag) {
-		sndp_log_info("enable dfs mode min\n");
-		enable_dfs_mode_min();
-	} else {
-		sndp_log_info("start cpufreq()\n");
-		start_cpufreq();
-	}
 
 	/* Wake Force Unlock */
 	sndp_wake_lock(E_FORCE_UNLOCK);
