@@ -1,18 +1,22 @@
 /*
-*   Common SMC configuration for L2MUX channel:
-*   This configuration file is for SMC between EOS2 devices APE R8A73734 and Modem WGE3.1
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   Copyright © Renesas Mobile Corporation 2012. All rights reserved
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -127,7 +131,7 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
 
              .wake_lock_flags_master              = SMC_CHANNEL_WAKELOCK_TIMER,
              .wake_lock_flags_slave               = SMC_CHANNEL_WAKELOCK_NONE,
-             .wakelock_timeout_ms                 = SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC,
+             .wakelock_timeout_ms                 = 800,
              .history_data_max_master             = 50,
              .history_data_max_slave              = 50,
      },

@@ -1,15 +1,22 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2012. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -131,6 +138,9 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
     smc->init_status            = SMC_INSTANCE_STATUS_INIT_NONE;
     smc->instance_name          = smc_instance_conf->name;
     smc->tx_wakelock_count      = 0;
+    smc->rx_wakelock_count      = 0;
+
+    smc->initialization_flags   = smc_instance_conf->initialization_flags;
 
     smc->initialization_flags   = smc_instance_conf->initialization_flags;
 
@@ -390,6 +400,29 @@ smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_
         SMC_FREE(temp_str);
     }
 #endif
+
+    /* RX wakelock */
+    {
+        //char* name        = NULL;
+        char* name_prefix = "smc_wakelock_rx_";
+        char* temp_str    = NULL;
+        int   str_len     = 0;
+
+        temp_str = smc_utoa( smc_instance->rx_wakelock_count++ );
+
+        str_len = strlen(name_prefix) + strlen(temp_str) + 1;
+
+        channel->smc_rx_wakelock_name = (char*)SMC_MALLOC_IRQ(str_len);
+
+        memset( channel->smc_rx_wakelock_name, 0, str_len );
+        strcpy( channel->smc_rx_wakelock_name, name_prefix );
+        strcpy( channel->smc_rx_wakelock_name+strlen(name_prefix), temp_str );
+
+        channel->smc_rx_wakelock = smc_wakelock_create(channel->smc_rx_wakelock_name);
+
+        SMC_FREE(temp_str);
+    }
+
 
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
@@ -682,6 +715,27 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
         }
 #endif
 
+        {
+            uint8_t destroy_ptr = TRUE;
+
+            smc_wakelock_destroy(smc_channel->smc_rx_wakelock, destroy_ptr);
+
+            if( smc_channel->smc_rx_wakelock_name != NULL )
+            {
+                SMC_FREE(smc_channel->smc_rx_wakelock_name);
+                smc_channel->smc_rx_wakelock_name = NULL;
+            }
+
+            if( destroy_ptr )
+            {
+                SMC_TRACE_PRINTF_DEBUG("smc_channel_destroy: SMC Channel %d: RX wakelock ptr freed", smc_channel->id);
+                smc_channel->smc_rx_wakelock = NULL;
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_DEBUG("smc_channel_destroy: SMC Channel %d: TX wakelock ptr not freed", smc_channel->id);
+            }
+        }
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
         if( smc_channel->smc_dma != NULL )

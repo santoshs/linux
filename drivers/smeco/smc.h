@@ -1,18 +1,29 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
+
+Version:       52   04-Jun-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.52
 
 Version:       51   25-Apr-2013     Heikki Siikaluoma
 Status:        draft
@@ -199,7 +210,7 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.51"     /* Update for releases */
+#define SMC_SW_VERSION  "0.0.52"     /* Update for releases */
 
 #define SMC_ERROR   0
 #define SMC_OK      1
@@ -594,10 +605,14 @@ typedef struct _smc_channel_t
 
     uint16_t                            tx_queue_peak;                    /* For TX statistics */
     uint16_t                            rx_queue_peak;                    /* For RX statistics */
+
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
     void*                               smc_tx_wakelock;                  /* Channel specific TX wakelock item */
     char*                               smc_tx_wakelock_name;             /* Name of the wakelock */
 #endif
+
+    void*                               smc_rx_wakelock;                  /* Channel specific RX wakelock item */
+    char*                               smc_rx_wakelock_name;             /* Name of the wakelock */
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
     struct _smc_dma_t*                  smc_dma;
@@ -639,8 +654,8 @@ typedef struct _smc_t
 
     uint8_t           wakeup_event_sense_local;     /* Wakeup event sense of this SMC end point */
     uint8_t           init_status;                  /* Initialization statuses of local and remote instance */
-    uint8_t           tx_wakelock_count;            /* Wakelock index */
-    uint8_t           fill1;
+    uint8_t           tx_wakelock_count;            /* TX Wakelock index */
+    uint8_t           rx_wakelock_count;            /* RX Wakelock index */
 
     char*             instance_name;                /* Name of the instance, get from configuration used */
 
