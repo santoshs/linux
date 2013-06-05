@@ -361,8 +361,8 @@ static int k3dh_read_accel_xyz(struct k3dh_acc *acc)
 
 	err = k3dh_read_accel_raw_xyz(acc);
 	if (err < 0) {
-			pr_err("k3dh_read_accel_xyz() failed\n");
-			return err;
+		pr_err("k3dh_read_accel_xyz() failed\n");
+		return err;
 	}
 	acc->x -= g_k3dh->cal_data.x;
 	acc->y -= g_k3dh->cal_data.y;
@@ -1303,13 +1303,13 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	/* initialized sensor orientation */
 	/* temporary for rev0.1 and 0.2 */
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
+#if defined(CONFIG_MACH_LOGANLTE)
 	if (u2_get_board_rev() < BOARD_REV_0_2) {
 #endif
         for (ii = 0; ii < 9; ii++){
         	g_k3dh->orientation[ii] = platform_data->orientation[ii];
         }
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
+#if defined(CONFIG_MACH_LOGANLTE)
 	}
 	else {
 		for (ii = 0; ii < 9; ii++) {
