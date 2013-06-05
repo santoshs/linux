@@ -788,14 +788,16 @@ static int fsi_d2153_suspend_pre(struct snd_soc_card *card)
 			if (card->rtd[i].dai_link->ignore_suspend)
 				goto out;
 		}
-		if (playback_widget)
+		if (playback_widget) {
 			playback_widget->active = 0;
-		if (capture_widget)
+			sndp_log_info("p->active[%d]",
+				playback_widget->active);
+		}
+		if (capture_widget) {
 			capture_widget->active = 0;
-
-		if (playback_widget && capture_widget)  /* 20130605 for prevent */		
-			sndp_log_info("p->active[%d] c->active[%d]",
-				playback_widget->active, capture_widget->active);
+			sndp_log_info("c->active[%d]",
+				capture_widget->active);
+		}
 	}
 out:
 	spin_unlock(&fsi_d2153_lock);
