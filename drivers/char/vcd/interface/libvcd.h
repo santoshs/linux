@@ -26,8 +26,8 @@ struct libvcd_status_client_header {
 };
 
 struct libvcd_status_async_info {
-	bool pre_write;	/* pre-write flag */
-	int result;	/* return result asynchronously */
+	unsigned int pre_write;	/* pre-write flag */
+	int result;		/* return result asynchronously */
 };
 
 
@@ -65,6 +65,8 @@ struct vocoder_ioctl_message {
  * define macro declaration
  */
 #define LIBVCD_DEVICE_SPECIAL_FILE_NAME	"/dev/vcd_mem"
+#define LIBVCD_FALSE	0
+#define LIBVCD_TRUE	1
 #define ERROR_NONE	0	/* no error occurred */
 #define EVENTS_MAX	1
 #define NO_ADDRESS	0
