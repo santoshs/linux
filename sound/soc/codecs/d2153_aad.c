@@ -505,8 +505,7 @@ static void d2153_aad_jackdet_monitor_timer_work(struct work_struct *work)
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state;
 	int state_gpio;
-	struct snd_soc_codec *codec =
-		d2153_aad->d2153_codec->codec;
+	struct snd_soc_codec *codec;
 
 	dlg_info("[%s] start!\n", __func__);
 
@@ -516,6 +515,8 @@ static void d2153_aad_jackdet_monitor_timer_work(struct work_struct *work)
 			msecs_to_jiffies(300));
 		return;
 	}
+
+	codec = d2153_aad->d2153_codec->codec;
 	snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 			D2153_MICBIAS1_CTRL,
 			D2153_MICBIAS_EN, D2153_MICBIAS_EN);
@@ -649,8 +650,7 @@ static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
 	struct i2c_client *client = d2153_aad->i2c_client;
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state,state_gpio;
-	struct snd_soc_codec *codec =
-		d2153_aad->d2153_codec->codec;
+	struct snd_soc_codec *codec;
 	dlg_info("[%s] start!\n", __func__);
 
 	if (d2153_aad->d2153_codec == NULL ||
@@ -660,6 +660,7 @@ static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
 		return;
 	}
 
+	codec = d2153_aad->d2153_codec->codec;
 	state_gpio = gpio_get_value(d2153_aad->gpio_port);
 	if (state_gpio == 0 && state != D2153_NO_JACK)
 		return;
