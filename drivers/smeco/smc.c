@@ -2881,6 +2881,7 @@ static uint8_t smc_channel_buffer_fifo_message(smc_channel_t* channel, void* dat
 
     SMC_UNLOCK_IRQ( local_lock );
 
+
     SMC_TRACE_PRINTF_FIFO_BUFFER("smc_channel_buffer_fifo_message: completed by return value 0x%02X", ret_value);
 
     return ret_value;

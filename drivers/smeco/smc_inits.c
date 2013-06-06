@@ -142,8 +142,6 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
 
     smc->initialization_flags   = smc_instance_conf->initialization_flags;
 
-    smc->initialization_flags   = smc_instance_conf->initialization_flags;
-
     smc_instance_add( smc );
 
     if( smc_instance_conf->smc_shm_conf != NULL )
@@ -377,6 +375,9 @@ smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_
     channel->tx_queue_peak               = 0;
     channel->rx_queue_peak               = 0;
 
+
+#ifdef SMC_APE_WAKEUP_WAKELOCK_USE
+
     /* TX wakelock */
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
     {
@@ -436,6 +437,8 @@ smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_
 
         SMC_FREE(temp_str);
     }
+#endif /* #ifdef SMC_APE_WAKEUP_WAKELOCK_USE */
+
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
     channel->smc_dma = NULL;
@@ -704,6 +707,8 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
             smc_channel->send_semaphore = NULL;
         }
 
+#ifdef SMC_APE_WAKEUP_WAKELOCK_USE
+
         /* TX wakelock */
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
         {
@@ -743,6 +748,8 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
             }
         }
 
+#endif  /* #ifdef SMC_APE_WAKEUP_WAKELOCK_USE */
+
 #ifdef SMC_DMA_TRANSFER_ENABLED
         if( smc_channel->smc_dma != NULL )
         {
@@ -750,7 +757,6 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
             smc_dma_destroy( smc_channel->smc_dma );
         }
 #endif
-
 
 #ifdef SMC_HISTORY_DATA_COLLECTION_ENABLED
         if( smc_channel->smc_history_data_sent != NULL )
@@ -767,7 +773,6 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
             smc_channel->smc_history_data_received = NULL;
         }
 #endif
-
         /* Finally destroy the smc channel pointer */
 
         SMC_FREE( smc_channel );
