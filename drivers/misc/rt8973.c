@@ -1147,6 +1147,9 @@ EXPORT_SYMBOL(tsu6712_manual_switching);
 
 static u8 IntrMask;
 static u8 DcdTimeountCount;
+//static u8 DcdTimeountMask;
+static u8 DcdTimeounStatus;
+
 static void tsu6712_detect_dev(struct tsu6712_usbsw *usbsw, u32 device_type, u8 adc_val)
 {
 //	int ret;
@@ -1188,7 +1191,7 @@ static void tsu6712_detect_dev(struct tsu6712_usbsw *usbsw, u32 device_type, u8 
 				pdata->uart_cb(TSU6712_ATTACHED);
 		}/* CHARGER */
 		else if (val1 & DEV_T1_CHARGER_MASK) {
-			dev_info(&client->dev, "charger connect\n");
+			dev_info(&client->dev, "charger connect\n");					
 			if (pdata->charger_cb)
 				pdata->charger_cb(TSU6712_ATTACHED);
 		}/* JIG */
@@ -1228,6 +1231,12 @@ static void tsu6712_detect_dev(struct tsu6712_usbsw *usbsw, u32 device_type, u8 
 		}/* CHARGER */
 		else if (usbsw->dev1 & DEV_T1_CHARGER_MASK || usbsw->dev3 & DEV_T3_CHARGER_MASK) {
 			dev_info(&client->dev, "charger disconnect\n");
+			if(DcdTimeounStatus) {
+				dev_info(&client->dev, "dcd time out charger unplugged\n");
+				tsu6712_write_reg(client,TSU6712_REG_INT1_MASK, 0x00);
+				DcdTimeounStatus = 0;
+			}
+
 			if (pdata->charger_cb)
 				pdata->charger_cb(TSU6712_DETACHED);
 		}/* JIG */
@@ -1350,8 +1359,16 @@ static void tsu6712_detect_func(struct work_struct *work)
 			if (ret < 0)
 				dev_err(&usbsw->client->dev, "%s: err %d\n", __func__, ret);
 			return;
-			} else
+			} else {
+				if(DcdTimeounStatus == 0) {
+					pr_info("%s dcd time out mask interrupt\n", __func__);
+					//tsu6712_read_reg(usbsw->client,TSU6712_REG_INT1_MASK, &DcdTimeountMask); //DcdTimeountMask-->0
+					tsu6712_write_reg(usbsw->client,TSU6712_REG_INT1_MASK, (0xfd)); /*1111 1101*/
+				}
+				DcdTimeounStatus = 1;
 				dev = DEV_DEDICATED_CHG;
+			}
+
 		}
 
 	DcdTimeountCount = 0;

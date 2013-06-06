@@ -182,9 +182,4 @@ struct k3dh_acceldata {
 /* Register Auto-increase */
 #define AC			(1 << 7)
 
- /* For movement recognition*/
-#if defined(CONFIG_MACH_LOGANLTE)
-#define USES_MOVEMENT_RECOGNITION
-#endif
-
 #endif

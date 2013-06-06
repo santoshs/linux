@@ -52,8 +52,7 @@
 #define	_ZINITIX_ZXT_CODE_H
 
 #include "zinitix_touch_zxt_firmware(ZI02FF80).h"
-#include "zinitix_touch_zxt_firmware(ZI03221E).h"
-
+#include "zinitix_touch_zxt_firmware(ZI03221F).h"
 #endif
 
 #define	ZINITIX_DEBUG		0
