@@ -587,10 +587,12 @@ static int sh_mobile_i2c_xfer(struct i2c_adapter *adapter,
 	/* The interrupt handler takes care of the rest... */
 	k = wait_event_timeout(pd->wait,
 			       pd->sr & (ICSR_TACK | SW_DONE),
-			       5 * HZ);
-	if (!k)
+			       1 * HZ);
+	if (!k) {
+		err = -ETIMEDOUT;
 		dev_err(pd->dev, "Transfer request timed out\n");
-
+		goto quit;
+	}
 	retry_count = 1000;
 again:
 	val = iic_rd(pd, ICSR);
