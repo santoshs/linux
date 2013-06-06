@@ -26,6 +26,7 @@
 #include <asm/cacheflush.h>
 #include <linux/dma-mapping.h>
 #include <linux/mm.h>
+#include <linux/vmalloc.h>
 
 #include "log_kernel.h"
 #include "system_memory.h"
@@ -245,13 +246,14 @@ void rtds_memory_drv_flush_cache(
 		return;
 	}
 
+	/* Flushing a L1 cache in the specified range. */
+	dmac_flush_range((const void *)addr,
+			(const void *)(addr + size));
+
 	if (RTDS_MEM_FLUSH_CACHE_SIZE < size) {
 		/* Flushing all the cache. */
 		rtds_memory_flush_cache_all();
 	} else {
-		/* Flushing a L1 cache in the specified range. */
-		dmac_flush_range((const void *)addr,
-				(const void *)(addr + size));
 		/* Flushing a L2 cache in the specified range. */
 		rtds_memory_flush_l2cache(addr, addr + size);
 	}
@@ -290,12 +292,13 @@ void rtds_memory_drv_inv_cache(
 		return;
 	}
 
+	/* Clearing a L1 cache in the specified range. */
+	dmac_map_area((const void *)addr, size, DMA_FROM_DEVICE);
+
 	if (RTDS_MEM_FLUSH_CACHE_SIZE < size) {
 		/* Clearing all the cache. */
 		rtds_memory_flush_cache_all();
 	} else {
-		/* Clearing a L1 cache in the specified range. */
-		dmac_map_area((const void *)addr, size, DMA_FROM_DEVICE);
 		/* Clearing a L2 cache in the specified range. */
 		rtds_memory_inv_l2cache(addr, addr + size);
 	}
@@ -937,9 +940,9 @@ EXPORT_SYMBOL(rtds_memory_drv_rtpmb_cache_address);
  * Description: This function gives a map demand to Mpro.
  * Parameters : rtds_memory_map_pnc_nma  - Physical non-continuation
  *				domain map info
- * Returns	  : SMAP_OK			- Success
- *				SMAP_PARA_NG	- Parameter Error
- *				SMAP_MEMORY		- No memory
+ * Returns    : SMAP_OK		- Success
+ *		SMAP_PARA_NG	- Parameter Error
+ *		SMAP_MEMORY	- No memory
  ****************************************************************************/
 int rtds_memory_drv_map_pnc_nma(
 	 rtds_memory_drv_map_pnc_nma_param	*rtds_memory_map_pnc_nma
@@ -947,7 +950,7 @@ int rtds_memory_drv_map_pnc_nma(
 {
 	int		ret_code = SMAP_PARA_NG;
 	struct page	**k_pages;
-	unsigned int	size;
+	unsigned long	size;
 
 	MSG_HIGH("[RTDSK]IN |[%s]\n", __func__);
 
@@ -969,9 +972,9 @@ int rtds_memory_drv_map_pnc_nma(
 
 	size = sizeof(struct page *)
 		* (rtds_memory_map_pnc_nma->map_size / PAGE_SIZE);
-	k_pages = kmalloc(size, GFP_KERNEL);
+	k_pages = vmalloc(size);
 	if (NULL == k_pages) {
-		MSG_ERROR("[RTDSK]ERR| kmalloc failed.\n");
+		MSG_ERROR("[RTDSK]ERR| vmalloc failed.\n");
 		ret_code = SMAP_MEMORY;
 		MSG_HIGH("[RTDSK]OUT|[%s]\n", __func__);
 		return ret_code;

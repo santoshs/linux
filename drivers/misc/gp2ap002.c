@@ -63,13 +63,12 @@ struct gp2a_prox_data {
 	struct wake_lock prx_wake_lock;
 	u8 reg[7];
     	char cal_mode;
+	int proximity_enabled;        
 };
 
 static struct i2c_driver  gp2a_prox_i2c_driver;
 static struct gp2a_prox_data *gp2a_data;
 static struct workqueue_struct *gp2a_prox_wq;
-static bool proximity_enable = OFF;
-static short proximity_value = 0;
 static int nondetect;
 static int detect;
 
@@ -183,6 +182,8 @@ static int gp2a_prox_mode(int enable)
     
 	if(1==enable)
 	{
+        	gp2a_data->proximity_enabled = 1;
+            
         	if (gp2a_data->led_on){
                     gp2a_data->led_on(1);
         	}
@@ -198,16 +199,19 @@ static int gp2a_prox_mode(int enable)
 			error("gp2a_i2c_write 3 failed");
 
 		enable_irq(gp2a_data->irq);
+                printk(KERN_INFO "[GP2A] enable_irq IRQ_NO:%d\n",gp2a_data->irq);
 		
 		reg_value = 0x00;
 		if((ret=gp2a_i2c_write(GP2A_REG_CON,&reg_value))<0)
 			error("gp2a_i2c_write 4 failed");
 		
-		proximity_enable=1;
 	}
 	else 
 	{
+            	gp2a_data->proximity_enabled = 0;
+                
 		disable_irq_nosync(gp2a_data->irq);
+		printk(KERN_INFO "[GP2A] disable_irq : IRQ_NO:%d\n",gp2a_data->irq);        
 
 		reg_value = 0x02;
 		if((ret=gp2a_i2c_write(GP2A_REG_OPMOD,&reg_value))<0)
@@ -217,8 +221,6 @@ static int gp2a_prox_mode(int enable)
                     gp2a_data->led_on(0);
         	}
 		
-		proximity_enable=0;
-                proximity_value = 0;
 	}   
 	
 	return ret;
@@ -241,25 +243,25 @@ static void gp2a_prox_work_func(struct work_struct *work)
 	/* Read VO & INT Clear */	
 	debug("[PROXIMITY] %s : \n",__func__);
     
+        mutex_lock(&gp2a_data->power_lock);
+    
 	if((ret=gp2a_i2c_read((u8)(int_val), &value))<0)
 	{
             error("gp2a_i2c_read  failed\n");            
             gp2a_prox_reset();
             
-            if(proximity_enable == 1)
+            if(gp2a_data->proximity_enabled == 1)
                 gp2a_prox_mode(1);
             else
                 gp2a_prox_mode(0);
             
-            return;
+            goto UNLOCK_POWER_LOCK;
 	}
     
 	vout = value & 0x01;
 	printk(KERN_INFO "[GP2A] vout = %d \n",vout);
 
 	/* Report proximity information */ 
-	proximity_value = vout;
-
         input_report_abs(gp2a_data->prox_input_dev, ABS_DISTANCE,((vout == 1)? 0:1));
         input_sync(gp2a_data->prox_input_dev);
         mdelay(1);
@@ -279,6 +281,9 @@ static void gp2a_prox_work_func(struct work_struct *work)
 	value = 0x00;
 	gp2a_i2c_write((u8)(GP2A_REG_CON),&value);
 	
+UNLOCK_POWER_LOCK:
+        mutex_unlock(&gp2a_data->power_lock);
+
 }
 
 
@@ -452,7 +457,7 @@ static DEVICE_ATTR(name, S_IRUGO, proximity_name_show, NULL);
 
 static ssize_t proximity_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", proximity_enable);
+	return sprintf(buf, "%d\n", gp2a_data->proximity_enabled);
 }
 
 static ssize_t proximity_enable_store(struct device *dev, struct device_attribute *attr,  const char *buf, size_t size)
@@ -468,9 +473,8 @@ static ssize_t proximity_enable_store(struct device *dev, struct device_attribut
         return -EINVAL;
     }
 
+    mutex_lock(&gp2a_data->power_lock);
     printk(KERN_INFO "[GP2A] proximity_enable_store: new_value=%d mode=%d\n", new_value, gp2a_data->cal_mode);   
-   
-    mutex_lock(&gp2a_data->power_lock);   
    
     if (new_value ){          
         input_report_abs(gp2a_data->prox_input_dev, ABS_DISTANCE, 1);
@@ -529,7 +533,7 @@ static long gp2a_prox_ioctl(struct file *filp, unsigned int ioctl_cmd,  unsigned
         case PROX_IOC_NORMAL_MODE:
         {
             printk(KERN_INFO "[GP2A] PROX_IOC_NORMAL_MODE\n");
-            if(0==proximity_enable)
+            if(0==gp2a_data->proximity_enabled)
             {
                 if( (ret = gp2a_prox_mode(1)) < 0 )        
                     error("PROX_IOC_NORMAL_MODE failed"); 
@@ -541,7 +545,7 @@ static long gp2a_prox_ioctl(struct file *filp, unsigned int ioctl_cmd,  unsigned
         case PROX_IOC_SHUTDOWN_MODE:			
         {
             printk(KERN_INFO "[GP2A] PROX_IOC_SHUTDOWN_MODE\n");				
-            if(1==proximity_enable)
+            if(1==gp2a_data->proximity_enabled)
             {
             	if( (ret = gp2a_prox_mode(0)) < 0 )        
             		error("PROX_IOC_SHUTDOWN_MODE failed"); 

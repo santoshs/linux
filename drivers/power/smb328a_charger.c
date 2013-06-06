@@ -64,6 +64,12 @@
 #define STATUS_A_INPUT_VALID 			(0x01 << 1)
 #define STATUS_A_AICL_COMPLETE 			(0x01 << 0)
 
+#define STATUS_C_TERMINATED_ONE_CYCLED	(0x01 << 7)
+#define STATUS_C_TERMINATED_LOW_CURRENT	(0x01 << 6)
+#define STATUS_C_SAFETY_TIMER_STATUS	(0x11 << 4)	// 4,5 two bit. 
+#define STATUS_C_CHARGER_ERROR			(0x01 << 3)
+
+
 enum {
 	BAT_NOT_DETECTED,
 	BAT_DETECTED
@@ -758,6 +764,7 @@ static void smb328a_work_func(struct work_struct *work)
 {
     struct smb328a_chip *p = container_of(work, struct smb328a_chip, work);
 	int val;
+	int i;
 #ifdef CONFIG_USE_MUIC
 	static bool pre_vbus = false;
 	bool vbus;
@@ -792,6 +799,23 @@ static void smb328a_work_func(struct work_struct *work)
 		}
     }
 #endif
+
+	val = smb328a_read_reg(p->client, SMB328A_BATTERY_CHARGING_STATUS_C);
+	
+	if((val & STATUS_C_CHARGER_ERROR) || (val & STATUS_C_SAFETY_TIMER_STATUS)) {
+		smb328a_disable_charging(p->client);		
+		smb328a_enable_charging(p->client);
+		pr_info("%s charger is unexpected error.enable again.\n", __func__);
+	}		
+
+
+	for(i = 0; i < 0xb; i++){
+	   val = smb328a_read_reg(p->client, i);
+   }
+
+	for(i = 0; i < 7; i++){
+		val = smb328a_read_reg(p->client, SMB328A_INTERRUPT_STATUS_A + i);
+	}
 
 }
 
@@ -836,6 +860,7 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct smb328a_chip *chip;
+	int val;
 
 	pr_info("%s\n", __func__);
 
@@ -867,9 +892,17 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 	spa_agent_register(SPA_AGENT_GET_CHARGER_TYPE, (void*)smb328a_get_charger_type, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_CTRL_FG, (void*)smb328a_ctrl_fg, "smb328a-charger");
 
+	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
+
+	if((val & STATUS_C_CHARGER_ERROR) || (val & STATUS_C_SAFETY_TIMER_STATUS)) {
+		smb328a_disable_charging(client);		
+		smb328a_enable_charging(client);
+		pr_info("%s charger is unexpected error.enable again.\n", __func__);
+	}		
+	
 	smb328a_charger_function_conrol(client, 500);
 
-   smb328a_irq_init(client);
+	smb328a_irq_init(client);
 
 #ifdef CONFIG_BATTERY_D2153
 	d2153_battery_start();

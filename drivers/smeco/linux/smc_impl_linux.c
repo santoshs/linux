@@ -1,6 +1,6 @@
 /*
 *   Smeco implementation specific for Linux Kernel.
-*   Copyright ?Renesas Mobile Corporation 2011. All rights reserved
+*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
 *
 *   This material, including documentation and any related source code
 *   and information, is protected by copyright controlled by Renesas.
@@ -1128,7 +1128,7 @@ uint8_t smc_timer_start( smc_timer_t* timer, smc_timer_callback* timer_cb, uint3
     {
         SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X create new timer list...", (uint32_t)timer, (uint32_t)timer_cb);
 
-        timer->smc_timer_list = (struct timer_list*)SMC_MALLOC( sizeof(struct timer_list) );
+        timer->smc_timer_list = (struct timer_list*)SMC_MALLOC_IRQ( sizeof(struct timer_list) );
         timer->smc_timer_list->data     = (unsigned long)timer;
         timer->smc_timer_list->function = (void*)timer_cb;
         timer->prev_jiffies             = jiffies;

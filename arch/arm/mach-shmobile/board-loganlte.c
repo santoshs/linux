@@ -611,7 +611,7 @@ static void __init board_init(void)
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if (u2_board_rev == RLTE_BOARD_REV_0_0) {
+	if ((u2_board_rev == RLTE_BOARD_REV_0_0) || (u2_board_rev > RLTE_BOARD_REV_0_4)) {
 		int i;
 		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
 			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {

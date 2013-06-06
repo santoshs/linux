@@ -172,14 +172,24 @@ module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int static_gov_flg = 1;
 #ifdef DYNAMIC_HOTPLUG_CPU
 #define HOTPLUG_IN_ACTIVE	1
+#define EASY_PLUGIN			1
 
 #define DEF_MAX_REQ_NR		10
+#if EASY_PLUGIN
+#define DEF_PLUG_IN_CHECK_NR	1 /* <= DEF_MAX_REQ_NR */
+#define DEF_PLUG_OUT_CHECK_NR	8 /* <= DEF_MAX_REQ_NR */
+#define DEF_UNPLUG_THRESHOLD12	299000	/* KHz */
+#define DEF_PLUG_THRESHOLD12	373750	/* KHz */
+#define DEF_UNPLUG_THRESHOLD15	299000	/* KHz */
+#define DEF_PLUG_THRESHOLD15	373750	/* KHz */
+#else
 #define DEF_PLUG_IN_CHECK_NR	10 /* <= DEF_MAX_REQ_NR */
 #define DEF_PLUG_OUT_CHECK_NR	2 /* <= DEF_MAX_REQ_NR */
 #define DEF_UNPLUG_THRESHOLD12	373750	/* KHz */
 #define DEF_PLUG_THRESHOLD12	897000	/* KHz */
 #define DEF_UNPLUG_THRESHOLD15	364000	/* KHz */
 #define DEF_PLUG_THRESHOLD15	910000	/* KHz */
+#endif
 #define DEF_MAX_SAM_IN_US	(FREQ_TRANSITION_LATENCY * 2) /* 50ms * 2 */
 
 static void do_check_cpu(struct work_struct *work);

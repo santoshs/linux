@@ -57,7 +57,7 @@
 
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 
-#define UDC_LOG
+/*#define UDC_LOG*/
 #define RECOVER_RESUME
 #ifdef  UDC_LOG
 #define udc_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
@@ -82,7 +82,9 @@ static const char *r8a66597_ep_name[] = {
 #endif
 };
 
-static bool usb_full_speed_flag=0;
+volatile static bool usb_full_speed_flag=0;
+int chirp_count = 0;
+
 #if USB_DRVSTR_DBG
 #define TUSB_VENDOR_SPECIFIC1		0x80
 
@@ -120,8 +122,8 @@ static void transfer_complete(struct r8a66597_ep *ep,
 
 static inline u16 control_reg_get(struct r8a66597 *r8a66597, u16 pipenum);
 
-/*-------------------------------------------------------------------------*/
-
+/*--------------------------debugging dump register info--------------------------------*/
+/*
 static void usb_dump_registers(struct r8a66597 *r8a66597, const char *event)
 {
     printk(KERN_ERR "\n\n********USB  Event - %s *********\n", event);
@@ -138,10 +140,9 @@ static void usb_dump_registers(struct r8a66597 *r8a66597, const char *event)
     printk(KERN_ERR "DVSTCTR1\t\t 0x%08x\n", r8a66597_read(r8a66597, DVSTCTR1));
     printk(KERN_ERR "FRMNUM\t\t 0x%08x\n", r8a66597_read(r8a66597, FRMNUM));
     printk(KERN_ERR "USBREQ\t\t 0x%08x\n", r8a66597_read(r8a66597, USBREQ));
-
     printk(KERN_ERR "**************************\n\n");
 }
-
+*/
 
 static inline u16 get_usb_speed(struct r8a66597 *r8a66597)
 {
@@ -450,7 +451,7 @@ static void r8a66597_vbus_work2(struct work_struct *work)
 	u16 bwait = r8a66597->pdata->buswait ? r8a66597->pdata->buswait : 15;
 	int is_vbus_powered, ret;
 	unsigned long flags;
-	usb_dump_registers(r8a66597, "vbus_work");
+	//usb_dump_registers(r8a66597, "vbus_work");
 	if ((!r8a66597->old_vbus) && (!powerup)) {
 #if 0	// JIRA SSGLOGEO2-652
 		pm_runtime_get_sync(r8a66597_to_dev(r8a66597));
@@ -462,6 +463,7 @@ static void r8a66597_vbus_work2(struct work_struct *work)
 			r8a66597->pdata->module_start();
 	}
 	udc_log("%s: IN\n", __func__);
+	chirp_count = 0;
 
 	is_vbus_powered = gIsConnected;//r8a66597->pdata->is_vbus_powered();
 
@@ -1998,6 +2000,7 @@ static void r8a66597_update_usb_speed(struct r8a66597 *r8a66597)
 		r8a66597->gadget.speed = USB_SPEED_HIGH;
 		break;
 	case FSMODE:
+		r8a66597_bclr(r8a66597, HSE, SYSCFG0);
 		r8a66597->gadget.speed = USB_SPEED_FULL;
 		break;
 	default:
@@ -2019,9 +2022,10 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 
 	if (dvsq == DS_DFLT) {
 		/* bus reset */
-	  udc_log("%s: USB BUS Reset speed = %d\n", __func__, r8a66597->gadget.speed);
 		r8a66597_update_usb_speed(r8a66597);
+	  udc_log("%s: USB BUS Reset speed = %d\n", __func__, r8a66597->gadget.speed);
 		r8a66597_inform_vbus_power(r8a66597, 100);
+		chirp_count++;
         //usb_dump_registers(r8a66597, "RESET");
 #ifdef RECOVER_RESUME
 		if (++reset_resume_ctr > 270){ /*More then 1 sec*/
@@ -2035,10 +2039,8 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 			return;
 		}
 #endif
-
-			if ((r8a66597->gadget.speed & 0x03) == 0){
+			if ((r8a66597->gadget.speed & 0x03) == 0){ //usb speed unknown
 			        usb_full_speed_flag = 1;
-
 			}
 #ifdef CONFIG_USB_OTG
 	if (otg->state == OTG_STATE_A_SUSPEND)
@@ -2047,15 +2049,14 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 #endif
 	}
 	if (r8a66597->old_dvsq == DS_CNFG && dvsq != DS_CNFG){
-		udc_log("%s: update speed = %d\n", __func__, r8a66597->gadget.speed);
+		udc_log("%s: USB Not Config speed = %d\n", __func__, r8a66597->gadget.speed);
 		r8a66597_update_usb_speed(r8a66597);
 		reset_resume_ctr = 0;
                 usb_full_speed_flag = 0;
 		}
-	if ((dvsq == DS_CNFG || dvsq == DS_ADDS)
-			&& r8a66597->gadget.speed == USB_SPEED_UNKNOWN)
+	if ((dvsq == DS_CNFG || dvsq == DS_ADDS)&& r8a66597->gadget.speed == USB_SPEED_UNKNOWN)
 		{
-			udc_log("%s: update speed = %d\n", __func__, r8a66597->gadget.speed);
+			udc_log("%s: USB Config speed = %d\n", __func__, r8a66597->gadget.speed);
 			r8a66597_update_usb_speed(r8a66597);
 			reset_resume_ctr = 0;
                         usb_full_speed_flag = 0;
@@ -2063,7 +2064,8 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 
 	if (dvsq & DS_SUSP){
 		reset_resume_ctr=0;
-		if((r8a66597->gadget.speed == 2) && (usb_full_speed_flag ==1)){
+		udc_log("%s: USB Suspend speed = %d, usb_full_speed_flag = %d, chirp_count = %d\n", __func__, r8a66597->gadget.speed,usb_full_speed_flag,chirp_count);
+		if((r8a66597->gadget.speed == 2) && ((usb_full_speed_flag ==1) || (chirp_count == 1) || (chirp_count == 3))){
                      r8a66597_bclr(r8a66597, HSE, SYSCFG0);
 			r8a66597->is_active=0;
 			r8a66597->vbus_active=0;
@@ -2072,10 +2074,8 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 			if (!wake_lock_active(&r8a66597->wake_lock))
 				wake_lock(&r8a66597->wake_lock);
 			schedule_delayed_work(&r8a66597->vbus_work, 0);
-		printk(KERN_INFO "%s:usb state FULL SPEED suspended, proceed for PHY Reset\n",__func__);
-
+			udc_log("%s:usb state FULL SPEED suspended, proceed for PHY Reset\n",__func__);
 		}
-
 	}
 	
 #ifdef CONFIG_USB_OTG
@@ -2100,6 +2100,7 @@ __acquires(r8a66597->lock)
 
 	ctsq = r8a66597_read(r8a66597, INTSTS0) & CTSQ;
 	r8a66597_write(r8a66597, ~CTRT, INTSTS0);
+	chirp_count = 0;
 
 	switch (ctsq) {
 	case CS_IDST: {

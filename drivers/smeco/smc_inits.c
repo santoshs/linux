@@ -1,5 +1,5 @@
 /*
-*   Copyright ?Renesas Mobile Corporation 2012. All rights reserved
+*   Copyright © Renesas Mobile Corporation 2012. All rights reserved
 *
 *   This material, including documentation and any related source code
 *   and information, is protected by copyright controlled by Renesas.
@@ -131,6 +131,8 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
     smc->init_status            = SMC_INSTANCE_STATUS_INIT_NONE;
     smc->instance_name          = smc_instance_conf->name;
     smc->tx_wakelock_count      = 0;
+
+    smc->initialization_flags   = smc_instance_conf->initialization_flags;
 
     smc_instance_add( smc );
 
@@ -272,6 +274,10 @@ smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_
     channel->trace_features                = smc_channel_conf->trace_features;
     channel->version_remote                = 0x00000000;
 
+#ifdef SMC_HISTORY_DATA_COLLECTION_ENABLED
+    channel->smc_history_items_max         = smc_channel_conf->history_data_max;
+#endif
+
     channel->wakelock_timeout_ms           = smc_channel_conf->wakelock_timeout_ms;
 
         /* Initialize callback functions */
@@ -296,6 +302,19 @@ smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_
         channel->fifo_timer = NULL;
         SMC_TRACE_PRINTF_WARNING("smc_channel_create: timeout for FIFO full check not set");
     }
+
+    if( smc_channel_conf->rx_mem_realloc_check_timeout_usec > 0 )
+    {
+        channel->rx_mem_alloc_timer = smc_timer_create( smc_channel_conf->rx_mem_realloc_check_timeout_usec );
+    }
+    else
+    {
+        channel->rx_mem_alloc_timer = NULL;
+        SMC_TRACE_PRINTF_DEBUG("smc_channel_create: timeout for memory reallocation not set");
+    }
+
+
+
 
     channel->fifo_size_in  = smc_channel_conf->fifo_size_in;
     channel->fifo_size_out = smc_channel_conf->fifo_size_out;
@@ -331,14 +350,14 @@ smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_
         /*
          * Initialize FIFO buffer
          */
-    channel->fifo_buffer_item_count = 0;
-    channel->fifo_buffer_flushing   = FALSE;
-    channel->fifo_buffer            = NULL;
+    channel->fifo_buffer_current_index   = 0;
+    channel->fifo_buffer_data_count      = 0;
+    channel->fifo_buffer                 = NULL;
 
 #ifdef SMC_SEND_USE_SEMAPHORE
-    channel->send_semaphore         = smc_semaphore_create();
+    channel->send_semaphore              = smc_semaphore_create();
 #else
-    channel->send_semaphore         = NULL;
+    channel->send_semaphore              = NULL;
 #endif
 
     channel->dropped_packets_mdb_out     = 0;
@@ -522,6 +541,11 @@ void smc_instance_destroy( smc_t* smc_instance )
 {
     if( smc_instance )
     {
+#ifdef SMC_DUMP_ON_CLOSE_ENABLED
+        smc_instance_dump(smc_instance);
+        SMC_TRACE_PRINTF_STARTUP("");
+#endif
+
         SMC_TRACE_PRINTF_STARTUP("Closing SMC instance with %d channels...", smc_instance->smc_channel_list_count);
 
         for(int i = 0; i < smc_instance->smc_channel_list_count; i++)
@@ -573,6 +597,11 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
         if( smc_channel->fifo_timer != NULL )
         {
             smc_timer_destroy( smc_channel->fifo_timer );
+        }
+
+        if( smc_channel->rx_mem_alloc_timer != NULL )
+        {
+            smc_timer_destroy( smc_channel->rx_mem_alloc_timer );
         }
 
         if( smc_channel->lock_write != NULL )

@@ -79,7 +79,8 @@
 #define LCD_DSI0PCKCR		0x00000025
 #define LCD_DSI0PHYCR		0x2A800014
 #define LCD_SYSCONF		0x00000703
-#define LCD_TIMSET0		0x4C2C4332
+//#define LCD_TIMSET0		0x4C2C4332
+#define LCD_TIMSET0		0x4C2C6433
 #define LCD_TIMSET1		0x00080132
 #define LCD_DSICTRL		0x00000001
 #define LCD_VMCTR1		0x0001003E
@@ -522,7 +523,6 @@ static int esd_irq_requested;
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
 #define ESD_CHECK_DISABLE 0
 #define ESD_CHECK_ENABLE 1
-
 static struct mutex esd_check_mutex;
 static int esd_check_flag;
 #endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
@@ -1366,8 +1366,6 @@ static int nt35510_panel_init(unsigned int mem_size)
 	regulator_enable(power_ldo_3v);
 
 	power_supplied = true;
-
-	power_supplied = true;
 	/* Setting peculiar to panel */
 	set_lcd_if_param.handle			= screen_handle;
 	set_lcd_if_param.port_no		= irq_portno;
@@ -1399,7 +1397,6 @@ static int nt35510_panel_init(unsigned int mem_size)
 		printk(KERN_ALERT "disp_start_lcd err!\n");
 		goto out;
 	}
-
 retry:
 	is_dsi_read_enabled = 1;
 

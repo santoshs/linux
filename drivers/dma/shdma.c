@@ -1953,7 +1953,14 @@ static int sh_dmae_resume(struct device *dev)
 	for (i = 0; i < shdev->pdata->channel_num; i++) {
 
 		sh_chan = shdev->chan[i];
-		param = sh_chan->common.private;
+		if(sh_chan != NULL)
+			param = sh_chan->common.private;
+		else 
+		{
+			pm_runtime_put(dev);
+			return -ENODEV;
+		}
+
 
 		if (sh_chan && !sh_chan->descs_allocated)
 			continue;

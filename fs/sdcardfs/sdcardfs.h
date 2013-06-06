@@ -47,7 +47,8 @@
  * LOWER_FS_MIN_FREE_SIZE to 10MB. Otherwise 100MB.
  */
 //#define LOWER_FS_MIN_FREE_SIZE  (100*1048576UL) /* 100MB */
-#define LOWER_FS_MIN_FREE_SIZE  (50*1048576UL) /* 50MB */
+//#define LOWER_FS_MIN_FREE_SIZE  (50*1048576UL) /* 50MB */
+#define LOWER_FS_MIN_FREE_SIZE  (20*1048576UL) /* 20MB */
 
 /* temporary static uid settings for development */ 
 #define AID_ROOT             0  /* uid for accessing /mnt/sdcard & extSdcard */

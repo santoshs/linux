@@ -288,7 +288,7 @@ uint32_t smc_fifo_put_cell( smc_fifo_t* p_fifo, smc_fifo_cell_t* cell, uint8_t u
     }
     else
     {
-        SMC_TRACE_PRINTF_WARNING("smc_fifo_put_cell: ERROR: FIFO 0x%08X is FULL, n_in_fifo=%d, fifo len %d (WI: %d, RI: %d)",
+        SMC_TRACE_PRINTF_DEBUG("smc_fifo_put_cell: ERROR: FIFO 0x%08X is FULL, n_in_fifo=%d, fifo len %d (WI: %d, RI: %d)",
                 (uint32_t)p_fifo, n_in_fifo, p_fifo->length, write_index, read_index);
 
         return_value = SMC_FIFO_ERROR_FIFO_FULL;
@@ -522,6 +522,12 @@ int32_t smc_fifo_peek( smc_fifo_t *p_fifo, uint8_t use_cache_control )
 
     return items_in_fifo;
 }
+
+uint8_t smc_fifo_is_full( smc_fifo_t* p_fifo, uint8_t use_cache_control )
+{
+    return (smc_fifo_peek( p_fifo, use_cache_control) >= p_fifo->length);
+}
+
 
 uint32_t smc_fifo_calculate_required_shared_mem( uint32_t fifo_len )
 {
