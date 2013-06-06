@@ -128,19 +128,14 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 	if ((freqB & ZSFC_MASK) != (current_value & ZSFC_MASK)) {
                 zs_change = 1;
 		ret = hwspin_trylock_nospin(gen_sem1); /* ZS_CLK_SEM */
-		if (ret) {
-			printk(KERN_INFO "[%s:%d] fail to get hwsem, ret:%d\n",
-				__func__, __LINE__, ret);
+		if (ret)
 			return ret;
-		}
 	} else if (freqB != (current_value & freqB_mask))
 		freqB_change = 1;
 
 	/* wait for KICK bit change if any */
 	ret = core_wait_kick(KICK_WAIT_INTERVAL_US);
 	if (ret) {
-		printk(KERN_INFO "[%s:%d] fail KICK bit, ret:%d\n",
-			__func__, __LINE__, ret);
 		if (zs_change)
 			hwspin_unlock_nospin(gen_sem1);
 		return ret;
@@ -150,8 +145,6 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 		/* FRQCRA_B_SEM */
 		ret = hwspin_trylock_nospin(sw_cpg_lock);
 		if (ret) {
-			printk(KERN_INFO "[%s:%d] fail to get hwsem, ret:%d\n",
-				__func__, __LINE__, ret);
 			if (zs_change)
 				hwspin_unlock_nospin(gen_sem1);
 			return ret;
@@ -169,8 +162,6 @@ int clock_update(unsigned int freqA, unsigned int freqA_mask,
 		/* set and wait for KICK bit changed */
 		ret = core_set_kick(KICK_WAIT_INTERVAL_US);
 		if (ret) {
-			printk(KERN_INFO "[%s:%d] fail KICK bit, ret:%d\n",
-				__func__, __LINE__, ret);
 			if (zs_change)
 				hwspin_unlock_nospin(gen_sem1);
 			hwspin_unlock_nospin(sw_cpg_lock);
