@@ -487,6 +487,12 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
     int    tx_queue_len                    = 0;
 #endif
 
+    if( skb==NULL)
+    {
+        SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: SKB Data NULL");
+        return SMC_DRIVER_ERROR;
+    }
+
     SMC_TRACE_PRINTF_INFO("smc_net_device_driver_xmit: device 0x%08X, protocol 0x%04X, queue %d...", (uint32_t)device, skb->protocol, skb->queue_mapping );
     SMC_TRACE_PRINTF_TRANSMIT("smc_net_device_driver_xmit: SKB Data (len %d, queue):", skb->len, skb->queue_mapping);
     SMC_TRACE_PRINTF_TRANSMIT_DATA( skb->len , skb->data );
@@ -497,9 +503,12 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
         assert(0);
     }
 
-
     smc_net_dev  = netdev_priv(device);
-    smc_instance = smc_net_dev->smc_instance;
+
+    if( smc_net_dev != NULL )
+    {
+        smc_instance = smc_net_dev->smc_instance;
+    }
 
     if (smc_instance != NULL)
     {
@@ -508,6 +517,13 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
             skb_queue_mapping = skb->queue_mapping;
 
             smc_channel = SMC_CHANNEL_GET(smc_instance, skb_queue_mapping);
+
+            if( smc_channel == NULL )
+            {
+                SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: no SMC channel found for the subqueue %d)", skb_queue_mapping);
+                drop_packet = 8;
+                goto DROP_PACKET;
+            }
 
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
             if( smc_channel->smc_tx_wakelock != NULL )
@@ -807,7 +823,9 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
      }
      else
      {
-         SMC_TRACE_PRINTF_WARNING("smc_net_device_driver_xmit: SMC instance not initialized for the device");
+         SMC_TRACE_PRINTF_ERROR("smc_net_device_driver_xmit: SMC instance not initialized for the device");
+         drop_packet = 9;
+         goto DROP_PACKET;
      }
 
     /* --- DROP the PACKET ---- */
@@ -844,6 +862,14 @@ DROP_PACKET:
         else if( drop_packet == 7 )
         {
             SMC_TRACE_PRINTF_WARNING("SMC TX Packet 0x%08X, len %d dropped (total %ld): no shared memory available", (uint32_t)skb->data, skb->len, device->stats.tx_dropped);
+        }
+        else if( drop_packet == 8 )
+        {
+            SMC_TRACE_PRINTF_WARNING("SMC TX Packet 0x%08X, len %d dropped (total %ld): no SMC channel found", (uint32_t)skb->data, skb->len, device->stats.tx_dropped);
+        }
+        else if( drop_packet == 8 )
+        {
+            SMC_TRACE_PRINTF_WARNING("SMC TX Packet 0x%08X, len %d dropped (total %ld): no SMC instance found", (uint32_t)skb->data, skb->len, device->stats.tx_dropped);
         }
         else
         {
@@ -1070,8 +1096,6 @@ static int smc_net_device_driver_ioctl(struct net_device* device, struct ifreq* 
         }
 
         if_req_smc_history->history_item_count = history_count_available;
-
-        //if_req_smc_history->history_item_array = (struct ifreq_smc_history_item*)SMC_MALLOC( sizeof(struct ifreq_smc_history_item) * if_req_smc_history->history_item_count);
 
         for(int i = 0; i < if_req_smc_history->history_item_count; i++ )
         {

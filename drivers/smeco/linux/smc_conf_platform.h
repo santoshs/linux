@@ -167,6 +167,7 @@ typedef struct _smc_lock_t
 #define smc_lock_create()                                           \
     ({                                                              \
         smc_lock_t *lock = SMC_MALLOC_IRQ( sizeof(smc_lock_t) );    \
+        assert( lock != NULL );                                     \
         spin_lock_init(&lock->mr_lock);                             \
         lock->flags = 0x00000000;                                   \
         lock;                                                       \

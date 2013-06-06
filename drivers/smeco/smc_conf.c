@@ -70,6 +70,8 @@ smc_channel_conf_t* smc_channel_conf_create( void )
 {
     smc_channel_conf_t* conf = (smc_channel_conf_t*)SMC_MALLOC( sizeof(smc_channel_conf_t) );
 
+    assert( conf != NULL );
+
         /*
          * Initialize empty values
          */
@@ -106,6 +108,8 @@ smc_channel_runtime_fixed_conf_t*  smc_channel_runtime_fixes_conf_create( void )
 {
     smc_channel_runtime_fixed_conf_t* conf = (smc_channel_runtime_fixed_conf_t*)SMC_MALLOC_IRQ( sizeof(smc_channel_runtime_fixed_conf_t) );
 
+    assert( conf != NULL );
+
     conf->channel_id        = 0;
     conf->fifo_in_size      = 0;
     conf->fifo_out_size     = 0;
@@ -134,6 +138,8 @@ void smc_conf_add_channel_conf(smc_conf_t* smc_conf, smc_channel_conf_t* smc_cha
     }
 
     smc_conf->smc_channel_conf_ptr_array = (smc_channel_conf_t**)SMC_MALLOC( sizeof(smc_channel_conf_t*)*smc_conf->smc_channel_conf_count );
+
+    assert( smc_conf->smc_channel_conf_ptr_array != NULL );
 
     SMC_TRACE_PRINTF_INFO("smc_conf_add_channel_conf: New conf ptr in 0x%08X", (uint32_t)smc_conf->smc_channel_conf_ptr_array);
 

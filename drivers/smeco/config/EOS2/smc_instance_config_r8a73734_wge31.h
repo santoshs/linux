@@ -158,13 +158,11 @@ Description :  File created
 #undef SMC_APE_RDTRACE_ENABLED
 #endif
 
-#define SMC_APE_WAKEUP_WAKELOCK_USE                             /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */
-#define SMC_APE_WAKEUP_WAKELOCK_USE_TIMER                       /* If defined, the APE uses timer in wakelock while receiving packets from modem */
-#define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC              400    /* Wakelock timeout in milliseconds in APE IRQ (old configs: 2000/200/400<=), if 0, lock is released immediately */
+#define SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM                        /* If defined uses ext irq in modem side (modem wakes APE)*/
 
-#define SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM                       /* If defined uses ext irq in modem side (modem wakes APE)*/
+#define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC              400    /* Default wakelock timeout in milliseconds in APE IRQ (old configs: 2000/200/400<=), if 0, lock is released immediately */
 
-/* #define SMC_WAKEUP_USE_EXTERNAL_IRQ_APE */                   /* If defined the APE SMC initializes the WUP signal (modem wakes APE)*/
+/* #define SMC_WAKEUP_USE_EXTERNAL_IRQ_APE */                    /* If defined the APE SMC initializes the WUP signal (modem wakes APE)*/
 
 #if( defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_APE ) || defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM ) )
 
@@ -279,7 +277,8 @@ Description :  File created
                                                                                 __raw_writel(0x00000001, 0xe61c1884); /* WAKEN_STS0 - Disable WakeUp Request Enable */  \
                                                                             }
 
-
+  #define SMC_APE_WAKEUP_WAKELOCK_USE                              /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */
+  #define SMC_APE_WAKEUP_WAKELOCK_USE_TIMER                        /* If defined, the APE uses timer in wakelock while receiving packets from modem */
 
   #define SMC_NETDEV_WAKELOCK_IN_TX                                /* If defined, the wakelock is used in the net device TX */
 

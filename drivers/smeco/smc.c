@@ -809,13 +809,21 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
                                     {
                                         data_local = SMC_MALLOC_IRQ(data_length);
 
-                                        SMC_TRACE_PRINTF_DEBUG("smc_send_ext: allocated 0x%08X for FIFO buffer", (uint32_t)data_local);
+                                        if( data_local != NULL )
+                                        {
+                                            SMC_TRACE_PRINTF_DEBUG("smc_send_ext: allocated 0x%08X for FIFO buffer", (uint32_t)data_local);
 
-                                        memcpy( data_local, data, data_length );
+                                            memcpy( data_local, data, data_length );
 
-                                        channel->fifo_buffer_copied_total += data_length;
+                                            channel->fifo_buffer_copied_total += data_length;
 
-                                        SMC_FIFO_SET_DATA_PTR_IS_LOCAL( userdata->flags );
+                                            SMC_FIFO_SET_DATA_PTR_IS_LOCAL( userdata->flags );
+                                        }
+                                        else
+                                        {
+                                            SMC_TRACE_PRINTF_ASSERT("smc_send_ext: no memory for the local data");
+                                            assert(0);
+                                        }
                                     }
 
                                     return_value = smc_channel_buffer_fifo_message(channel, data_local, data_length, userdata);
@@ -1134,8 +1142,16 @@ uint8_t smc_channel_send_ping( smc_channel_t* smc_channel, uint8_t wait_reply )
     if( wait_reply )
     {
         ping_reply_var = (uint32_t*)SMC_MALLOC_IRQ( sizeof( uint32_t) );
-        *ping_reply_var = 0x00000000;
-        userdata.userdata5 = (int32_t)ping_reply_var;
+
+        if( ping_reply_var != NULL )
+        {
+            *ping_reply_var = 0x00000000;
+            userdata.userdata5 = (int32_t)ping_reply_var;
+        }
+        else
+        {
+            userdata.userdata5 = 0;
+        }
     }
     else
     {
@@ -1219,8 +1235,7 @@ uint8_t smc_channel_send_config( smc_channel_t* smc_channel, uint32_t configurat
         }
         else
         {
-            SMC_TRACE_PRINTF_ASSERT("smc_channel_send_config: No memory for reply value");
-            assert(0);
+            userdata.userdata5 = 0;
         }
     }
     else
@@ -1496,8 +1511,16 @@ uint8_t smc_channel_send_config_shm( smc_channel_t* smc_channel, uint8_t wait_re
     if( wait_reply )
     {
         reply_var = (uint32_t*)SMC_MALLOC_IRQ( sizeof(uint32_t) );
-        *reply_var = 0x00000000;
-        userdata.userdata5 = (int32_t)reply_var;
+
+        if( reply_var != NULL )
+        {
+            *reply_var = 0x00000000;
+            userdata.userdata5 = (int32_t)reply_var;
+        }
+        else
+        {
+            userdata.userdata5 = 0;
+        }
     }
     else
     {
@@ -2301,7 +2324,7 @@ uint8_t smc_add_channel(smc_t* smc_instance, smc_channel_t* smc_channel, smc_cha
     {
         SMC_TRACE_PRINTF_HISTORY("smc_add_channel: channel %d: receive history is enabled", smc_channel->id);
         smc_channel->smc_history_len_received  = smc_channel->smc_history_items_max;
-        smc_channel->smc_history_data_received = smc_history_data_array_create( smc_channel->smc_history_len_sent );
+        smc_channel->smc_history_data_received = smc_history_data_array_create( smc_channel->smc_history_len_received );
     }
     else
     {
@@ -2451,6 +2474,8 @@ uint8_t smc_signal_add_handler( smc_signal_handler_t* signal_handler )
 
     signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(*signal_handler_ptr_array) * signal_handler_count );
 
+    assert( signal_handler_ptr_array != NULL );
+
     if( old_ptr_array )
     {
         for(int i = 0; i < signal_handler_count; i++ )
@@ -2526,7 +2551,8 @@ void smc_signal_remove_handler( smc_signal_handler_t* signal_handler )
 
             if( signal_handler_count > 0 )
             {
-                signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(signal_handler_ptr_array) * signal_handler_count );
+                signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(*signal_handler_ptr_array) * signal_handler_count );
+                assert( signal_handler_ptr_array != NULL );
             }
             else
             {
@@ -2855,6 +2881,7 @@ static uint8_t smc_channel_buffer_fifo_message(smc_channel_t* channel, void* dat
 
     SMC_UNLOCK_IRQ( local_lock );
 
+
     SMC_TRACE_PRINTF_FIFO_BUFFER("smc_channel_buffer_fifo_message: completed by return value 0x%02X", ret_value);
 
     return ret_value;
@@ -3115,6 +3142,8 @@ uint8_t smc_shared_variable_add( smc_shared_variable_address_info* shm_var_info 
     g_smc_shared_variable_address_info_count++;
 
     g_smc_shared_variable_address_info_array = (smc_shared_variable_address_info**)SMC_MALLOC( sizeof(*g_smc_shared_variable_address_info_array) * g_smc_shared_variable_address_info_count );
+
+    assert( g_smc_shared_variable_address_info_array != NULL );
 
     if( old_ptr_array )
     {
@@ -3555,6 +3584,8 @@ smc_message_history_data_t* smc_history_data_array_create( uint16_t array_len )
         int i = 0;
         smc_message_history_data_t* history_array = (smc_message_history_data_t*)SMC_MALLOC( sizeof( smc_message_history_data_t ) * array_len );
 
+        assert( history_array != NULL );
+
         for( i = 0; i < array_len; i++ )
         {
             history_array[i].channel_id        = 0;
@@ -3870,25 +3901,29 @@ static inline void smc_handle_internal_message(smc_channel_t* smc_channel, smc_f
                 /* Read the version from user data field 1 */
             uint32_t* version_info = (uint32_t*)SMC_MALLOC_IRQ( sizeof( uint32_t ) );
 
-            *version_info = celldata.userdata1;
-
-            SMC_TRACE_PRINTF_DEBUG("smc_handle_internal_message: SMC_FIFO_IS_INTERNAL_MESSAGE_VERSION_RESP, received version 0x%08X", *version_info);
-
-            smc_channel->version_remote = celldata.userdata1;
-
-            #ifdef SMC_PERFORM_VERSION_CHECK
-                if( smc_version_check( smc_version_to_int(smc_get_version()), smc_channel->version_remote, smc_channel->smc_instance->is_master ) != SMC_OK )
-                {
-                    SMC_TRACE_PRINTF_WARNING("Local SMC version is not same as remote version");
-                }
-            #endif /* #ifdef SMC_PERFORM_VERSION_CHECK */
-
-            smc_channel->smc_event_cb( smc_channel, SMC_VERSION_INFO_REMOTE, (void*)version_info );
-
             if( version_info != NULL )
             {
+                *version_info = celldata.userdata1;
+
+                SMC_TRACE_PRINTF_DEBUG("smc_handle_internal_message: SMC_FIFO_IS_INTERNAL_MESSAGE_VERSION_RESP, received version 0x%08X", *version_info);
+
+                smc_channel->version_remote = celldata.userdata1;
+
+                #ifdef SMC_PERFORM_VERSION_CHECK
+                    if( smc_version_check( smc_version_to_int(smc_get_version()), smc_channel->version_remote, smc_channel->smc_instance->is_master ) != SMC_OK )
+                    {
+                        SMC_TRACE_PRINTF_WARNING("Local SMC version is not same as remote version");
+                    }
+                #endif /* #ifdef SMC_PERFORM_VERSION_CHECK */
+
+                smc_channel->smc_event_cb( smc_channel, SMC_VERSION_INFO_REMOTE, (void*)version_info );
+
                 SMC_FREE( version_info );
                 version_info = NULL;
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_ERROR("smc_handle_internal_message: SMC_FIFO_IS_INTERNAL_MESSAGE_VERSION_RESP: No memory for version info");
             }
         }
         else
