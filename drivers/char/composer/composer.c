@@ -57,7 +57,7 @@ static int debug;    /* default debug level */
 #define FEATURE_LCD_WORKQUEUE     1
 #define FEATURE_HDMI_WORKQUEUE    1
 #define FEATURE_HDMI_WAIT_TIMING  2    /* 0:before 1:after 2:no wait */
-#define FEATURE_FENCE_QUEUEWAIT   0
+#define FEATURE_FENCE_QUEUEWAIT   1
 
 /******************************************************/
 /* define prototype                                   */
@@ -669,15 +669,11 @@ static int iocg_getfence(struct composer_fh *fh, struct cmp_getfence *get_fence)
 		}
 #endif
 
-		{
-			unsigned long flags;
-			spin_lock_irqsave(&irqlock, flags);
+		prev_queueflag = queue_data_complete;
+#if FEATURE_FENCE_QUEUEWAIT
+		ioc_waitcomp(fh);
+#endif
 
-			prev_queueflag = queue_data_complete;
-			queue_data_complete = false;
-			spin_unlock_irqrestore(&irqlock, flags);
-
-		}
 #endif
 #if SH_MOBILE_COMPOSER_USE_SW_SYNC_API
 		if (prev_queueflag &&

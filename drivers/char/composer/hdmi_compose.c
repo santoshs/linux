@@ -458,7 +458,7 @@ static int  hdmi_config(void *handle,
 		/* no need hdmi draw */
 		rc = CMP_OK;
 	} else if (user_data->num <= 1) {
-		/* turn off display (draw blank) */
+		/* turn off display (draw black) */
 		if (handle) {
 			/* handle need close */
 			data->valid = true;
