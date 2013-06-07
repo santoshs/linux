@@ -587,6 +587,8 @@ treat_udp:
 		mhi_sock_rcv_multicast(newskb,
 				MHI_L3_MHDP_UDP_FILTER,
 				newskb->len);
+
+        dev_kfree_skb(skb);
 	}
 no_filter:
 
