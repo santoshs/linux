@@ -172,7 +172,11 @@ module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int static_gov_flg = 1;
 #ifdef DYNAMIC_HOTPLUG_CPU
 #define HOTPLUG_IN_ACTIVE	1
+#ifdef CONFIG_RENESAS
+#define EASY_PLUGIN			0
+#else
 #define EASY_PLUGIN			1
+#endif
 
 #define DEF_MAX_REQ_NR		10
 #if EASY_PLUGIN
