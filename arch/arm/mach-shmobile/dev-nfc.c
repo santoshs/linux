@@ -102,7 +102,7 @@ static struct platform_device rhea_nfc_i2c_gpio_device = {
 static struct i2c_gpio_platform_data PN547_i2c_gpio_data = {
 	.sda_pin = NFC_I2C_SDA_GPIO,
 	.scl_pin =  NFC_I2C_SCL_GPIO,
- 	.udelay = 1, //### RMC ### Sample Code 
+ 	.udelay = 1, //### RMC ### Sample Code
 };
 
 struct platform_device PN547_i2c_gpio_device = {
@@ -118,7 +118,7 @@ static struct pn547_i2c_platform_data PN547_pdata = {
  	.ven_gpio = NFC_EN_GPIO,
  	.firm_gpio = NFC_FIRM_GPIO,
 };
- 
+
 struct i2c_board_info PN547_info[] __initdata = {
 {
 	I2C_BOARD_INFO("pn547", 0x2b),

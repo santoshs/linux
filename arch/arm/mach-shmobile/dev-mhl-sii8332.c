@@ -32,7 +32,7 @@ static struct i2c_gpio_platform_data mhl_i2c_gpio_data = {
 	.sda_pin    = GPIO_MHL_SDA_1_8V,
 	.scl_pin    = GPIO_MHL_SCL_1_8V,
 	.udelay  = 5,
-	
+
 };
 
 static struct platform_device mhl_i2c_gpio_device = {
@@ -48,15 +48,15 @@ static struct platform_device mhl_i2c_gpio_device = {
 static void sii9234_cfg_gpio(void)
 {
 	int gpio, rc;
-	
+
 	printk(KERN_INFO "%s()\n", __func__);
-	
+
 	/* GPH1(6) XEINT 14 */
 
 	/*
 	irq_set_irq_type(MHL_WAKEUP_IRQ, IRQ_TYPE_EDGE_RISING);
        */
-#if 0       
+#if 0
 	gpio = GPIO_MHL_WAKE_UP;
 	rc = gpio_request(gpio, "MHL_WAKEUP");
 	if (rc < 0) {
@@ -65,7 +65,7 @@ static void sii9234_cfg_gpio(void)
 	}
 	gpio_direction_input(gpio);
 #endif
-	
+
 	gpio = GPIO_MHL_INT;
 	rc = gpio_request(gpio, "MHL_INT");
 	if (rc < 0) {
@@ -76,7 +76,7 @@ static void sii9234_cfg_gpio(void)
 	/*
 	irq_set_irq_type(MHL_INT_IRQ, IRQ_TYPE_EDGE_RISING);
 	*/
-	
+
 	gpio = GPIO_MHL_EN;
 	rc = gpio_request(gpio, "HDMI_EN");
 	if (rc < 0) {
@@ -92,7 +92,7 @@ static void sii9234_cfg_gpio(void)
 		return;
 	}
 	gpio_direction_output(gpio, 1);
-	
+
 
 #if 0
 	gpio = GPIO_MHL_SEL;
@@ -123,7 +123,7 @@ extern void sii9234_power_onoff(bool on)
 		s3c_gpio_setpull(GPIO_MHL_SCL_1_8V, S3C_GPIO_PULL_DOWN);
 		s3c_gpio_setpull(GPIO_MHL_SCL_1_8V, S3C_GPIO_PULL_NONE);
 		*/
-		
+
 		/* sii9234_unmaks_interrupt(); // - need to add */
 		/* VCC_SUB_2.0V is always on */
 	} else {
@@ -244,7 +244,7 @@ static void __init board_mhl_init(void)
 	if (ret < 0) {
 		printk(KERN_ERR "[MHL] adding ddc fail - nodevice\n");
 		return;
-	}	
+	}
 #endif
 
 	sii9234_cfg_gpio();

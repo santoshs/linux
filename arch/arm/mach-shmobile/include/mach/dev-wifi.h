@@ -1,4 +1,4 @@
-/* 
+/*
  * ~/arch/arm/mach-shmobile/board-u2evm-wifi.h
  */
 /*
