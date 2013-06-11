@@ -375,9 +375,11 @@ enum sndp_power_status {
 
 /* Running state of the Playback or Capture */
 enum sndp_play_rec_state {
-	E_IDLE = 0,		/* Idle */
-	E_PLAY,			/* Running Playback process */
-	E_CAP,			/* Running Capture process  */
+	E_IDLE		= 0x0,	/* Idle                           */
+	E_PLAY		= 0x1,	/* Running Playback process       */
+	E_CAP		= 0x2,	/* Running Capture process        */
+	E_FM_PLAY	= 0x4,	/* Running Playback process of FM */
+	E_FM_CAP	= 0x8,	/* Running Capture process of FM  */
 };
 
 /* Function pointer typedef declarations */
