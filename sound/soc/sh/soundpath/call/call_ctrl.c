@@ -1450,6 +1450,7 @@ static void call_playback_incomm_cb(unsigned int buf_size)
 	if (g_sndp_stream_route & SNDP_ROUTE_PLAY_DUMMY) {
 		g_sndp_stream_route &= ~SNDP_ROUTE_PLAY_DUMMY;
 		wake_up_interruptible(&g_call_wait_out);
+		atomic_set(&g_call_watch_stop_fw, 0);
 	}
 
 	if (g_status & PLAY_INCOMM_STATUS)
@@ -1481,6 +1482,7 @@ static void call_record_incomm_cb(unsigned int buf_size)
 	if (g_sndp_stream_route & SNDP_ROUTE_CAP_DUMMY) {
 		g_sndp_stream_route &= ~SNDP_ROUTE_CAP_DUMMY;
 		wake_up_interruptible(&g_call_wait_in);
+		atomic_set(&g_call_watch_stop_fw, 0);
 	}
 
 	if (g_status & REC_INCOMM_STATUS)
