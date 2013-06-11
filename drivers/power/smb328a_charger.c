@@ -68,7 +68,6 @@
 #define STATUS_A_TAPER_CHARGING			(0x01 << 2)
 #define STATUS_A_INPUT_VALID 			(0x01 << 1)
 #define STATUS_A_AICL_COMPLETE 			(0x01 << 0)
-/*#define CONFIG_SMB328A_CHARGER_DEBUG*/
 
 enum {
 	BAT_NOT_DETECTED,
@@ -186,7 +185,7 @@ static int smb328a_write_reg(struct i2c_client *client, int reg, u8 value)
 	ret = i2c_smbus_write_byte_data(client, reg, value);
 	mutex_unlock(&smb_charger->i2c_mutex_lock);
 	wake_unlock(&smb_charger->i2c_lock);
-	pm_charger_info("%s : REG(0x%x) = 0x%x\n", __func__, reg, value);
+	pr_info("%s : REG(0x%x) = 0x%x\n", __func__, reg, value);
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 	return ret;
@@ -200,7 +199,7 @@ static int smb328a_read_reg(struct i2c_client *client, int reg)
 	ret = i2c_smbus_read_byte_data(client, reg);
 	mutex_unlock(&smb_charger->i2c_mutex_lock);
 	wake_unlock(&smb_charger->i2c_lock);
-	pm_charger_info("%s : REG(0x%x) = 0x%x\n", __func__, reg, ret);
+	pr_info("%s : REG(0x%x) = 0x%x\n", __func__, reg, ret);
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
 	return ret;
@@ -241,7 +240,7 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 	int val;
 	u8 data;
 
-	pm_charger_info("%s\n", __func__);
+	pr_info("%s\n", __func__);
 
 	smb328a_allow_volatile_writes(client);
 
@@ -416,9 +415,7 @@ static bool smb328a_check_bat_missing(struct i2c_client *client)
 	u8 data = 0;
 	bool ret = false;
 
-#ifdef CONFIG_SMB328A_CHARGER_DEBUG
 	pm_charger_info("%s\n", __func__);
-#endif
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_B);
 	if (val >= 0) {
@@ -642,9 +639,7 @@ int smb328a_check_charging_status(void)
 	u8 data = 0;
 	bool ret = false;
 	struct i2c_client *client = smb_charger->client;
-#ifdef CONFIG_SMB328A_CHARGER_DEBUG
-	pr_info("%s\n", __func__);
-#endif
+	pm_charger_info("%s\n", __func__);
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
 	if (val >= 0) {
@@ -942,7 +937,7 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct smb328a_chip *chip;
 
-	pm_charger_info("%s\n", __func__);
+	pr_info("%s\n", __func__);
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE))
 		return -EIO;

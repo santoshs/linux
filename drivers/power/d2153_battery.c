@@ -1924,26 +1924,26 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
 					spa_event_handler(SPA_EVT_EOC, 0);
 					pbat_data->charger_ctrl_status = D2153_BAT_RECHG_FULL;
-					pr_info("%s. Recharging Done.(4) full > discharge > Recharge\n", __func__);
+					pr_info("%s. Recharging Done.(3) 2nd full > discharge > Recharge\n", __func__);
+				} else if((pbat_data->charger_ctrl_status == D2153_BAT_CHG_FRST_FULL)
+							&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
+					pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
+					spa_event_handler(SPA_EVT_EOC, 0);
+					pr_info("%s. Recharging Done.(4) 1st full > 2nd full\n", __func__);
 				}
 			} else {
 				// Will stop charging when a voltage approach to first full charge level.
-				if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_BACKCHG_FULL) 
-					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
-					spa_event_handler(SPA_EVT_EOC, 0);
-					pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
-					pr_info("%s. Fully charged.(1)(Back-charging done)\n", __func__);
-				} else if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
+				if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
 					&& (pbat_data->average_voltage >= D2153_BAT_CHG_FRST_FULL_LVL)) {
 					spa_event_handler(SPA_EVT_EOC, 0);
 					pbat_data->charger_ctrl_status = D2153_BAT_CHG_FRST_FULL;
-					pr_info("%s. First charge done.(2)\n", __func__);
+					pr_info("%s. First charge done.(1)\n", __func__);
 				} else if((pbat_data->charger_ctrl_status < D2153_BAT_CHG_FRST_FULL)
 					&& (pbat_data->average_voltage >= D2153_BAT_CHG_BACK_FULL_LVL)) {
 					spa_event_handler(SPA_EVT_EOC, 0);
 					spa_event_handler(SPA_EVT_EOC, 0);
 					pbat_data->charger_ctrl_status = D2153_BAT_CHG_BACKCHG_FULL;
-					pr_info("%s. Fully charged.(3)(Back-charging done)\n", __func__);
+					pr_info("%s. Fully charged.(2)(Back-charging done)\n", __func__);
 				}
 			}
 		}
