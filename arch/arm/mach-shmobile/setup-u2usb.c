@@ -604,7 +604,7 @@ void __init USBGpio_init(void)
 		error_log("PORT131 direction output(1) failed!\n");
 #endif
 
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
+#if defined(CONFIG_MACH_LOGANLTE)
 	ret = gpio_request(GPIO_PORT131, NULL);
 	if (ret < 0)
 		error_log("PORT131 failed!USB may not function\n");

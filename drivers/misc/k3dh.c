@@ -26,6 +26,10 @@
 #include <linux/workqueue.h>
 #include <linux/hrtimer.h>
 #include <mach/common.h>
+#include <linux/wakelock.h>
+#include <linux/irq.h>
+#include <linux/gpio.h>
+#include <linux/interrupt.h>
 
 #include <linux/k3dh.h>
 #include <linux/k3dh_dev.h>
@@ -40,6 +44,7 @@
 #define ACCDBG(fmt, args...)
 #endif
 
+#undef DEBUG_REACTIVE_ALERT
 /* The default settings when sensor is on is for all 3 axis to be enabled
  * and output data rate set to 400Hz.  Output is via a ioctl read call.
  */
@@ -53,6 +58,23 @@
 #define CALIBRATION_DATA_AMOUNT	20
 
 #define ACC_ENABLED 1
+
+
+#ifdef USES_MOVEMENT_RECOGNITION
+#define DEFAULT_CTRL3_SETTING		0x60 /* INT enable */
+#define DEFAULT_INTERRUPT_SETTING	0x0A /* INT1 XH,YH : enable */
+#define DEFAULT_INTERRUPT2_SETTING	0x20 /* INT2 ZH enable */
+#define DEFAULT_THRESHOLD		0x7F /* 2032mg (16*0x7F) */
+#define DYNAMIC_THRESHOLD		300	/* mg */
+#define DYNAMIC_THRESHOLD2		700	/* mg */
+#define MOVEMENT_DURATION		0x00 /*INT1 (DURATION/odr)ms*/
+enum {
+	OFF = 0,
+	ON = 1
+};
+#define ABS(a)		(((a) < 0) ? -(a) : (a))
+#define MAX(a, b)	(((a) > (b)) ? (a) : (b))
+#endif
 
 #if defined(CONFIG_SENSORS_ACC_FILTER)
  // coefficients for filter
@@ -104,7 +126,14 @@ struct k3dh_data {
 	u8 ctrl_reg1_shadow;
 	atomic_t opened; /* opened implies enabled */
         s8 orientation[9];
-
+#ifdef USES_MOVEMENT_RECOGNITION
+	int movement_recog_flag;
+	unsigned char interrupt_state;
+	struct wake_lock reactive_wake_lock;
+	struct k3dh_platform_data *pdata;
+	int irq;
+	unsigned int irq_gpio;
+#endif
 #if defined(CONFIG_SENSORS_ACC_FILTER)
 	struct work_struct read_work;
 	struct workqueue_struct *read_workqueue;
@@ -332,8 +361,8 @@ static int k3dh_read_accel_xyz(struct k3dh_acc *acc)
 
 	err = k3dh_read_accel_raw_xyz(acc);
 	if (err < 0) {
-			pr_err("k3dh_read_accel_xyz() failed\n");
-			return err;
+		pr_err("k3dh_read_accel_xyz() failed\n");
+		return err;
 	}
 	acc->x -= g_k3dh->cal_data.x;
 	acc->y -= g_k3dh->cal_data.y;
@@ -383,11 +412,21 @@ void accsns_activate(int flgatm, int flg, int dtime)
     //Power modes
     if (flg == 0) //sleep
     {
+#ifdef USES_MOVEMENT_RECOGNITION
+	if (g_k3dh->movement_recog_flag == ON) {
+		printk(KERN_INFO "[K3DH] [%s] LOW_PWR_MODE.\n", __FUNCTION__);
+		acc_data[0] = CTRL_REG1;
+		acc_data[1] = LOW_PWR_MODE;
+		if(k3dh_acc_i2c_write(acc_data, 2) !=0)
+			printk(KERN_ERR "[%s] Change to Low Power Mode is failed\n",__FUNCTION__);
+	} else
+#endif
+	{
             acc_data[0] = CTRL_REG1;
             acc_data[1] = PM_OFF;
             if(k3dh_acc_i2c_write(acc_data, 2) !=0)
-                printk(KERN_ERR "[%s] Change to Suspend Mode is failed\n",__FUNCTION__);
-
+                printk(KERN_ERR "[%s] Change to Suspend Mode is failed\n",__FUNCTION__);  
+	}            
             g_k3dh->state = 0;
 
 #if defined(CONFIG_SENSORS_ACC_FILTER)
@@ -756,10 +795,21 @@ static int k3dh_suspend(struct device *dev)
 {
         unsigned char acc_data[2] = {0};
 
+#ifdef USES_MOVEMENT_RECOGNITION
+	if (g_k3dh->movement_recog_flag == ON) {
+		printk(KERN_INFO "[K3DH] [%s] LOW_PWR_MODE.\n", __FUNCTION__);
+		acc_data[0] = CTRL_REG1;
+		acc_data[1] = LOW_PWR_MODE;
+		if(k3dh_acc_i2c_write(acc_data, 2) !=0)
+			printk(KERN_ERR "[%s] Change to Low Power Mode is failed\n",__FUNCTION__);
+	} else
+#endif
+	{
         acc_data[0] = CTRL_REG1;
         acc_data[1] = PM_OFF;
         if(k3dh_acc_i2c_write(acc_data, 2) !=0)
-            printk(KERN_ERR "[%s] Change to Suspend Mode is failed\n",__FUNCTION__);
+            printk(KERN_ERR "[%s] Change to Suspend Mode is failed\n",__FUNCTION__);  
+	}
 
 	printk(KERN_INFO "[K3DH] [%s] K3DH !!suspend mode!!\n",__FUNCTION__);
 	return 0;
@@ -843,10 +893,149 @@ static ssize_t accel_calibration_store(struct device *dev,  struct device_attrib
 	return size;
 }
 
+#ifdef USES_MOVEMENT_RECOGNITION
+static ssize_t k3dh_accel_reactive_alert_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	int onoff = OFF, err = 0, ctrl_reg = 0;
+	bool factory_test = false;
+	struct k3dh_acc raw_data;
+	u8 thresh1 = 0, thresh2 = 0;
+	unsigned char acc_data[2] = {0};
+
+	if (sysfs_streq(buf, "1"))
+		onoff = ON;
+	else if (sysfs_streq(buf, "0"))
+		onoff = OFF;
+	else if (sysfs_streq(buf, "2")) {
+		onoff = ON;
+		factory_test = true;
+		printk(KERN_INFO "[K3DH] [%s] factory_test = %d\n", __FUNCTION__, factory_test);
+	} else {
+		pr_err("%s: invalid value %d\n", __func__, *buf);
+		return -EINVAL;
+	}
+
+	if (onoff == ON && g_k3dh->movement_recog_flag == OFF) {
+		printk(KERN_INFO "[K3DH] [%s] reactive alert is on.\n", __FUNCTION__);
+		g_k3dh->interrupt_state = 0; /* Init interrupt state.*/
+
+		if (!(g_k3dh->state & ACC_ENABLED)) {
+			acc_data[0] = CTRL_REG1;
+			acc_data[1] = FASTEST_MODE;
+			if(k3dh_acc_i2c_write(acc_data, 2) !=0)
+			{
+				printk(KERN_ERR "[%s] Change to Fastest Mode is failed\n",__FUNCTION__);
+				ctrl_reg = CTRL_REG1;
+				goto err_i2c_write;
+			}
+
+			/* trun on time, T = 7/odr ms */
+			usleep_range(10000, 10000);
+		}
+		enable_irq(g_k3dh->irq);
+		if (device_may_wakeup(&g_k3dh->client->dev))
+			enable_irq_wake(g_k3dh->irq);
+		/* Get x, y, z data to set threshold1, threshold2. */
+		err = k3dh_read_accel_xyz(&raw_data);
+		printk(KERN_INFO "[K3DH] [%s] raw x = %d, y = %d, z = %d\n",
+			__FUNCTION__, raw_data.x, raw_data.y, raw_data.z);
+		if (err < 0) {
+			pr_err("%s: k3dh_accel_read_xyz failed\n",
+				__func__);
+			goto exit;
+		}
+		if (!(g_k3dh->state & ACC_ENABLED)) {
+			acc_data[0] = CTRL_REG1;
+			acc_data[1] = LOW_PWR_MODE; /* Change to 50Hz*/
+			if(k3dh_acc_i2c_write(acc_data, 2) !=0){
+				printk(KERN_ERR "[%s] Change to Low Power Mode is failed\n",__FUNCTION__);
+				ctrl_reg = CTRL_REG1;
+				goto err_i2c_write;
+			}
+		}
+		/* Change raw data to threshold value & settng threshold */
+		thresh1 = (MAX(ABS(raw_data.x), ABS(raw_data.y))
+				+ DYNAMIC_THRESHOLD)/16;
+		if (factory_test == true)
+			thresh2 = 0; /* for z axis */
+		else
+			thresh2 = (ABS(raw_data.z) + DYNAMIC_THRESHOLD2)/16;
+		printk(KERN_INFO "[K3DH] [%s] threshold1 = 0x%x, threshold2 = 0x%x\n",
+			__FUNCTION__, thresh1, thresh2);
+		acc_data[0] = INT1_THS;
+		acc_data[1] = thresh1;
+		if(k3dh_acc_i2c_write(acc_data, 2) !=0){
+			ctrl_reg = INT1_THS;
+			goto err_i2c_write;
+		}
+		acc_data[0] = INT2_THS;
+		acc_data[1] = thresh2;
+		if(k3dh_acc_i2c_write(acc_data, 2) !=0){
+			ctrl_reg = INT2_THS;
+			goto err_i2c_write;
+		}
+
+		/* INT enable */
+		acc_data[0] = CTRL_REG3;
+		acc_data[1] = DEFAULT_CTRL3_SETTING;
+		if(k3dh_acc_i2c_write(acc_data, 2) !=0){
+			ctrl_reg = CTRL_REG3;
+			goto err_i2c_write;
+		}
+
+		g_k3dh->movement_recog_flag = ON;
+        	
+		printk(KERN_INFO "[K3DH] gpio_get_value of ACC INT is %d\n",gpio_get_value(g_k3dh->    irq_gpio));
+	} else if (onoff == OFF && g_k3dh->movement_recog_flag == ON) {
+		printk(KERN_INFO "[K3DH] [%s] reactive alert is off.\n", __FUNCTION__);
+
+		/* INT disable */
+		acc_data[0] = CTRL_REG3;
+		acc_data[1] = PM_OFF;
+		if(k3dh_acc_i2c_write(acc_data, 2) !=0){
+			ctrl_reg = CTRL_REG3;
+			goto err_i2c_write;
+		}
+		if (device_may_wakeup(&g_k3dh->client->dev))
+			disable_irq_wake(g_k3dh->irq);
+		disable_irq_nosync(g_k3dh->irq);
+		/* return the power state */
+		acc_data[0] = CTRL_REG1;
+		acc_data[1] = g_k3dh->ctrl_reg1_shadow;
+		if(k3dh_acc_i2c_write(acc_data, 2) !=0){
+			printk(KERN_ERR "[%s] Change to shadow status : 0x%x\n",__FUNCTION__, g_k3dh->ctrl_reg1_shadow);
+			ctrl_reg = CTRL_REG1;
+			goto err_i2c_write;
+		}
+		g_k3dh->movement_recog_flag = OFF;
+        	g_k3dh->interrupt_state = 0; /* Init interrupt state.*/
+		printk(KERN_INFO "[K3DH] gpio_get_value of ACC INT is %d\n",gpio_get_value(g_k3dh->    irq_gpio));
+	}
+	return count;
+err_i2c_write:
+	pr_err("%s: i2c write ctrl_reg = 0x%d failed(err=%d)\n",
+				__func__, ctrl_reg, err);
+exit:
+	return ((err < 0) ? err : -err);
+}
+
+static ssize_t k3dh_accel_reactive_alert_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	return sprintf(buf, "%d\n", g_k3dh->interrupt_state);
+}
+#endif
 
 static DEVICE_ATTR(calibration, S_IRUGO|S_IWUSR|S_IWGRP, accel_calibration_show, accel_calibration_store);
 static DEVICE_ATTR(raw_data, S_IRUGO, k3dh_fs_read, NULL);
-
+#ifdef USES_MOVEMENT_RECOGNITION
+static DEVICE_ATTR(reactive_alert, S_IRUGO | S_IWUSR | S_IWGRP,
+        k3dh_accel_reactive_alert_show,
+        k3dh_accel_reactive_alert_store);
+#endif
 
 /////////////////////////////////////////////////////////////////////////////////////
 
@@ -918,6 +1107,62 @@ static struct attribute *acc_sysfs_attrs[] = {
 static struct attribute_group acc_attribute_group = {
 	.attrs = acc_sysfs_attrs,
 };
+
+#ifdef USES_MOVEMENT_RECOGNITION
+static irqreturn_t k3dh_accel_interrupt_thread(int irq\
+	, void *k3dh_data_p)
+{
+#ifdef DEBUG_REACTIVE_ALERT
+	u8 int1_src_reg = 0, int2_src_reg = 0;
+// [HSS][TEMP]
+#if 1
+	struct k3dh_acc raw_data;
+#endif
+#endif
+	unsigned char acc_data[2] = {0};
+
+#ifndef DEBUG_REACTIVE_ALERT
+	/* INT disable */
+	acc_data[0] = CTRL_REG3;
+	acc_data[1] = PM_OFF;
+	if(k3dh_acc_i2c_write(acc_data, 2) !=0)
+	{
+		printk(KERN_ERR "[%s] i2c write ctrl_reg3 failed\n",__FUNCTION__);
+	}
+#else
+	acc_data[0] = INT1_SRC;
+	if(k3dh_acc_i2c_read(acc_data, 1) < 0)
+	{
+		printk(KERN_ERR "[%s] i2c read int1_src failed\n",__FUNCTION__);
+	}
+	int1_src_reg = acc_data[0];
+	if (int1_src_reg < 0)
+	{
+		printk(KERN_ERR "[%s] read int1_src failed\n",__FUNCTION__);
+	}
+	printk(KERN_INFO "[K3DH] [%s] interrupt source reg1 = 0x%x\n", __FUNCTION__, int1_src_reg);
+
+	acc_data[0] = INT2_SRC;
+	if(k3dh_acc_i2c_read(acc_data, 1) < 0)
+	{
+		printk(KERN_ERR "[%s] i2c read int2_src failed\n",__FUNCTION__);
+	}
+	int2_src_reg = acc_data[0];
+	if (int1_src_reg < 0)
+	{
+		printk(KERN_ERR "[%s] read int2_src failed\n",__FUNCTION__);
+	}
+	printk(KERN_INFO "[K3DH] [%s] interrupt source reg2 = 0x%x\n", __FUNCTION__, int2_src_reg);
+#endif
+
+	g_k3dh->interrupt_state = 1;
+	wake_lock_timeout(&g_k3dh->reactive_wake_lock, msecs_to_jiffies(2000));
+	printk(KERN_INFO "[K3DH] [%s] irq is handled\n", __FUNCTION__);
+
+	return IRQ_HANDLED;
+}
+#endif
+
 ///////////////////////////////////////////////////////////////////////////////////
 
 void k3dh_shutdown(struct i2c_client *client)
@@ -937,7 +1182,9 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
     	struct k3dh_platform_data *platform_data;
 	int err, tempvalue;
     	int ii = 0;
-
+#ifdef USES_MOVEMENT_RECOGNITION
+        unsigned char acc_data[2] = {0};
+#endif
 	printk(KERN_INFO "[K3DH] %s\n",__FUNCTION__);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
@@ -1056,13 +1303,13 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	/* initialized sensor orientation */
 	/* temporary for rev0.1 and 0.2 */
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
+#if defined(CONFIG_MACH_LOGANLTE)
 	if (u2_get_board_rev() < BOARD_REV_0_2) {
 #endif
         for (ii = 0; ii < 9; ii++){
         	g_k3dh->orientation[ii] = platform_data->orientation[ii];
         }
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LOGANLTE_LATIN)
+#if defined(CONFIG_MACH_LOGANLTE)
 	}
 	else {
 		for (ii = 0; ii < 9; ii++) {
@@ -1077,10 +1324,101 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	/* initialized sensor cal data */
         g_k3dh->cal_data.x=0;
         g_k3dh->cal_data.y=0;
-        g_k3dh->cal_data.z=0;
+        g_k3dh->cal_data.z=0;        
+        
+#ifdef USES_MOVEMENT_RECOGNITION
+	g_k3dh->pdata = g_k3dh->client->dev.platform_data;
+	g_k3dh->movement_recog_flag = OFF;
+	/* wake lock init for accelerometer sensor */
+	wake_lock_init(&g_k3dh->reactive_wake_lock, WAKE_LOCK_SUSPEND,
+			"reactive_wake_lock");
+	acc_data[0] = INT1_THS;
+	acc_data[1] = DEFAULT_THRESHOLD;
+	if(k3dh_acc_i2c_write(acc_data, 2) !=0)
+	{
+		printk(KERN_ERR "[%s] i2c write int1_ths failed\n",__FUNCTION__);
+		goto err_request_irq;
+	}
 
+	acc_data[0] = INT1_DURATION;
+	acc_data[1] = MOVEMENT_DURATION;
+	if(k3dh_acc_i2c_write(acc_data, 2) !=0)
+	{
+		printk(KERN_ERR "[%s] i2c write int1_duration failed\n",__FUNCTION__);
+		goto err_request_irq;
+	}
+
+	acc_data[0] = INT1_CFG;
+	acc_data[1] = DEFAULT_INTERRUPT_SETTING;
+	if(k3dh_acc_i2c_write(acc_data, 2) !=0)
+	{
+		printk(KERN_ERR "[%s] i2c write int1_cfg failed\n",__FUNCTION__);
+		goto err_request_irq;
+	}
+
+	acc_data[0] = INT2_THS;
+	acc_data[1] = DEFAULT_THRESHOLD;
+	if(k3dh_acc_i2c_write(acc_data, 2) !=0)
+	{
+		printk(KERN_ERR "[%s] i2c write int2_ths failed\n",__FUNCTION__);
+		goto err_request_irq;
+	}
+
+	acc_data[0] = INT2_DURATION;
+	acc_data[1] = MOVEMENT_DURATION;
+	if(k3dh_acc_i2c_write(acc_data, 2) !=0)
+	{
+		printk(KERN_ERR "[%s] i2c write int1_duration failed\n",__FUNCTION__);
+		goto err_request_irq;
+	}
+	acc_data[0] = INT2_CFG;
+	acc_data[1] = DEFAULT_INTERRUPT2_SETTING;
+	if(k3dh_acc_i2c_write(acc_data, 2) !=0)
+	{
+		printk(KERN_ERR "[%s] i2c write ctrl_reg3 failed\n",__FUNCTION__);
+		goto err_request_irq;
+	}
+
+        g_k3dh->irq_gpio = platform_data->irq_gpio;
+        /*Initialisation of GPIO_PS_OUT of proximity sensor*/
+        if (gpio_request(g_k3dh->irq_gpio, "ACC INT")) {
+                printk(KERN_ERR "[K3DH] ACC INT Request GPIO_%d failed!\n", g_k3dh->irq_gpio)    ;
+        }
+        else {
+                printk(KERN_ERR "[K3DH] ACC INT Request GPIO_%d Sucess!\n", g_k3dh->irq_gpio)    ;
+        }
+ 
+        gpio_direction_input(g_k3dh->irq_gpio);
+	g_k3dh->irq = gpio_to_irq(g_k3dh->irq_gpio);
+
+	err = request_threaded_irq(g_k3dh->irq, NULL,
+		k3dh_accel_interrupt_thread\
+		, IRQF_TRIGGER_RISING | IRQF_ONESHOT | IRQF_NO_SUSPEND,\
+			"k3dh_accel", g_k3dh);
+	if (err < 0) {
+		pr_err("%s: can't allocate irq.\n", __func__);
+		goto err_request_irq;
+	}
+
+	enable_irq_wake(g_k3dh->irq);
+
+	disable_irq(g_k3dh->irq);
+	err = device_init_wakeup(&g_k3dh->client->dev, 1);
+	if (err) {
+		printk(KERN_ERR "wake_lock init fail");
+		goto err_device_init_wakeup;
+	}
+	g_k3dh->interrupt_state = 0;
+#endif
+  
 	return 0;
 
+#ifdef USES_MOVEMENT_RECOGNITION
+err_device_init_wakeup:
+	free_irq(g_k3dh->irq, g_k3dh);
+err_request_irq:
+	wake_lock_destroy(&g_k3dh->reactive_wake_lock);
+#endif
 error_device:
 	input_unregister_device(input_dev);
 err_input_register_device_light:
@@ -1102,11 +1440,16 @@ exit:
 static int k3dh_remove(struct i2c_client *client)
 {
 	struct k3dh_data *k3dh = i2c_get_clientdata(client);
-
+#ifdef USES_MOVEMENT_RECOGNITION
+        wake_lock_destroy(&g_k3dh->reactive_wake_lock);
+#endif
 	sysfs_remove_group(&k3dh->acc_input_dev->dev.kobj, &acc_attribute_group);
 
 	input_unregister_device(k3dh->acc_input_dev);
-
+#ifdef USES_MOVEMENT_RECOGNITION
+        device_init_wakeup(&g_k3dh->client->dev, 0);
+        free_irq(g_k3dh->irq, g_k3dh);
+#endif
 	misc_deregister(&k3dh->k3dh_device);
 	mutex_destroy(&k3dh->read_lock);
 	mutex_destroy(&k3dh->write_lock);
@@ -1193,6 +1536,8 @@ static int __init k3dh_init(void)
 		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_raw_data.attr.name);
 	if (device_create_file(dev_t, &dev_attr_calibration) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_calibration.attr.name);
+	if (device_create_file(dev_t, &dev_attr_reactive_alert) < 0)
+		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_reactive_alert.attr.name);
 
 	if (IS_ERR(dev_t))
 	{

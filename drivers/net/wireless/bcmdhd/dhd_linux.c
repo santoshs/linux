@@ -668,15 +668,16 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	uint32 allmulti;
 	uint i;
 #endif /* PASS_ALL_MCAST_PKTS */
+
 	if (!dhd)
-        	return -ENODEV;
+		return -ENODEV;
 
 	dhdinfo = dhd->info;
 	DHD_TRACE(("%s: enter, value = %d in_suspend=%d\n",
 		__FUNCTION__, value, dhd->in_suspend));
 
 	dhd_suspend_lock(dhd);
-	if (dhd && dhd->up) {
+	if (dhd->up) {
 		if (value && dhd->in_suspend) {
 #ifdef PKT_FILTER_SUPPORT
 				dhd->early_suspended = 1;

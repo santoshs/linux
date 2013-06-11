@@ -28,10 +28,10 @@
 /* PMIC related includes */
 #include <linux/d2153/core.h>
 #include <linux/d2153/d2153_reg.h>
- 
+
 #include <linux/d2153/d2153_codec.h>
 #include <linux/d2153/d2153_aad.h>
- 
+
 #define D2153_AAD_DETECT_JACK_ADC 91
 #define D2153_AAD_CONNER_CASE_ADC 239
 
