@@ -281,13 +281,13 @@ void vcd_stop_fw(int result)
 
 
 /**
- * @brief	fw stop notification function for playback stored.
+ * @brief	fw stop notification function for only sound driver.
  *
  * @param	none.
  *
  * @retval	none.
  */
-void vcd_stop_fw_stored_playback(void)
+void vcd_stop_fw_only_sound(void)
 {
 	vcd_pr_start_if_user();
 
