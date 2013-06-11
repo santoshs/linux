@@ -455,6 +455,8 @@ extern bool cpufreq_compulsive_exec_get(void);
 extern void cpufreq_compulsive_exec_clear(void);
 extern void disable_dfs_mode_min(void);
 extern void enable_dfs_mode_min(void);
+extern void set_limit_min_cpufreq(void);
+extern void unset_limit_min_cpufreq(void);
 extern int movie_cpufreq(int sw720p);
 extern int corestandby_cpufreq(void);
 extern int suspend_cpufreq(void);
