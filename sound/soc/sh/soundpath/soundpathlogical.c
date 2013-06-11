@@ -1219,6 +1219,9 @@ int sndp_soc_put(
 			/* for PM ctrl check */
 			g_pm_cnt++;
 			sndp_log_info("pm:get:%d\n", g_pm_cnt);
+
+			sndp_log_info("disable dfs mode min\n");
+			disable_dfs_mode_min();
 		}
 		/* Wake Lock */
 		sndp_wake_lock(E_LOCK);
@@ -3053,6 +3056,9 @@ static void sndp_work_incomm_stop(const u_int old_value)
 		ret = fsi_d2153_disable_ignore_suspend(card, 0);
 		if (ERROR_NONE != ret)
 			sndp_log_err("release ignore_suspend error(code=%d)\n", ret);
+
+		sndp_log_info("enable dfs mode min\n");
+		enable_dfs_mode_min();
 	} else {
 		sndp_log_debug("OUT=IN_CALL\n");
 	}
