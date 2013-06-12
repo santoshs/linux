@@ -2,6 +2,7 @@
  * Hardware spinlock framework
  *
  * Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2013 Renesas Mobile Corp.
  *
  * Contact: Ohad Ben-Cohen <ohad@wizery.com>
  *
@@ -270,12 +271,10 @@ EXPORT_SYMBOL_GPL(__hwspin_unlock);
 
 u32 __hwspin_get_hwlock_id(struct hwspinlock *hwlock, int mode, unsigned long *flags)
 {
-	int ret;
 	unsigned int id;
 
 	if (mode == HWLOCK_NOSPIN) {
-		ret = spin_trylock(&hwlock->lock);
-		BUG_ON(!ret);
+		spin_lock(&hwlock->lock);
 	}
 
 	id = hwlock->bank->ops->get_lock_id(hwlock);
