@@ -105,8 +105,8 @@ static struct mpu6k_input_platform_data mpu6k_pdata = {
 static struct k3dh_platform_data k3dh_platform_data = {
 	.orientation = {
 #if defined (CONFIG_MACH_LOGANLTE)
+	0, -1, 0,
 	1, 0, 0,
-	0, 1, 0,
 	0, 0, 1
 #elif defined (CONFIG_MACH_LT02LTE)
 	0, -1, 0,
