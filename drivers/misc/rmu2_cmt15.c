@@ -126,6 +126,8 @@ static struct platform_device rmu2_cmt_dev = {
 	.id = -1,
 };
 
+static bool running;
+
 /*
  * cpg_check_init: CPG Check initialization
  * input: none
@@ -218,16 +220,18 @@ static void rmu2_cmt_start(void)
 
 	__raw_writel(1, CMSTR15);
 
-	printk(KERN_ALERT "< %s >CMCLKE=%08x\n", __func__,
+	printk(KERN_INFO "< %s >CMCLKE=%08x\n", __func__,
 					__raw_readl(CMCLKE));
-	printk(KERN_ALERT "< %s >CMSTR15=%08x\n", __func__,
+	printk(KERN_INFO "< %s >CMSTR15=%08x\n", __func__,
 					__raw_readl(CMSTR15));
-	printk(KERN_ALERT "< %s >CMCSR15=%08x\n", __func__,
+	printk(KERN_INFO "< %s >CMCSR15=%08x\n", __func__,
 					__raw_readl(CMCSR15));
-	printk(KERN_ALERT "< %s >CMCNT15=%08x\n", __func__,
+	printk(KERN_INFO "< %s >CMCNT15=%08x\n", __func__,
 					__raw_readl(CMCNT15));
-	printk(KERN_ALERT "< %s >CMCOR15=%08x\n", __func__,
+	printk(KERN_INFO "< %s >CMCOR15=%08x\n", __func__,
 					__raw_readl(CMCOR15));
+
+	running = true;
 }
 
 /*
@@ -241,6 +245,8 @@ void rmu2_cmt_stop(void)
 	unsigned long flags = 0;
 	unsigned long wrflg = 0;
 	unsigned long i = 0;
+
+	running = false;
 
 	__raw_readl(CMCSR15);
 	__raw_writel(0x00000186U, CMCSR15);     /* Int disable */
@@ -269,6 +275,15 @@ void rmu2_cmt_clear(void)
 {
 	int wrflg = 0;
 	int i = 0;
+	unsigned long flags;
+
+	if (!running)
+		return;
+
+	if (__raw_readl(CMCNT15) < CMT_OVF / 8)
+		return;
+
+	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(0, CMSTR15);       /* Stop counting */
 	__raw_writel(0U, CMCNT15);      /* Clear the count value */
 
@@ -278,7 +293,8 @@ void rmu2_cmt_clear(void)
 	} while (wrflg != 0x00 && i < 0xffffffff);
 
 	__raw_writel(1, CMSTR15);       /* Enable counting again */
-	printk(KERN_INFO "START < %s >\n", __func__);
+	spin_unlock_irqrestore(&cmt_lock, flags);
+	/*printk(KERN_INFO "START < %s >\n", __func__);*/
 }
 
 /*
@@ -393,7 +409,7 @@ static void rmu2_cmt_init_irq(void)
 {
 	int ret = 0;
 	unsigned int irq;
-	printk(KERN_ALERT "START < %s >\n", __func__);
+	printk(KERN_INFO "START < %s >\n", __func__);
 
 	irq = gic_spi(CMT15_SPI);
 	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);

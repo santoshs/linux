@@ -1,6 +1,8 @@
 /*
  *  Digital Audio (PCM) abstract layer
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
+ *  Copyright (c) 2013 renesas mobile corp.
+ *  all rights reserved.
  *
  *
  *   This program is free software; you can redistribute it and/or modify

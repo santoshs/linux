@@ -49,7 +49,7 @@
 
 #if defined(CONFIG_STC3115_FUELGAUGE)
 #define STC3115_ADDRESS (0x70)		//for stc3115
-#endif	
+#endif
 
 /**
  * BOARD_REV

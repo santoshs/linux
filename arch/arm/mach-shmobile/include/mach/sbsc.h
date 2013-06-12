@@ -49,8 +49,12 @@ unsigned int shmobile_get_pll_reprogram(void);
 extern void cpg_init_bbfrqcrd(void);
 extern struct sbsc_param zb3_lut[];
 extern void cpg_enable_sbsc_change_for_modem(void);
-extern int shmobile_acquire_cpg_lock(unsigned long *flags);
+extern int shmobile_acquire_cpg_lock(unsigned long *flags,
+	unsigned int timeout);
 extern int shmobile_release_cpg_lock(unsigned long *flags);
+extern int shmobile_hwspin_lock_timeout_nospin(struct hwspinlock *hwlock,
+	unsigned int timeout);
+extern u32 shmobile_get_lock_cpg_nospin(void);
 #define SBSC_BASE		(0xFE400000U)
 #define SBSC_SIZE		0x1200
 

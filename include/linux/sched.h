@@ -308,7 +308,7 @@ extern void scheduler_tick(void);
 
 extern void sched_show_task(struct task_struct *p);
 
-#ifdef CONFIG_LOCKUP_DETECTOR
+#if defined CONFIG_LOCKUP_DETECTOR || defined CONFIG_RMU2_RWDT
 extern void touch_softlockup_watchdog(void);
 extern void touch_softlockup_watchdog_sync(void);
 extern void touch_all_softlockup_watchdogs(void);

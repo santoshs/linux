@@ -368,7 +368,7 @@ static void vcd_async_notify(unsigned int cb_type, int result)
 	(LIBVCD_CB_TYPE_VCD_END == cb_type)) {
 		async_info = &g_vcd_status_async_map->status[cb_type];
 		async_info->result = abs(result);
-		async_info->pre_write = true;
+		async_info->pre_write = LIBVCD_TRUE;
 		atomic_set(&g_vcd_async_wait.readable, VCD_POLL_READ_OK);
 		wake_up_interruptible(&g_vcd_async_wait.read_q);
 	} else {

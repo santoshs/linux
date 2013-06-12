@@ -242,7 +242,7 @@ static unsigned int common_divisors[] = {
         [11] = 48,
         [12] = 7,
 };
- 
+
 
 static struct clk_div_mult_table common_div_mult_table = {
         .divisors = common_divisors,

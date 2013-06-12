@@ -63,6 +63,8 @@
 
 #define PMDBG_PRFX				"PM-DBG: "
 
+#define CPG_SET_FREQ_MAX_RETRY (10000)	/* 10ms */
+
 enum {
 	IRQC_EVENTDETECTOR_BLK0 = 0,
 	IRQC_EVENTDETECTOR_BLK1,
@@ -104,7 +106,6 @@ static char xtal1_log_out;
 unsigned int frqcrA_save;
 unsigned int frqcrB_save;
 unsigned int frqcrD_save;
-unsigned int is_clock_updated;
 #define CLOCK_SUSPEND		0
 #define CLOCK_RESTORE		1
 #define ZB3_CLK_SUSPEND		0
@@ -835,15 +836,14 @@ static void reset_regs_for_LPM(void)
 int suspend_set_clock(unsigned int is_restore)
 {
 	int clocks_ret = 0;
+	int cpg_clocks_ret = 0;
 	unsigned int frqcrA_suspend_clock;
 	unsigned int frqcrB_suspend_clock;
 	unsigned int zb3_clock;
 	unsigned int frqcrA_mask;
 	unsigned int frqcrB_mask;
+	int i;
 
-	/* I:1/6, ZG:1/4, M3: 1/8, B:1/48, M1:1/6, M5: 1/8*/
-	/* Z: Not change, ZTR: 1/4, ZT: 1/6 */
-	/* ZX:1/48, ZS:1/48, HP:1/48 */
 	frqcrA_suspend_clock = POWERDOWN_FRQCRA_ES2;
 	frqcrB_suspend_clock = POWERDOWN_FRQCRB_ES2;
 	zb3_clock = ZB3_CLK_SUSPEND;
@@ -853,65 +853,98 @@ int suspend_set_clock(unsigned int is_restore)
 	if (!is_restore) {
 		pr_info("[%s]: Suspend: Set clock for suspending\n",\
 			__func__);
-		/* Backup FRQCRA/B */
-		frqcrA_save = __raw_readl(FRQCRA);
-		frqcrB_save = __raw_readl(FRQCRB);
+		memory_log_dump_int(
+			PM_DUMP_ID_SUSPEND_SET_CLOCK_RETRY_1,
+			PM_DUMP_START);
+		for (i = 0; i < CPG_SET_FREQ_MAX_RETRY; i++) {
+			/* Backup FRQCRA/B */
+			frqcrA_save = __raw_readl(FRQCRA);
+			frqcrB_save = __raw_readl(FRQCRB);
 
-		clocks_ret = clock_update(frqcrA_suspend_clock, frqcrA_mask,
-				frqcrB_suspend_clock, frqcrB_mask);
-		if (clocks_ret < 0) {
-			pr_info("[%s]: Set clocks FAILED\n",\
+			cpg_clocks_ret = clock_update(
+			frqcrA_suspend_clock, frqcrA_mask,
+			frqcrB_suspend_clock, frqcrB_mask);
+			if (cpg_clocks_ret < 0)
+				udelay(1);
+			else
+				break;
+		}
+		if (cpg_clocks_ret < 0) {
+			memory_log_dump_int(
+			PM_DUMP_ID_SUSPEND_SET_CLOCK_RETRY_1,
+			0xFFFF);
+			pr_err("[%s]: Set clocks FAILED\n",\
 				__func__);
 		} else {
-			pr_info("[%s]: Set clocks OK\n",
-				__func__);
+			memory_log_dump_int(
+			PM_DUMP_ID_SUSPEND_SET_CLOCK_RETRY_1,
+			PM_DUMP_END);
+			pr_info("[%s]: Set clocks OK(retry %d)\n",
+				__func__, i);
 		}
-	#if (defined ZB3_CLK_SUSPEND_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
+#if (defined ZB3_CLK_SUSPEND_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
 		if (es > ES_REV_2_1) {
 			frqcrD_save = suspend_ZB3_backup();
 			if (frqcrD_save > 0) {
 				clocks_ret = cpg_set_sbsc_freq(zb3_clock);
 				if (clocks_ret < 0) {
-					pr_info("[%s]: Set ZB3 clocks" \
+					pr_err("[%s]: Set ZB3 clocks" \
 					"FAILED\n", __func__);
 				} else {
 					pr_info("[%s]: Set ZB3 " \
 					"clocks OK\n", __func__);
 				}
 			} else {
-				pr_info("[%s]: Backup ZB3 " \
-					"clock FAILED\n", __func__);
-				clocks_ret = frqcrD_save;
+				pr_err("[%s]: Backup ZB3 " \
+						"clock FAILED\n", __func__);
+					clocks_ret = frqcrD_save;
 			}
 		}
-	#endif
+#endif
 	} else {
 		pr_info("[%s]: Restore clock for resuming\n",
 			__func__);
-		clocks_ret = clock_update(frqcrA_save, frqcrA_mask,
+
+		memory_log_dump_int(
+			PM_DUMP_ID_SUSPEND_SET_CLOCK_RETRY_2,
+			PM_DUMP_START);
+		for (i = 0; i < CPG_SET_FREQ_MAX_RETRY; i++) {
+			cpg_clocks_ret = clock_update(frqcrA_save, frqcrA_mask,
 					frqcrB_save, frqcrB_mask);
-		if (clocks_ret < 0) {
-			pr_info("[%s]: Restore clocks FAILED\n",
+			if (cpg_clocks_ret < 0)
+				udelay(1);
+			else
+				break;
+		}
+
+		if (cpg_clocks_ret < 0) {
+			memory_log_dump_int(
+			PM_DUMP_ID_SUSPEND_SET_CLOCK_RETRY_2,
+			0xFFFF);
+			pr_err("[%s]: Restore clocks FAILED\n",
 				__func__);
 		} else {
-			pr_info("[%s]: Restore clocks OK\n",
-				__func__);
+			memory_log_dump_int(
+			PM_DUMP_ID_SUSPEND_SET_CLOCK_RETRY_2,
+			PM_DUMP_END);
+			pr_info("[%s]: Restore clocks OK(retry %d)\n",
+				__func__, i);
 		}
-	#if (defined ZB3_CLK_SUSPEND_ENABLE) && \
+#if (defined ZB3_CLK_SUSPEND_ENABLE) && \
 		(defined ZB3_CLK_DFS_ENABLE)
 		if (es > ES_REV_2_1) {
 			clocks_ret = cpg_set_sbsc_freq(frqcrD_save);
 			if (clocks_ret < 0) {
-				pr_info("[%s]: Restore ZB3 " \
+				pr_err("[%s]: Restore ZB3 " \
 					"clocks FAILED\n", __func__);
 			} else {
 				pr_info("[%s]: Restore ZB3 clocks OK\n",
 					__func__);
 			}
 		}
-	#endif
+#endif
 	}
-	return clocks_ret;
+	return clocks_ret | cpg_clocks_ret;
 }
 
 static int shmobile_suspend(void)
@@ -1013,13 +1046,9 @@ static int shmobile_suspend(void)
 #endif	/*CONFIG_PM_HAS_SECURE*/
 
 	/* Update clocks setting */
-	is_suspend_setclock = 1;
 	if (suspend_set_clock(CLOCK_SUSPEND) != 0) {
 			pr_debug(PMDBG_PRFX "%s: Suspend without "\
 			"updating clock setting\n", __func__);
-		is_clock_updated = 0;
-	} else {
-		is_clock_updated = 1;
 	}
 
 	set_regs_for_LPM();
@@ -1036,15 +1065,9 @@ static int shmobile_suspend(void)
 	memory_log_func(PM_FUNC_ID_JUMP_SYSTEMSUSPEND, 0);
 
 	/* Update clocks setting */
-	if (is_clock_updated == 1) {
-		if (suspend_set_clock(CLOCK_RESTORE) != 0)
-			pr_debug(PMDBG_PRFX "%s: Resume after "\
-				"restoring clock setting\n", __func__);
-	} else {
-		pr_debug(PMDBG_PRFX "%s: Resume without "\
-		"restoring clock setting\n", __func__);
-	}
-	is_suspend_setclock = 0;
+	if (suspend_set_clock(CLOCK_RESTORE) != 0)
+		pr_debug(PMDBG_PRFX "%s: Resume after "\
+			"restoring clock setting\n", __func__);
 
 #ifndef CONFIG_PM_HAS_SECURE
 	pm_writel(0, ram0ZQCalib);

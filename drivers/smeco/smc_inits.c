@@ -1,15 +1,22 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2012. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -131,6 +138,7 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
     smc->init_status            = SMC_INSTANCE_STATUS_INIT_NONE;
     smc->instance_name          = smc_instance_conf->name;
     smc->tx_wakelock_count      = 0;
+    smc->rx_wakelock_count      = 0;
 
     smc->initialization_flags   = smc_instance_conf->initialization_flags;
 
@@ -367,6 +375,9 @@ smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_
     channel->tx_queue_peak               = 0;
     channel->rx_queue_peak               = 0;
 
+
+#ifdef SMC_APE_WAKEUP_WAKELOCK_USE
+
     /* TX wakelock */
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
     {
@@ -381,15 +392,52 @@ smc_channel_t* smc_channel_create( smc_t* smc_instance, smc_channel_conf_t* smc_
 
         channel->smc_tx_wakelock_name = (char*)SMC_MALLOC_IRQ(str_len);
 
-        memset( channel->smc_tx_wakelock_name, 0, str_len );
-        strcpy( channel->smc_tx_wakelock_name, name_prefix );
-        strcpy( channel->smc_tx_wakelock_name+strlen(name_prefix), temp_str );
+        if( channel->smc_tx_wakelock_name != NULL )
+        {
+            memset( channel->smc_tx_wakelock_name, 0, str_len );
+            strcpy( channel->smc_tx_wakelock_name, name_prefix );
+            strcpy( channel->smc_tx_wakelock_name+strlen(name_prefix), temp_str );
 
-        channel->smc_tx_wakelock = smc_wakelock_create(channel->smc_tx_wakelock_name);
+            channel->smc_tx_wakelock = smc_wakelock_create(channel->smc_tx_wakelock_name);
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_ERROR("smc_channel_create: Unable to allocate memory for the TX wakelock name, TX wakelock is NULL");
+        }
 
         SMC_FREE(temp_str);
     }
 #endif
+
+    /* RX wakelock */
+    {
+        //char* name        = NULL;
+        char* name_prefix = "smc_wakelock_rx_";
+        char* temp_str    = NULL;
+        int   str_len     = 0;
+
+        temp_str = smc_utoa( smc_instance->rx_wakelock_count++ );
+
+        str_len = strlen(name_prefix) + strlen(temp_str) + 1;
+
+        channel->smc_rx_wakelock_name = (char*)SMC_MALLOC_IRQ(str_len);
+
+        if( channel->smc_rx_wakelock_name != NULL )
+        {
+            memset( channel->smc_rx_wakelock_name, 0, str_len );
+            strcpy( channel->smc_rx_wakelock_name, name_prefix );
+            strcpy( channel->smc_rx_wakelock_name+strlen(name_prefix), temp_str );
+
+            channel->smc_rx_wakelock = smc_wakelock_create(channel->smc_rx_wakelock_name);
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_ERROR("smc_channel_create: Unable to allocate memory for the RX wakelock name, RX wakelock is NULL");
+        }
+
+        SMC_FREE(temp_str);
+    }
+#endif /* #ifdef SMC_APE_WAKEUP_WAKELOCK_USE */
 
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
@@ -425,6 +473,8 @@ static void smc_instance_add( smc_t* smc_instance )
     g_smc_instance_array_count++;
 
     g_smc_instance_array = (smc_t**)SMC_MALLOC( sizeof(smc_t*) * g_smc_instance_array_count );
+
+    assert(g_smc_instance_array != NULL );
 
     if( old_array )
     {
@@ -484,6 +534,8 @@ static void smc_instance_remove( smc_t* smc_instance )
             if( g_smc_instance_array_count > 0 )
             {
                 g_smc_instance_array = (smc_t**)SMC_MALLOC( sizeof(smc_t*) * g_smc_instance_array_count );
+
+                assert( g_smc_instance_array != NULL );
             }
             else
             {
@@ -655,6 +707,8 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
             smc_channel->send_semaphore = NULL;
         }
 
+#ifdef SMC_APE_WAKEUP_WAKELOCK_USE
+
         /* TX wakelock */
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
         {
@@ -673,15 +727,28 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
                 SMC_TRACE_PRINTF_DEBUG("smc_channel_destroy: SMC Channel %d: TX wakelock ptr freed", smc_channel->id);
                 smc_channel->smc_tx_wakelock = NULL;
             }
-            else
-            {
-                SMC_TRACE_PRINTF_DEBUG("smc_channel_destroy: SMC Channel %d: TX wakelock ptr not freed", smc_channel->id);
-            }
-
-
         }
 #endif
 
+        {
+            uint8_t destroy_ptr = TRUE;
+
+            smc_wakelock_destroy(smc_channel->smc_rx_wakelock, destroy_ptr);
+
+            if( smc_channel->smc_rx_wakelock_name != NULL )
+            {
+                SMC_FREE(smc_channel->smc_rx_wakelock_name);
+                smc_channel->smc_rx_wakelock_name = NULL;
+            }
+
+            if( destroy_ptr )
+            {
+                SMC_TRACE_PRINTF_DEBUG("smc_channel_destroy: SMC Channel %d: RX wakelock ptr freed", smc_channel->id);
+                smc_channel->smc_rx_wakelock = NULL;
+            }
+        }
+
+#endif  /* #ifdef SMC_APE_WAKEUP_WAKELOCK_USE */
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
         if( smc_channel->smc_dma != NULL )
@@ -690,7 +757,6 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
             smc_dma_destroy( smc_channel->smc_dma );
         }
 #endif
-
 
 #ifdef SMC_HISTORY_DATA_COLLECTION_ENABLED
         if( smc_channel->smc_history_data_sent != NULL )
@@ -707,7 +773,6 @@ void smc_channel_destroy( smc_channel_t* smc_channel )
             smc_channel->smc_history_data_received = NULL;
         }
 #endif
-
         /* Finally destroy the smc channel pointer */
 
         SMC_FREE( smc_channel );
@@ -784,28 +849,31 @@ char* smc_version_to_str(uint32_t version)
 
     version_str = (char*)SMC_MALLOC_IRQ(str_len);
 
-    temp_str = smc_utoa( v1 );
-    strcpy( version_str, temp_str );
-    version_ind += strlen(temp_str);
-    SMC_FREE( temp_str );
+    if( version_str != NULL )
+    {
+        temp_str = smc_utoa( v1 );
+        strcpy( version_str, temp_str );
+        version_ind += strlen(temp_str);
+        SMC_FREE( temp_str );
 
-    strcpy( (version_str+version_ind), "." );
-    version_ind += 1;
+        strcpy( (version_str+version_ind), "." );
+        version_ind += 1;
 
-    temp_str = smc_utoa( v2 );
-    strcpy( (version_str + version_ind), temp_str );
-    version_ind += strlen(temp_str);
-    SMC_FREE( temp_str );
+        temp_str = smc_utoa( v2 );
+        strcpy( (version_str + version_ind), temp_str );
+        version_ind += strlen(temp_str);
+        SMC_FREE( temp_str );
 
-    strcpy( (version_str+version_ind), "." );
-    version_ind += 1;
+        strcpy( (version_str+version_ind), "." );
+        version_ind += 1;
 
-    temp_str = smc_utoa( v3 );
-    strcpy( (version_str + version_ind), temp_str );
-    version_ind += strlen(temp_str);
-    SMC_FREE( temp_str );
+        temp_str = smc_utoa( v3 );
+        strcpy( (version_str + version_ind), temp_str );
+        version_ind += strlen(temp_str);
+        SMC_FREE( temp_str );
 
-    SMC_TRACE_PRINTF_INFO("smc_version_to_str: version 0x%08X converted to '%s'...", version, version_str);
+        SMC_TRACE_PRINTF_INFO("smc_version_to_str: version 0x%08X converted to '%s'...", version, version_str);
+    }
 
     return version_str;
 }
@@ -950,7 +1018,10 @@ char* smc_utoa(uint32_t i)
 
     int_str = (char*)SMC_MALLOC_IRQ(strlen(temp)+1);
 
-    strcpy(int_str, temp);
+    if( int_str != NULL )
+    {
+        strcpy(int_str, temp);
+    }
 
     return int_str;
 }

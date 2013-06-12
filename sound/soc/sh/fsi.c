@@ -1,7 +1,7 @@
 /*
  * Fifo-attached Serial Interface (FSI) support for SH7724
  *
- * Copyright (C) 2012 Renesas Mobile Corporation
+ * Copyright (C) 2012-2013 Renesas Mobile Corporation
  * All rights reserved.
  *
  * Copyright (C) 2009 Renesas Solutions Corp.

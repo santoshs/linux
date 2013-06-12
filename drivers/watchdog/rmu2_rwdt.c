@@ -24,6 +24,7 @@
 #include <mach/r8a7373.h>
 #include <linux/cpumask.h>
 #include <linux/delay.h>
+#include <linux/sched.h>
 #include <linux/rmu2_cmt15.h>
 #include <mach/sbsc.h>
 
@@ -36,6 +37,7 @@ static unsigned long cntclear_time;
 static unsigned long cntclear_time_wa_zq;
 static int stop_func_flg;
 static int wa_zq_flg;
+static bool running;
 
 /* SBSC register address */
 static void __iomem *sbsc_sdmra_28200;
@@ -65,15 +67,8 @@ void rmu2_modify_register32(unsigned int addr, u32 clear, u32 set)
 }
 
 static struct resource rmu2_rwdt_resources[] = {
-	[0] = {
-		.start = RWDT_BASEPhys,
-		.end = RWDT_BASEPhys + REG_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(RWDT_SPI),	/* RWDT */
-		.flags	= IORESOURCE_IRQ,
-	}
+	[0] = DEFINE_RES_MEM(RWDT_BASEPhys, REG_SIZE),
+	[1] = DEFINE_RES_IRQ(gic_spi(RWDT_SPI))
 };
 
 static struct platform_device rmu2_rwdt_dev = {
@@ -150,27 +145,28 @@ static struct miscdevice rwdt_mdev = {
  */
 int rmu2_rwdt_cntclear(void)
 {
-	int ret = 0;
 	unsigned int base;
 	struct resource *r;
 	u8 reg8;
 	u32 wrflg;
 
+	if (!running)
+		return -ENODEV;
+
 	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
 	if (NULL == r) {
-		ret = -ENOMEM;
-		printk(KERN_ERR
-		"%s:%d platform_get_resource failed err=%d\n",
-		__func__, __LINE__, ret);
-		return ret;
+		return -ENOMEM;
 	}
-	base = r->start;
+	base = IO_ADDRESS(r->start);
+
+	if (__raw_readw(base + RWTCNT_OFFSET) < RESCNT_LOW_VAL)
+		return 0;
 
 	/* check RWTCSRA wrflg */
 	reg8 = __raw_readb(base + RWTCSRA);
 	wrflg = ((u32)reg8 >> 5) & 0x01U;
 	if (0U == wrflg) {
-		RWDT_DEBUG(KERN_DEBUG "Clear the watchdog counter!!\n");
+		/*RWDT_DEBUG(KERN_DEBUG "Clear the watchdog counter!!\n");*/
 		__raw_writel(RESCNT_CLEAR_DATA, base + RWTCNT_OFFSET);
 		return 0;
 	} else {
@@ -204,7 +200,9 @@ int rmu2_rwdt_stop(void)
 		__func__, __LINE__, ret);
 		return ret;
 	}
-	base = r->start;
+	base = IO_ADDRESS(r->start);
+
+	running = false;
 
 	cancel_delayed_work_sync(dwork);
 	flush_workqueue(wq);
@@ -263,7 +261,7 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 		break;
 	}
 #endif
-	RWDT_DEBUG("START < %s >\n", __func__);
+	printk(KERN_INFO "START < %s >\n", __func__);
 
 #ifdef CONFIG_IRQ_TRACE
 	{
@@ -396,7 +394,7 @@ static int rmu2_rwdt_start(void)
 		__func__, __LINE__, ret);
 		return ret;
 	}
-	base = r->start;
+	base = IO_ADDRESS(r->start);
 
 	for (;;) {
 		hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
@@ -444,6 +442,8 @@ static int rmu2_rwdt_start(void)
 	reg8 = (clockSelect & 0x00FFU);
 	reg32 = RESCSR_HEADER + (u32)reg8;
 	__raw_writel(reg32, base + RWTCSRB);
+
+	running = true;
 
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();
@@ -509,7 +509,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 		__func__, __LINE__, ret);
 		goto clk_get_err;
 	}
-	base = r->start;
+	base = IO_ADDRESS(r->start);
 
 	rmu2_rwdt_clk = clk_get(NULL, "rwdt0");
 	if (true == IS_ERR(rmu2_rwdt_clk)) {
@@ -855,6 +855,23 @@ void rmu2_rwdt_software_reset(void)
 
 	hwspin_unlock(r8a7373_hwlock_sysc);
 }
+
+#ifndef CONFIG_LOCKUP_DETECTOR
+void touch_softlockup_watchdog(void)
+{
+	rmu2_cmt_clear();
+	rmu2_rwdt_cntclear();
+}
+
+void touch_all_softlockup_watchdogs(void)
+{
+	touch_softlockup_watchdog();
+}
+
+void lockup_detector_init(void)
+{
+}
+#endif
 
 subsys_initcall(rmu2_rwdt_init);
 module_exit(rmu2_rwdt_exit);

@@ -1,7 +1,20 @@
 /*
- * android/kernel/include/memlog/memlog.h
+ * include/memlog/memlog.h
  *
  * Copyright (C) 2013 Renesas Mobile Corporation
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #ifndef __MEMLOG_H__
@@ -115,4 +128,25 @@ static inline void memory_log_dump_int(unsigned char dump_id, int dump_data)
 #define PM_PM_ID_HOTPLUG_IN					0x000008
 #define PM_PM_ID_HOTPLUG_OUT					0x000009
 
+#define PM_DUMP_ID_SET_SBSC_FREQ_ZB3_LOCK			0x000010
+#define PM_DUMP_ID_SET_SBSC_FREQ_ZB3_UNLOCK			0x000011
+#define PM_DUMP_ID_SET_CPU_FREQ_RETRY				0x000020
+#define PM_DUMP_ID_SET_CPU_FREQ_ZB3_LOCK			0x000021
+#define PM_DUMP_ID_SET_CPU_FREQ_ZB3_UNLOCK_1		0x000022
+#define PM_DUMP_ID_SET_CPU_FREQ_ZB3_UNLOCK_2		0x000023
+#define PM_DUMP_ID_SET_CPU_FREQ_ZB3_UNLOCK_3		0x000024
+#define PM_DUMP_ID_SET_CPU_FREQ_ZB3_UNLOCK_4		0x000025
+#define PM_DUMP_ID_SET_CPU_FREQ_ZS_LOCK				0x000026
+#define PM_DUMP_ID_SET_CPU_FREQ_ZS_UNLOCK_1			0x000027
+#define PM_DUMP_ID_SET_CPU_FREQ_ZS_UNLOCK_2			0x000028
+
+#define PM_DUMP_ID_SUSPEND_SET_CLOCK_RETRY_1		0x000050
+#define PM_DUMP_ID_SUSPEND_SET_CLOCK_RETRY_2		0x000051
+
+#define PM_DUMP_ID_SET_SBSC_FREQ_ZB3_LOCK_ERR		0x0000F0
+#define PM_DUMP_ID_SET_CPU_FREQ_ZB3_LOCK_ERR		0x0000F1
+#define PM_DUMP_ID_SET_CPU_FREQ_ZS_LOCK_ERR			0x0000F2
+
+#define PM_DUMP_START	1
+#define PM_DUMP_END	0
 #endif

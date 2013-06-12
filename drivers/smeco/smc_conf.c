@@ -1,15 +1,22 @@
 /*
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -63,6 +70,8 @@ smc_channel_conf_t* smc_channel_conf_create( void )
 {
     smc_channel_conf_t* conf = (smc_channel_conf_t*)SMC_MALLOC( sizeof(smc_channel_conf_t) );
 
+    assert( conf != NULL );
+
         /*
          * Initialize empty values
          */
@@ -99,6 +108,8 @@ smc_channel_runtime_fixed_conf_t*  smc_channel_runtime_fixes_conf_create( void )
 {
     smc_channel_runtime_fixed_conf_t* conf = (smc_channel_runtime_fixed_conf_t*)SMC_MALLOC_IRQ( sizeof(smc_channel_runtime_fixed_conf_t) );
 
+    assert( conf != NULL );
+
     conf->channel_id        = 0;
     conf->fifo_in_size      = 0;
     conf->fifo_out_size     = 0;
@@ -127,6 +138,8 @@ void smc_conf_add_channel_conf(smc_conf_t* smc_conf, smc_channel_conf_t* smc_cha
     }
 
     smc_conf->smc_channel_conf_ptr_array = (smc_channel_conf_t**)SMC_MALLOC( sizeof(smc_channel_conf_t*)*smc_conf->smc_channel_conf_count );
+
+    assert( smc_conf->smc_channel_conf_ptr_array != NULL );
 
     SMC_TRACE_PRINTF_INFO("smc_conf_add_channel_conf: New conf ptr in 0x%08X", (uint32_t)smc_conf->smc_channel_conf_ptr_array);
 

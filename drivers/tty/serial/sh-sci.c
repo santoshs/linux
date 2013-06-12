@@ -48,6 +48,7 @@
 #include <linux/err.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
+#include <linux/nmi.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
@@ -2332,6 +2333,8 @@ if(KERNEL_LOG) {
 	unsigned short bits = 0, ctrl = 0 ;
 	unsigned long flags = 0 ;
 	int locked = 1;
+
+	touch_nmi_watchdog();
 
 	local_irq_save(flags);
 	if (port->sysrq)

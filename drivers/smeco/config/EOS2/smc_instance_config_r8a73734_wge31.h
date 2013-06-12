@@ -1,16 +1,22 @@
 /*
-*   Common SMC instance configuration for Renesas R8A73734 / WGEM31
-*   Copyright © Renesas Mobile Corporation 2012. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -152,13 +158,11 @@ Description :  File created
 #undef SMC_APE_RDTRACE_ENABLED
 #endif
 
-#define SMC_APE_WAKEUP_WAKELOCK_USE                             /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */
-#define SMC_APE_WAKEUP_WAKELOCK_USE_TIMER                       /* If defined, the APE uses timer in wakelock while receiving packets from modem */
-#define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC              400    /* Wakelock timeout in milliseconds in APE IRQ (old configs: 2000/200/400<=), if 0, lock is released immediately */
+#define SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM                        /* If defined uses ext irq in modem side (modem wakes APE)*/
 
-#define SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM                       /* If defined uses ext irq in modem side (modem wakes APE)*/
+#define SMC_APE_WAKEUP_WAKELOCK_TIMEOUT_MSEC              400    /* Default wakelock timeout in milliseconds in APE IRQ (old configs: 2000/200/400<=), if 0, lock is released immediately */
 
-/* #define SMC_WAKEUP_USE_EXTERNAL_IRQ_APE */                   /* If defined the APE SMC initializes the WUP signal (modem wakes APE)*/
+/* #define SMC_WAKEUP_USE_EXTERNAL_IRQ_APE */                    /* If defined the APE SMC initializes the WUP signal (modem wakes APE)*/
 
 #if( defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_APE ) || defined( SMC_WAKEUP_USE_EXTERNAL_IRQ_MODEM ) )
 
@@ -273,7 +277,8 @@ Description :  File created
                                                                                 __raw_writel(0x00000001, 0xe61c1884); /* WAKEN_STS0 - Disable WakeUp Request Enable */  \
                                                                             }
 
-
+  #define SMC_APE_WAKEUP_WAKELOCK_USE                              /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */
+  #define SMC_APE_WAKEUP_WAKELOCK_USE_TIMER                        /* If defined, the APE uses timer in wakelock while receiving packets from modem */
 
   #define SMC_NETDEV_WAKELOCK_IN_TX                                /* If defined, the wakelock is used in the net device TX */
 
