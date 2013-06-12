@@ -505,7 +505,15 @@ static int soc_camera_open(struct file *file)
 		/* No device driver attached */
 		return -ENODEV;
 
+	/*
+	* Don't mess with the host during probe: wait until the loop in
+	* scan_add_host() completes
+	*/
+	if (mutex_lock_interruptible(&list_lock))
+		return -ERESTARTSYS;
 	ici = to_soc_camera_host(icd->parent);
+	mutex_unlock(&list_lock);
+
 
 	if (!try_module_get(ici->ops->owner)) {
 		dev_err(icd->pdev, "Couldn't lock capture bus driver.\n");
@@ -533,7 +541,6 @@ static int soc_camera_open(struct file *file)
 		if (icl->reset)
 			icl->reset(icd->pdev);
 
-		/* Don't mess with the host during probe */
 		mutex_lock(&ici->host_lock);
 		ret = ici->ops->add(icd);
 		mutex_unlock(&ici->host_lock);
@@ -586,7 +593,9 @@ esfmt:
 eresume:
 	soc_camera_power_off(icd, icl);
 epower:
+	mutex_lock(&ici->host_lock);
 	ici->ops->remove(icd);
+	mutex_unlock(&ici->host_lock);
 eiciadd:
 	icd->use_count--;
 	module_put(ici->ops->owner);
@@ -608,7 +617,9 @@ static int soc_camera_close(struct file *file)
 
 		if (ici->ops->init_videobuf2)
 			vb2_queue_release(&icd->vb2_vidq);
+		mutex_lock(&ici->host_lock);
 		ici->ops->remove(icd);
+		mutex_unlock(&ici->host_lock);
 
 		soc_camera_power_off(icd, icl);
 	}
@@ -1022,7 +1033,7 @@ static void scan_add_host(struct soc_camera_host *ici)
 {
 	struct soc_camera_device *icd;
 
-	mutex_lock(&ici->host_lock);
+	mutex_lock(&list_lock);
 
 	list_for_each_entry(icd, &devices, list) {
 		if (icd->iface == ici->nr) {
@@ -1033,7 +1044,7 @@ static void scan_add_host(struct soc_camera_host *ici)
 		}
 	}
 
-	mutex_unlock(&ici->host_lock);
+	mutex_unlock(&list_lock);
 }
 
 #ifdef CONFIG_I2C_BOARDINFO
@@ -1120,7 +1131,10 @@ static int soc_camera_probe(struct soc_camera_device *icd)
 	if (icl->reset)
 		icl->reset(icd->pdev);
 
+	mutex_lock(&ici->host_lock);
 	ret = ici->ops->add(icd);
+	mutex_unlock(&ici->host_lock);
+
 	if (ret < 0)
 		goto eadd;
 
@@ -1205,8 +1219,9 @@ static int soc_camera_probe(struct soc_camera_device *icd)
 		icd->colorspace		= mf.colorspace;
 		icd->field		= mf.field;
 	}
-
+	mutex_lock(&ici->host_lock);
 	ici->ops->remove(icd);
+	mutex_unlock(&ici->host_lock);
 #if 0
 	soc_camera_power_off(icd, icl);
 #endif
@@ -1237,7 +1252,9 @@ evdc:
 	soc_camera_power_off(icd, icl);
 epower:
 #endif
+	mutex_lock(&ici->host_lock);
 	ici->ops->remove(icd);
+	mutex_unlock(&ici->host_lock);
 eadd:
 	regulator_bulk_free(icl->num_regulators, icl->regulators);
 ereg:
