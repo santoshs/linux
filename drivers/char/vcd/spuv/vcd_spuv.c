@@ -2478,6 +2478,8 @@ static int vcd_spuv_is_log_enable(unsigned int msg)
  */
 static void vcd_spuv_interface_log(unsigned int msg)
 {
+	int call_type = VCD_CALL_TYPE_CS;
+
 	switch (msg) {
 	case VCD_SPUV_HW_PARAMETERS_IND:
 		vcd_pr_if_spuv(VCD_SPUV_HW_PARAMETERS_IND_LOG);
@@ -2486,7 +2488,24 @@ static void vcd_spuv_interface_log(unsigned int msg)
 		vcd_pr_if_spuv(VCD_SPUV_ACTIVE_REQ_LOG);
 		break;
 	case VCD_SPUV_SPEECH_START_REQ:
-		vcd_pr_if_spuv(VCD_SPUV_SPEECH_START_REQ_LOG);
+		call_type = vcd_spuv_get_call_type();
+		switch (call_type) {
+		case VCD_CALL_TYPE_CS:
+			vcd_pr_if_spuv(VCD_SPUV_SPEECH_START_REQ_CS_LOG);
+			break;
+		case VCD_CALL_TYPE_VOIP:
+			vcd_pr_if_spuv(VCD_SPUV_SPEECH_START_REQ_VOIP_LOG);
+			break;
+		case VCD_CALL_TYPE_VOLTE:
+			vcd_pr_if_spuv(VCD_SPUV_SPEECH_START_REQ_VOLTE_LOG);
+			break;
+		case VCD_CALL_TYPE_VTCALL:
+			vcd_pr_if_spuv(VCD_SPUV_SPEECH_START_REQ_VT_LOG);
+			break;
+		default:
+			vcd_pr_if_spuv(VCD_SPUV_SPEECH_START_REQ_UNKNOWN_LOG);
+			break;
+		}
 		break;
 	case VCD_SPUV_SPEECH_STOP_REQ:
 		vcd_pr_if_spuv(VCD_SPUV_SPEECH_STOP_REQ_LOG);

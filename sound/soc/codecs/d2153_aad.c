@@ -316,6 +316,10 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 	struct regulator *regulator;
+	#define D2153_LDO_AUD_RECHECK
+#ifdef D2153_LDO_AUD_RECHECK
+	unsigned char regval = 0;
+#endif
 
 	if (on == 1 && d2153_codec->power_mode == 0) {
 		dlg_info("%s() Start power = %d\n", __func__, on);
@@ -325,6 +329,14 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 			return -1;
 		regulator_set_voltage(regulator, 1800000, 1800000);
 		regulator_enable(regulator);
+#ifdef D2153_LDO_AUD_RECHECK
+		d2153_reg_read(d2153_codec->d2153_pmic, 0x5E, &regval);
+		if (regval == 0x00) {
+			dlg_err("%s() LDO_AUD1 on regval[0x%x]\n",
+				__func__, regval);
+			d2153_reg_write(d2153_codec->d2153_pmic, 0x5E, 0x66);
+		}
+#endif
 		regulator_put(regulator);
 
 		regulator = regulator_get(NULL, "aud2");
@@ -358,6 +370,14 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 
     	d2153_get_i2c_hwsem();
 		regulator_disable(regulator);
+#ifdef D2153_LDO_AUD_RECHECK
+		d2153_reg_read(d2153_codec->d2153_pmic, 0x5E, &regval);
+		if (regval != 0x00) {
+			dlg_err("%s() LDO_AUD1 off regval[0x%x]\n",
+				__func__, regval);
+			d2153_reg_write(d2153_codec->d2153_pmic, 0x5E, 0x00);
+		}
+#endif
 		d2153_put_i2c_hwsem();
 
 		regulator_put(regulator);

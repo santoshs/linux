@@ -366,7 +366,7 @@ static void common_audio_status_iounmap(void)
 
    @retval	none
  */
-void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
+void audio_ctrl_func(enum sndp_hw_audio drv, int stat, const u_int regclr)
 {
 	/* Local variable declaration */
 	struct clk *clk;
@@ -389,19 +389,20 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-				ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
-				if (0 > ret)
-					sndp_log_err("Can't lock cpg\n");
+				if (regclr) {
+					ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
+					if (0 > ret)
+						sndp_log_err("Can't lock cpg\n");
 
-				/* Soft Reset */
-				sh_modify_register32((u_int)CPG_SRCR2, (u32)0, (u32)0x01000000);
-				udelay(62);
-				/* CLKGEN operates */
-				sh_modify_register32(CPG_SRCR2, 0x01000000, 0);
+					/* Soft Reset */
+					sh_modify_register32((u_int)CPG_SRCR2, (u32)0, (u32)0x01000000);
+					udelay(62);
+					/* CLKGEN operates */
+					sh_modify_register32(CPG_SRCR2, 0x01000000, 0);
 
-				if (0 <= ret)
-					hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
-
+					if (0 <= ret)
+						hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+				}
 				g_clock_flag |= SNDP_CLK_CLKGEN;
 			}
 		/* Status OFF */
@@ -431,19 +432,20 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-				ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
-				if (0 > ret)
-					sndp_log_err("Can't lock cpg\n");
+				if (regclr) {
+					ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
+					if (0 > ret)
+						sndp_log_err("Can't lock cpg\n");
 
-				/* Soft Reset */
-				sh_modify_register32(CPG_SRCR3, 0, 0x10000000);
-				udelay(62);
-				/* FSI operates */
-				sh_modify_register32(CPG_SRCR3, 0x10000000, 0);
+					/* Soft Reset */
+					sh_modify_register32(CPG_SRCR3, 0, 0x10000000);
+					udelay(62);
+					/* FSI operates */
+					sh_modify_register32(CPG_SRCR3, 0x10000000, 0);
 
-				if (0 <= ret)
-					hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
-
+					if (0 <= ret)
+						hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+				}
 				g_clock_flag |= SNDP_CLK_FSI;
 #ifdef SOUND_TEST
 				reg = ioread32(CPG_SUBCKCR);
@@ -481,19 +483,20 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat)
 					clk_put(clk);
 				}
 
-				ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
-				if (0 > ret)
-					sndp_log_err("Can't lock cpg\n");
+				if (regclr) {
+					ret = hwspin_lock_timeout_irqsave(r8a7373_hwlock_cpg, 10, &flags);
+					if (0 > ret)
+						sndp_log_err("Can't lock cpg\n");
 
-				/* Soft Reset */
-				sh_modify_register32(CPG_SRCR3, 0, 0x04000000);
-				udelay(62);
-				/* SCUW operates */
-				sh_modify_register32(CPG_SRCR3, 0x04000000, 0);
+					/* Soft Reset */
+					sh_modify_register32(CPG_SRCR3, 0, 0x04000000);
+					udelay(62);
+					/* SCUW operates */
+					sh_modify_register32(CPG_SRCR3, 0x04000000, 0);
 
-				if (0 <= ret)
-					hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
-
+					if (0 <= ret)
+						hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
+				}
 				g_clock_flag |= SNDP_CLK_SCUW;
 			}
 		/* Status OFF */
