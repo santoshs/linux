@@ -587,6 +587,8 @@ treat_udp:
 		mhi_sock_rcv_multicast(newskb,
 				MHI_L3_MHDP_UDP_FILTER,
 				newskb->len);
+
+        dev_kfree_skb(skb);
 	}
 no_filter:
 
@@ -760,6 +762,7 @@ mhdp_submit_queued_skb(struct mhdp_tunnel *tunnel, int force_send)
 		SKBPRINT(skb, "MHDP: TX");
 
 		tunnel->dev->stats.tx_packets++;
+		tunnel->dev->stats.tx_bytes += skb->len;
 		tunnel->skb = NULL;
 
 		dev_queue_xmit(skb);
@@ -924,6 +927,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 				struct net_device_stats *stats =
 							&tunnel->dev->stats;
 				stats->rx_packets++;
+				stats->rx_bytes += newskb->len;
 				newskb->dev = tunnel->dev;
 				SKBPRINT(newskb, "NEWSKB: RX");
 
