@@ -1920,8 +1920,6 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 						goto err_adc_read;
 					}
 		
-					pr_info("%s. Battery PROP_STATUS = %d\n", __func__, value.intval);
-		
 					ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
 					if( value.intval == POWER_SUPPLY_STATUS_FULL) {
 						if(((pbat_data->charger_ctrl_status == D2153_BAT_RECHG_FULL)
