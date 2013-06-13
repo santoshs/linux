@@ -132,9 +132,7 @@ static inline int qlen(struct usb_gadget *gadget)
 /* NETWORK DRIVER HOOKUP (to the layer above this driver) */
 static enum hrtimer_restart multiframe_timer_timeout(struct hrtimer *timer)
 {
-	struct rndis_multiframe *multiframe = container_of(timer,
-						struct rndis_multiframe,
-						tx_timer);
+	struct rndis_multiframe *multiframe = container_of(timer, struct rndis_multiframe, tx_timer);
 
 	tasklet_hi_schedule(&multiframe->taskl);
 
@@ -573,8 +571,10 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 	spin_unlock_irqrestore(&dev->req_lock, flags);
 
+/* I will leave this out now because this will end up in the reallocation procedure         */
+/* which I do not need because I construct the RNDIS header the same time as the multiframa */
 
-	if (dev->wrap) {
+/* 	if (dev->wrap) {
 		unsigned long	flags;
 
 		spin_lock_irqsave(&dev->lock, flags);
@@ -585,7 +585,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			goto drop;
 
 	}
-
+ */
 
 	if (multiframe->skb == NULL) {
 		multiframe->skb = netdev_alloc_skb(net, 4);
@@ -598,6 +598,9 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		multiframe->net = net;
 		multiframe->in = in;
 
+/* 		if (hrtimer_active(&multiframe->tx_timer))
+			printk(KERN_DEBUG "DEBUG HRtimer active when allocating multiframe skb\n");
+ */
 		hrtimer_start(&multiframe->tx_timer,
 				ktime_set(0, NSEC_PER_SEC/600),
 				HRTIMER_MODE_REL);
@@ -625,10 +628,10 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			page, offset, skb_headlen(skb), skb_headlen(skb));
 
 	if ((skb_shinfo(multiframe->skb)->nr_frags == MAX_RNDIS_FRAME_COUNT) ||
-		(multiframe->skb->data_len + sizeof(struct ethhdr)
-		+ dev->net->mtu + dev->port_usb->header_len
-		+ skb_shinfo(multiframe->skb)->nr_frags
-		* (RNDIS_FRAME_BYTE_ALIGMENT - 1)
+		(multiframe->skb->data_len
+		+(skb_shinfo(multiframe->skb)->nr_frags
+		*(sizeof(struct ethhdr) + dev->port_usb->header_len) + (RNDIS_FRAME_BYTE_ALIGMENT - 1))
+		+ dev->net->mtu + dev->port_usb->header_len +sizeof(struct ethhdr)
 		>= dev->max_host_transfer_size) ||
 		(dev->max_host_transfer_size != 0x4000)) {
 
@@ -637,7 +640,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	
 	spin_unlock(&timer_lock);
 	return NETDEV_TX_OK;
-drop:
+
 	spin_unlock(&timer_lock);
 	dev->net->stats.tx_dropped++;
 	return NETDEV_TX_OK;
@@ -723,7 +726,7 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 				frag = &skb_shinfo(skb)->frags[i];
 				#if RNDIS_FRAME_BYTE_ALIGMENT > 0
 				align_off[i] = RNDIS_FRAME_BYTE_ALIGMENT -
-					(frag->size %
+					((frag->size + sizeof(struct rndis_packet_msg_type)) %
 					RNDIS_FRAME_BYTE_ALIGMENT);
 
 				if ((align_off[i] ==
@@ -735,7 +738,7 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 				align_off[i] = 0;
 				#endif
 
-				total_length += frag->size + align_off[i];
+				total_length += frag->size + sizeof(struct rndis_packet_msg_type) + align_off[i];
 			}
 			req->buf = kmalloc(total_length, GFP_ATOMIC);
 
@@ -762,7 +765,7 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 		} else {
 
 			align_off[0] = 0;
-			req->buf = kmalloc(skb->data_len, GFP_ATOMIC);
+			req->buf = kmalloc((skb->data_len + sizeof(struct rndis_packet_msg_type)), GFP_ATOMIC );
 
 			if (unlikely(!req->buf)) {
 
@@ -781,29 +784,26 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 				multiframe->skb = NULL;
 				return;
 			}
-			length = skb->data_len;
+			length = skb->data_len + sizeof(struct rndis_packet_msg_type);
 		}
 
 		for (i = 0; i < nr_frag; i++) {
 			u8 *vaddr;
 
 			frag = &skb_shinfo(skb)->frags[i];
-
+			rndis_header =
+				(void *) ((u8 *)req->buf+data_copied);
+			memset(rndis_header, 0, sizeof *rndis_header);
+			rndis_header->MessageType = cpu_to_le32(REMOTE_NDIS_PACKET_MSG);
+			rndis_header->MessageLength = cpu_to_le32(frag->size + align_off[i] + sizeof *rndis_header);
+			rndis_header->DataOffset = cpu_to_le32(36);
+			rndis_header->DataLength = cpu_to_le32(frag->size);
+			data_copied +=  sizeof *rndis_header;
 			vaddr = kmap_atomic(skb_frag_page(frag));
 			memcpy((void *)((u8 *)req->buf+data_copied),
 				(void *)(u8 *)(vaddr+frag->page_offset),
 				frag->size);
 			kunmap_atomic(vaddr);
-
-			#if RNDIS_FRAME_BYTE_ALIGMENT > 0
-			if (align_off[i] != 0) {
-				rndis_header =
-					(void *) ((u8 *)req->buf+data_copied);
-				rndis_header->MessageLength =
-					cpu_to_le32(frag->size + align_off[i]);
-			}
-			#endif
-
 			data_copied +=  frag->size + align_off[i];
 		}
 
@@ -1052,9 +1052,7 @@ int gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	hrtimer_init(&multiframe->tx_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	multiframe->tx_timer.function =
 			&multiframe_timer_timeout;
-	tasklet_init(&multiframe->taskl,
-				multiframe_timer_timeout_tasklet,
-				(unsigned long)multiframe);
+	tasklet_init(&multiframe->taskl, multiframe_timer_timeout_tasklet, (unsigned long)multiframe);
 
 	INIT_WORK(&dev->work, eth_work);
 	INIT_LIST_HEAD(&dev->tx_reqs);
@@ -1225,8 +1223,12 @@ void gether_disconnect(struct gether *link)
 		return;
 
 	DBG(dev, "%s\n", __func__);
-	tasklet_kill(&multiframe->taskl);
 	netif_stop_queue(dev->net);
+
+	if (hrtimer_active(&multiframe->tx_timer))
+		hrtimer_cancel(&multiframe->tx_timer);
+
+	tasklet_kill(&multiframe->taskl);
 	netif_carrier_off(dev->net);
 
 	/* disable endpoints, forcing (synchronous) completion
