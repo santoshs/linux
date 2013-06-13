@@ -340,6 +340,7 @@ struct zinitix_touch_dev {
 	bool	cmd_is_running;
 #endif
 
+	struct mutex touchkey_led_lock;
 };
 
 
@@ -4305,6 +4306,7 @@ static void key_led_set(struct led_classdev *led_cdev,
 	struct zinitix_touch_dev *data = container_of(led_cdev, struct zinitix_touch_dev, led);
 	struct i2c_client *client = data->client;
 
+	mutex_lock(&data->touchkey_led_lock);
 	data->led_brightness = value;
 
 	printk("%s, data->led_brightness=%d\n",__func__, data->led_brightness);
@@ -4314,7 +4316,8 @@ static void key_led_set(struct led_classdev *led_cdev,
 	} else if (value == 0 && current_intensity != 0) {
 		touchkey_led_on(data, 0);
 	}
-	current_intensity = value;		
+	current_intensity = value;
+	mutex_unlock(&data->touchkey_led_lock);
 }
 
 
@@ -4494,6 +4497,7 @@ static int zinitix_touch_probe(struct i2c_client *client,
 		goto err_input_register_device;
 	}
 
+	mutex_init(&touch_dev->touchkey_led_lock);
 
 #if TOUCH_BOOSTER
  	mutex_init(&touch_dev->dvfs_lock);
