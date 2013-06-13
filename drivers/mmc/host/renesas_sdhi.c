@@ -1385,10 +1385,12 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		host->dynamic_clock = 0;
 	}
 
-	if (host->connect == 1)
+	if(host->connect == 1) {
 		wakeup_from_suspend_sd = 1;
-	else
+		check_booting = 1;
+	} else {
 		wakeup_from_suspend_sd = 0;
+	}
 
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		/* updating the SD card presence*/

@@ -55,6 +55,9 @@
 #endif
 #include <mach/setup-u2sci.h>
 
+#ifdef CONFIG_ARCH_SHMOBILE
+void __iomem *dummy_write_mem;
+#endif
 static struct map_desc r8a7373_io_desc[] __initdata = {
 /*
  * TODO: Porting  parameter.
@@ -1250,7 +1253,18 @@ void __init r8a7373_add_standard_devices(void)
 	}
 /* ES2.0 change end */
 }
-
+/*Do Dummy write in L2 cache to avoid A2SL turned-off
+	just after L2-sync operation */
+#ifdef CONFIG_ARCH_SHMOBILE
+void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
+{
+	dummy_write_mem = ioremap_nocache(
+	(unsigned long)(SDRAM_NON_SECURE_SPINLOCK_START_ADDR + 0x00000400),
+	0x00000400/*1k*/);
+	if (dummy_write_mem == NULL)
+		printk(KERN_ERR "97373_a2slpowerdown_workaround Failed\n");
+}
+#endif
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
 extern spinlock_t sh_cmt_lock;
 
@@ -1544,52 +1558,90 @@ void SBSC_Init_520Mhz(void)
 }
 EXPORT_SYMBOL_GPL(SBSC_Init_520Mhz);
 
-static unsigned int board_rev_val;
-
-unsigned int u2_get_board_rev(void)
+static int read_board_rev(void)
 {
-	return board_rev_val;
-}
-EXPORT_SYMBOL_GPL(u2_get_board_rev);
-
-int read_board_rev(void)
-{
-	unsigned int rev0, rev1, rev2, rev3, ret;
-
+	int rev0, rev1, rev2, rev3, ret;
 	int error;
 	error = gpio_request(GPIO_PORT72, "HW_REV0");
 	if (error < 0)
-		return error;
+		goto ret_err;
+	error = gpio_direction_input(GPIO_PORT72);
+	if (error < 0)
+		goto ret_err1;
+	rev0 = gpio_get_value(GPIO_PORT72);
+	if (rev0 < 0) {
+		error = rev0;
+		goto ret_err1;
+	}
+
 	error = gpio_request(GPIO_PORT73, "HW_REV1");
 	if (error < 0)
-		return error;
+		goto ret_err1;
+	error = gpio_direction_input(GPIO_PORT73);
+	if (error < 0)
+		goto ret_err2;
+	rev1 = gpio_get_value(GPIO_PORT73);
+	if (rev1 < 0) {
+		error = rev1;
+		goto ret_err2;
+	}
+
 	error = gpio_request(GPIO_PORT74, "HW_REV2");
 	if (error < 0)
-		return error;
+		goto ret_err2;
+	error = gpio_direction_input(GPIO_PORT74);
+	if (error < 0)
+		goto ret_err3;
+	rev2 = gpio_get_value(GPIO_PORT74);
+	if (rev2 < 0) {
+		error = rev2;
+		goto ret_err3;
+	}
+
 	error = gpio_request(GPIO_PORT75, "HW_REV3");
 	if (error < 0)
-		return error;
-
-	gpio_direction_input(GPIO_PORT72);
-	gpio_direction_input(GPIO_PORT73);
-	gpio_direction_input(GPIO_PORT74);
-	gpio_direction_input(GPIO_PORT75);
-
-	rev0 = gpio_get_value(GPIO_PORT72);
-	rev1 = gpio_get_value(GPIO_PORT73);
-	rev2 = gpio_get_value(GPIO_PORT74);
+		goto ret_err3;
+	error = gpio_direction_input(GPIO_PORT75);
+	if (error < 0)
+		goto ret_err4;
 	rev3 = gpio_get_value(GPIO_PORT75);
-
-	gpio_free(GPIO_PORT72);
-	gpio_free(GPIO_PORT73);
-	gpio_free(GPIO_PORT74);
-	gpio_free(GPIO_PORT75);
+	if (rev3 < 0) {
+		error = rev3;
+		goto ret_err4;
+	}
 
 	ret =  rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0;
-	board_rev_val = ret;
-	return 0;
+	return ret;
+ret_err4:
+	 gpio_free(GPIO_PORT75);
+ret_err3:
+	 gpio_free(GPIO_PORT74);
+ret_err2:
+	 gpio_free(GPIO_PORT73);
+ret_err1:
+	 gpio_free(GPIO_PORT72);
+ret_err:
+	return error;
 }
-EXPORT_SYMBOL_GPL(read_board_rev);
+unsigned int u2_get_board_rev(void)
+{
+	static int board_rev_val = -1;
+	unsigned int loop = 0;
+
+	/*if Revision read is faild for 3 times genarate panic*/
+	if (unlikely(board_rev_val < 0)) {
+		for (loop = 0; loop < 3; loop++) {
+			board_rev_val = read_board_rev();
+			if (board_rev_val >= 0)
+				break;
+		}
+		if (unlikely(loop == 3))
+			panic("Board revision not found\n");
+	}
+	/*board revision is always be a +value*/
+	return (unsigned int) board_rev_val;
+}
+EXPORT_SYMBOL_GPL(u2_get_board_rev);
 
 void r8a7373_l2cache_init(void)
 {

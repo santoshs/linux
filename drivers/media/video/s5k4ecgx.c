@@ -58,9 +58,17 @@ static ssize_t maincamflash_S5K4ECGX_store(struct device *dev,
 	return count;
 }
 
+static ssize_t subvendorid_S5K4ECGX_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	char *vendorid = "0x0302";
+	return sprintf(buf, "%s\n", vendorid);
+}
+
 static DEVICE_ATTR(rear_camtype, 0644, subcamtype_S5K4ECGX_show, NULL);
 static DEVICE_ATTR(rear_camfw, 0644, subcamfw_S5K4ECGX_show, NULL);
 static DEVICE_ATTR(rear_flash, 0664, NULL, maincamflash_S5K4ECGX_store);
+static DEVICE_ATTR(rear_vendorid, 0644, subvendorid_S5K4ECGX_show, NULL);
 
 struct S5K4ECGX_datafmt {
 	enum v4l2_mbus_pixelcode	code;
@@ -428,6 +436,13 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 				"failed to create main camera "
 				"device file, %s\n",
 				dev_attr_rear_flash.attr.name);
+		}
+		if (device_create_file(sec_main_cam_dev,
+					&dev_attr_rear_vendorid) < 0) {
+			dev_err(&client->dev,
+				"failed to create main camera "
+				"device file, %s\n",
+				dev_attr_rear_vendorid.attr.name);
 		}
 	}
 

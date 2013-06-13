@@ -740,7 +740,7 @@ static inline int __set_all_clocks(unsigned int z_freq)
  * Argument:	none
  * Return:	0: normal
  *		negative: operation fail
-*/
+ */
 int disable_early_suspend_clock(void)
 {
 	int usage_count = 0;

@@ -801,12 +801,14 @@ static void smb328a_work_func(struct work_struct *work)
 #endif
 
 	val = smb328a_read_reg(p->client, SMB328A_BATTERY_CHARGING_STATUS_C);
-	
-	if((val & STATUS_C_CHARGER_ERROR) || (val & STATUS_C_SAFETY_TIMER_STATUS)) {
-		smb328a_disable_charging(p->client);		
+
+	if((val & (STATUS_C_TERMINATED_ONE_CYCLED|STATUS_C_TERMINATED_LOW_CURRENT
+		| STATUS_C_CHARGER_ERROR | STATUS_C_SAFETY_TIMER_STATUS))		// 01 --> pre charger timer // 10 --> complete charger
+		&& ((val&STATUS_C_SAFETY_TIMER_STATUS) != STATUS_C_SAFETY_TIMER_STATUS)) {	// 11 --> waiting charger
+		smb328a_disable_charging(p->client);
 		smb328a_enable_charging(p->client);
 		pr_info("%s charger is unexpected error.enable again.\n", __func__);
-	}		
+	}
 
 
 	for(i = 0; i < 0xb; i++){
@@ -894,12 +896,13 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
 
-	if((val & STATUS_C_CHARGER_ERROR) || (val & STATUS_C_SAFETY_TIMER_STATUS)) {
-		smb328a_disable_charging(client);		
+	if(val & (STATUS_C_TERMINATED_ONE_CYCLED | STATUS_C_TERMINATED_LOW_CURRENT |
+		STATUS_C_CHARGER_ERROR | STATUS_C_SAFETY_TIMER_STATUS)) {
+		smb328a_disable_charging(client);
 		smb328a_enable_charging(client);
 		pr_info("%s charger is unexpected error.enable again.\n", __func__);
-	}		
-	
+	}
+
 	smb328a_charger_function_conrol(client, 500);
 
 	smb328a_irq_init(client);

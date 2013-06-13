@@ -54,6 +54,10 @@
 #define D2153_IOCTL_READ_REG  			0xc0025083
 #define D2153_IOCTL_WRITE_REG 			0x40025084
 
+#define D2153_AA_Silicon    0x00
+#define D2153_AB_Silicon    0x10
+#define D2153_AC_Silicon    0x20
+
 typedef struct {
 	unsigned long reg;
 	unsigned short val;

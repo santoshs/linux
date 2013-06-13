@@ -43,16 +43,10 @@ static void shmobile_init_cpg_lock(void);
 /* SBSC register address for ZQ calibration */
 static struct shared_area *sh_area;
 
-/* Modem/APE parameter sharing */
-#define LOCK_TIME_OUT_MS 10
-
 /* static struct hwspinlock *sw_cpg_lock; */
 struct hwspinlock *sw_cpg_lock;
 static int cpg_lock_init;
 static void __iomem *shared_area_base;
-
-/* Flag to check whether changing clock in suspend processing or not */
-unsigned int is_suspend_setclock;
 
 static struct resource cpg_sem_res[] = {
 	{
@@ -74,7 +68,6 @@ void shmobile_sbsc_init(void)
 
 	/* Enable the change for Modem */
 	cpg_enable_sbsc_change_for_modem();
-	is_suspend_setclock = 0;
 	shmobile_init_cpg_lock();
 }
 
@@ -196,19 +189,32 @@ unsigned int shmobile_get_pll_reprogram(void)
 
 }
 
+/*
+ * shmobile_hwspin_lock_timeout: lock hwspinlock, with timeout
+ *
+ * Arguments:
+ * @hwlock: the hwspinlock to be locked
+ * @mode: HWLOCK_NOSPIN(unlock spinlock) or 0(without nospin)
+ * @timeout: timeout value in usecs
+ *
+ * Return:
+ *		0: successful
+ *		-ETIMEDOUT: timeout
+ *		-EINVAL: @hwlock is invalid
+ */
 static int shmobile_hwspin_lock_timeout(
-	struct hwspinlock *hwlock, unsigned int timeout)
+	struct hwspinlock *hwlock, int mode, unsigned int timeout)
 {
 	int ret;
 	unsigned long expire;
 	unsigned long cnt;
 
-	expire = timeout * 1000;
+	expire = timeout;
 	for (cnt = 0; cnt < expire; cnt++) {
 		/* Try to take the hwspinlock */
-		ret = __hwspin_trylock(hwlock, 0, NULL);
-		if (ret == 0)
-			return 0;
+		ret = __hwspin_trylock(hwlock, mode, NULL);
+		if (-EBUSY != ret)
+			return ret;
 		/*
 		 * -EBUSY, to retry again Wait 1us.
 		 */
@@ -217,7 +223,37 @@ static int shmobile_hwspin_lock_timeout(
 	return -ETIMEDOUT;
 }
 
-int shmobile_acquire_cpg_lock(unsigned long *flags)
+/*
+ * shmobile_hwspin_lock_timeout_nospin: lock hwspinlock, with timeout
+ *                                      , unlock spinlock
+ * Arguments:
+ * @hwlock: the hwspinlock to be locked
+ * @timeout: timeout value in usecs
+ *
+ * Return:
+ *		0: successful
+ *		-ETIMEDOUT: timeout
+ *		-EINVAL: @hwlock is invalid
+ */
+int shmobile_hwspin_lock_timeout_nospin(
+	struct hwspinlock *hwlock, unsigned int timeout)
+{
+	return shmobile_hwspin_lock_timeout(hwlock, HWLOCK_NOSPIN, timeout);
+}
+EXPORT_SYMBOL_GPL(shmobile_hwspin_lock_timeout_nospin);
+
+/*
+ * shmobile_acquire_cpg_lock: lock hwspinlock
+ * Arguments:
+ * @flags: a pointer to where the caller's interrupt state will be saved at
+ * @timeout: timeout value in usecs
+ *
+ * Return:
+ *		0: successful
+ *		-ETIMEDOUT: timeout
+ *		-EINVAL: @hwlock is invalid
+ */
+int shmobile_acquire_cpg_lock(unsigned long *flags, unsigned int timeout)
 {
 	int ret = 0;
 #ifdef ZB3_CLK_DFS_ENABLE
@@ -228,15 +264,8 @@ int shmobile_acquire_cpg_lock(unsigned long *flags)
 	if (cpg_lock_init == 0)
 		return 0;
 
-	if (!is_suspend_setclock)
-		ret = shmobile_hwspin_lock_timeout(sw_cpg_lock,
-							LOCK_TIME_OUT_MS);
-	else
-		ret = hwspin_trylock_nospin(sw_cpg_lock);
-
-	if (ret < 0)
-		pr_info("Can't lock hwlock_cpg\n");
-
+	ret = shmobile_hwspin_lock_timeout(sw_cpg_lock,
+					HWLOCK_NOSPIN, timeout);
 #endif /*ZB3_CLK_DFS_ENABLE*/
 	return ret;
 }
@@ -248,12 +277,26 @@ int shmobile_release_cpg_lock(unsigned long *flags)
 	if (cpg_lock_init == 0)
 		return 0;
 
-	if (!is_suspend_setclock)
-		hwspin_unlock(sw_cpg_lock);
-	else
-		hwspin_unlock_nospin(sw_cpg_lock);
+	hwspin_unlock_nospin(sw_cpg_lock);
 #endif /*ZB3_CLK_DFS_ENABLE*/
 	return 0;
 }
 EXPORT_SYMBOL_GPL(shmobile_release_cpg_lock);
+
+/*
+ * shmobile_get_lock_cpg_nospin: get SW semaphore ID
+ * Arguments:
+ * @none
+ *
+ * Return:
+ *	0x00: Open state
+ *	0x01: AP Realtime side
+ *	0x40: AP System side
+ *	0x93: Baseband side
+ */
+u32 shmobile_get_lock_cpg_nospin(void)
+{
+	return hwspin_get_lock_id_nospin(sw_cpg_lock);
+}
+EXPORT_SYMBOL_GPL(shmobile_get_lock_cpg_nospin);
 

@@ -5802,9 +5802,9 @@ static int tps80032_init_power_hw(struct tps80032_data *data)
 	PMIC_DEBUG_MSG(">>> %s start\n", __func__);
 
 	/* Check board revision and setting for LDO5 voltage */
-	if (RLTE_BOARD_REV_0_4 <= u2_get_board_rev())
+	if (BOARD_REV_0_4 <= u2_get_board_rev())
 		val = E_LDO_VOLTAGE_3_3000V;
-	else if (RLTE_BOARD_REV_0_3 <= u2_get_board_rev())
+	else if (BOARD_REV_0_3 <= u2_get_board_rev())
 		val = E_LDO_VOLTAGE_3_0000V;
 	else
 		val = E_LDO_VOLTAGE_2_5000V;

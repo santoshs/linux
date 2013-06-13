@@ -161,7 +161,7 @@ static struct common_reg_table clkgen_reg_tbl_captureA_S[] = {
 /*        Reg		 Val	     D  C */
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
 	{ CLKG_TIMSEL1,	 0x00000200, 0, 0x00000200 }, /* REC TIM1(PortA) */
-	{ CLKG_FSISEL,	 0x00000001, 0, 0 }, /* 1:Select FSIAOBT/FSIAOLR */
+	{ CLKG_FSISEL,	 0x00000001, 0, 0x00000001 }, /* 1:Select FSIAOBT/FSIAOLR */
 };
 
 /* Table for Capture(PortB, CLKGEN slave) */
@@ -169,7 +169,7 @@ static struct common_reg_table clkgen_reg_tbl_captureB_S[] = {
 /*        Reg		 Val	     D  C */
 	{ CLKG_SYSCTL,	 0x00000000, 0, 0 }, /* EXTAL1 clock supply */
 	{ CLKG_TIMSEL1,	 0x00000000, 0, 0 }, /* REC TIM1(PortB) */
-	{ CLKG_FSISEL,	 0x00000002, 0, 0 }, /* 1:Select FSIBOBT/FSIBOLR */
+	{ CLKG_FSISEL,	 0x00000002, 0, 0x00000002 }, /* 1:Select FSIBOBT/FSIBOLR */
 };
 
 #ifdef __SNDP_INCALL_CLKGEN_MASTER
@@ -270,7 +270,7 @@ int clkgen_start(const u_int uiValue, const int iRate, const u_int btscorate)
 				g_clkgen_btscorate = btscorate;
 
 				/* Clock framework API, Status ON */
-				audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON);
+				audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON, 1);
 				/* Path setting API call */
 				g_clkgen_ctrl_func_tbl[iCnt].func(uiValue);
 			}
@@ -303,7 +303,7 @@ void clkgen_stop(void)
 	g_clkgen_rate = 0;
 
 	/* Clock framework API, Status OFF */
-	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF);
+	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF, 1);
 
 	sndp_log_debug_func("end\n");
 }
@@ -611,7 +611,7 @@ void clkgen_reg_dump(void)
 void clkgen_play_test_start_a(void)
 {
 	/* Clock framework API, Status ON */
-	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON);
+	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON, 1);
 
 	iowrite32(0x00000000, (g_clkgen_Base + CLKG_SYSCTL));
 	iowrite32(0x00212901, (g_clkgen_Base + CLKG_FSIACOM));
@@ -623,7 +623,7 @@ void clkgen_play_test_start_a(void)
 void clkgen_rec_test_start_a(void)
 {
 	/* Clock framework API, Status ON */
-	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON);
+	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON, 1);
 
 	iowrite32(0x00000000, (g_clkgen_Base + CLKG_SYSCTL));
 	iowrite32(0x00000000, (g_clkgen_Base + CLKG_TIMSEL1));
@@ -636,7 +636,7 @@ void clkgen_rec_test_start_a(void)
 void clkgen_voice_test_start_a(void)
 {
 	/* Clock framework API, Status ON */
-	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON);
+	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_ON, 1);
 
 	iowrite32(0x00000000, (g_clkgen_Base + CLKG_SYSCTL));
 	iowrite32(0x00212401, (g_clkgen_Base + CLKG_SPUVCOM));
@@ -652,7 +652,7 @@ void clkgen_play_test_stop_a(void)
 	clkgen_reg_dump();
 
 	/* Clock framework API, Status OFF */
-	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF);
+	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF, 1);
 }
 
 void clkgen_rec_test_stop_a(void)
@@ -660,7 +660,7 @@ void clkgen_rec_test_stop_a(void)
 	clkgen_reg_dump();
 
 	/* Clock framework API, Status OFF */
-	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF);
+	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF, 1);
 }
 
 void clkgen_voice_test_stop_a(void)
@@ -668,7 +668,7 @@ void clkgen_voice_test_stop_a(void)
 	clkgen_reg_dump();
 
 	/* Clock framework API, Status OFF */
-	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF);
+	audio_ctrl_func(SNDP_HW_CLKGEN, STAT_OFF, 1);
 }
 
 #endif /* SOUND_TEST */

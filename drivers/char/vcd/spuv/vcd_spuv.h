@@ -1,4 +1,4 @@
-/* vcd_spuv.h
+﻿/* vcd_spuv.h
  *
  * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
@@ -117,8 +117,16 @@
 		"[ -> SPUV ] SPUV_HW_PARAMETERS_IND\n"
 #define VCD_SPUV_ACTIVE_REQ_LOG			\
 		"[ -> SPUV ] SPUV_ACTIVE_REQ\n"
-#define VCD_SPUV_SPEECH_START_REQ_LOG		\
-		"[ -> SPUV ] SPUV_SPEECH_START_REQ\n"
+#define VCD_SPUV_SPEECH_START_REQ_CS_LOG	\
+		"[ -> SPUV ] SPUV_SPEECH_START_REQ CS\n"
+#define VCD_SPUV_SPEECH_START_REQ_VOIP_LOG	\
+		"[ -> SPUV ] SPUV_SPEECH_START_REQ VOIP\n"
+#define VCD_SPUV_SPEECH_START_REQ_VOLTE_LOG	\
+		"[ -> SPUV ] SPUV_SPEECH_START_REQ VOLTE\n"
+#define VCD_SPUV_SPEECH_START_REQ_VT_LOG	\
+		"[ -> SPUV ] SPUV_SPEECH_START_REQ VT\n"
+#define VCD_SPUV_SPEECH_START_REQ_UNKNOWN_LOG	\
+		"[ -> SPUV ] SPUV_SPEECH_START_REQ UNKNOWN\n"
 #define VCD_SPUV_SPEECH_STOP_REQ_LOG		\
 		"[ -> SPUV ] SPUV_SPEECH_STOP_REQ\n"
 #define VCD_SPUV_VOICE_RECORDING_START_REQ_LOG	\
@@ -294,8 +302,6 @@ void vcd_spuv_init_playback_buffer_id(void);
 int vcd_spuv_get_call_type(void);
 void vcd_spuv_voip_ul(unsigned int *buf_size);
 void vcd_spuv_voip_dl(unsigned int *buf_size);
-void vcd_spuv_voip_ul_playback(unsigned int mode);
-void vcd_spuv_voip_dl_playback(unsigned int mode);
 void vcd_spuv_update_voip_ul_buffer_id(void);
 void vcd_spuv_update_voip_dl_buffer_id(void);
 int vcd_spuv_resampler_init(void);

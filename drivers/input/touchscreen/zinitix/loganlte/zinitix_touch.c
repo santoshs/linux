@@ -340,6 +340,8 @@ struct zinitix_touch_dev {
 	bool	cmd_is_running;
 #endif
 
+ 	struct mutex touchkey_led_lock;
+
 };
 
 
@@ -1042,10 +1044,6 @@ static bool ts_mini_init_touch(struct zinitix_touch_dev *touch_dev)
 	if (ts_write_reg(touch_dev->client,0x0142, 30) != I2C_SUCCESS)
 		goto fail_mini_init;
 
-#if 0 // Only for TFM
-	if (ts_write_reg(touch_dev->client,0x003f, 0x2419) != I2C_SUCCESS)
-		goto fail_mini_init;
-#endif
 
 #if defined(CONFIG_SEC_MAKE_LCD_TEST)
 	if (ts_write_reg(touch_dev->client,0xfc,1) != I2C_SUCCESS)
@@ -1056,6 +1054,21 @@ static bool ts_mini_init_touch(struct zinitix_touch_dev *touch_dev)
 	 
 	if (ts_write_reg(touch_dev->client,0x10b,1) != I2C_SUCCESS)
 	    goto fail_mini_init;
+
+	if (ts_write_reg(touch_dev->client,0x0112,0x0204) != I2C_SUCCESS)
+	    goto fail_mini_init;
+	 
+	if (ts_write_reg(touch_dev->client,0x0017,0x92DC) != I2C_SUCCESS)
+	    goto fail_mini_init;
+	 
+	if (ts_write_reg(touch_dev->client,0x011D,0xACA3) != I2C_SUCCESS)
+	    goto fail_mini_init;	
+
+	if (ts_write_reg(touch_dev->client,0x00C7,0x1000) != I2C_SUCCESS)
+	    goto fail_mini_init;		
+#else
+//	if (ts_write_reg(touch_dev->client,0x003f, 0x2419) != I2C_SUCCESS)
+//		goto fail_mini_init;
 #endif
 
 	if (touch_dev->use_esd_timer) {
@@ -1903,11 +1916,6 @@ retry_init:
 	if (ts_write_reg(touch_dev->client,0x0142, 30) != I2C_SUCCESS)
 		goto fail_init;
 
-#if 0 // Only for TFM
-	if (ts_write_reg(touch_dev->client,0x003f, 0x2419) != I2C_SUCCESS)
-		goto fail_init;
-#endif
-
 #if defined(CONFIG_SEC_MAKE_LCD_TEST)
 	if (ts_write_reg(touch_dev->client,0xfc,1) != I2C_SUCCESS)
 	    goto fail_init;
@@ -1917,8 +1925,22 @@ retry_init:
 	 
 	if (ts_write_reg(touch_dev->client,0x10b,1) != I2C_SUCCESS)
 	    goto fail_init;
-#endif
 
+	if (ts_write_reg(touch_dev->client,0x0112,0x0204) != I2C_SUCCESS)
+	    goto fail_init;
+	 
+	if (ts_write_reg(touch_dev->client,0x0017,0x92DC) != I2C_SUCCESS)
+	    goto fail_init;
+	 
+	if (ts_write_reg(touch_dev->client,0x011D,0xACA3) != I2C_SUCCESS)
+	    goto fail_init;	
+
+	if (ts_write_reg(touch_dev->client,0x00C7,0x1000) != I2C_SUCCESS)
+	    goto fail_init;		
+#else
+//	if (ts_write_reg(touch_dev->client,0x003f, 0x2419) != I2C_SUCCESS)
+//		goto fail_init;
+#endif
 
 	ts_read_data(touch_dev->client, ZINITIX_PERIODICAL_INTERRUPT_INTERVAL,
 		(u8 *)&reg_val, 2);
@@ -3055,11 +3077,11 @@ static void run_reference_read(void *device_data) //SDND
 	min = info->dnd_data[0];
 	max = info->dnd_data[0];
 
-	for(i=0; i<info->cap_info.x_node_num; i++)
+	for(i=0; i<info->cap_info.x_node_num-1; i++)
 	{
 		for(j=0; j<info->cap_info.y_node_num; j++)
 		{
-			printk("[TSP] info->dnd_data : %d ", info->dnd_data[j+i]);
+                        printk("%d ", info->dnd_data[j+i]);
 
 			if(info->dnd_data[j+i] < min)
 			{
@@ -3102,11 +3124,11 @@ static void run_reference_read_DND(void *device_data) //DND
 	min = info->dnd_data[0];
 	max = info->dnd_data[0];
 
-	for(i=0; i<info->cap_info.x_node_num; i++)
+	for(i=0; i<info->cap_info.x_node_num-1; i++)
 	{
 		for(j=0; j<info->cap_info.y_node_num; j++)
 		{
-			printk("[TSP] info->dnd_data : %d ", info->dnd_data[j+i]);
+			printk("%d ", info->dnd_data[j+i]);
 
 			if(info->dnd_data[j+i] < min)
 			{
@@ -4305,6 +4327,8 @@ static void key_led_set(struct led_classdev *led_cdev,
 	struct zinitix_touch_dev *data = container_of(led_cdev, struct zinitix_touch_dev, led);
 	struct i2c_client *client = data->client;
 
+	mutex_lock(&data->touchkey_led_lock);
+	
 	data->led_brightness = value;
 
 	printk("%s, data->led_brightness=%d\n",__func__, data->led_brightness);
@@ -4314,7 +4338,13 @@ static void key_led_set(struct led_classdev *led_cdev,
 	} else if (value == 0 && current_intensity != 0) {
 		touchkey_led_on(data, 0);
 	}
+	else
+	{
+		printk("%s, new value=%d, prev value=%d\n",__func__, value, current_intensity);	
+	}
 	current_intensity = value;		
+
+	mutex_unlock(&data->touchkey_led_lock);
 }
 
 
@@ -4494,6 +4524,8 @@ static int zinitix_touch_probe(struct i2c_client *client,
 		goto err_input_register_device;
 	}
 
+
+	mutex_init(&touch_dev->touchkey_led_lock);
 
 #if TOUCH_BOOSTER
  	mutex_init(&touch_dev->dvfs_lock);

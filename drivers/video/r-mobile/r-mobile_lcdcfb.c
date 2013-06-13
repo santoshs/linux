@@ -87,6 +87,7 @@
 #endif
 
 #define FB_DRM_NUMBER		0x12345678
+#define FB_BLACK_NUMBER		0x55555555
 
 #define IRQ_BIT_NUM		0
 
@@ -646,6 +647,8 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 	/* DRM */
 	if (var->reserved[1] == FB_DRM_NUMBER)
 		set_buff_id = RT_DISPLAY_BUFFER_B;
+	else if (var->reserved[1] == FB_BLACK_NUMBER)
+		set_buff_id = RT_DISPLAY_DRAW_BLACK;
 	else
 		set_buff_id = RT_DISPLAY_BUFFER_A;
 
@@ -706,7 +709,12 @@ static int sh_mobile_fb_pan_display(struct fb_var_screeninfo *var,
 
 #ifdef CONFIG_FB_SH_MOBILE_DOUBLE_BUF
 		disp_draw.handle = screen_handle;
-		disp_draw.output_mode = lcd_ext_param[lcd_num].draw_mode;
+		if (var->reserved[1] == FB_BLACK_NUMBER)
+			disp_draw.output_mode = RT_DISPLAY_LCD1;
+		else
+			disp_draw.output_mode =
+				lcd_ext_param[lcd_num].draw_mode;
+
 		disp_draw.draw_rect.x = lcd_ext_param[lcd_num].rect_x;
 		disp_draw.draw_rect.y = lcd_ext_param[lcd_num].rect_y;
 		disp_draw.draw_rect.width =

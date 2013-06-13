@@ -373,7 +373,7 @@ int scuw_start(const u_int uiValue, const u_int rate)
 	sndp_log_debug_func("start\n");
 
 	/* Start SCUW Clock Supply */
-	audio_ctrl_func(SNDP_HW_SCUW, STAT_ON);
+	audio_ctrl_func(SNDP_HW_SCUW, STAT_ON, 1);
 
 	/* Device check */
 	dev = SNDP_GET_DEVICE_VAL(uiValue);
@@ -428,7 +428,7 @@ int scuw_stop(void)
 	scuw_reg_dump();
 
 	/* Stop SCUW Clock Supply */
-	audio_ctrl_func(SNDP_HW_SCUW, STAT_OFF);
+	audio_ctrl_func(SNDP_HW_SCUW, STAT_OFF, 1);
 
 	sndp_log_debug_func("end\n");
 
@@ -702,7 +702,7 @@ void scuw_reg_dump(void)
 void scuw_voice_test_start_a(void)
 {
 	/* Clock framework API, Status ON */
-	audio_ctrl_func(SNDP_HW_SCUW, STAT_ON);
+	audio_ctrl_func(SNDP_HW_SCUW, STAT_ON, 1);
 
 	iowrite32(0x00000001, (g_scuw_Base + SCUW_SEL_SELCR21));
 	iowrite32(0x00000001, (g_scuw_Base + SCUW_SEL_SELCR15));

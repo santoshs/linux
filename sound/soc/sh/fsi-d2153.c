@@ -117,6 +117,7 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 	if (playback_widget == w) {
 		if (active) {
 			if (priv->spk_en) {
+				msleep(10);
 				snd_soc_update_bits(codec, D2153_SP_CTRL,
 					D2153_SP_AMP_MUTE_EN, 0);
 				sndp_log_info("spk unmute\n");
@@ -125,6 +126,7 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 				snd_soc_update_bits(codec, D2153_EP_CTRL,
 					D2153_EP_AMP_MUTE_EN, 0);
 				sndp_log_info("ep unmute\n");
+				msleep(50);
 			}
 			if (priv->hp_en) {
 				snd_soc_update_bits(codec, D2153_HP_L_CTRL,
@@ -132,8 +134,8 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 				snd_soc_update_bits(codec, D2153_HP_R_CTRL,
 					D2153_HP_AMP_MUTE_EN, 0);
 				sndp_log_info("hp unmute\n");
+				msleep(50);
 			}
-			msleep(50);
 		}
 	} else {
 		if (active) {
@@ -789,8 +791,10 @@ static int fsi_d2153_suspend_pre(struct snd_soc_card *card)
 			playback_widget->active = 0;
 		if (capture_widget)
 			capture_widget->active = 0;
-		sndp_log_info("p->active[%d] c->active[%d]",
-			playback_widget->active, capture_widget->active);
+
+		if (playback_widget && capture_widget)  /* 20130605 for prevent */		
+			sndp_log_info("p->active[%d] c->active[%d]",
+				playback_widget->active, capture_widget->active);
 	}
 out:
 	spin_unlock(&fsi_d2153_lock);

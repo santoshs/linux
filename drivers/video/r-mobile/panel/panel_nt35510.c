@@ -20,6 +20,7 @@
 
 #include <linux/kernel.h>
 #include <linux/delay.h>
+#include <linux/ratelimit.h>
 
 #include <linux/gpio.h>
 
@@ -44,6 +45,8 @@
 /* #define NT35510_GED_ORG */
 
 /* #define NT35510_ENABLE_VIDEO_MODE */
+
+/* #define NT35510_SWITCH_FRAMERATE_40HZ */
 
 #ifdef NT35510_POWAREA_MNG_ENABLE
 #include <rtapi/system_pwmng.h>
@@ -125,9 +128,13 @@
 #define LCD_MASK_MLDDCKPAT1R	0x0FFFFFFF
 #define LCD_MASK_MLDDCKPAT2R	0xFFFFFFFF
 #define LCD_MASK_PHYTEST	0x000003CC
-
-#define LCD_DSI0PCKCR_40HZ	0x00000023
-#define LCD_DSI0PHYCR_40HZ	0x2A80000B
+#ifdef NT35510_SWITCH_FRAMERATE_40HZ
+#define LCD_DSI0PCKCR_40HZ	0x00000025
+#define LCD_DSI0PHYCR_40HZ	0x2A80000D
+#else
+#define LCD_DSI0PCKCR_30HZ	0x0000002E
+#define LCD_DSI0PHYCR_30HZ	0x2A80000C
+#endif
 
 #define NT35510_INIT_RETRY_COUNT 3
 
@@ -137,6 +144,7 @@ static int nt35510_panel_resume(void);
 static void mipi_display_reset(void);
 static void mipi_display_power_off(void);
 static int nt35510_panel_draw(void *screen_handle);
+static int lcdfreq_resume(void);
 
 static struct fb_panel_info r_mobile_info = {
 	.pixel_width	= R_MOBILE_M_PANEL_PIXEL_WIDTH,
@@ -393,8 +401,13 @@ static unsigned char raset[] = { 0x2B,
 /* Normal Display Mode On */
 /*static unsigned char noron[] = { 0x13 };*/
 
+#ifdef NT35510_SWITCH_FRAMERATE_40HZ
 static unsigned char dpfrctr1_40hz[] = { 0xBD,
 		0x02, 0x45, 0x07, 0x32, 0x00 };
+#else
+static unsigned char dpfrctr1_30hz[] = { 0xBD,
+		0x01, 0x84, 0x07, 0x32, 0x01 };
+#endif
 
 static struct specific_cmdset lcdfreq_cmd[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  dpfrctr1,  sizeof(dpfrctr1) },
@@ -402,9 +415,9 @@ static struct specific_cmdset lcdfreq_cmd[] = {
 };
 
 static const struct specific_cmdset initialize_cmdset[] = {
-	{ MIPI_DSI_DELAY,           NULL,      120              },
+/*	{ MIPI_DSI_DELAY,           NULL,      120              },*/
 
-	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr1,  sizeof(maucctr1) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr1,  sizeof(maucctr1) },/*Powersetting Start*/
 	{ MIPI_DSI_DCS_LONG_WRITE,  setavdd,   sizeof(setavdd)  },
 	{ MIPI_DSI_DCS_LONG_WRITE,  bt1ctr,    sizeof(bt1ctr)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setavee,   sizeof(setavee)  },
@@ -416,16 +429,18 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  bt5ctr,    sizeof(bt5ctr)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  btenctr,   sizeof(btenctr)  },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvgp,    sizeof(setvgp)   },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setvgn,    sizeof(setvgn)   },
+	{ MIPI_DSI_DCS_LONG_WRITE,  setvgn,    sizeof(setvgn)   }, /*Powersetting End*/
 
-	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr1,  sizeof(gmprctr1) },
+	{ MIPI_DSI_DELAY,           NULL,      120              },	
+
+	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr1,  sizeof(gmprctr1) },/*Gamma setting Start*/
 	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr2,  sizeof(gmprctr2) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr3,  sizeof(gmprctr3) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr4,  sizeof(gmprctr4) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  gmpgctr1,  sizeof(gmpgctr1) },
-	{ MIPI_DSI_DCS_LONG_WRITE,  gmpgctr2,  sizeof(gmpgctr2) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  gmpgctr2,  sizeof(gmpgctr2) },/*Gamma setting End*/
 
-	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr0,  sizeof(maucctr0) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr0,  sizeof(maucctr0) },/*Display set start*/
 	{ MIPI_DSI_DCS_LONG_WRITE,  sdhdtctr,  sizeof(sdhdtctr) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  gseqctr,   sizeof(gseqctr)  },
 	{ MIPI_DSI_DCS_LONG_WRITE,  sdeqctr,   sizeof(sdeqctr)  },
@@ -443,13 +458,14 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, colmod, sizeof(colmod)	},
 /*	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },*/
 	{ MIPI_DSI_DCS_LONG_WRITE,  caset,  sizeof(caset) },
-	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) }, /*Display set End*/
 	{ MIPI_DSI_DCS_LONG_WRITE, slpout,    sizeof(slpout)   },
-	{ MIPI_DSI_DELAY,           NULL,      150              },
+	{ MIPI_DSI_DELAY,           NULL,      120              },
 	{ MIPI_DSI_BLACK,           NULL,      0                },
 
 #ifndef NT35510_ENABLE_VIDEO_MODE
 	{ MIPI_DSI_DCS_SHORT_WRITE, dispon,    sizeof(dispon)   },
+	{ MIPI_DSI_DELAY,           NULL,      10              },		
 #endif /* NT35510_ENABLE_VIDEO_MODE */
 
 	{ MIPI_DSI_END,             NULL,      0                }
@@ -493,7 +509,7 @@ static int panel_specific_cmdset(void *lcd_handle,
 				   const struct specific_cmdset *cmdset);
 enum lcdfreq_level_idx {
 	LEVEL_NORMAL,		/* 60Hz */
-	LEVEL_LOW,		/* 40Hz */
+	LEVEL_LOW,		/* Power saving mode */
 	LCDFREQ_LEVEL_END
 };
 
@@ -537,7 +553,9 @@ static struct delayed_work esd_check_work;
 static int lcdfreq_lock_free(struct device *dev)
 {
 	void *screen_handle;
+#ifdef NT35510_ENABLE_VIDEO_MODE
 	screen_disp_set_lcd_if_param set_lcd_if_param;
+#endif
 	screen_disp_delete disp_delete;
 	int ret;
 
@@ -545,6 +563,7 @@ static int lcdfreq_lock_free(struct device *dev)
 
 	screen_handle =  screen_display_new();
 
+#ifdef NT35510_ENABLE_VIDEO_MODE
 	/* Setting peculiar to panel */
 	set_lcd_if_param.handle			= screen_handle;
 	set_lcd_if_param.port_no		= irq_portno;
@@ -556,7 +575,7 @@ static int lcdfreq_lock_free(struct device *dev)
 		goto out;
 	}
 
-#ifndef NT35510_ENABLE_VIDEO_MODE
+#else /* command mode */
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, lcdfreq_cmd);
 	if (ret != 0) {
@@ -655,6 +674,9 @@ static int nt35510_panel_simple_reset(void)
 		goto out;
 	}
 	/* End resume sequence */
+
+	/* Resume frame rate */
+	lcdfreq_resume();
 
 	is_dsi_read_enabled = 1;
 
@@ -796,6 +818,7 @@ static ssize_t level_store(struct device *dev,
 	}
 
 	if (value) {
+#ifdef NT35510_SWITCH_FRAMERATE_40HZ
 		/* set freq 40Hz */
 		printk(KERN_ALERT "set low freq(40Hz)\n");
 
@@ -803,6 +826,15 @@ static ssize_t level_store(struct device *dev,
 		r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR_40HZ;
 
 		lcdfreq_cmd[0].data = dpfrctr1_40hz;
+#else
+		/* set freq 30Hz */
+		printk(KERN_ALERT "set low freq(30Hz)\n");
+
+		r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR_30HZ;
+		r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR_30HZ;
+
+		lcdfreq_cmd[0].data = dpfrctr1_30hz;
+#endif
 	} else {
 		/* set freq 60Hz */
 		printk(KERN_ALERT "set normal freq(60Hz)\n");
@@ -1361,6 +1393,11 @@ static int nt35510_panel_init(unsigned int mem_size)
 
 	screen_handle =  screen_display_new();
 
+	/*
+	 * Regulators are already turned on by boot loader, so these
+	 * enable calls only correct the initial enable reference count;
+	 * hence no need for delays.
+	 */
 	regulator_enable(power_ldo_1v8);
 	usleep_range(1000, 1000);
 	regulator_enable(power_ldo_3v);
@@ -1625,7 +1662,9 @@ static int nt35510_panel_resume(void)
 	screen_disp_start_lcd start_lcd;
 	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_delete disp_delete;
-	unsigned char read_data[60];	
+#ifndef CONFIG_RENESAS
+	unsigned char read_data[60];
+#endif
 	int ret = 0;
 	int retry_count = NT35510_INIT_RETRY_COUNT;
 
@@ -1673,13 +1712,27 @@ retry:
 
 	is_dsi_read_enabled = 1;
 
-	/* Read display identification information */
-	ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
-	if (ret == 0) {
-		printk(KERN_DEBUG "read_data(RDID1) = %02X\n", read_data[1]);
-		printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
-		printk(KERN_DEBUG "read_data(RDID3) = %02X\n", read_data[3]);
-	}
+#ifndef CONFIG_RENESAS
+	msleep(120);
+	do{
+		ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
+		if (ret == 0) {
+			printk(KERN_DEBUG "read_data(RDID0) = %02X\n", read_data[0]);	
+			printk(KERN_DEBUG "read_data(RDID1) = %02X\n", read_data[1]);
+			printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
+		}
+		
+		retry_count--;
+		
+		if(retry_count==0){
+			printk("retry_count=%d, DSI read error!!!\n", retry_count);
+			break;
+		}
+
+	}while( read_data[0]!=0x55 || read_data[1]!=0xBC || read_data[2]!=0xC0);
+
+	retry_count = NT35510_INIT_RETRY_COUNT;
+#endif
 
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);

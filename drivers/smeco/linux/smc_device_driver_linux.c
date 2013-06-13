@@ -1,16 +1,22 @@
 /*
-*   Smeco device driver implementation for Linux Kernel.
-*   Copyright © Renesas Mobile Corporation 2011. All rights reserved
+* Copyright (c) 2013, Renesas Mobile Corporation.
 *
-*   This material, including documentation and any related source code
-*   and information, is protected by copyright controlled by Renesas.
-*   All rights are reserved. Copying, including reproducing, storing,
-*   adapting, translating and modifying, including decompiling or
-*   reverse engineering, any or all of this material requires the prior
-*   written consent of Renesas. This material also contains
-*   confidential information, which may not be disclosed to others
-*   without the prior written consent of Renesas.
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful, but
+* WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+* more details.
+*
+* You should have received a copy of the GNU General Public License along
+* with this program; if not, write to the Free Software Foundation, Inc.,
+* 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 #if 0
 /*
 Change history:
@@ -770,6 +776,8 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
 
 #ifdef SMC_NETDEV_WAKELOCK_IN_TX
 
+        if( smc_channel != NULL )
+        {
             /* Check if the TX queue is empty */
         tx_queue = netdev_get_tx_queue(device, 0);
         tx_queue_len = qdisc_qlen(tx_queue->qdisc);
@@ -789,11 +797,11 @@ static int smc_net_device_driver_xmit(struct sk_buff* skb, struct net_device* de
                 wake_unlock( (struct wake_lock*)smc_channel->smc_tx_wakelock );
             }
         }
-        else if( smc_channel != NULL )
+            else
         {
             SMC_TRACE_PRINTF_APE_WAKELOCK_TX("smc_net_device_driver_xmit: channel %d: wake_lock not unlocked: device TX queue len %d", skb_queue_mapping, tx_queue_len);
         }
-
+        }
 #endif
         return ret_val;
      }

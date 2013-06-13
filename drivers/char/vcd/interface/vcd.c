@@ -281,13 +281,13 @@ void vcd_stop_fw(int result)
 
 
 /**
- * @brief	fw stop notification function for playback stored.
+ * @brief	fw stop notification function for only sound driver.
  *
  * @param	none.
  *
  * @retval	none.
  */
-void vcd_stop_fw_stored_playback(void)
+void vcd_stop_fw_only_sound(void)
 {
 	vcd_pr_start_if_user();
 
@@ -368,7 +368,7 @@ static void vcd_async_notify(unsigned int cb_type, int result)
 	(LIBVCD_CB_TYPE_VCD_END == cb_type)) {
 		async_info = &g_vcd_status_async_map->status[cb_type];
 		async_info->result = abs(result);
-		async_info->pre_write = true;
+		async_info->pre_write = LIBVCD_TRUE;
 		atomic_set(&g_vcd_async_wait.readable, VCD_POLL_READ_OK);
 		wake_up_interruptible(&g_vcd_async_wait.read_q);
 	} else {
@@ -515,7 +515,6 @@ void vcd_release_semaphore(void)
  *
  * @retval	VCD_ERR_NONE	successful.
  * @retval	VCD_ERR_PARAM	invalid argument.
- * @retval	VCD_ERR_NOT_SUPPORT	chip revision error.
  * @retval	others		result of called function.
  */
 int vcd_execute(const struct vcd_execute_command *args)

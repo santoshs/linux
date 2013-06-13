@@ -77,7 +77,6 @@ extern unsigned int suspend_ZB3_backup(void);
 extern int shmobile_init_pm(void);
 extern struct hwspinlock *gen_sem1;
 extern struct hwspinlock *sw_cpg_lock;
-extern unsigned int is_suspend_setclock;
 extern unsigned int is_suspend_request;
 extern int start_corestandby(void);
 extern int start_corestandby_2(void);

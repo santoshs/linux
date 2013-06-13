@@ -1869,7 +1869,6 @@ static void spa_delayed_init_work(struct work_struct *work)
 		if(spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY)
 		{
 			spa_event_handler(SPA_EVT_CHARGER, (void *)(spa_power_iter->charger_info.charger_type));
-
 #ifdef CONFIG_BATTERY_D2153
 			d2153_battery_set_status(D2153_STATUS_CHARGING, 1);
 #endif
@@ -1885,7 +1884,7 @@ static void spa_delayed_init_work(struct work_struct *work)
 		}
 #endif
 #if 0 //def CONFIG_BATTERY_D2153
-	if(spa_power_iter->lp_charging)
+		if(spa_power_iter->lp_charging)
 			d2153_battery_set_status(D2153_STATUS_CHARGING, 1);
 		else
 			d2153_battery_set_status(D2153_STATUS_CHARGING, 0);

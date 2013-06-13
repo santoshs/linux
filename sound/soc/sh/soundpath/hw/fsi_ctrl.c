@@ -170,7 +170,7 @@ static struct common_reg_table fsi_reg_tbl_playA_M[] = {
 	/* Divider clock 1 / 73 (112.125 / 73 = 1.53MHz) */
 	{ FSI_FSIDIVA,	0x00490003,	0, 0 },
 	/* 32 fs, 16bit/fs, DIIS:Slave, DOIS:Master, 47.998kHz(1.53M/32) */
-	{ FSI_ACK_MD,	0x00004001,	0, 0 },
+	{ FSI_ACK_MD,	0x00004001,	0, 0x00004101 },
 	/* LRM:Clock not inverted, BRM:Clock inverted */
 	{ FSI_ACK_RV,	0x00000100,	0, 0 },
 	/* 16bits, PCM format, I2S */
@@ -255,13 +255,13 @@ static struct common_reg_table fsi_reg_tbl_dl_mute_off[] = {
 /*!
    @brief FSI start function
 
-   @param[in]	uiValue		PCM type
-   @param[out]	none
+   @param[in]   uiValue     PCM type
+   @param[out]  none
 
-   @retval	0		Successful
-   @retval	-EINVAL		Invalid argument
+   @retval  0           Successful
+   @retval  -EINVAL     Invalid argument
  */
-int fsi_start(const u_int uiValue)
+int fsi_start(const u_int uiValue, const u_int uiRegClr)
 {
 	/* Local variable declaration */
 	int iCnt;
@@ -277,7 +277,7 @@ int fsi_start(const u_int uiValue)
 			if (NULL != g_fsi_func_tbl[iCnt].func) {
 				g_fsi_ui1stPathValue = uiValue;
 				/* Clock framework API, Status ON */
-				audio_ctrl_func(SNDP_HW_FSI, STAT_ON);
+				audio_ctrl_func(SNDP_HW_FSI, STAT_ON, uiRegClr);
 				/* Path setting API call */
 				g_fsi_func_tbl[iCnt].func(uiValue);
 			}
@@ -295,19 +295,19 @@ int fsi_start(const u_int uiValue)
 /*!
    @brief FSI stop function
 
-   @param[in]	none
+   @param[in]	regclr	Regisetr clear bit
    @param[out]	none
 
    @retval	none
  */
-void fsi_stop(void)
+void fsi_stop(const u_int regclr)
 {
 	sndp_log_debug_func("start\n");
 
 	fsi_reg_dump(g_fsi_ui1stPathValue);
 
 	/* Clock framework API, Status OFF */
-	audio_ctrl_func(SNDP_HW_FSI, STAT_OFF);
+	audio_ctrl_func(SNDP_HW_FSI, STAT_OFF, regclr);
 
 	/* PCM clear */
 	g_fsi_ui1stPathValue = SNDP_VALUE_INIT;
@@ -742,9 +742,9 @@ void fsi_soft_reset(void)
 {
 	sndp_log_debug_func("start\n");
 
-	audio_ctrl_func(SNDP_HW_FSI, STAT_ON);
+	audio_ctrl_func(SNDP_HW_FSI, STAT_ON, 1);
 
-	audio_ctrl_func(SNDP_HW_FSI, STAT_OFF);
+	audio_ctrl_func(SNDP_HW_FSI, STAT_OFF, 1);
 
 	sndp_log_debug_func("end\n");
 }
@@ -966,7 +966,7 @@ int fsi_test_init_a()
 	}
 
 	/* Clock framework API, Status ON */
-	audio_ctrl_func(SNDP_HW_FSI, STAT_ON);
+	audio_ctrl_func(SNDP_HW_FSI, STAT_ON, 1);
 
 	/* IRQ Disable */
 	reg = ioread32(g_fsi_Base + FSI_CPU_IMSK);
@@ -1157,7 +1157,7 @@ void fsi_test_stop_a(void)
 	mdelay(3);
 
 	/* Clock framework API, Status OFF */
-	audio_ctrl_func(SNDP_HW_FSI, STAT_OFF);
+	audio_ctrl_func(SNDP_HW_FSI, STAT_OFF, 1);
 
 	/* FSI stop */
 	fsi_test_status_a = TEST_NONE;
@@ -1280,7 +1280,7 @@ int fsi_voice_test_start_a(void)
 	}
 
 	/* Clock framework API, Status ON */
-	audio_ctrl_func(SNDP_HW_FSI, STAT_ON);
+	audio_ctrl_func(SNDP_HW_FSI, STAT_ON, 1);
 
 	iowrite32(0x00000001, (g_fsi_Base + FSI_CLK_SEL));
 	iowrite32(0x00212901, (g_fsi_Base + FSI_ACK_MD));
@@ -1300,7 +1300,7 @@ int fsi_voice_test_start_a(void)
 void fsi_voice_test_stop_a(void)
 {
 	/* Clock framework API, Status OFF */
-	audio_ctrl_func(SNDP_HW_FSI, STAT_OFF);
+	audio_ctrl_func(SNDP_HW_FSI, STAT_OFF, 1);
 
 	/* FSI stop */
 	fsi_test_status_a = TEST_NONE;

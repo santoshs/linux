@@ -1,4 +1,4 @@
-/* vcd.h
+﻿/* vcd.h
  *
  * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
@@ -139,7 +139,7 @@ void vcd_complete_buffer(void);
 void vcd_beginning_buffer(void);
 void vcd_start_fw(void);
 void vcd_stop_fw(int result);
-void vcd_stop_fw_stored_playback(void);
+void vcd_stop_fw_only_sound(void);
 void vcd_codec_type_ind(unsigned int codec_type);
 void vcd_udata_ind(void);
 void vcd_start_clkgen(void);

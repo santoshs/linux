@@ -282,7 +282,7 @@ static int crypt_iv_essiv_init(struct crypt_config *cc)
 	}
 
 	if (dfs_disabled)
-                start_cpufreq();
+		start_cpufreq();
 
 	return err;
 }
@@ -308,7 +308,7 @@ static int crypt_iv_essiv_wipe(struct crypt_config *cc)
 	}
 
 	if (dfs_disabled)
-                start_cpufreq();
+		start_cpufreq();
 
 	return err;
 }
@@ -373,7 +373,7 @@ static void crypt_iv_essiv_dtr(struct crypt_config *cc)
 	}
 
 	if (dfs_disabled)
-                start_cpufreq();
+		start_cpufreq();
 }
 
 static int crypt_iv_essiv_ctr(struct crypt_config *cc, struct dm_target *ti,
@@ -422,7 +422,7 @@ static int crypt_iv_essiv_ctr(struct crypt_config *cc, struct dm_target *ti,
 		per_cpu_ptr(cc->cpu, cpu)->iv_private = essiv_tfm;
 	}
 	if (dfs_disabled)
-                start_cpufreq();
+		start_cpufreq();
 	return 0;
 
 bad:
@@ -1349,7 +1349,7 @@ static int crypt_setkey_allcpus(struct crypt_config *cc)
 	}
 
 	if (dfs_disabled)
-                start_cpufreq();
+		start_cpufreq();
 
 	return err;
 }
@@ -1416,7 +1416,7 @@ static void crypt_dtr(struct dm_target *ti)
 		}
 
 		if (dfs_disabled)
-                start_cpufreq();
+			start_cpufreq();
 	}
 
 	if (cc->bs)
@@ -1538,9 +1538,9 @@ static int crypt_ctr_cipher(struct dm_target *ti,
 	}
 
 	if (dfs_disabled) {
-                start_cpufreq();
+		start_cpufreq();
 		dfs_disabled = 0;
-        }
+	}
 
 	/* Initialize and set key */
 	ret = crypt_set_key(cc, key);

@@ -308,7 +308,6 @@ static u16 adc_weight_section_charge_llt[]      = {7000, 5000, 2000,  500,  213,
 static u16 adc2soc_lut_length = (u16)sizeof(adc2soc_lut.soc)/sizeof(u16);
 static u16 adc2vbat_lut_length = (u16)sizeof(adc2vbat_lut.offset)/sizeof(u16);
 
-
 #ifdef CONFIG_D2153_DEBUG_FEATURE
 unsigned int d2153_attr_idx=0;
 
@@ -338,7 +337,6 @@ static struct device_attribute d2153_battery_attrs[]=
 	   then please add before "D2153_PROP_ALL" attributes */
 	__ATTR(display_all_information, 0644, d2153_battery_attrs_show, NULL),
 };
-
 
 static ssize_t d2153_battery_attrs_show(struct device *pdev, 
 										struct device_attribute *attr, 
@@ -554,7 +552,7 @@ static ssize_t d2153_battery_attrs_show(struct device *pdev,
 #endif /* CONFIG_D2153_DEBUG_FEATURE */
 
 
-/*
+/* 
  * Name : chk_lut
  *
  */
@@ -812,7 +810,6 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 #ifdef CONFIG_D2153_BATTERY_DEBUG
 	pr_info("%s. Getting SOC\n", __func__);
 #endif
-
 	pbat_data = &pbat->battery_data;
 
 	if(pbat_data->soc)
@@ -1402,7 +1399,6 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 					pr_info("Charging. Recalculated base_weight = %d, new_vol_adc = %d\n",
 								base_weight, new_vol_adc);
 #endif
-				
 					pbat_data->sum_total_adc -= (offset_with_new * base_weight);
 				
 					num_multi = pbat_data->sum_total_adc / NORM_NUM;
@@ -2213,6 +2209,7 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_battery *pbat = &d2153->batt;
 	int i;
+	int ret = 0;
 
 	pr_info("Start %s\n", __func__);
 
@@ -2248,7 +2245,11 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_D2153_DEBUG_FEATURE
 	for (i = 0; i < D2153_PROP_MAX ; i++) {
-		device_create_file(&pdev->dev, &d2153_battery_attrs[i]);
+		ret = device_create_file(&pdev->dev, &d2153_battery_attrs[i]);
+		if (ret) {
+			printk(KERN_ERR "Failed to create battery sysfs entries\n");
+			return ret;
+		}
 	}
 #endif
 
@@ -2257,7 +2258,7 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 #endif
 	
 	pr_info("%s. End...\n", __func__);
-	return 0;
+	return ret;
 }
 
 
@@ -2384,7 +2385,7 @@ static __devexit int d2153_battery_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_D2153_DEBUG_FEATURE
 	for (i = 0; i < D2153_PROP_MAX ; i++) {
-		device_create_file(&pdev->dev, &d2153_battery_attrs[i]);
+		device_remove_file(&pdev->dev, &d2153_battery_attrs[i]);
 	}
 #endif
 

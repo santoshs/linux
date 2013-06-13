@@ -12,7 +12,6 @@
 void mmcif_set_pwr(struct platform_device *, int);
 void mmcif_down_pwr(struct platform_device *);
 
-int read_board_rev(void);
 void SBSC_Init_520Mhz(void);
 
 /* Pin Function Controller:

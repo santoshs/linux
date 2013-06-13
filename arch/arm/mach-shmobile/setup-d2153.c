@@ -209,7 +209,8 @@ static struct regulator_init_data d2153_ldo6 = {
 		.max_uV = D2153_LDO6_VOLT_UPPER,
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
 		.valid_modes_mask = REGULATOR_MODE_NORMAL,
-		.always_on = 1,
+		/*.always_on = 1, */
+		/* Modem is taking care of on/off. */
 	},
 	.num_consumer_supplies = ARRAY_SIZE(d2153_ldo6_supplies),
 	.consumer_supplies = d2153_ldo6_supplies,

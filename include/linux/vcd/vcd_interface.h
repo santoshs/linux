@@ -1,4 +1,4 @@
-/* vcd_interface.h
+﻿/* vcd_interface.h
  *
  * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
@@ -48,7 +48,7 @@ extern void vcd_complete_buffer(void);
 extern void vcd_beginning_buffer(void);
 extern void vcd_start_fw(void);
 extern void vcd_stop_fw(int result);
-extern void vcd_stop_fw_stored_playback(void);
+extern void vcd_stop_fw_only_sound(void);
 extern void vcd_codec_type_ind(unsigned int codec_type);
 extern void vcd_udata_ind(void);
 extern void vcd_start_clkgen(void);

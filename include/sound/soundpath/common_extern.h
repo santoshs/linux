@@ -50,7 +50,10 @@ COMMON_CTRL_NO_EXTERN u_long g_scuw_Base_CPUFIFO2;
 COMMON_CTRL_NO_EXTERN void iomodify32(u_int uiClr, u_int uiSet, u_int uiReg);
 COMMON_CTRL_NO_EXTERN int common_ioremap(void);
 COMMON_CTRL_NO_EXTERN void common_iounmap(void);
-COMMON_CTRL_NO_EXTERN void audio_ctrl_func(enum sndp_hw_audio drv, int stat);
+COMMON_CTRL_NO_EXTERN void audio_ctrl_func(
+	enum sndp_hw_audio drv,
+	int stat,
+	const u_int regclr);
 COMMON_CTRL_NO_EXTERN void common_set_register(
 	enum sndp_hw_audio drv,
 	struct common_reg_table *reg_tbl,

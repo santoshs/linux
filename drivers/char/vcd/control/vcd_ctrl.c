@@ -1,4 +1,4 @@
-/* vcd_ctrl.c
+﻿/* vcd_ctrl.c
  *
  * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
@@ -240,7 +240,7 @@ int vcd_ctrl_start_vcd(void)
 	/* execute spuv function */
 	g_vcd_ctrl_result = vcd_spuv_start_vcd();
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
-		vcd_pr_err("start vcd error[%d].\n", g_vcd_ctrl_result);
+		vcd_pr_err("start vcd[%d].\n", g_vcd_ctrl_result);
 
 #ifdef __VCD_PROC_IF_ENABLE__
 		/* update result */
@@ -292,7 +292,7 @@ int vcd_ctrl_stop_vcd(void)
 		/* stop stored timer */
 		vcd_ctrl_stop_stored_playback_timer();
 		/* notification fw stop */
-		vcd_stop_fw_stored_playback();
+		vcd_stop_fw_only_sound();
 	}
 
 	/* check sequence */
@@ -314,6 +314,8 @@ int vcd_ctrl_stop_vcd(void)
 
 	/* delete call kind */
 	g_vcd_ctrl_call_kind = VCD_CALL_KIND_CALL;
+	/* init call type */
+	g_vcd_ctrl_call_type = 0;
 
 #ifdef __VCD_PROC_IF_ENABLE__
 	/* update result */
@@ -365,7 +367,7 @@ int vcd_ctrl_set_hw_param(void)
 	/* execute spuv function */
 	g_vcd_ctrl_result = vcd_spuv_set_hw_param();
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
-		vcd_pr_err("set hw param error[%d].\n", g_vcd_ctrl_result);
+		vcd_pr_err("set hw param[%d].\n", g_vcd_ctrl_result);
 		goto rtn;
 	}
 
@@ -394,6 +396,9 @@ rtn:
  */
 int vcd_ctrl_start_call(int call_kind, int mode)
 {
+	unsigned int active_feature = VCD_CTRL_FUNC_FEATURE_NONE;
+	unsigned int notify_stop_fw = VCD_DISABLE;
+
 	vcd_pr_start_control_function();
 
 	/* check sequence */
@@ -411,6 +416,34 @@ int vcd_ctrl_start_call(int call_kind, int mode)
 	if (VCD_CALL_KIND_CALL == call_kind) {
 		/* get call type (CS/VoIP) */
 		g_vcd_ctrl_call_type = vcd_spuv_get_call_type();
+		if (VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type) {
+			/* operation state confirmation */
+			active_feature = vcd_ctrl_func_get_active_feature();
+			/* check record */
+			if (VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) {
+				g_vcd_ctrl_result = vcd_ctrl_stop_record();
+				if (VCD_ERR_NONE != g_vcd_ctrl_result) {
+					vcd_pr_err("stop record[%d].\n",
+						g_vcd_ctrl_result);
+					goto rtn;
+				}
+				notify_stop_fw = VCD_ENABLE;
+			}
+			/* check playback */
+			if (VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) {
+				g_vcd_ctrl_result = vcd_ctrl_stop_playback();
+				if (VCD_ERR_NONE != g_vcd_ctrl_result) {
+					vcd_pr_err("stop playback[%d].\n",
+						g_vcd_ctrl_result);
+					goto rtn;
+				}
+				notify_stop_fw = VCD_ENABLE;
+			}
+			/* notification for sound */
+			if (VCD_ENABLE == notify_stop_fw) {
+				vcd_stop_fw_only_sound();
+			}
+		}
 		g_vcd_ctrl_result = vcd_spuv_start_call();
 	} else if (VCD_CALL_KIND_1KHZ == call_kind)
 		g_vcd_ctrl_result = vcd_spuv_start_1khz_tone();
@@ -420,7 +453,7 @@ int vcd_ctrl_start_call(int call_kind, int mode)
 		g_vcd_ctrl_result = vcd_spuv_start_bbif_loopback(mode);
 
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
-		vcd_pr_err("start call error[%d].\n", g_vcd_ctrl_result);
+		vcd_pr_err("start call[%d].\n", g_vcd_ctrl_result);
 		goto rtn;
 	}
 
@@ -476,7 +509,7 @@ int vcd_ctrl_stop_call(int call_kind)
 		g_vcd_ctrl_result = vcd_spuv_stop_bbif_loopback();
 
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
-		vcd_pr_err("stop call error[%d].\n", g_vcd_ctrl_result);
+		vcd_pr_err("stop call[%d].\n", g_vcd_ctrl_result);
 		goto rtn;
 	}
 
@@ -515,7 +548,7 @@ int vcd_ctrl_set_udata(void)
 	/* execute spuv function */
 	g_vcd_ctrl_result = vcd_spuv_set_udata();
 	if (VCD_ERR_NONE != g_vcd_ctrl_result) {
-		vcd_pr_err("set udata error[%d].\n", g_vcd_ctrl_result);
+		vcd_pr_err("set udata[%d].\n", g_vcd_ctrl_result);
 		goto rtn;
 	}
 
@@ -647,11 +680,12 @@ int vcd_ctrl_start_record(struct vcd_record_option *option)
 
 	if (VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type) {
 		ret = VCD_ERR_BUSY;
+		goto rtn;
 	} else {
 		/* execute spuv function */
 		ret = vcd_spuv_start_record(option);
 		if (VCD_ERR_NONE != ret) {
-			vcd_pr_err("start record error[%d].\n", ret);
+			vcd_pr_err("start record[%d].\n", ret);
 			goto rtn;
 		}
 	}
@@ -690,7 +724,7 @@ int vcd_ctrl_stop_record(void)
 	/* execute spuv function */
 	ret = vcd_spuv_stop_record();
 	if (VCD_ERR_NONE != ret) {
-		vcd_pr_err("stop record error[%d].\n", ret);
+		vcd_pr_err("stop record[%d].\n", ret);
 		/* update result */
 		ret = VCD_ERR_NONE;
 	}
@@ -766,11 +800,12 @@ int vcd_ctrl_start_playback(struct vcd_playback_option *option)
 
 	if (VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type) {
 		ret = VCD_ERR_BUSY;
+		goto rtn;
 	} else {
 		/* execute spuv function */
 		ret = vcd_spuv_start_playback(option, g_vcd_ctrl_call_kind);
 		if (VCD_ERR_NONE != ret) {
-			vcd_pr_err("start playback error[%d].\n", ret);
+			vcd_pr_err("start playback[%d].\n", ret);
 			goto rtn;
 		}
 	}
@@ -816,7 +851,7 @@ int vcd_ctrl_stop_playback(void)
 	/* execute spuv function */
 	ret = vcd_spuv_stop_playback();
 	if (VCD_ERR_NONE != ret) {
-		vcd_pr_err("stop playback error[%d].\n", ret);
+		vcd_pr_err("stop playback[%d].\n", ret);
 		/* update result */
 		ret = VCD_ERR_NONE;
 	}
@@ -932,32 +967,19 @@ void vcd_ctrl_rec_trigger(void)
 
 	active_feature = vcd_ctrl_func_get_active_feature();
 
-	/* VoIP UL path route */
 	if ((VCD_CTRL_FUNC_FEATURE_CALL & active_feature) &&
 		(VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type)) {
-		if ((VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) &&
-			!(VCD_CTRL_FUNC_FEATURE_RECORD & active_feature)) {
-			/* VoIP + Playback */
-			vcd_spuv_voip_ul_playback(g_vcd_ctrl_playback_mode);
-		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
-			!(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
-			/* VoIP + Record */
-		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
-			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
-			/* VoIP + Playback + Record */
-		} else {
-			/* VoIP only */
-			vcd_spuv_voip_ul(&buf_size);
-		}
+		/* VoIP UL path route */
+		vcd_spuv_voip_ul(&buf_size);
 		/* update VoIP UL buffer ID */
 		vcd_spuv_update_voip_ul_buffer_id();
 		/* notification buffer update */
 		vcd_voip_ul_callback(buf_size);
-	} else { /* Normal record route */
-		if (VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) {
-			/* notification buffer update */
-			vcd_complete_buffer();
-		}
+	} else if (VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) {
+		/* notification buffer update */
+		vcd_complete_buffer();
+	} else {
+		/* record is not active */
 	}
 
 	vcd_pr_end_control_function();
@@ -984,23 +1006,7 @@ void vcd_ctrl_play_trigger(void)
 	if ((VCD_CTRL_FUNC_FEATURE_CALL & active_feature) &&
 		(VCD_CALL_TYPE_VOIP == g_vcd_ctrl_call_type)) {
 		/* VoIP DL path route */
-
-		if ((VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature) &&
-			!(VCD_CTRL_FUNC_FEATURE_RECORD & active_feature)) {
-			/* VoIP + Playback */
-			vcd_spuv_voip_dl_playback(g_vcd_ctrl_playback_mode);
-			/* notification buffer update */
-			vcd_beginning_buffer();
-		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
-			!(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
-			/* VoIP + Record */
-		} else if ((VCD_CTRL_FUNC_FEATURE_RECORD & active_feature) &&
-			(VCD_CTRL_FUNC_FEATURE_PLAYBACK & active_feature)) {
-			/* VoIP + Playback + Record */
-		} else {
-			/* VoIP only */
-			vcd_spuv_voip_dl(&buf_size);
-		}
+		vcd_spuv_voip_dl(&buf_size);
 		/* update VoIP DL buffer ID */
 		vcd_spuv_update_voip_dl_buffer_id();
 		/* notification buffer update */
@@ -1909,7 +1915,7 @@ static void vcd_ctrl_stored_playback_timer_cb(void)
 			VCD_CTRL_FUNC_FEATURE_STORED_PLAYBACK);
 
 	/* notification fw stop */
-	vcd_stop_fw_stored_playback();
+	vcd_stop_fw_only_sound();
 
 	/* set status */
 	g_vcd_ctrl_timer_status = VCD_DISABLE;
