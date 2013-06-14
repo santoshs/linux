@@ -147,8 +147,8 @@ enum { LCDC_CLK_BUS, LCDC_CLK_PERIPHERAL, LCDC_CLK_EXTERNAL };
 #define LCDC_FLAGS_DWCNT (1 << 4) /* Disable dotclock during blanking */
 
 /*Main display*/
-#define SH_MLCD_WIDTH		540
-#define SH_MLCD_HEIGHT		960
+#define SH_MLCD_WIDTH		480
+#define SH_MLCD_HEIGHT		800
 
 #define SH_MLCD_TRCOLOR		0
 #define SH_MLCD_REPLACECOLOR	0
