@@ -340,8 +340,7 @@ struct zinitix_touch_dev {
 	bool	cmd_is_running;
 #endif
 
- 	struct mutex touchkey_led_lock;
-
+	struct mutex touchkey_led_lock;
 };
 
 
@@ -4523,7 +4522,6 @@ static int zinitix_touch_probe(struct i2c_client *client,
 			touch_dev->input_dev->name);
 		goto err_input_register_device;
 	}
-
 
 	mutex_init(&touch_dev->touchkey_led_lock);
 

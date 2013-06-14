@@ -136,9 +136,15 @@ static inline smc_lock_t* get_local_lock_smc_fifo_buffer(void)
     return g_local_lock_smc_fifo_buffer;
 }
 
+    /**
+     * Functions used in smc_interrupt_handler and smc_send_ext
+     */
+static inline void    smc_handle_internal_message(smc_channel_t* smc_channel, smc_fifo_cell_t celldata, smc_user_data_t userdata, uint32_t* data_ptr_history);
+static inline uint8_t smc_handle_coredump_in_out_of_mdb(smc_channel_t* smc_channel, void* data, uint32_t data_length, smc_user_data_t* userdata);
 
-static inline void smc_handle_internal_message(smc_channel_t* smc_channel, smc_fifo_cell_t celldata, smc_user_data_t userdata, uint32_t* data_ptr_history);
-
+#ifdef SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM
+  static inline uint8_t smc_send_ext_handle_message_buffering( smc_channel_t* smc_channel, void* data, uint32_t data_length, smc_user_data_t* userdata);
+#endif
     /*
      * Local static functions
      */
@@ -248,6 +254,7 @@ static inline void smc_free_local_ptr(const  smc_channel_t* smc_channel, void* p
         if( userdata->userdata3 == 0xF1F0F1F0 )
         {
             SMC_TRACE_PRINTF_DEBUG("smc_free_local_ptr: channel %d (0x%08X): not deallocating ptr 0x%08X located MDB OUT (XFILE dumping SMC SHM)...", smc_channel->id, (uint32_t)smc_channel, (uint32_t)ptr);
+            SMC_UNLOCK_IRQ( ((smc_channel_t*)smc_channel)->lock_mdb );
             return;
         }
 #endif
@@ -266,7 +273,8 @@ static inline void smc_free_local_ptr(const  smc_channel_t* smc_channel, void* p
     }
     else if( SMC_IS_LOOPBACK_MSG(userdata->flags) )
     {
-        uint8_t is_in_mdb = ( SMC_MDB_ADDRESS_IN_POOL_OUT( ptr, smc_channel->smc_mdb_info ) ||  SMC_MDB_ADDRESS_IN_POOL_IN( ptr, smc_channel->smc_mdb_info ));
+        uint8_t is_in_mdb = ( SMC_MDB_ADDRESS_IN_POOL_OUT( ptr, smc_channel->smc_mdb_info ) ||
+                              SMC_MDB_ADDRESS_IN_POOL_IN( ptr, smc_channel->smc_mdb_info ));
 
         if( is_in_mdb )
         {
@@ -723,137 +731,54 @@ uint8_t smc_send_ext(smc_channel_t* channel, void* data, uint32_t data_length, s
                         }
                         else  /* if(mdb_ptr != NULL)  */
                         {
+                            /* Out of MDB memory */
+
 #ifdef SMC_XTILESS_CORE_DUMP_ENABLED
                             if( userdata->userdata4 == 0xF1F0F1F0 )
                             {
-                                int32_t  fifo_item_count = 0;
-                                uint32_t trials          = 0;
-
-                                SMC_TRACE_PRINTF_ERROR("smc_send_ext: XTI DUMP SEND: Channel %d: MDB allocation failed, not enough SHM memory to allocate %d bytes", channel->id, data_length);
-
-                                    /* Buffer the original pointer */
-                                return_value = smc_channel_buffer_fifo_message(channel, data, data_length, userdata);
-
-                                if( return_value != SMC_OK )
-                                {
-                                    SMC_TRACE_PRINTF_ERROR("smc_send_ext: XTI DUMP SEND: Channel %d MDB out of memory and unable to buffer the message", channel->id);
-                                }
-
-                                    /* Check if there is data in the FIFO (e.g. interrupts are disabled)  */
-                                do
-                                {
-                                    volatile uint32_t delay = 0;
-
-                                    fifo_item_count = smc_fifo_peek( channel->fifo_in, channel->smc_shm_conf_channel->use_cache_control );
-
-                                    if( trials++ < 7 && fifo_item_count == 0 )
-                                    {
-                                        delay = 150000;
-                                        while( delay > 0 ) delay--;
-                                    }
-                                    else
-                                    {
-                                        break;
-                                    }
-                                }
-                                while( fifo_item_count == 0);
-
-                                if( fifo_item_count > 0 )
-                                {
-                                    SMC_TRACE_PRINTF_ERROR("smc_send_ext: XTI DUMP SEND: FIFO IN has %d items to read, read FIFO and continue", fifo_item_count);
-
-                                    smc_channel_interrupt_handler( channel );
-
-                                    SMC_LOCK_TX_BUFFER( channel->lock_tx_queue );
-                                    return_value = smc_handle_mdb_memory_event(channel, SMC_SEND_MDB_HAS_FREE_MEM, TRUE);
-                                    SMC_UNLOCK_TX_BUFFER( channel->lock_tx_queue );
-
-                                    SMC_TRACE_PRINTF_FIFO_BUFFER("smc_send_ext: XTI DUMP SEND: FIFO IN has %d items to read, flush the FIFO...", fifo_item_count);
-                                    return_value = smc_channel_buffer_fifo_flush( channel );
-                                }
-                                else
-                                {
-                                    SMC_TRACE_PRINTF_WARNING("smc_send_ext: XTI DUMP SEND: FIFO IN is empty, create out of memory event");
-                                    SMC_LOCK_TX_BUFFER( channel->lock_tx_queue );
-                                    return_value = smc_handle_mdb_memory_event(channel, SMC_SEND_MDB_OUT_OF_MEM, FALSE);
-                                    SMC_UNLOCK_TX_BUFFER( channel->lock_tx_queue );
-                                }
+                                return_value = smc_handle_coredump_in_out_of_mdb( channel, data, data_length, userdata);
                             }
                             else
                             {
-                                SMC_TRACE_PRINTF_WARNING("smc_send_ext: Channel %d: MDB allocation failed, not enough SHM memory to allocate %d bytes", channel->id, data_length);
+                                SMC_TRACE_PRINTF_ERROR("smc_send_ext: Channel %d: MDB allocation failed, not enough SHM memory to allocate %d bytes", channel->id, data_length);
+
                                 SMC_LOCK_TX_BUFFER( channel->lock_tx_queue );
+
+  #ifdef SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM
+                                return_value = smc_send_ext_handle_message_buffering( channel, data, data_length, userdata );
+  #else
+                                channel->dropped_packets_mdb_out++;
+                                    /* We must free the original packet */
+                                /*smc_free_local_ptr( channel, data, userdata );*/
+  #endif
                                 return_value = smc_handle_mdb_memory_event(channel, SMC_SEND_MDB_OUT_OF_MEM, FALSE);
+
                                 SMC_UNLOCK_TX_BUFFER( channel->lock_tx_queue );
                             }
-#else
+#else   /* #ifdef SMC_XTILESS_CORE_DUMP_ENABLED */
+
                             SMC_LOCK_TX_BUFFER( channel->lock_tx_queue );
 
-#ifdef SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM
-                            {
-                                /*
-                                 * Buffer the message
-                                 */
-                                if( !SMC_FIFO_DATA_PTR_IS_BUFFERED( userdata->flags ) )
-                                {
-                                    void* data_local = NULL;
-
-                                    channel->dropped_packets_mdb_out++;
-
-                                    if( SMC_FIFO_DATA_PTR_IS_LOCAL( userdata->flags ) )
-                                    {
-                                        SMC_TRACE_PRINTF_DEBUG("smc_send_ext: already local ptr 0x%08X for FIFO buffer", (uint32_t)data);
-                                        data_local = data;
-                                    }
-                                    else
-                                    {
-                                        data_local = SMC_MALLOC_IRQ(data_length);
-
-                                        if( data_local != NULL )
-                                        {
-                                            SMC_TRACE_PRINTF_DEBUG("smc_send_ext: allocated 0x%08X for FIFO buffer", (uint32_t)data_local);
-
-                                            memcpy( data_local, data, data_length );
-
-                                            channel->fifo_buffer_copied_total += data_length;
-
-                                            SMC_FIFO_SET_DATA_PTR_IS_LOCAL( userdata->flags );
-                                        }
-                                        else
-                                        {
-                                            SMC_TRACE_PRINTF_ASSERT("smc_send_ext: no memory for the local data");
-                                            assert(0);
-                                        }
-                                    }
-
-                                    return_value = smc_channel_buffer_fifo_message(channel, data_local, data_length, userdata);
-
-                                    if( return_value != SMC_OK )
-                                    {
-                                        SMC_TRACE_PRINTF_WARNING("smc_send_ext: Channel %d: MDB allocation failed, not enough SHM memory to allocate %d bytes, unable to buffer the message", channel->id, data_length);
-                                    }
-                                    else
-                                    {
-                                        SMC_TRACE_PRINTF_WARNING("smc_send_ext: Channel %d: MDB allocation failed, not enough SHM memory to allocate %d bytes, message was buffered", channel->id, data_length);
-                                    }
-                                }
-                                else
-                                {
-                                    SMC_TRACE_PRINTF_DEBUG("smc_send_ext: ptr 0x%08X already in FIFO buffer", (uint32_t)data);
-                                    /* Always return error if buffered message then the message stays in buffer */
-                                    return_value = SMC_ERROR;
-                                }
-                            }
-#else
+  #ifdef SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM
+                            return_value = smc_send_ext_handle_message_buffering( channel, data, data_length, userdata );
+  #else
                             channel->dropped_packets_mdb_out++;
-#endif
+                            /* We must free the original packet */
+                            /*smc_free_local_ptr( channel, data, userdata );*/
+  #endif
                             if( !SMC_CHANNEL_STATE_IS_MDB_OUT_OF_MEM( channel->state ) )
                             {
                                  smc_handle_mdb_memory_event(channel, SMC_SEND_MDB_OUT_OF_MEM, FALSE);
                             }
 
                             SMC_UNLOCK_TX_BUFFER( channel->lock_tx_queue );
-#endif
+
+#endif      /* #ifdef SMC_XTILESS_CORE_DUMP_ENABLED */
+
+                            RD_TRACE_SEND4(TRA_SMC_ERR_OUT_OF_MDB, 1, &channel->id,
+                                                                   4, &data,
+                                                                   4, &data_length,
+                                                                   4, &channel->dropped_packets_mdb_out);
                         }
                     }
                 }
@@ -1799,10 +1724,7 @@ void smc_channel_interrupt_handler( smc_channel_t* smc_channel )
             {
                 smc_fifo_cell_t celldata;
                 smc_user_data_t userdata;
-
-//#ifdef SMC_HISTORY_DATA_COLLECTION_ENABLED
-                uint32_t*  data_ptr_history = NULL;
-//#endif
+                uint32_t*       data_ptr_history = NULL;
 
                 /* ========================================
                  * Critical section begins
@@ -2106,10 +2028,8 @@ static uint8_t smc_channel_configure_shm( smc_channel_t* smc_channel, smc_shm_co
 
                 smc_channel->fifo_out = (smc_fifo_t*)(smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed);
 
-                // TODO Cleanup smc_fifo_init_out( smc_channel->fifo_out, smc_channel_conf->fifo_size_out, smc_shm_conf->use_cache_control);
                 smc_fifo_init_out( smc_channel->fifo_out, smc_channel->fifo_size_out, smc_shm_conf->use_cache_control);
 
-                // TODO Cleanup bytes_consumed += smc_fifo_calculate_required_shared_mem(smc_channel_conf->fifo_size_out);
                 bytes_consumed += smc_fifo_calculate_required_shared_mem(smc_channel->fifo_size_out);
 
                 SMC_TRACE_PRINTF_DEBUG("smc_channel_configure_shm: Channel %d: FIFO OUT 0x%08X, bytes consumed %d", smc_channel->id, (uint32_t)smc_channel->fifo_out, bytes_consumed);
@@ -2120,10 +2040,8 @@ static uint8_t smc_channel_configure_shm( smc_channel_t* smc_channel, smc_shm_co
 
                 smc_channel->fifo_in = (smc_fifo_t*)(smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed);
 
-                // TODO Cleanup smc_fifo_init_in( smc_channel->fifo_in, smc_channel_conf->fifo_size_in, smc_shm_conf->use_cache_control );
                 smc_fifo_init_in( smc_channel->fifo_in, smc_channel->fifo_size_in, smc_shm_conf->use_cache_control );
 
-                // TODO Cleanup bytes_consumed += smc_fifo_calculate_required_shared_mem(smc_channel_conf->fifo_size_in);
                 bytes_consumed += smc_fifo_calculate_required_shared_mem(smc_channel->fifo_size_in);
 
                 SMC_TRACE_PRINTF_DEBUG("smc_channel_configure_shm: Channel %d: FIFO IN 0x%08X, bytes consumed %d", smc_channel->id, (uint32_t)smc_channel->fifo_in, bytes_consumed);
@@ -2149,7 +2067,6 @@ static uint8_t smc_channel_configure_shm( smc_channel_t* smc_channel, smc_shm_co
 
                 smc_channel->mdb_out                      = (uint8_t*)smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed;
                 smc_channel->smc_mdb_info->pool_out       = (void*)(smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed);
-                // TODO Cleanup smc_channel->smc_mdb_info->total_size_out = smc_channel_conf->mdb_size_out;
                 smc_channel->smc_mdb_info->total_size_out = smc_channel->mdb_size_out;
 
                 if( smc_mdb_create_pool_out( smc_channel->smc_mdb_info->pool_out, smc_channel->smc_mdb_info->total_size_out) != SMC_OK )
@@ -2158,7 +2075,6 @@ static uint8_t smc_channel_configure_shm( smc_channel_t* smc_channel, smc_shm_co
                     assert(0);
                 }
 
-                // TODO Cleanup bytes_consumed += smc_mdb_calculate_required_shared_mem(smc_channel_conf->mdb_size_out);
                 bytes_consumed += smc_mdb_calculate_required_shared_mem(smc_channel->mdb_size_out);
 
                 SMC_TRACE_PRINTF_DEBUG("smc_channel_configure_shm: Channel %d: MDB OUT 0x%08X, bytes consumed %d", smc_channel->id, (uint32_t)smc_channel->mdb_out, bytes_consumed);
@@ -2177,8 +2093,6 @@ static uint8_t smc_channel_configure_shm( smc_channel_t* smc_channel, smc_shm_co
                 /* TODO Remove MDB in pointer from channel */
                 smc_channel->mdb_in                      = (uint8_t*)(smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed);
                 smc_channel->smc_mdb_info->pool_in       = (void*)(smc_channel->smc_shm_conf_channel->shm_area_start_address + bytes_consumed);
-
-                // TODO Cleanup smc_channel->smc_mdb_info->total_size_in = smc_channel_conf->mdb_size_in;
                 smc_channel->smc_mdb_info->total_size_in = smc_channel->mdb_size_in;
 
                 bytes_consumed += smc_mdb_calculate_required_shared_mem(smc_channel->smc_mdb_info->total_size_in);
@@ -2187,7 +2101,7 @@ static uint8_t smc_channel_configure_shm( smc_channel_t* smc_channel, smc_shm_co
             }
         }
 
-        /* Check that the consumed memory does not exceed the size */
+            /* Check that the consumed memory does not exceed the size */
         SMC_TRACE_PRINTF_STARTUP("Channel %d: shared memory starts from 0x%08X size %d bytes (Cache control %s)",
                 smc_channel->id, (uint32_t)smc_channel->smc_shm_conf_channel->shm_area_start_address, bytes_consumed,
                 smc_shm_conf->use_cache_control?"enabled":"disabled");
@@ -3623,68 +3537,91 @@ smc_message_history_data_t* smc_history_data_array_create( uint16_t array_len )
     }
 }
 
-static void smc_save_history_send(smc_channel_t* channel, smc_fifo_cell_t* cell, void* data)
+static void smc_save_history_send(smc_channel_t* smc_channel, smc_fifo_cell_t* cell, void* data)
 {
-    if( channel->smc_history_data_sent == NULL )
+    if( cell == NULL )
     {
-        SMC_TRACE_PRINTF_HISTORY("smc_save_history_send: create history array for channel %d, size %d", channel->id, channel->smc_history_len_sent);
-        channel->smc_history_data_sent = smc_history_data_array_create( channel->smc_history_len_sent );
-        channel->smc_history_index_sent = 0;
+        return;
     }
 
-    if( channel->smc_history_data_sent != NULL )
+    if( smc_channel == NULL )
     {
-        channel->smc_history_index_sent++;
+        return;
+    }
 
-        if( channel->smc_history_index_sent >= channel->smc_history_len_sent )
+    if( smc_channel->smc_history_data_sent == NULL )
+    {
+        SMC_TRACE_PRINTF_HISTORY("smc_save_history_send: create history array for channel %d, size %d", smc_channel->id, smc_channel->smc_history_len_sent);
+        smc_channel->smc_history_data_sent = smc_history_data_array_create( smc_channel->smc_history_len_sent );
+        smc_channel->smc_history_index_sent = 0;
+    }
+
+    if( smc_channel->smc_history_data_sent != NULL )
+    {
+        smc_channel->smc_history_index_sent++;
+
+        if( smc_channel->smc_history_index_sent >= smc_channel->smc_history_len_sent )
         {
-            channel->smc_history_index_sent = 0;
+            smc_channel->smc_history_index_sent = 0;
         }
 
-        SMC_TRACE_PRINTF_HISTORY("smc_save_history_send: channel %d: save history to index %d", channel->id, channel->smc_history_index_sent);
+        SMC_TRACE_PRINTF_HISTORY("smc_save_history_send: channel %d: save history to index %d", smc_channel->id, smc_channel->smc_history_index_sent);
 
-        channel->smc_history_data_sent[channel->smc_history_index_sent].channel_id        = channel->id;
-        channel->smc_history_data_sent[channel->smc_history_index_sent].history_data_type = SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND;
-        channel->smc_history_data_sent[channel->smc_history_index_sent].timestamp         = SMC_TIMESTAMP_GET;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].channel_id        = smc_channel->id;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].history_data_type = SMC_TRACE_HISTORY_DATA_TYPE_MESSAGE_SEND;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].timestamp         = SMC_TIMESTAMP_GET;
 
-        if( channel->smc_shm_conf_channel->remote_cpu_memory_offset_type == SMC_SHM_OFFSET_MDB_OFFSET )
+        if( smc_channel->smc_shm_conf_channel->remote_cpu_memory_offset_type == SMC_SHM_OFFSET_MDB_OFFSET )
         {
-            channel->smc_history_data_sent[channel->smc_history_index_sent].shm_offset        = (int32_t)channel->smc_mdb_info->pool_out;
+            smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].shm_offset        = (int32_t)smc_channel->smc_mdb_info->pool_out;
         }
         else
         {
-            channel->smc_history_data_sent[channel->smc_history_index_sent].shm_offset        = 0;
+            smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].shm_offset        = 0;
         }
 
-        channel->smc_history_data_sent[channel->smc_history_index_sent].data_ptr_shm      = cell->data;
-        channel->smc_history_data_sent[channel->smc_history_index_sent].data_ptr          = (uint32_t)data;
-        channel->smc_history_data_sent[channel->smc_history_index_sent].data_length       = cell->length;
-        channel->smc_history_data_sent[channel->smc_history_index_sent].userdata_flags    = cell->flags;
-        channel->smc_history_data_sent[channel->smc_history_index_sent].userdata1         = cell->userdata1;
-        channel->smc_history_data_sent[channel->smc_history_index_sent].userdata2         = cell->userdata2;
-        channel->smc_history_data_sent[channel->smc_history_index_sent].userdata3         = cell->userdata3;
-        channel->smc_history_data_sent[channel->smc_history_index_sent].userdata4         = cell->userdata4;
-        channel->smc_history_data_sent[channel->smc_history_index_sent].userdata5         = cell->userdata5;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data_ptr_shm      = cell->data;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data_ptr          = (uint32_t)data;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data_length       = cell->length;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].userdata_flags    = cell->flags;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].userdata1         = cell->userdata1;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].userdata2         = cell->userdata2;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].userdata3         = cell->userdata3;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].userdata4         = cell->userdata4;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].userdata5         = cell->userdata5;
 
-        if( data != NULL )
+
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data1 = 0x00000000;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data2 = 0x00000000;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data3 = 0x00000000;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data4 = 0x00000000;
+        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data5 = 0x00000000;
+
+        if( cell->data != NULL )
         {
-            channel->smc_history_data_sent[channel->smc_history_index_sent].data1             = *(uint32_t*)data;
+            uint32_t* data_ptr_hist = (uint32_t*)(cell->data + smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].shm_offset);
+
+            // TODO Cleanup: SMC_TRACE_PRINTF_ERROR("smc_save_history_send: len %d Data1 PTR = 0x%08X", cell->length, (uint32_t)data_ptr_hist);
+            // TODO Cleanup: smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data1 = *data_ptr_hist;
+            // TODO Cleanup: smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data2 = (uint32_t)(++data_ptr_hist);
+
+            smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data1             = *data_ptr_hist;
 
             if( cell->length > 4 )
             {
-                channel->smc_history_data_sent[channel->smc_history_index_sent].data2         = *((uint32_t*)(data+4));
+                smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data2         = *(++data_ptr_hist);
 
                 if( cell->length > 8 )
                 {
-                    channel->smc_history_data_sent[channel->smc_history_index_sent].data3         = *((uint32_t*)(data+8));
+                    smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data3         = *(++data_ptr_hist);
 
                     if( cell->length > 12 )
                     {
-                        channel->smc_history_data_sent[channel->smc_history_index_sent].data4     = *((uint32_t*)(data+12));
+                        smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data4     = *(++data_ptr_hist);
 
                         if( cell->length > 16 )
                         {
-                            channel->smc_history_data_sent[channel->smc_history_index_sent].data5 = *((uint32_t*)(data+16));
+                            smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data5 = *(++data_ptr_hist);
                         }
                     }
                 }
@@ -3743,6 +3680,13 @@ static uint32_t* smc_save_history_recv(smc_channel_t* smc_channel, smc_fifo_cell
         smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].userdata3      = celldata->userdata3;
         smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].userdata4      = celldata->userdata4;
         smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].userdata5      = celldata->userdata5;
+
+        smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].data1 = 0x00000000;
+        smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].data2 = 0x00000000;
+        smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].data3 = 0x00000000;
+        smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].data4 = 0x00000000;
+        smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].data5 = 0x00000000;
+
 
         if( (celldata->data+smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].shm_offset) != NULL )
         {
@@ -4283,6 +4227,133 @@ static inline void smc_handle_internal_message(smc_channel_t* smc_channel, smc_f
     }
 }
 
+/**
+ * Handles core dump.
+ *
+ */
+static inline uint8_t smc_handle_coredump_in_out_of_mdb(smc_channel_t* smc_channel, void* data, uint32_t data_length, smc_user_data_t* userdata)
+{
+    uint8_t  return_value    = SMC_ERROR;
+    int32_t  fifo_item_count = 0;
+    uint32_t trials          = 0;
+
+    SMC_TRACE_PRINTF_ERROR("smc_handle_coredump_in_out_of_mdb: XTI DUMP SEND: Channel %d: MDB allocation failed, not enough SHM memory to allocate %d bytes", smc_channel->id, data_length);
+
+        /* Buffer the original pointer */
+    return_value = smc_channel_buffer_fifo_message(smc_channel, data, data_length, userdata);
+
+    if( return_value != SMC_OK )
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_handle_coredump_in_out_of_mdb: XTI DUMP SEND: Channel %d MDB out of memory and unable to buffer the message", smc_channel->id);
+    }
+        /* Check if there is data in the FIFO (interrupts might disabled in the system)  */
+    do
+    {
+        volatile uint32_t delay = 0;
+
+        fifo_item_count = smc_fifo_peek( smc_channel->fifo_in, smc_channel->smc_shm_conf_channel->use_cache_control );
+
+        if( trials++ < 7 && fifo_item_count == 0 )
+        {
+            delay = 150000;
+            while( delay > 0 ) delay--;
+        }
+        else
+        {
+            break;
+        }
+    }
+    while( fifo_item_count == 0);
+
+    if( fifo_item_count > 0 )
+    {
+        SMC_TRACE_PRINTF_ERROR("smc_handle_coredump_in_out_of_mdb: XTI DUMP SEND: FIFO IN has %d items to read, read FIFO and continue", fifo_item_count);
+
+        smc_channel_interrupt_handler( smc_channel );
+
+        SMC_LOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+        return_value = smc_handle_mdb_memory_event(smc_channel, SMC_SEND_MDB_HAS_FREE_MEM, TRUE);
+        SMC_UNLOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+
+        SMC_TRACE_PRINTF_FIFO_BUFFER("smc_handle_coredump_in_out_of_mdb: XTI DUMP SEND: FIFO IN has %d items to read, flush the FIFO...", fifo_item_count);
+        return_value = smc_channel_buffer_fifo_flush( smc_channel );
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_WARNING("smc_handle_coredump_in_out_of_mdb: XTI DUMP SEND: FIFO IN is empty, create out of memory event");
+        SMC_LOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+        return_value = smc_handle_mdb_memory_event(smc_channel, SMC_SEND_MDB_OUT_OF_MEM, FALSE);
+        SMC_UNLOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+    }
+
+    return return_value;
+}
+
+#ifdef SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM
+
+static inline uint8_t smc_send_ext_handle_message_buffering( smc_channel_t* smc_channel, void* data, uint32_t data_length, smc_user_data_t* userdata)
+{
+    uint8_t  return_value    = SMC_ERROR;
+
+    if( !SMC_FIFO_DATA_PTR_IS_BUFFERED( userdata->flags ) )
+    {
+        void* data_local = NULL;
+
+        smc_channel->dropped_packets_mdb_out++;
+
+        if( SMC_FIFO_DATA_PTR_IS_LOCAL( userdata->flags ) )
+        {
+            SMC_TRACE_PRINTF_DEBUG("smc_send_ext_handle_message_buffering: already local ptr 0x%08X for FIFO buffer", (uint32_t)data);
+            data_local = data;
+        }
+        else
+        {
+            data_local = SMC_MALLOC_IRQ(data_length);
+
+            if( data_local != NULL )
+            {
+                SMC_TRACE_PRINTF_DEBUG("smc_send_ext_handle_message_buffering: allocated 0x%08X for FIFO buffer", (uint32_t)data_local);
+
+                memcpy( data_local, data, data_length );
+
+                smc_channel->fifo_buffer_copied_total += data_length;
+
+                SMC_FIFO_SET_DATA_PTR_IS_LOCAL( userdata->flags );
+            }
+            else
+            {
+                SMC_TRACE_PRINTF_ERROR("smc_send_ext_handle_message_buffering: no memory for the local data");
+                return SMC_ERROR;
+            }
+        }
+
+        return_value = smc_channel_buffer_fifo_message(smc_channel, data_local, data_length, userdata);
+
+        if( return_value != SMC_OK )
+        {
+            SMC_TRACE_PRINTF_WARNING("smc_send_ext_handle_message_buffering: Channel %d: MDB allocation failed, not enough SHM memory to allocate %d bytes, unable to buffer the message",
+                                        smc_channel->id, data_length);
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_WARNING("smc_send_ext_handle_message_buffering: Channel %d: MDB allocation failed, not enough SHM memory to allocate %d bytes, message was buffered",
+                                        smc_channel->id, data_length);
+        }
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_DEBUG("smc_send_ext_handle_message_buffering: ptr 0x%08X already in FIFO buffer", (uint32_t)data);
+            /*
+             * Always return error if buffered message.
+             * Then the message stays in buffer
+             */
+        return_value = SMC_ERROR;
+    }
+
+    return return_value;
+}
+
+#endif /* #ifdef SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM */
 
 /* EOF */
 

@@ -2,6 +2,7 @@
  * Hardware spinlock framework
  *
  * Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com
+ * Copyright (C) 2013 Renesas Mobile Corp.
  *
  * Contact: Ohad Ben-Cohen <ohad@wizery.com>
  *

@@ -35,7 +35,7 @@
 #include <linux/k3dh_dev.h>
 #include <linux/pm.h>
 #include <linux/regulator/consumer.h>
-#include <mach/board.h>
+
 #define K3DH_DEBUG 0
 
 #if K3DH_DEBUG
@@ -364,8 +364,8 @@ static int k3dh_read_accel_xyz(struct k3dh_acc *acc)
 
 	err = k3dh_read_accel_raw_xyz(acc);
 	if (err < 0) {
-			pr_err("k3dh_read_accel_xyz() failed\n");
-			return err;
+		pr_err("k3dh_read_accel_xyz() failed\n");
+		return err;
 	}
 	acc->x -= g_k3dh->cal_data.x;
 	acc->y -= g_k3dh->cal_data.y;

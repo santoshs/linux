@@ -3635,10 +3635,13 @@ fail_hw_cal:
 
 		u8Data = (u8 *)&misc_touch_dev->cur_data[0];
 
-		if (copy_to_user(raw_ioctl.buf, (u8 *)u8Data,
-			(unsigned long)raw_ioctl.sz)) {
-			up(&misc_touch_dev->raw_data_lock);
-			return -1;
+		if (raw_ioctl.sz > 0)
+		{
+			if (copy_to_user((void *)raw_ioctl.buf, (void *)u8Data,
+				  (unsigned long)raw_ioctl.sz)) {
+				up(&misc_touch_dev->raw_data_lock);
+				return -1;
+			}
 		}
 
 		up(&misc_touch_dev->raw_data_lock);

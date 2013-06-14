@@ -318,7 +318,7 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 	struct regulator *regulator;
 	#define D2153_LDO_AUD_RECHECK
-#ifdef D2153_LDO_AUD_RECHECK 
+#ifdef D2153_LDO_AUD_RECHECK
 	unsigned char regval = 0;
 #endif
 
@@ -330,10 +330,11 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 			return -1;
 		regulator_set_voltage(regulator, 1800000, 1800000);
 		regulator_enable(regulator);
-#ifdef D2153_LDO_AUD_RECHECK 
+#ifdef D2153_LDO_AUD_RECHECK
 		d2153_reg_read(d2153_codec->d2153_pmic, 0x5E, &regval);
-		if(regval == 0x00){
-			dlg_err("%s() LDO_AUD1 on regval[0x%x] \n", __func__, regval);
+		if (regval == 0x00) {
+			dlg_err("%s() LDO_AUD1 on regval[0x%x]\n",
+				__func__, regval);
 			d2153_reg_write(d2153_codec->d2153_pmic, 0x5E, 0x66);
 		}
 #endif
@@ -370,10 +371,11 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 
     	d2153_get_i2c_hwsem();
 		regulator_disable(regulator);
-#ifdef D2153_LDO_AUD_RECHECK 
+#ifdef D2153_LDO_AUD_RECHECK
 		d2153_reg_read(d2153_codec->d2153_pmic, 0x5E, &regval);
-		if(regval != 0x00){
-			dlg_err("%s() LDO_AUD1 off regval[0x%x] \n", __func__, regval);
+		if (regval != 0x00) {
+			dlg_err("%s() LDO_AUD1 off regval[0x%x]\n",
+				__func__, regval);
 			d2153_reg_write(d2153_codec->d2153_pmic, 0x5E, 0x00);
 		}
 #endif
@@ -626,7 +628,7 @@ static void d2153_aad_jackdet_monitor_timer_work(struct work_struct *work)
 				d2153_aad_write(client,
 					D2153_ACCDET_CONFIG, 0x88);
 			}
-	}
+		}
 	} else {
 		d2153_mask_irq(d2153_aad->d2153_codec->d2153_pmic,
 			D2153_IRQ_EACCDET);
@@ -671,7 +673,7 @@ static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state,state_gpio;
 	struct snd_soc_codec *codec;
-	
+
 	dlg_info("[%s] start!\n", __func__);
 
 	if (d2153_aad->d2153_codec == NULL ||
@@ -814,6 +816,7 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 	}
 
 	msleep(d2153_aad->button_detect_rate);
+
 	if (d2153_aad->codec_detect_enable) {
 		jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);
 		if (0 == (jack_mode & D2153_ACCDET_JACK_MODE_JACK))
@@ -973,7 +976,8 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 					"GPIO detect" : "Jack detect"),
 				d2153_aad);
 	dlg_info("[%s] : request_threaded_irq= %d\n", __func__, ret);
-	enable_irq_wake(d2153_aad->g_det_irq);	
+	enable_irq_wake(d2153_aad->g_det_irq);
+
 	/* Generate node for DFMS  */
 	dlg_info("--------------------------------------------\n");
 	d2153_aad_ex->audio_class = class_create(THIS_MODULE, "audio");

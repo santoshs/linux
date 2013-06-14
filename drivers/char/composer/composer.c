@@ -652,7 +652,7 @@ static int iocg_getfence(struct composer_fh *fh, struct cmp_getfence *get_fence)
 		}
 #endif
 
-			prev_queueflag = queue_data_complete;
+		prev_queueflag = queue_data_complete;
 #if FEATURE_FENCE_QUEUEWAIT
 		ioc_waitcomp(fh);
 #endif

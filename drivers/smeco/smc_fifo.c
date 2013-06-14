@@ -102,7 +102,7 @@ void smc_fifo_init_out( smc_fifo_t* p_fifo, int32_t length, uint8_t use_cache_co
     if( use_cache_control )
     {
         SMC_TRACE_PRINTF_FIFO("smc_fifo_init_out: FIFO 0x%08X: Cache control for read area", (uint32_t)p_fifo);
-        // Because we are initializing our own out channel the read pointer should be set to 0
+            /* Because we are initializing our own out channel the read pointer should be set to 0 */
         SMC_SHM_CACHE_CLEAN( FIFO_HEADER_GET_START_ADDRESS_READ(p_fifo), FIFO_HEADER_GET_END_ADDRESS_READ(p_fifo) );
     }
     else

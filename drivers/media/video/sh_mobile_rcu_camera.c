@@ -143,6 +143,18 @@ spinlock_t lock_log;
 #include <rtapi/system_pwmng.h>
 #endif
 
+#define SH_RCU_SNDCMD_SND			(0)
+#define SH_RCU_SNDCMD_RCV			(1)
+#define SH_RCU_SNDCMD_SNDRCV			(2)
+
+struct sh_mobile_rcu_snd_cmd {
+	unsigned int func;
+	unsigned int snd_size;
+	unsigned char *snd_buf;
+	unsigned int rcv_size;
+	unsigned char *rcv_buf;
+};
+
 /* alignment */
 #define ALIGNxK(size, x)	(((unsigned int)(size) + (x*0x400-1)) \
 					& ~(x*0x400-1))
@@ -3166,11 +3178,181 @@ void sh_mobile_rcu_event_time_data(unsigned short id, unsigned int data)
 	return;
 }
 
+static int sh_mobile_rcu_send_command(struct i2c_client *client,
+	struct sh_mobile_rcu_snd_cmd *snd_cmd)
+{
+	char *snd_buf;
+	char *rcv_buf;
+	struct i2c_msg msg[2];
+	int ret = 0;
+
+	memset(msg, 0, sizeof(msg));
+
+	switch (snd_cmd->func) {
+	case SH_RCU_SNDCMD_SND:
+		/* parameter check */
+		if (0 == snd_cmd->snd_size) {
+			dev_err(&client->dev, "%s[%d]:snd_size is zero\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		if (!snd_cmd->snd_buf) {
+			dev_err(&client->dev, "%s[%d]:snd_buf is NULL\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+
+		snd_buf = kmalloc(snd_cmd->snd_size, GFP_KERNEL);
+		if (!snd_buf) {
+			dev_err(&client->dev, "%s[%d]:kmalloc error\n",
+				__func__, __LINE__);
+			return -ENOMEM;
+		}
+		if (copy_from_user(snd_buf, (int __user *) snd_cmd->snd_buf,
+			snd_cmd->snd_size)) {
+			dev_err(&client->dev, "%s[%d]:copy_from_user error\n",
+				__func__, __LINE__);
+			kfree(snd_buf);
+			return -EIO;
+		}
+		msg[0].addr = client->addr;
+		msg[0].flags = client->flags & I2C_M_TEN;
+		msg[0].len = snd_cmd->snd_size;
+		msg[0].buf = (char *) snd_buf;
+		ret = i2c_transfer(client->adapter, msg, 1);
+		if (0 > ret) {
+			dev_err(&client->dev, "%s[%d]:i2c_transfer error %d\n",
+				__func__, __LINE__, ret);
+			kfree(snd_buf);
+			return ret;
+		}
+		kfree(snd_buf);
+		break;
+	case SH_RCU_SNDCMD_RCV:
+		/* parameter check */
+		if (0 == snd_cmd->rcv_size) {
+			dev_err(&client->dev, "%s[%d]:rcv_size is zero\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		if (!snd_cmd->rcv_buf) {
+			dev_err(&client->dev, "%s[%d]:rcv_buf is NULL\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+
+		rcv_buf = kmalloc(snd_cmd->rcv_size, GFP_KERNEL);
+		if (!rcv_buf) {
+			dev_err(&client->dev, "%s[%d]:kmalloc error\n",
+				__func__, __LINE__);
+			return -ENOMEM;
+		}
+		msg[0].addr = client->addr;
+		msg[0].flags = (client->flags & I2C_M_TEN) | I2C_M_RD;
+		msg[0].len = snd_cmd->rcv_size;
+		msg[0].buf = (char *) rcv_buf;
+		ret = i2c_transfer(client->adapter, msg, 1);
+		if (0 > ret) {
+			dev_err(&client->dev, "%s[%d]:i2c_transfer error %d\n",
+				__func__, __LINE__, ret);
+			kfree(rcv_buf);
+			return ret;
+		}
+		if (copy_to_user((int __user *) snd_cmd->rcv_buf, rcv_buf,
+			snd_cmd->rcv_size)) {
+			dev_err(&client->dev, "%s[%d]:copy_to_user error\n",
+				__func__, __LINE__);
+			kfree(rcv_buf);
+			return -EIO;
+		}
+
+		kfree(rcv_buf);
+		break;
+	case SH_RCU_SNDCMD_SNDRCV:
+		/* parameter check */
+		if (0 == snd_cmd->snd_size) {
+			dev_err(&client->dev, "%s[%d]:snd_size is zero\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		if (!snd_cmd->snd_buf) {
+			dev_err(&client->dev, "%s[%d]:snd_buf is NULL\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		if (0 == snd_cmd->rcv_size) {
+			dev_err(&client->dev, "%s[%d]:rcv_size is zero\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+		if (!snd_cmd->rcv_buf) {
+			dev_err(&client->dev, "%s[%d]:rcv_buf is NULL\n",
+				__func__, __LINE__);
+			return -EINVAL;
+		}
+
+		snd_buf = kmalloc(snd_cmd->snd_size, GFP_KERNEL);
+		if (!snd_buf) {
+			dev_err(&client->dev, "%s[%d]:kmalloc error\n",
+				__func__, __LINE__);
+			return -ENOMEM;
+		}
+		rcv_buf = kmalloc(snd_cmd->rcv_size, GFP_KERNEL);
+		if (!rcv_buf) {
+			dev_err(&client->dev, "%s[%d]:kmalloc error\n",
+				__func__, __LINE__);
+			kfree(snd_buf);
+			return -ENOMEM;
+		}
+		if (copy_from_user(snd_buf, (int __user *) snd_cmd->snd_buf,
+			snd_cmd->snd_size)) {
+			dev_err(&client->dev, "%s[%d]:copy_from_user error\n",
+				__func__, __LINE__);
+			kfree(snd_buf);
+			kfree(rcv_buf);
+			return -EIO;
+		}
+		msg[0].addr = client->addr;
+		msg[0].flags = client->flags & I2C_M_TEN;
+		msg[0].len = snd_cmd->snd_size;
+		msg[0].buf = (char *) snd_buf;
+		msg[1].addr = client->addr;
+		msg[1].flags = (client->flags & I2C_M_TEN) | I2C_M_RD;
+		msg[1].len = snd_cmd->rcv_size;
+		msg[1].buf = (char *) rcv_buf;
+		ret = i2c_transfer(client->adapter, msg, 2);
+		if (0 > ret) {
+			dev_err(&client->dev, "%s[%d]:i2c_transfer error %d\n",
+				__func__, __LINE__, ret);
+			kfree(snd_buf);
+			kfree(rcv_buf);
+			return ret;
+		}
+		if (copy_to_user((int __user *) snd_cmd->rcv_buf, rcv_buf,
+			snd_cmd->rcv_size)) {
+			dev_err(&client->dev, "%s[%d]:copy_to_user error\n",
+				__func__, __LINE__);
+			kfree(snd_buf);
+			kfree(rcv_buf);
+			return -EIO;
+		}
+		kfree(snd_buf);
+		kfree(rcv_buf);
+		break;
+	default:
+		return -ENOIOCTLCMD;
+	}
+	return 0;
+}
+
 static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 				  struct v4l2_control *ctrl)
 {
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct sh_mobile_rcu_snd_cmd snd_cmd;
 	unsigned int mmap_page_info[2];
 	unsigned int page_num = 0;
 	int ret = 0;
@@ -3179,6 +3361,15 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 			__func__, ctrl->id, ctrl->value);
 
 	switch (ctrl->id) {
+	case V4L2_CID_SET_SNDCMD:
+		if (copy_from_user(
+			(void *)&snd_cmd, (int __user *) ctrl->value,
+			sizeof(snd_cmd))) {
+			dev_err(&client->dev, "%s[%d]:copy_from_user error\n",
+				__func__, __LINE__);
+			return -EIO;
+		}
+		return sh_mobile_rcu_send_command(client, &snd_cmd);
 	case V4L2_CID_SET_OUTPUT_MODE:
 		if (SH_RCU_STREAMING_ON == pcdev->streaming)
 			return -EBUSY;

@@ -82,7 +82,6 @@
 #define LCD_DSI0PCKCR		0x00000025
 #define LCD_DSI0PHYCR		0x2A800014
 #define LCD_SYSCONF		0x00000703
-//#define LCD_TIMSET0		0x4C2C4332
 #define LCD_TIMSET0		0x4C2C6433
 #define LCD_TIMSET1		0x00080132
 #define LCD_DSICTRL		0x00000001
@@ -540,6 +539,7 @@ static int esd_irq_requested;
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG) || defined(CONFIG_FB_LCD_ESD)
 #define ESD_CHECK_DISABLE 0
 #define ESD_CHECK_ENABLE 1
+
 static struct mutex esd_check_mutex;
 static int esd_check_flag;
 #endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
@@ -1020,7 +1020,11 @@ static void lcd_esd_detect(struct work_struct *work)
 	/* For the disable entering suspend */
 	mutex_lock(&esd_check_mutex);
 
-	printk(KERN_DEBUG "[LCD] %s\n", __func__);
+#ifdef CONFIG_RENESAS
+	printk_ratelimited(KERN_NOTICE "[LCD] %s\n", __func__);
+#else
+	printk_ratelimited(KERN_DEBUG "[LCD] %s\n", __func__);
+#endif
 
 	/* esd recovery */
 	while ((nt35510_panel_simple_reset()) &&
@@ -1062,7 +1066,11 @@ static void lcd_esd_detect(struct work_struct *work)
 static irqreturn_t lcd_esd_irq_handler(int irq, void *dev_id)
 {
 	if (dev_id == &esd_irq_requested) {
-		printk(KERN_DEBUG "[LCD] %s\n", __func__);
+#ifdef CONFIG_RENESAS
+		printk_ratelimited(KERN_NOTICE "[LCD] %s\n", __func__);
+#else
+		printk_ratelimited(KERN_DEBUG "[LCD] %s\n", __func__);
+#endif
 
 		disable_irq_nosync(esd_detect_irq);
 		queue_work(lcd_wq, &esd_detect_work);
@@ -1967,6 +1975,7 @@ static int nt35510_panel_remove(struct fb_info *info)
 
 	/* Wait for end of check to power mode state */
 	mutex_lock(&esd_check_mutex);
+	mutex_unlock(&esd_check_mutex);
 	mutex_destroy(&esd_check_mutex);
 #endif /* CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG or CONFIG_FB_LCD_ESD */
 

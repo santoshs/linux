@@ -88,7 +88,7 @@ int r8a7373_platform_cpu_kill(unsigned int cpu)
 		return 1;
 
 	cpu = cpu_logical_map(cpu);
-	
+
 	while (0 < timeout) {
 		timeout--;
 		status = __raw_readl(IOMEM(CPG_SCPUSTR));
