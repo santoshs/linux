@@ -606,13 +606,18 @@ typedef struct _smc_channel_t
     uint16_t                            tx_queue_peak;                    /* For TX statistics */
     uint16_t                            rx_queue_peak;                    /* For RX statistics */
 
-#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+#ifdef SMC_APE_WAKEUP_WAKELOCK_USE
+
+  #ifdef SMC_NETDEV_WAKELOCK_IN_TX
     void*                               smc_tx_wakelock;                  /* Channel specific TX wakelock item */
     char*                               smc_tx_wakelock_name;             /* Name of the wakelock */
-#endif
+  #endif
 
     void*                               smc_rx_wakelock;                  /* Channel specific RX wakelock item */
     char*                               smc_rx_wakelock_name;             /* Name of the wakelock */
+
+#endif  /* #ifdef SMC_APE_WAKEUP_WAKELOCK_USE */
+
 
 #ifdef SMC_DMA_TRANSFER_ENABLED
     struct _smc_dma_t*                  smc_dma;
@@ -866,7 +871,7 @@ uint8_t  smc_channel_send_config_shm      ( smc_channel_t* smc_channel, uint8_t 
 uint8_t  smc_channel_send_fixed_config    ( smc_channel_t* smc_channel, smc_channel_t* smc_channel_target );
 void     smc_channel_fixed_config_response( smc_channel_t* smc_channel, smc_channel_t* smc_channel_target, smc_user_data_t* userdata_resp );
 
-#ifdef SMC_NETDEV_WAKELOCK_IN_TX
+#ifdef SMC_APE_WAKEUP_WAKELOCK_USE
 
 void*    smc_wakelock_create              ( char* wakelock_name );
 void     smc_wakelock_destroy             ( void* wakelock_item, uint8_t destroy_ptr );

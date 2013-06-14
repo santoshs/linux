@@ -67,6 +67,8 @@ static long core_ioctl(struct file *filep, \
 static int core_open(struct inode *inode, struct file *filep);
 static int core_release(struct inode *inode, struct file *filep);
 
+static int waitcomp_composer(int mode);
+
 /* module interface */
 static int composer_queue(
 	void *data,
@@ -238,6 +240,10 @@ static int composer_enable_hdmioutput(int enable, int mode);
 #define BLEND_REQ_LCD                     0x01
 #define BLEND_REQ_HDMI                    0x02
 
+/* define for waitcomp_composer */
+#define WAITCOMP_COMPOSER_QUEUE  1
+#define WAITCOMP_COMPOSER_BLEND  2
+#define WAITCOMP_COMPOSER_DISP   4
 
 #if FEATURE_SKIP_HDMI || FEATURE_SKIP_LCD
 #define SKIP_MODE_LCD   0
@@ -467,25 +473,6 @@ static int  ioc_issuspend(struct composer_fh *fh)
 	return rc;
 }
 
-static int  wait_condition_for_ioc_waitcomp(void *fh)
-{
-	int i;
-	int rc = false;
-
-#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-	if (fh && queue_data_complete == false)
-		return false;
-#endif
-	for (i = 0; i < MAX_KERNELREQ; i++) {
-		struct composer_rh *rh = &kernel_request[i];
-		if (rh->active) {
-			rc = true;
-			break;
-		}
-	}
-	return (rc == false);
-}
-
 static int  ioc_waitcomp(struct composer_fh *fh)
 {
 	int rc = 0;
@@ -502,9 +489,9 @@ static int  ioc_waitcomp(struct composer_fh *fh)
 			prev_state |= (1 << i);
 	}
 #endif
-	rc = wait_event_timeout(kernel_waitqueue_comp,
-		wait_condition_for_ioc_waitcomp(fh),
-		msecs_to_jiffies(IOC_WAITCOMP_WAITTIME));
+
+	rc = waitcomp_composer(
+		WAITCOMP_COMPOSER_QUEUE | WAITCOMP_COMPOSER_BLEND);
 
 #if _LOG_DBG > 1
 	for (i = 0; i < MAX_KERNELREQ; i++) {
@@ -513,7 +500,7 @@ static int  ioc_waitcomp(struct composer_fh *fh)
 	}
 	printk_dbg2(3, "queue state: 0x%x to 0x%x\n", prev_state, new_state);
 #endif
-	if (rc == 0) {
+	if (rc != CMP_OK) {
 		printk_err("fail to wait task complete.\n");
 		rc = -EBUSY;
 	} else {
@@ -524,10 +511,6 @@ static int  ioc_waitcomp(struct composer_fh *fh)
 	printk_dbg2(3, "actual waiting %d msec",
 		jiffies_to_msecs(jiffies - jiffies_s));
 #endif /* _LOG_DBG > 1 */
-
-#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
-	queue_data_complete = false;
-#endif
 
 	DBGLEAVE("%d\n", rc);
 	return rc;
@@ -811,6 +794,93 @@ static int iocs_hdmimem(struct composer_fh *fh, struct cmp_hdmimem *mem)
 #endif
 
 	DBGLEAVE("\n");
+	return rc;
+}
+
+static int  waitcomp_composer_complete_display(void)
+{
+	int i;
+	int rc = false;
+
+	for (i = 0; i < MAX_KERNELREQ; i++) {
+		struct composer_rh *rh = &kernel_request[i];
+		if (rh->active || rh->refmask_disp) {
+			rc = true;
+			break;
+		}
+	}
+	return (rc == false);
+}
+
+static int  waitcomp_composer_complete_buffer(void)
+{
+	int i;
+	int rc = false;
+
+	for (i = 0; i < MAX_KERNELREQ; i++) {
+		struct composer_rh *rh = &kernel_request[i];
+		if (rh->active) {
+			rc = true;
+			break;
+		}
+	}
+	return (rc == false);
+}
+
+static int waitcomp_composer(int mode)
+{
+	int rc;
+
+	DBGENTER("mode:%d\n", mode);
+
+	/* wait queue */
+#ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
+	if (mode & WAITCOMP_COMPOSER_QUEUE) {
+		rc = wait_event_timeout(kernel_waitqueue_comp,
+			queue_data_complete,
+			msecs_to_jiffies(100));
+		if (rc == 0) {
+			printk_err("fail to wait queue.\n");
+			/* ignore and continue; */
+		} else {
+			/* clear queue flag */
+			queue_data_complete = false;
+		}
+	}
+#endif /* CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE */
+
+	rc = CMP_OK;
+
+	if (mode & WAITCOMP_COMPOSER_DISP) {
+		printk_dbg2(3, "wait complete display.\n");
+		rc = wait_event_timeout(kernel_waitqueue_comp,
+			waitcomp_composer_complete_display(),
+			msecs_to_jiffies(IOC_WAITCOMP_WAITTIME));
+		if (rc == 0) {
+			/* timeout */
+			rc = CMP_NG;
+		} else {
+			/* wait success before timeout */
+			rc = CMP_OK;
+		}
+	} else if (mode & WAITCOMP_COMPOSER_BLEND) {
+		printk_dbg2(3, "wait complete blending.\n");
+		rc = wait_event_timeout(kernel_waitqueue_comp,
+			waitcomp_composer_complete_buffer(),
+			msecs_to_jiffies(IOC_WAITCOMP_WAITTIME));
+		if (rc == 0) {
+			/* timeout */
+			rc = CMP_NG;
+		} else {
+			/* wait success before timeout */
+			rc = CMP_OK;
+		}
+	} else {
+		printk_dbg2(3, "nothing to do.\n");
+		rc = CMP_OK;
+	}
+
+	DBGLEAVE("%d\n", rc);
 	return rc;
 }
 
@@ -1502,6 +1572,9 @@ static void complete_work_dispdraw(struct composer_rh *rh)
 #endif
 
 		up(&kernel_queue_sem);
+
+		/* wake-up waiting thread */
+		wake_up_all(&kernel_waitqueue_comp);
 	}
 
 	/* handle blend request */
@@ -1929,6 +2002,9 @@ static void complete_work_dispdraw_hdmi(struct composer_rh *rh)
 #endif
 
 		up(&kernel_queue_sem);
+
+		/* wake-up waiting thread */
+		wake_up_all(&kernel_waitqueue_comp);
 	}
 	/* handle blend request */
 	handle_list_blend_request(BLEND_REQ_HDMI);
@@ -3395,7 +3471,7 @@ static void pm_early_suspend(struct early_suspend *h)
 #endif /* SH_MOBILE_COMPOSER_SUPPORT_HDMI*/
 
 	/* confirm complete of request queue. */
-	ioc_waitcomp(NULL);
+	waitcomp_composer(WAITCOMP_COMPOSER_DISP);
 
 #if FEATURE_LCD_WORKQUEUE
 	printk_dbg2(3, "wait display task complete\n");

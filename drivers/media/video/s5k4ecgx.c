@@ -41,7 +41,7 @@ static ssize_t subcamtype_S5K4ECGX_show(struct device *dev,
 static ssize_t subcamfw_S5K4ECGX_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
-	char *sensorfw = "N";
+	char *sensorfw = "S5K4ECGX N";
 	return sprintf(buf, "%s\n", sensorfw);
 }
 

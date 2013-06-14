@@ -19,6 +19,49 @@
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 
+#define DBGREG4                         0xE610002C
+#define DBGREG4_ALL_ON                  0x3F
+#define SYSC_PSTR_D4                    (1<<1)
+
+#define APE_BASE_MDM_L2_TCM             0xE1800000
+#define APE_SIZE_MDM_L2_TCM             0x00000100
+
+#define APE_BASE_MDM_SCU_CD             0xE3C40000
+#define APE_SIZE_MDM_SCU_CD             0x000000C4
+#define APE_VIEW_MDM_SCU_CD_CSCGCR_SET  0x00000044
+#define SCU_TraceX2ClkEn                (1<<8)
+#define SCU_XTIclkEn                    (1<<6)
+#define SCU_CoredivRFClkEn              (1<<5)
+#define SCU_CoreRFClkEn                 (1<<4)
+#define SCU_TraceConfigClkEn            (1<<2)
+#define SCU_TraceclkEn                  (1<<1)
+
+#define APE_BASE_MDM_SCU_AD             0xE3D40000
+#define APE_SIZE_MDM_SCU_AD             0x00000450
+#define APE_VIEW_MDM_SCU_AD_CCR_OUTPUT  0x00000410
+#define APE_VIEW_MDM_SCU_AD_CCR_CLEAR   0x00000418
+#define SCU_SlowClk_force_onHFClk       (1<<4)
+#define SCU_WGM_PSSClk_Req_Mask         (1<<3)
+
+#define APE_BASE_MDM_ETF_STM            0xE3A05000
+#define APE_SIZE_MDM_ETF_STM            0x00001000
+#define APE_VIEW_MDM_ETF_STM_LOCK       0x00000FB0
+#define APE_VIEW_MDM_ETF_STM_CTL        0x00000020
+#define APE_VIEW_MDM_ETF_STM_MODE       0x00000028
+#define APE_VIEW_MDM_ETF_STM_FFCR       0x00000304
+#define APE_VIEW_MDM_ETF_STM_BUFWM      0x00000034
+
+#define APE_BASE_MDM_CXSTM              0xE3A04000
+#define APE_SIZE_MDM_CXSTM              0x00001000
+#define APE_VIEW_MDM_CXSTM_LOCK         0x00000FB0
+#define APE_VIEW_MDM_CXSTM_SPER         0x00000E00
+#define APE_VIEW_MDM_CXSTM_SPTER        0x00000E20
+#define APE_VIEW_MDM_CXSTM_FREQ         0x00000E8C
+#define APE_VIEW_MDM_CXSTM_AUXCR        0x00000E94
+#define APE_VIEW_MDM_CXSTM_TCSR         0x00000E80
+#define APE_VIEW_MDM_CXSTM_SYNCR        0x00000E90
+#define FREQ_13MHz                      (13*1000*1000)
+
 static dev_t rmc_loader_dev;
 
 struct toc_str {
@@ -448,7 +491,7 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 		}
 		printk(KERN_ALERT "T010\n");
 
-		ape5r_modify_register32(SMSTPCR5, 0, (1<<25) | (0x0F << 16)); /* Module stop control register 5 (SMSTPCR5) */
+		ape5r_modify_register32(SMSTPCR5, (1<<25),  (0x0F << 16)); /* Module stop control register 5 (SMSTPCR5) */
                                                               /* Supply clocks to OCP2SuperHiWay and OCP2Memory and SuperHiWay2OCP0/1 instances */
                                                               /* bit25: MSTP525=1, IICB0 does not operate */
                                                               /* bit19: MSTP519=0, O2S operates */
@@ -474,41 +517,132 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 
 static int rmc_loader_flush(struct file *file, fl_owner_t id)
 {
-        void __iomem * remapped_mdm_io=0;
-	int retval=0;
+        void __iomem * remapped_mdm_tcm=0;
+        void __iomem * remapped_mdm_scu_cd=0;
+        void __iomem * remapped_mdm_scu_ad=0;
+        void __iomem * remapped_mdm_etf_stm=0;
+        void __iomem * remapped_mdm_cxstm=0;
+        volatile unsigned int data_pstr, data_dbgreg4, data_val;
+        int retval=0;
 
-	if ((file->f_flags & O_ACCMODE) == O_WRONLY) {
+        if ((file->f_flags & O_ACCMODE) == O_WRONLY) {
 
-		/* Opened for WRITING, i.e. for Loading modem firware image */
+                /* Opened for WRITING, i.e. for Loading modem firware image */
 
-		if (all_toc_entries_loaded) {
-			printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold >>\n");
-	                remapped_mdm_io = ioremap(0xE3D40410,4);
-	                __raw_writel(2, ((void __iomem *)((uint32_t)remapped_mdm_io)));
-                                               /* bit 5: 0=Internal TCM boot, 1=External ROM boot (VINTHI) */
-                                               /* bit 4: 0=HF clock, 1=RF Clock forced to be used */
-                                               /* bit 3: 0=PSS Clk Req is NOT masked, 1=PSS Clkc Req is MASKED */
-                                               /* bit 2: 0=EModem MA_Int is selected, 1=EModem MA_Int is NOT selected */
-                                               /* bit 1: 0=Cortex R4 L23 in pre-fetch hold, 1=run */
-                                               /* bit 0: 0=Cortex R4 L1  in pre-fetch hold, 1=run */
-	                iounmap(remapped_mdm_io);
-		  	toc_ptr = toc_buffer;
-			data_ptr = 0;
-			toc_index = 0;
-			load_ptr = 0;
-			all_toc_entries_loaded = 0;
-			printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold <<\n");
-		} else {
-			printk(KERN_ALERT "rmc_loader_flush(), Not all TOC entries loaded, yet >><<.\n");
-			/* retval = -EFAULT; */
-		}
-	} else {
+                if (all_toc_entries_loaded) {
+                        printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold >>\n");
 
-		/* Opened for READING, i.e. for dumping STM trace from SDRAM buffer written by HostCPU CoreSight ETR */
-		printk(KERN_ALERT "rmc_loader_flush(), O_RDONLY Dump STM >><<\n");
-	}
+                        remapped_mdm_tcm = ioremap(APE_BASE_MDM_L2_TCM, APE_SIZE_MDM_L2_TCM);
+                        if (!remapped_mdm_tcm) goto fail_exit;
+                        remapped_mdm_scu_cd = ioremap(APE_BASE_MDM_SCU_CD, APE_SIZE_MDM_SCU_CD);
+                        if (!remapped_mdm_scu_cd) goto fail_exit;
+                        remapped_mdm_scu_ad = ioremap(APE_BASE_MDM_SCU_AD, APE_SIZE_MDM_SCU_AD);
+                        if (!remapped_mdm_scu_ad) goto fail_exit;
+                        remapped_mdm_etf_stm = ioremap(APE_BASE_MDM_ETF_STM, APE_SIZE_MDM_ETF_STM);
+                        if (!remapped_mdm_etf_stm) goto fail_exit;
+                        remapped_mdm_cxstm = ioremap(APE_BASE_MDM_CXSTM, APE_SIZE_MDM_CXSTM);
+                        if (!remapped_mdm_cxstm) goto fail_exit;
 
-	return retval;
+                        data_val = __raw_readl(remapped_mdm_tcm + 0x00000000);
+                        if (data_val != 0xE51FF004) {
+                                /* If beginning of modem L2 TCM is not op-code "jump to address pointed by next word",
+                                   assume that it is not up-to-date, and patch proper jump instructions.
+                                   NOTE1: Modem L2 SDRAM address is fixed here, usually it comes from modem build!
+                                   NOTE2: Address to jump is in MODEM VIEW, i.e. 0x08000000 is in APE 0x40000000! */
+                                __raw_writel(0xE51FF004, remapped_mdm_tcm + 0x00000000);
+                                __raw_writel(0x08000000, remapped_mdm_tcm + 0x00000004);
+                                data_val =   __raw_readl(remapped_mdm_tcm + 0x00000004);
+                                /* Dummy read to ensure write buffer flush */
+                        }
+
+                        __raw_writel(SCU_TraceX2ClkEn     |
+                                     SCU_XTIclkEn         |
+                                     SCU_CoredivRFClkEn   |
+                                     SCU_CoreRFClkEn      |
+                                     SCU_TraceConfigClkEn |
+                                     SCU_TraceclkEn,
+                                     remapped_mdm_scu_cd + APE_VIEW_MDM_SCU_CD_CSCGCR_SET);
+
+                        __raw_writel(SCU_SlowClk_force_onHFClk |
+                                     SCU_WGM_PSSClk_Req_Mask,
+                                     remapped_mdm_scu_ad + APE_VIEW_MDM_SCU_AD_CCR_CLEAR);
+
+                        data_pstr = __raw_readl(SYSC_PSTR);
+                        data_dbgreg4 = __raw_readl(DBGREG4);
+                        if ((SYSC_PSTR_D4 == (data_pstr & SYSC_PSTR_D4))
+			    && (DBGREG4_ALL_ON == (data_dbgreg4 & DBGREG4_ALL_ON))) {
+                                /* Only if both D4 power domain is on, and also all coresight debug enables are on */
+                                /* enable modem ETF_STM and CXSTM */
+
+                                printk(KERN_ALERT "%s: Enable Modem STM\n", __func__);
+
+                                __raw_writel(0xc5acce55, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_LOCK);
+                                __raw_writel(0x00000000, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_CTL);
+                                /* TraceCaptEn OFF */
+                                __raw_writel(0x00000002, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_MODE);
+                                /* FIFO */
+                                __raw_writel(0x00000013, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_FFCR);
+                                /* Formatting enabled, FOnFlIn=1 Flush-on-FLUSHIN feature is enabled. */
+                                __raw_writel(0x00000000, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_BUFWM);
+                                __raw_writel(0x00000001, remapped_mdm_etf_stm + APE_VIEW_MDM_ETF_STM_CTL);
+                                /* TraceCaptEn ON */
+
+                                __raw_writel(0xc5acce55, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_LOCK);
+                                __raw_writel(0xFFFFFFFF, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_SPER);
+                                /* Enable all 32 stimulus ports */
+                                __raw_writel(0x00000000, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_SPTER);
+                                /* Enable */
+                                __raw_writel(FREQ_13MHz, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_FREQ);
+                                __raw_writel(0x00000002, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_AUXCR);
+                                /* ASYNCPE */
+                                __raw_writel(0x0041000F, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_TCSR);
+                                /* Trace ID is 0x41 */
+                                __raw_writel(0x00000400, remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_SYNCR);
+                                data_val = __raw_readl(remapped_mdm_cxstm + APE_VIEW_MDM_CXSTM_SYNCR);
+                                /* Dummy read to ensure write buffer flush */
+                        } else {
+                                printk(KERN_ALERT "%s: Not enabling Modem STM\n", __func__);
+                        }
+
+                        printk(KERN_ALERT "%s: Let Modem RUN\n", __func__);
+
+                        __raw_writel(2, remapped_mdm_scu_ad + APE_VIEW_MDM_SCU_AD_CCR_OUTPUT);
+                                /* bit 5: 0=Internal TCM boot, 1=External ROM boot (VINTHI) */
+                                /* bit 4: 0=HF clock, 1=RF Clock forced to be used */
+                                /* bit 3: 0=PSS Clk Req is NOT masked, 1=PSS Clkc Req is MASKED */
+                                /* bit 2: 0=EModem MA_Int is selected, 1=EModem MA_Int is NOT selected */
+                                /* bit 1: 0=Cortex R4 L23 in pre-fetch hold, 1=run */
+                                /* bit 0: 0=Cortex R4 L1  in pre-fetch hold, 1=run */
+
+                        iounmap(remapped_mdm_tcm);
+                        iounmap(remapped_mdm_scu_cd);
+                        iounmap(remapped_mdm_scu_ad);
+                        iounmap(remapped_mdm_etf_stm);
+                        iounmap(remapped_mdm_cxstm);
+
+                        toc_ptr = toc_buffer;
+                        data_ptr = 0;
+                        toc_index = 0;
+                        load_ptr = 0;
+                        all_toc_entries_loaded = 0;
+                        printk(KERN_ALERT "rmc_loader_flush(), Release Modem L2 CPU from Prefetch Hold <<\n");
+                } else {
+                        printk(KERN_ALERT "rmc_loader_flush(), Not all TOC entries loaded, yet >><<.\n");
+                }
+        } else {
+                /* Opened for READING, i.e. for dumping STM trace from SDRAM buffer written by HostCPU CoreSight ETR */
+                printk(KERN_ALERT "rmc_loader_flush(), O_RDONLY Dump STM >><<\n");
+        }
+
+        return retval;
+fail_exit:
+        printk(KERN_ALERT "rmc_loader_flush() ioremap failed!\n");
+        if (remapped_mdm_tcm) iounmap(remapped_mdm_tcm);
+        if (remapped_mdm_scu_cd) iounmap(remapped_mdm_scu_cd);
+        if (remapped_mdm_scu_ad) iounmap(remapped_mdm_scu_ad);
+        if (remapped_mdm_etf_stm) iounmap(remapped_mdm_etf_stm);
+        if (remapped_mdm_cxstm) iounmap(remapped_mdm_cxstm);
+        return -ENOMEM;
 }
 
 

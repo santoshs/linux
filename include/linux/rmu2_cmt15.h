@@ -102,8 +102,20 @@ enum crash_type {
 
 #endif  /* CONFIG_GIC_NS_CMT */
 
+#ifdef CONFIG_RMU2_CMT15
 void cpg_check_check(void);
 void rmu2_cmt_stop(void);
 void rmu2_cmt_clear(void);
+#else
+static inline void cpg_check_check(void)
+{
+}
+static inline void rmu2_cmt_stop(void)
+{
+}
+static inline void rmu2_cmt_clear(void)
+{
+}
+#endif
 
 #endif /* _RMC_CMT15_H */

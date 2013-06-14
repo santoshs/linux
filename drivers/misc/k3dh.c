@@ -962,6 +962,7 @@ static ssize_t k3dh_accel_reactive_alert_store(struct device *dev,
 
 		g_k3dh->movement_recog_flag = ON;
         	
+                enable_irq_wake(g_k3dh->irq);        	
 		enable_irq(g_k3dh->irq);
         	printk(KERN_INFO "[K3DH] enable_irq IRQ_NO:%d\n",g_k3dh->irq);
         
@@ -971,6 +972,7 @@ static ssize_t k3dh_accel_reactive_alert_store(struct device *dev,
 
 		disable_irq_nosync(g_k3dh->irq);
         	printk(KERN_INFO "[K3DH] disable_irq IRQ_NO:%d\n",g_k3dh->irq);
+                disable_irq_wake(g_k3dh->irq);
             
 		/* INT disable */
 		acc_data[0] = CTRL_REG3;
@@ -1327,8 +1329,6 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	} else {
             printk(KERN_INFO "[K3DH] request_irq success IRQ_NO:%d, GPIO:%d", g_k3dh->irq, g_k3dh->irq_gpio);
 	} 
-
-	enable_irq_wake(g_k3dh->irq);
 	disable_irq_nosync(g_k3dh->irq);
         printk(KERN_INFO "[K3DH] disable_irq IRQ_NO:%d\n",g_k3dh->irq);
 

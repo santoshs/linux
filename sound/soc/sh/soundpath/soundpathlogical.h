@@ -232,8 +232,10 @@ static void sndp_work_stop(
 	struct sndp_work_info *work,
 	const int direction);
 /* Incommunication */
-static void sndp_work_incomm_start(const u_int new_value);
-static void sndp_work_incomm_stop(const u_int old_value);
+static void sndp_work_incomm_start(const u_int new_value,
+					const u_int save_status);
+static void sndp_work_incomm_stop(
+		const u_int old_value, const u_int new_value);
 /* SoundPath start / stop control functions */
 static void sndp_fm_work_start(const int direction);
 static void sndp_fm_work_stop(
@@ -281,6 +283,9 @@ static int sndp_work_voice_dev_chg_in_audioic(
 /* Work queue function for hw free */
 static void sndp_work_hw_free(struct sndp_work_info *work);
 
+/* Work queue function for shutdown */
+static void sndp_work_shutdown(struct sndp_work_info *work);
+
 /*
  *
  * MACRO Declarations
@@ -318,7 +323,9 @@ static void sndp_work_hw_free(struct sndp_work_info *work);
 /* Old value (PCM) SET/GET */
 #define SET_OLD_VALUE(stream, value)	(g_sndp_main[stream].old_value = value)
 #define GET_OLD_VALUE(stream)		(g_sndp_main[stream].old_value)
-
+#define GET_OTHER_VALUE(value)						\
+	(GET_OLD_VALUE((SNDP_PCM_OUT ==					\
+		SNDP_GET_DIRECTION_VAL(value)) ? SNDP_PCM_OUT : SNDP_PCM_IN))
 
 /*
  *
@@ -382,6 +389,19 @@ enum sndp_play_rec_state {
 	E_FM_CAP	= 0x8,	/* Running Capture process of FM  */
 };
 
+/* Wake lock kind */
+enum sndp_wake_lock_kind {
+	E_LOCK = 0,			/* to Wake Lock   */
+	E_UNLOCK,			/* to Wake Unlock */
+	E_FORCE_UNLOCK,			/* to Wake Unlock Forced */
+};
+
+/* PM runtime kind */
+enum sndp_pm_runtime_kind {
+	E_PM_GET = 0,			/* call pm_runtime_get_sync */
+	E_PM_PUT,			/* call pm_runtime_put_sync */
+};
+
 /* Function pointer typedef declarations */
 typedef int (*sndp_dai_startup)(struct snd_pcm_substream *,
 				struct snd_soc_dai *);
@@ -427,6 +447,11 @@ struct sndp_mode_trans {
 	u_int next_proc;		/* Implementation processing  */
 	u_int next_status;		/* After the transition state */
 };
+
+static void sndp_wake_lock(const enum sndp_wake_lock_kind kind);
+static int sndp_pm_runtime_sync(const enum sndp_pm_runtime_kind kind,
+				const u_int new_value,
+				const u_int other_value);
 
 /* Wait queue for start voice process wake up */
 static DECLARE_WAIT_QUEUE_HEAD(g_watch_start_clk_queue);

@@ -48,6 +48,7 @@
 #include <linux/err.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
+#include <linux/nmi.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
@@ -2333,6 +2334,8 @@ if(KERNEL_LOG) {
 	unsigned long flags = 0 ;
 	int locked = 1;
 
+	touch_nmi_watchdog();
+
 	local_irq_save(flags);
 	if (port->sysrq)
 		locked = 0;
@@ -2648,7 +2651,7 @@ static void __exit sci_exit(void)
 early_platform_init_buffer("earlyprintk", &sci_driver,
 			   early_serial_buf, ARRAY_SIZE(early_serial_buf));
 #endif
-module_init(sci_init);
+subsys_initcall(sci_init);
 module_exit(sci_exit);
 
 MODULE_LICENSE("GPL");

@@ -27,7 +27,7 @@ struct libvcd_status_client_header {
 
 struct libvcd_status_async_info {
 	unsigned int pre_write;	/* pre-write flag */
-	int result;	/* return result asynchronously */
+	int result;		/* return result asynchronously */
 };
 
 

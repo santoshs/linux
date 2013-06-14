@@ -85,12 +85,24 @@ struct smb328a_chip {
 	struct i2c_client		*client;
 	struct wake_lock    i2c_lock;
 	struct mutex    i2c_mutex_lock;
-   struct work_struct      work;
+	struct work_struct      work;
 	struct smb328a_platform_data	*pdata;
 	int chg_mode;
+	int charger_status;
 };
 
 static struct smb328a_chip *smb_charger = NULL;
+
+struct i2c_client *smb328a_chip_client(void)
+{
+	return smb_charger->client;
+}
+
+int smb328a_chip_status(void)
+{
+	return smb_charger->charger_status;
+}
+
 static bool FullChargeSend;
 
 #ifdef CONFIG_PMIC_INTERFACE
@@ -580,7 +592,7 @@ static void smb328a_ldo_disable(struct i2c_client *client)
 	}
 }
 
-static int smb328a_enable_charging(struct i2c_client *client)
+int smb328a_enable_charging(struct i2c_client *client)
 {
 	int val;
 	u8 data;
@@ -607,7 +619,7 @@ static int smb328a_enable_charging(struct i2c_client *client)
 	return 0;
 }
 
-static int smb328a_disable_charging(struct i2c_client *client)
+int smb328a_disable_charging(struct i2c_client *client)
 {
 	int val;
 	u8 data;

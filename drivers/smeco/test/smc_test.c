@@ -2385,7 +2385,7 @@ static uint8_t smc_test_case_channel_fifo( uint8_t* test_input_data, uint16_t te
                 {
                     int32_t fifo_count = SMC_FIFO_READ_TO_EMPTY;
                     smc_fifo_cell_t celldata;
-                    smc_user_data_t userdata;
+                   // smc_user_data_t userdata;
 
                     SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_fifo: SMC instance %d: channel %d: Read item %d...", smc_instance_id, smc_channel->id, (i+1));
 

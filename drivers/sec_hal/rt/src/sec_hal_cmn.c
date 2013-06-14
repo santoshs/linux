@@ -1,7 +1,7 @@
 /*
  * drivers/sec_hal/rt/src/sec_hal_cmn.c
  *
- * Copyright (c) 2012, Renesas Mobile Corporation.
+ * Copyright (c) 2012-2013, Renesas Mobile Corporation.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

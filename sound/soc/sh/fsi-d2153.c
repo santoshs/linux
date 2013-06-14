@@ -164,6 +164,8 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 
 	sndp_log_info("start\n");
 
+	mutex_lock_nested(&codec->card->dapm_mutex,
+		SND_SOC_DAPM_CLASS_PCM);
 	if (!status) {
 		snd_soc_dapm_disable_pin(&codec->dapm, "Headphone Jack Left");
 		snd_soc_dapm_disable_pin(&codec->dapm, "Headphone Jack Right");
@@ -175,6 +177,7 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_enable_pin(&codec->dapm, "Speaker");
 		snd_soc_dapm_enable_pin(&codec->dapm, "Earpiece");
 	}
+	mutex_unlock(&codec->card->dapm_mutex);
 
 	fsi_d2153_set_active(codec, D2153_PLAYBACK_STREAM_NAME, status);
 

@@ -1696,9 +1696,7 @@ int rtds_memory_open_shared_apmem(
 		return ret;
 	}
 
-	mem_table->pages = mem_info->pages;
-	MSG_MED("[RTDSK]   |mem_info->pages [0x%08X]\n",
-		(u32)mem_info->pages);
+	mem_table->pages = k_pages;
 	MSG_MED("[RTDSK]   |mem_table->pages [0x%08X]\n",
 		(u32)mem_table->pages);
 

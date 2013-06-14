@@ -535,9 +535,8 @@ static void d2153_aad_jackdet_monitor_timer_work(struct work_struct *work)
 			msecs_to_jiffies(300));
 		return;
 	}
-	
-	codec = d2153_aad->d2153_codec->codec;  /* 20130605 for prevent */
-	
+
+	codec = d2153_aad->d2153_codec->codec;
 	snd_soc_update_bits(d2153_aad->d2153_codec->codec,
 			D2153_MICBIAS1_CTRL,
 			D2153_MICBIAS_EN, D2153_MICBIAS_EN);
@@ -682,8 +681,7 @@ static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
 		return;
 	}
 
-	codec = d2153_aad->d2153_codec->codec;  /* 20130605 for prevent */
-
+	codec = d2153_aad->d2153_codec->codec;
 	state_gpio = gpio_get_value(d2153_aad->gpio_port);
 	if (state_gpio == 0 && state != D2153_NO_JACK)
 		return;

@@ -525,7 +525,7 @@ static void ddr_panic_write(char *buf, unsigned long start,
 	unsigned int cnt = 0;
 
 	/* param check */
-	if (MMCOOPS_START_OFFSET_DDR > start) {
+	if (MMCOOPS_START_OFFSET > start) {
 		printk(KERN_ERR "%s[%d]: param error not write start[0x%lx]\n",
 						__func__, __LINE__, start);
 		return;
@@ -949,10 +949,10 @@ static int __init mmcoops_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_CRASHLOG_DDR
-	adr = ioremap(MMCOOPS_START_OFFSET_DDR, MAX_LOG_SIZE_ON_DDR);
+	adr = ioremap(MMCOOPS_START_OFFSET, MAX_LOG_SIZE_ON_DDR);
 
 	if (adr == NULL) {
-		printk(KERN_ERR "ioremap for MMCOOPS_START_OFFSET_DDR is failed\n");
+		printk(KERN_ERR "ioremap for MMCOOPS_START_OFFSET is failed\n");
 		err = -ENOMEM;
 		goto ioremap_failed;
 	}
@@ -968,8 +968,10 @@ static int __init mmcoops_probe(struct platform_device *pdev)
 
 	return err;
 
+#ifdef CONFIG_CRASHLOG_DDR
 ioremap_failed:
 	kmsg_dump_unregister(&cxt->dump);
+#endif
 kmsg_dump_register_failed:
 	kfree(cxt->virt_addr);
 kmalloc_failed:

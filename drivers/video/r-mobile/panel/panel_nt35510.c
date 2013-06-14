@@ -431,7 +431,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvgp,    sizeof(setvgp)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvgn,    sizeof(setvgn)   }, /*Powersetting End*/
 
-	{ MIPI_DSI_DELAY,           NULL,      120              },	
+/*	{ MIPI_DSI_DELAY,           NULL,      120              },*/
 
 	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr1,  sizeof(gmprctr1) },/*Gamma setting Start*/
 	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr2,  sizeof(gmprctr2) },
@@ -526,6 +526,7 @@ struct lcd_info {
 
 static struct lcd_info lcd_info_data;
 
+static int initialize_now;
 #if defined(CONFIG_FB_LCD_ESD)
 static struct workqueue_struct *lcd_wq;
 static struct work_struct esd_detect_work;
@@ -1287,6 +1288,8 @@ static int panel_specific_cmdset(void *lcd_handle,
 			break;
 		case MIPI_DSI_BLACK:
 		{
+			if (!initialize_now)
+				nt35510_panel_draw(lcd_handle);
 			ret = nt35510_panel_draw_black(lcd_handle);
 			if (ret != 0)
 				return -1;
@@ -1376,6 +1379,8 @@ static int nt35510_panel_init(unsigned int mem_size)
 #endif
 
 	printk(KERN_INFO "%s\n", __func__);
+
+	initialize_now = true;
 
 #ifdef NT35510_POWAREA_MNG_ENABLE
 	printk(KERN_INFO "Start A4LC power area\n");
@@ -1567,6 +1572,8 @@ out:
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
 
+	initialize_now = false;
+
 	return ret;
 }
 
@@ -1713,7 +1720,7 @@ retry:
 	is_dsi_read_enabled = 1;
 
 #ifndef CONFIG_RENESAS
-	msleep(120);
+	msleep(20);
 	do{
 		ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
 		if (ret == 0) {

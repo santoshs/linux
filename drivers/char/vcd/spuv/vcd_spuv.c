@@ -417,6 +417,9 @@ int vcd_spuv_start_vcd(void)
 	memset(&g_vcd_spuv_info, 0, sizeof(struct vcd_spuv_info));
 	spin_lock_init(&g_vcd_spuv_info.status_lock);
 
+	/* initialize lock for watchdog  */
+	spin_lock_init(&g_vcd_spuv_info.watchdog_lock);
+
 	vcd_spuv_calc_trigger_start();
 
 	/* set power supply */
@@ -637,8 +640,6 @@ int vcd_spuv_start_call(void)
 		goto rtn;
 	}
 
-	/* initialize lock for watchdog  */
-	spin_lock_init(&g_vcd_spuv_info.watchdog_lock);
 	/* start watchdog */
 	vcd_spuv_start_watchdog_timer();
 rtn:

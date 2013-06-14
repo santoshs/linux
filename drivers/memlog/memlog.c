@@ -1,7 +1,20 @@
 /*
- * android/kernel/drivers/memlog/memlog.c
+ * drivers/memlog/memlog.c
  *
  * Copyright (C) 2013 Renesas Mobile Corporation
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; version 2 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
 #include <linux/init.h>
@@ -9,6 +22,7 @@
 #include <linux/io.h>
 #include <linux/time.h>
 #include <memlog/memlog.h>
+#include <mach/sec_debug.h>
 
 static struct kobject *memlog_kobj;
 
@@ -33,7 +47,7 @@ void memory_log_proc(const char *name, unsigned long pid)
 	unsigned long index = 0;
 	unsigned long data[6] = {0, 0, 0, 0, 0, 0};
 	unsigned long flags = 0;
-	if (!logdata || !name || !capture)
+	if (!logdata || !name || !capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
@@ -78,7 +92,7 @@ void memory_log_irq(unsigned int irq, int in)
 	unsigned long index = 0;
 	unsigned long data[2] = {0, 0};
 	unsigned long flags = 0;
-	if (!logdata || !capture)
+	if (!logdata || !capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
@@ -114,7 +128,7 @@ void memory_log_func(unsigned long func_id, int in)
 	unsigned long index = 0;
 	unsigned long data[2] = {0, 0};
 	unsigned long flags = 0;
-	if (!logdata || !capture)
+	if (!logdata || !capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();
@@ -150,7 +164,7 @@ void memory_log_dump_int(unsigned char dump_id, int dump_data)
 	unsigned long index = 0;
 	unsigned long data[3] = {0, 0, 0};
 	unsigned long flags = 0;
-	if (!logdata || !capture)
+	if (!logdata || !capture || !sec_debug_level.en.kernel_fault)
 		return;
 
 	cpu = raw_smp_processor_id();

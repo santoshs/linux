@@ -2020,6 +2020,7 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 
 	if (dvsq == DS_DFLT) {
 		/* bus reset */
+	  udc_log("%s: USB BUS Reset speed = %d\n", __func__, r8a66597->gadget.speed);
 		r8a66597_update_usb_speed(r8a66597);
 	  udc_log("%s: USB BUS Reset speed = %d\n", __func__, r8a66597->gadget.speed);
 		r8a66597_inform_vbus_power(r8a66597, 100);
@@ -2059,16 +2060,15 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 		reset_resume_ctr=0;
 		printk(KERN_INFO "%s: USB Suspend speed = %d, chirp_count = %d\n", __func__, r8a66597->gadget.speed,chirp_count);
 		if((r8a66597->gadget.speed == 2) && ((chirp_count ==1))){
-                     r8a66597_bclr(r8a66597, HSE, SYSCFG0);
+			r8a66597_bclr(r8a66597, HSE, SYSCFG0);
 			r8a66597->is_active=0;
 			r8a66597->vbus_active=0;
-                        r8a66597->old_vbus=0;
+			r8a66597->old_vbus=0;
 			powerup=0;
 			if (!wake_lock_active(&r8a66597->wake_lock))
 				wake_lock(&r8a66597->wake_lock);
 			schedule_delayed_work(&r8a66597->vbus_work, 0);
 			printk(KERN_INFO "%s:usb state FULL SPEED suspended, proceed for PHY Reset2222\n",__func__);
-
 		}
 	}
 	
@@ -2838,11 +2838,12 @@ static void r8a66597_vbus_work(struct work_struct *work)
 			__func__, r8a66597->is_active);
 		/* start clock */
 		r8a66597_write(r8a66597, bwait, SYSCFG1);
-                if(usb_full_speed ==0)
-		r8a66597_bset(r8a66597, HSE, SYSCFG0);
+		if(usb_full_speed ==0)
+			r8a66597_bset(r8a66597, HSE, SYSCFG0);
 		r8a66597_bset(r8a66597, USBE, SYSCFG0);
 		r8a66597_bset(r8a66597, SCKE, SYSCFG0);
 		r8a66597_bclr(r8a66597, DRPD, SYSCFG0);
+		chirp_count=0;
 		r8a66597_usb_connect(r8a66597);
 	} else {
 		udc_log("%s: IN,r8a-isactive=%d\n",
@@ -2860,6 +2861,7 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		if (r8a66597->pdata->module_stop)
 			r8a66597->pdata->module_stop();
 		udelay(10);
+		chirp_count=0;
 		udc_log("%s: USB clock disable called by\n", __func__);
 		usb_core_clk_ctrl(r8a66597, 0);
 
