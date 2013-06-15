@@ -360,6 +360,12 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
     SMC_TRACE_PRINTF_STARTUP("Device '%s': RX threaded IRQ not in use", device_name );
 #endif
 
+#ifdef SMC_CHANNEL_SYNC_WAIT_ALL
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': Channel synchronization mode: Wait all", device_name);
+#else
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': Channel synchronization mode: Independent", device_name);
+#endif
+
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
     smc_instance_conf = smc_instance_conf_get_l2mux( SMC_CONFIG_USER_L2MUX, smc_cpu_name );
@@ -943,7 +949,7 @@ static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVE
         {
             SMC_TRACE_PRINTF_EVENT_RECEIVED("smc_event_callback_l2mux: channel id %d: SMC_CHANNEL_READY_TO_SEND", smc_channel->id);
 
-            SMC_TRACE_PRINTF_STARTUP("Channel %d is synchronized with the remote", smc_channel->id);
+            SMC_TRACE_PRINTF_STARTUP("Channel %d is connected with the remote", smc_channel->id);
 
             break;
         }
@@ -1224,9 +1230,6 @@ static void l2mux_layer_device_driver_setup(struct net_device* device)
 
 static void l2mux_device_device_driver_close(struct net_device* device)
 {
-
-    /*SMC_TRACE_PRINTF_STARTUP("Channel %d is synchronized with the remote", smc_channel->id);*/
-
     SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX device driver is closing", device->name);
 
 #ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED

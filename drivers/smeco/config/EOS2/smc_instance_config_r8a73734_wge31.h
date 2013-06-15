@@ -191,8 +191,8 @@ Description :  File created
 #define SMC_VERSION_REQUIREMENT_ARRAY  SMC_VERSION_REQUIREMENT_EXTERNAL_IRQ_POLARITY, SMC_VERSION_REQUIREMENT_MHDP_SHM_CHANGE_0_0_37
 #define SMC_VERSION_REQUIREMENT_COUNT  2
 
-/* #define SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM */      /* If defined, the message is buffered when out of MDB memory */
 
+/* #define SMC_CHANNEL_SYNC_WAIT_ALL */                   /* If defined the SMC instance waits for all channels to be sync'd before any communication */
 
 /* ======================================
  * Target specific product configurations
@@ -203,6 +203,7 @@ Description :  File created
      */
 
   /* #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS */            /* If defined, the message is buffered when FIFO is full */
+  #define SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM               /* If defined, the message is buffered when out of MDB memory */
   #define SMC_HISTORY_DATA_COLLECTION_ENABLED                   /* If defined, the SMC data transfer collection is enabled in the modem side. This has some impact to throughput performance */
   /* #define SMC_DUMP_ON_CLOSE_ENABLED */                       /* If defined, the SMC Dump is printed during SMC driver close */
 
@@ -241,6 +242,7 @@ Description :  File created
      */
 
   #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS                  /* If defined, the message is buffered when FIFO is full */
+  #define SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM                     /* If defined, the message is buffered when out of MDB memory */
 
   #define SMC_SUPPORT_SKB_FRAGMENT_UL                           /* If defined, the SKB fragments are supported in uplink. NOTE: enable also the SMC_DMA_ENABLED with this for highmem config */
   #define SMC_DMA_ENABLED                                       /* If defined, the DMA initialization is enabled, this is required by the SKB fragment handling */
