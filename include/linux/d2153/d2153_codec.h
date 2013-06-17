@@ -456,7 +456,6 @@
 #define D2153_CP_MCHANGE_CP_MODE		(0 << 4)
 #define D2153_CP_MCHANGE_LARGEST_VOL			(1 << 4)
 #define D2153_CP_MCHANGE_DAC_VOL_SIZE	(2 << 4)
-#define D2153_CP_MCHANGE_DAC_VOL_SIZE	(2 << 4)
 #define D2153_CP_MCHANGE_SM_SIZE		(3 << 4)
 #define D2153_CP_MCHANGE_MASK			(3 << 4)
 #define D2153_CP_SM_SWITCH				(1 << 6)
