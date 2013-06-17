@@ -226,7 +226,6 @@ struct d2153_audio {
 	u8 micbias1_level;
 	u8 micbias2_level;
 	u8 micbias3_level;
-	u8 ear_detect_enable;
 	int aad_jack_debounce_ms;
 	int aad_jackout_debounce_ms;
 	int aad_button_debounce_ms;
