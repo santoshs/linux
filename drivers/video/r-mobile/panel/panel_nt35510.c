@@ -522,6 +522,7 @@ struct lcd_info {
 
 static struct lcd_info lcd_info_data;
 
+static int initialize_now;
 #if defined(CONFIG_FB_LCD_ESD)
 static struct workqueue_struct *lcd_wq;
 static struct work_struct esd_detect_work;
@@ -1284,6 +1285,8 @@ static int panel_specific_cmdset(void *lcd_handle,
 			break;
 		case MIPI_DSI_BLACK:
 		{
+			if (!initialize_now)
+				nt35510_panel_draw(lcd_handle);
 			ret = nt35510_panel_draw_black(lcd_handle);
 			if (ret != 0)
 				return -1;
@@ -1373,6 +1376,8 @@ static int nt35510_panel_init(unsigned int mem_size)
 #endif
 
 	printk(KERN_INFO "%s\n", __func__);
+
+	initialize_now = true;
 
 #ifdef NT35510_POWAREA_MNG_ENABLE
 	printk(KERN_INFO "Start A4LC power area\n");
@@ -1561,6 +1566,8 @@ retry:
 out:
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
+
+	initialize_now = false;
 
 	return ret;
 }
