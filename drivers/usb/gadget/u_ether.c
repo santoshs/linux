@@ -641,9 +641,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	spin_unlock(&timer_lock);
 	return NETDEV_TX_OK;
 
-	spin_unlock(&timer_lock);
-	dev->net->stats.tx_dropped++;
-	return NETDEV_TX_OK;
 tx_error:
 	spin_unlock(&timer_lock);
 	dev->net->stats.tx_errors++;

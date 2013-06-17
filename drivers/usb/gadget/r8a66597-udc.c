@@ -83,9 +83,7 @@ static const char *r8a66597_ep_name[] = {
 };
 
 volatile static bool chirp_count=0;
-#ifndef CONFIG_USB_MTP_SAMSUNG
-static bool pullup_low=0;
-#endif
+
 #if USB_DRVSTR_DBG
 #define TUSB_VENDOR_SPECIFIC1		0x80
 
@@ -270,22 +268,11 @@ static void r8a66597_set_pullup(struct r8a66597 *r8a66597)
 {
 	if (can_pullup(r8a66597)){
 		r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
-#ifndef CONFIG_USB_MTP_SAMSUNG
-		pullup_low=0;
-		udc_log("%s:can_pullup, pullup_low:%d\n",__func__,pullup_low);
-#endif
+
 		}
 	else{
 		r8a66597_bclr(r8a66597, DPRPU, SYSCFG0);
-#ifndef CONFIG_USB_MTP_SAMSUNG
-		if(!pullup_low){
-		spin_unlock(&r8a66597->lock);
-		r8a66597->driver->disconnect(&r8a66597->gadget);
-		spin_lock(&r8a66597->lock);
-		pullup_low=1;
-		udc_log("%s: pullup_low:%d\n",__func__,pullup_low);
-		}
-#endif
+
 	}
 }
 
@@ -310,10 +297,7 @@ __acquires(r8a66597->lock)
 
 	r8a66597->gadget.speed = USB_SPEED_UNKNOWN;
 	spin_unlock(&r8a66597->lock);
-#ifndef CONFIG_USB_MTP_SAMSUNG
-	pullup_low=1;
-	udc_log("%s: pullup_low:%d\n",__func__,pullup_low);
-#endif
+
 	r8a66597->driver->disconnect(&r8a66597->gadget);
 	spin_lock(&r8a66597->lock);
 	r8a66597_inform_vbus_power(r8a66597, 0);
@@ -2006,6 +1990,11 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 
 	if (dvsq == DS_DFLT) {
 		/* bus reset */
+#ifndef CONFIG_USB_MTP_SAMSUNG
+		spin_unlock(&r8a66597->lock);
+		r8a66597->driver->disconnect(&r8a66597->gadget);
+		spin_lock(&r8a66597->lock);
+#endif
 	  udc_log("%s: USB BUS Reset speed = %d\n", __func__, r8a66597->gadget.speed);
 		r8a66597_update_usb_speed(r8a66597);
 		r8a66597_inform_vbus_power(r8a66597, 100);
@@ -2630,10 +2619,7 @@ static int r8a66597_start(struct usb_gadget *gadget,
 					udc_log("%s: IN, vbuspowered\n",
 					__func__);
 					gIsConnected = 1;
-#ifndef CONFIG_USB_MTP_SAMSUNG
-					pullup_low=1;
-					udc_log("%s: pullup_low:%d\n",__func__,pullup_low);
-#endif
+
 					if (!wake_lock_active(&r8a66597->
 								wake_lock))
 						wake_lock(&r8a66597->wake_lock);

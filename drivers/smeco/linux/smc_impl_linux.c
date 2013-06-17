@@ -390,12 +390,10 @@ static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id )
             if( smc_channel->wakelock_timeout_ms > 0 )
             {
                 wake_lock_timeout( (struct wake_lock*)smc_channel->smc_rx_wakelock, msecs_to_jiffies(smc_channel->wakelock_timeout_ms) );
-                //wake_lock_timeout( get_wake_lock(), msecs_to_jiffies(smc_channel->wakelock_timeout_ms) );
             }
             else
             {
                 wake_unlock( (struct wake_lock*)smc_channel->smc_rx_wakelock );
-                //wake_unlock( get_wake_lock() );
             }
         }
         else if( smc_channel->smc_rx_wakelock != NULL && (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_MESSAGE) == SMC_CHANNEL_WAKELOCK_MESSAGE )
@@ -477,7 +475,6 @@ static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id 
         {
             SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_genout: IRQ: 0x%02X (%d), Device 0x%08X wake_unlock", (uint32_t)irq, irq, (uint32_t)dev_id );
             wake_unlock( (struct wake_lock*)smc_channel->smc_rx_wakelock );
-            //wake_unlock( get_wake_lock() );
         }
     }
 
@@ -606,7 +603,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
 
         SMC_LOCK_IRQ( get_local_lock_signal_intgen_clear() );
 
-        genios |= SMC_SHM_READ32( &gop001->clear );
+        /*genios |= SMC_SHM_READ32( &gop001->clear );*/
         SMC_SHM_WRITE32( &gop001->clear, genios );
         SMC_SHM_READ32( &gop001->clear );
 
@@ -772,7 +769,7 @@ uint8_t smc_signal_raise( smc_signal_t* signal )
 
             SMC_LOCK_IRQ( get_local_lock_signal_intgen_set() );
 
-            genios |= SMC_SHM_READ32( &gop001->set );
+            /*genios |= SMC_SHM_READ32( &gop001->set );*/
             SMC_SHM_WRITE32( &gop001->set, genios );
             SMC_SHM_READ32( &gop001->set );
 
