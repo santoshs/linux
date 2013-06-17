@@ -1023,7 +1023,7 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 		is_log = sh_mobile_rcu_intr_log(pcdev, status, "capture");
 
 		if (is_log)
-		sh_mobile_rcu_dump_reg(pcdev);
+			sh_mobile_rcu_dump_reg(pcdev);
 
 		sh_mobile_rcu_soft_reset(pcdev);
 
@@ -1039,7 +1039,7 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 			sh_mobile_rcu_meram_reset(pcdev);
 		}
 		if (is_log)
-		sh_mobile_rcu_dump_reg(pcdev);
+			sh_mobile_rcu_dump_reg(pcdev);
 		ret = -EIO;
 	}
 
@@ -3414,7 +3414,7 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		pcdev->mmap_pages = NULL;
 
 		if (copy_from_user(mmap_page_info,
-			(int __user *)ctrl->value,
+				(int __user *)ctrl->value,
 				sizeof(mmap_page_info))) {
 			dev_err(icd->parent,
 				"%s:copy_from_user error(%d)\n",
@@ -3434,7 +3434,7 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		}
 
 		if (copy_from_user(pcdev->mmap_pages,
-			(int __user *)mmap_page_info[1],
+				(int __user *)mmap_page_info[1],
 				page_num * sizeof(struct page *))) {
 			dev_err(icd->parent,
 				"%s:copy_from_user error(%d)\n",
