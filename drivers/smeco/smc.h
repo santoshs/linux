@@ -21,6 +21,10 @@
 /*
 Change history:
 
+Version:       53   04-Jun-2013     Heikki Siikaluoma
+Status:        draft
+Description :  Improvements 0.0.53
+
 Version:       52   04-Jun-2013     Heikki Siikaluoma
 Status:        draft
 Description :  Improvements 0.0.52
@@ -210,16 +214,18 @@ Description :  File created
 #ifndef SMC_H
 #define SMC_H
 
-#define SMC_SW_VERSION  "0.0.52"     /* Update for releases */
+#define SMC_SW_VERSION  "0.0.53"     /* Update for releases */
 
 #define SMC_ERROR   0
 #define SMC_OK      1
 
     /* Additional SMC error return values */
-#define SMC_ERROR_BUFFER_FULL      2
-#define SMC_ERROR_NOT_READY        3
-#define SMC_ERROR_FIFO_FULL        4
-#define SMC_ERROR_MDB_OUT_OF_MEM   5
+#define SMC_ERROR_BUFFER_FULL                 2
+#define SMC_ERROR_NOT_READY                   3
+#define SMC_ERROR_FIFO_FULL                   4
+#define SMC_ERROR_MDB_OUT_OF_MEM              5
+#define SMC_ERROR_MDB_PACKET_ALREADY_BUFFERED 6
+#define SMC_ERROR_MDB_PACKET_LOCAL_ALLOC      7
 
 
 #include "smc_conf.h"
@@ -357,10 +363,14 @@ Description :  File created
 #define SMC_CHANNEL_STATE_SEND_STOP_BY_REMOTE   0x00000100           /* If set the channel send disable was set by the remote */
 #define SMC_CHANNEL_STATE_SEND_DISABLED_REMOTE  0x00000200           /* If set the remote channel is set to not send any data to us (upper layer tx buffers are stopped )*/
 #define SMC_CHANNEL_STATE_SEND_DISABLED_XMIT    0x00000400           /* If set the transmit function has disabled the queue */
+#define SMC_CHANNEL_STATE_SYNCHRONIZED_ALL      0x00000800           /* If set all channels of the current instance are synchronized with remote */
 
     /* Defines the flags to be set before SMC send is possible */
-#define SMC_CHANNEL_STATE_READY_TO_SEND         (SMC_CHANNEL_STATE_SYNCHRONIZED | SMC_CHANNEL_STATE_SHM_CONFIGURED)
-
+#ifdef SMC_CHANNEL_SYNC_WAIT_ALL
+  #define SMC_CHANNEL_STATE_READY_TO_SEND         (SMC_CHANNEL_STATE_SYNCHRONIZED | SMC_CHANNEL_STATE_SHM_CONFIGURED | SMC_CHANNEL_STATE_SYNCHRONIZED_ALL)
+#else
+  #define SMC_CHANNEL_STATE_READY_TO_SEND         (SMC_CHANNEL_STATE_SYNCHRONIZED | SMC_CHANNEL_STATE_SHM_CONFIGURED)
+#endif
     /*
      * SMC Misc defines
      */
@@ -375,10 +385,18 @@ Description :  File created
 #define SMC_COPY_SCHEME_USE_DMA_IN_SEND             0x04
 #define SMC_COPY_SCHEME_USE_DMA_IN_RECEIVE          0x08
 
+#define SMC_COPY_SCHEME_BUFFER_MDB_OUT              0x10                /* If set the message is buffered if MDB out of memory, otherwise dropped (MDB buffering must be enabled)*/
+#define SMC_COPY_SCHEME_ASSERT_MDB_OUT              0x20                /* If set and the message is dropped because unable to buffer the system asserts */
+#define SMC_COPY_SCHEME_ASSERT_FIFO_FULL            0x40                /* If set and FIFO is full and unable to buffer, the system asserts */
+
 #define SMC_COPY_SCHEME_SEND_IS_COPY( bits )        (((bits)&SMC_COPY_SCHEME_COPY_IN_SEND)==SMC_COPY_SCHEME_COPY_IN_SEND)
 #define SMC_COPY_SCHEME_RECEIVE_IS_COPY( bits )     (((bits)&SMC_COPY_SCHEME_COPY_IN_RECEIVE)==SMC_COPY_SCHEME_COPY_IN_RECEIVE)
 #define SMC_COPY_SCHEME_SEND_USE_DMA( bits )        (((bits)&SMC_COPY_SCHEME_USE_DMA_IN_SEND)==SMC_COPY_SCHEME_USE_DMA_IN_SEND)
 #define SMC_COPY_SCHEME_RECEIVE_USE_DMA( bits )     (((bits)&SMC_COPY_SCHEME_USE_DMA_IN_RECEIVE)==SMC_COPY_SCHEME_USE_DMA_IN_RECEIVE)
+
+#define SMC_COPY_SCHEME_BUFFER_MDB_OUT_SET( bits )      (((bits)&SMC_COPY_SCHEME_BUFFER_MDB_OUT)==SMC_COPY_SCHEME_BUFFER_MDB_OUT)
+#define SMC_COPY_SCHEME_ASSERT_MDB_OUT_SET( bits )      (((bits)&SMC_COPY_SCHEME_ASSERT_MDB_OUT)==SMC_COPY_SCHEME_ASSERT_MDB_OUT)
+#define SMC_COPY_SCHEME_ASSERT_FIFO_FULL_SET( bits )    (((bits)&SMC_COPY_SCHEME_ASSERT_FIFO_FULL)==SMC_COPY_SCHEME_ASSERT_FIFO_FULL)
 
 #define SMC_COPY_SCHEME_SEND_SET_COPY( bits )       ((bits) |= SMC_COPY_SCHEME_COPY_IN_SEND)
 #define SMC_COPY_SCHEME_RECEIVE_SET_COPY( bits )    ((bits) |= SMC_COPY_SCHEME_COPY_IN_RECEIVE)
@@ -392,6 +410,10 @@ Description :  File created
 #define SMC_CHANNEL_STATE_IS_SYNCHRONIZED( state )           (((state)&SMC_CHANNEL_STATE_SYNCHRONIZED)==SMC_CHANNEL_STATE_SYNCHRONIZED)
 #define SMC_CHANNEL_STATE_SET_SYNCHRONIZED( state )          ((state) |= SMC_CHANNEL_STATE_SYNCHRONIZED)
 #define SMC_CHANNEL_STATE_CLEAR_SYNCHRONIZED( state )        ((state) &= ~SMC_CHANNEL_STATE_SYNCHRONIZED)
+
+
+#define SMC_CHANNEL_STATE_SET_SYNCHRONIZED_ALL( state )          ((state) |= SMC_CHANNEL_STATE_SYNCHRONIZED_ALL)
+#define SMC_CHANNEL_STATE_CLEAR_SYNCHRONIZED_ALL( state )        ((state) &= ~SMC_CHANNEL_STATE_SYNCHRONIZED_ALL)
 
 #define SMC_CHANNEL_STATE_IS_SYNC_SENT( state )              (((state)&SMC_CHANNEL_STATE_SYNC_MSG_SENT)==SMC_CHANNEL_STATE_SYNC_MSG_SENT)
 #define SMC_CHANNEL_STATE_SET_SYNC_SENT( state )             ((state) |= SMC_CHANNEL_STATE_SYNC_MSG_SENT)
@@ -444,8 +466,10 @@ Description :  File created
     /* ===============================================
      * SMC Macros for common usage
      */
+#define SMC_CHANNEL_GET_FROM_ARRAY( smc_instance, channel_index )  ( smc_instance->smc_channel_ptr_array[channel_index] )
+#define SMC_CHANNEL_GET( smc_instance, channel_id )                SMC_CHANNEL_GET_FROM_ARRAY(smc_instance, channel_id) /*( smc_instance->smc_channel_ptr_array[channel_id] )*/
 
-#define SMC_CHANNEL_GET( smc_instance, channel_id )    ( smc_instance->smc_channel_ptr_array[channel_id] )
+
 
 #define SMC_MEMORY_VIRTUAL_TO_PHYSICAL(smc_instance, address)     ( ((uint32_t)address)-(smc_instance->smc_shm_conf->remote_cpu_memory_offset) )
 
@@ -587,8 +611,8 @@ typedef struct _smc_channel_t
 
     smc_fifo_cell_t*                    fifo_buffer;                     /* FIFO buffer. Used when FIFO is not ready */
 
-    uint8_t                             fifo_buffer_current_index;          /* Count of items in the FIFO buffer */
-    uint8_t                             fifo_buffer_data_count;            /* Count of items in the buffer */
+    uint8_t                             fifo_buffer_current_index;       /* Count of items in the FIFO buffer */
+    uint8_t                             fifo_buffer_data_count;          /* Count of items in the buffer */
     uint8_t                             protocol;
     uint8_t                             trace_features;                  /* Trace feature bits (msg send/receive history) */
 
@@ -649,6 +673,10 @@ typedef struct _smc_t
     uint8_t           cpu_id_local;                 /* ID of the CPU used locally */
     uint8_t           is_master;                    /* Master flag */
     uint8_t           smc_channel_list_count;       /* Count of channels initialized to channel pointer array */
+
+    uint8_t           smc_channel_count_configured; /* Count of channels in configuration */
+    uint8_t           fill1;
+    uint16_t          fill2;
 
     smc_channel_t**   smc_channel_ptr_array;        /* Array of pointers to SMC channels */
     smc_conf_t*       smc_instance_conf;            /* Configuration for the whole instance */
