@@ -78,33 +78,6 @@ struct brt_value{
 	int tune_level;			// Chip Setting values
 };
 
-#if defined(CONFIG_MACH_GARDALTE)
-struct brt_value brt_table_ktd[] = {
-   { MIN_BRIGHTNESS_VALUE,  32 }, // Min pulse 32
-   { 31,  31 },
-   { 42,  30 }, 
-   { 53,  29 }, 
-   { 64,  28 }, 
-   { 76,  27 }, 
-   { 88,  26 }, 
-   { 100,  25 }, 
-   { 112,  24 },
-   { 124, 23 },
-   { 136,  22 },
-   { 148,  21 },
-   { 160,  20 },      
-   { 166,  19 }, 
-   { 172,  18 },     
-   { 178,  17 },
-   { 184,  16 }, 
-   { 190,  15 }, 
-   { 196,  14 }, 
-   { 202,  13 }, 
-   { 208,  12 }, 
-   { 214,  11 }, 
-   { MAX_BRIGHTNESS_VALUE,  9 }, 
-};
-#else
 struct brt_value brt_table_ktd[] = {
    { MIN_BRIGHTNESS_VALUE,  32 }, // Min pulse 32
    { 30,  31 },   
@@ -133,7 +106,7 @@ struct brt_value brt_table_ktd[] = {
    { 248,  8 },      
    { MAX_BRIGHTNESS_VALUE,  7 }, 
 };
-#endif
+
 #define MAX_BRT_STAGE_KTD (int)(sizeof(brt_table_ktd)/sizeof(struct brt_value))
 
 static void lcd_backlight_control(int num)
