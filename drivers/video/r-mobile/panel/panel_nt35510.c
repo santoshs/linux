@@ -397,9 +397,6 @@ static unsigned char caset[] = { 0x2A,
 static unsigned char raset[] = { 0x2B,
 		0x00, 0x00, 0x03, 0x1F };
 
-/* Normal Display Mode On */
-/*static unsigned char noron[] = { 0x13 };*/
-
 #ifdef NT35510_SWITCH_FRAMERATE_40HZ
 static unsigned char dpfrctr1_40hz[] = { 0xBD,
 		0x02, 0x45, 0x07, 0x32, 0x00 };
@@ -414,9 +411,8 @@ static struct specific_cmdset lcdfreq_cmd[] = {
 };
 
 static const struct specific_cmdset initialize_cmdset[] = {
-/*	{ MIPI_DSI_DELAY,           NULL,      120              },*/
-
-	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr1,  sizeof(maucctr1) },/*Powersetting Start*/
+	/*Powersetting Start*/
+	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr1,  sizeof(maucctr1) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setavdd,   sizeof(setavdd)  },
 	{ MIPI_DSI_DCS_LONG_WRITE,  bt1ctr,    sizeof(bt1ctr)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setavee,   sizeof(setavee)  },
@@ -428,18 +424,20 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  bt5ctr,    sizeof(bt5ctr)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  btenctr,   sizeof(btenctr)  },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setvgp,    sizeof(setvgp)   },
-	{ MIPI_DSI_DCS_LONG_WRITE,  setvgn,    sizeof(setvgn)   }, /*Powersetting End*/
+	{ MIPI_DSI_DCS_LONG_WRITE,  setvgn,    sizeof(setvgn)   },
+	/*Powersetting End*/
 
-/*	{ MIPI_DSI_DELAY,           NULL,      120              },*/
-
-	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr1,  sizeof(gmprctr1) },/*Gamma setting Start*/
+	/*Gamma setting Start*/
+	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr1,  sizeof(gmprctr1) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr2,  sizeof(gmprctr2) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr3,  sizeof(gmprctr3) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  gmprctr4,  sizeof(gmprctr4) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  gmpgctr1,  sizeof(gmpgctr1) },
-	{ MIPI_DSI_DCS_LONG_WRITE,  gmpgctr2,  sizeof(gmpgctr2) },/*Gamma setting End*/
+	{ MIPI_DSI_DCS_LONG_WRITE,  gmpgctr2,  sizeof(gmpgctr2) },
+	/*Gamma setting End*/
 
-	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr0,  sizeof(maucctr0) },/*Display set start*/
+	/*Display set start*/
+	{ MIPI_DSI_DCS_LONG_WRITE,  maucctr0,  sizeof(maucctr0) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  sdhdtctr,  sizeof(sdhdtctr) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  gseqctr,   sizeof(gseqctr)  },
 	{ MIPI_DSI_DCS_LONG_WRITE,  sdeqctr,   sizeof(sdeqctr)  },
@@ -455,16 +453,17 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, teon, sizeof(teon)    },
 #endif
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, colmod, sizeof(colmod)	},
-/*	{ MIPI_DSI_DCS_SHORT_WRITE, noron,    sizeof(noron)   },*/
 	{ MIPI_DSI_DCS_LONG_WRITE,  caset,  sizeof(caset) },
-	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) }, /*Display set End*/
+	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) },
+	/*Display set End*/
+
 	{ MIPI_DSI_DCS_LONG_WRITE, slpout,    sizeof(slpout)   },
 	{ MIPI_DSI_DELAY,           NULL,      120              },
 	{ MIPI_DSI_BLACK,           NULL,      0                },
 
 #ifndef NT35510_ENABLE_VIDEO_MODE
 	{ MIPI_DSI_DCS_SHORT_WRITE, dispon,    sizeof(dispon)   },
-	{ MIPI_DSI_DELAY,           NULL,      10              },		
+	{ MIPI_DSI_DELAY,           NULL,      10              },
 #endif /* NT35510_ENABLE_VIDEO_MODE */
 
 	{ MIPI_DSI_END,             NULL,      0                }
@@ -1438,6 +1437,7 @@ static int nt35510_panel_init(unsigned int mem_size)
 		printk(KERN_ALERT "disp_start_lcd err!\n");
 		goto out;
 	}
+
 retry:
 	is_dsi_read_enabled = 1;
 
@@ -1449,7 +1449,6 @@ retry:
 
 		if (retry_count == 0) {
 			printk(KERN_ALERT "retry count 0!!!!\n");
-			nt35510_panel_draw(screen_handle);
 
 			mipi_display_power_off();
 
@@ -1567,7 +1566,6 @@ retry:
 #endif /* CONFIG_FB_LCD_ESD */
 
 out:
-
 	disp_delete.handle = screen_handle;
 	screen_display_delete(&disp_delete);
 
@@ -1668,9 +1666,8 @@ static int nt35510_panel_resume(void)
 	screen_disp_start_lcd start_lcd;
 	screen_disp_stop_lcd disp_stop_lcd;
 	screen_disp_delete disp_delete;
-#ifndef CONFIG_RENESAS
 	unsigned char read_data[60];
-#endif
+	int retry_count_dsi;
 	int ret = 0;
 	int retry_count = NT35510_INIT_RETRY_COUNT;
 
@@ -1718,27 +1715,28 @@ retry:
 
 	is_dsi_read_enabled = 1;
 
-#ifndef CONFIG_RENESAS
 	msleep(20);
-	do{
+	retry_count_dsi = NT35510_INIT_RETRY_COUNT;
+	do {
 		ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
 		if (ret == 0) {
-			printk(KERN_DEBUG "read_data(RDID0) = %02X\n", read_data[0]);	
-			printk(KERN_DEBUG "read_data(RDID1) = %02X\n", read_data[1]);
-			printk(KERN_DEBUG "read_data(RDID2) = %02X\n", read_data[2]);
+			printk(KERN_DEBUG "read_data(RDID0) = %02X\n",
+								read_data[0]);
+			printk(KERN_DEBUG "read_data(RDID1) = %02X\n",
+								read_data[1]);
+			printk(KERN_DEBUG "read_data(RDID2) = %02X\n",
+								read_data[2]);
 		}
-		
-		retry_count--;
-		
-		if(retry_count==0){
-			printk("retry_count=%d, DSI read error!!!\n", retry_count);
+
+		retry_count_dsi--;
+
+		if (retry_count_dsi == 0) {
+			printk(KERN_DEBUG "retry_count=%d, DSI read error!!!\n",
+							retry_count_dsi);
 			break;
 		}
-
-	}while( read_data[0]!=0x55 || read_data[1]!=0xBC || read_data[2]!=0xC0);
-
-	retry_count = NT35510_INIT_RETRY_COUNT;
-#endif
+	} while (read_data[0] != 0x55 || read_data[1] != 0xBC ||
+							read_data[2] != 0xC0);
 
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, initialize_cmdset);
