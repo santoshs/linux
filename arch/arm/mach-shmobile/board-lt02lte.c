@@ -385,9 +385,9 @@ static void __init board_init(void)
 		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
-			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);
-			__raw_writel(SDMRA_DONE, sbsc_sdmra_28200);
-			__raw_writel(SDMRA_DONE, sbsc_sdmra_38200);
+			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
 		} else {
 			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
 		}
