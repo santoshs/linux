@@ -687,6 +687,11 @@ static irqreturn_t renesas_sdhi_detect_irq(int irq, void *dev_id)
 	struct renesas_sdhi_host *host = dev_id;
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 
+	/* Ignore the detect interrupt if previous detect state
+	 * is same as new */
+	if (host->connect == pdata->get_cd(host->pdev))
+		return IRQ_HANDLED;
+
 	spin_lock(&host->lock);
 
 	if (pdata->detect_msec)
