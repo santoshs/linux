@@ -42,7 +42,7 @@
 #include <linux/proc_fs.h>
 
 /* DEFINE Definitions */
-#define GPIO_DOCK_EN GPIO_PORT33
+#define GPIO_DOCK_EN	GPIO_PORT33
 
 #endif
 
@@ -380,7 +380,6 @@ int fsi_d2153_get_playback_gpio(
 	struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	//gpio_get_value(GPIO_DOCK_EN);
 	return ERROR_NONE;
 }
 
@@ -396,7 +395,7 @@ int fsi_d2153_put_playback_gpio(
 {
 	int state_gpio = 0;
 
-	gpio_set_value(GPIO_DOCK_EN,ucontrol->value.enumerated.item[0]);
+	gpio_set_value(GPIO_DOCK_EN, ucontrol->value.enumerated.item[0]);
 	/*** test code start ***/
 	state_gpio = gpio_get_value(GPIO_DOCK_EN);
 	printk(KERN_INFO "%s gpio_get_value(GPIO_DOCK_EN):%d\n",
@@ -487,11 +486,10 @@ int fsi_d2153_snd_soc_put_sr(struct snd_kcontrol *kcontrol,
 		- SNDRV_PCM_HW_PARAM_FIRST_INTERVAL].min = val;
 
 	retVal = fsi_d2153_set_sampling_rate(&params);
-	if(retVal != 0){
+	if (retVal != 0)
 		sndp_log_err("Invalid Sampling Rate\n");
-	} else {
+	else
 		sndp_log_info("[Sampling Rate]:%d\n", val);
-	}
 	return retVal;
 }
 
