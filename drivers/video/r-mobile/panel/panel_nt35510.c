@@ -44,8 +44,6 @@
 #define NT35510_POWAREA_MNG_ENABLE
 /* #define NT35510_GED_ORG */
 
-/* #define NT35510_ENABLE_VIDEO_MODE */
-
 /* #define NT35510_SWITCH_FRAMERATE_40HZ */
 
 #ifdef NT35510_POWAREA_MNG_ENABLE
@@ -278,17 +276,10 @@ static unsigned char setvgn[] = { 0xBD,
 static unsigned char maucctr0[] = { 0xF0,
 		0x55, 0xAA, 0x52, 0x08, 0x00 };
 
-#ifndef NT35510_ENABLE_VIDEO_MODE
 static unsigned char dopctr[] = { 0xB1,
 		0x4C, 0x04 };
 
 static unsigned char invctr[] = { 0x36, 0x02 };
-#else
-static unsigned char dopctr[] = { 0xB1,
-		0x4C, 0x04 };
-
-static unsigned char invctr[] = { 0x36, 0x02 };
-#endif
 
 static unsigned char sdhdtctr[] = { 0xB6, 0x0A };
 
@@ -449,9 +440,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  dpfrctr3,  sizeof(dpfrctr3) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  dptmctr12,  sizeof(dptmctr12) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  dopctr,    sizeof(dopctr)   },
-#ifndef NT35510_ENABLE_VIDEO_MODE
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, teon, sizeof(teon)    },
-#endif
 	{ MIPI_DSI_DCS_SHORT_WRITE_PARAM, colmod, sizeof(colmod)	},
 	{ MIPI_DSI_DCS_LONG_WRITE,  caset,  sizeof(caset) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  raset,  sizeof(raset) },
@@ -461,22 +450,11 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DELAY,           NULL,      120              },
 	{ MIPI_DSI_BLACK,           NULL,      0                },
 
-#ifndef NT35510_ENABLE_VIDEO_MODE
 	{ MIPI_DSI_DCS_SHORT_WRITE, dispon,    sizeof(dispon)   },
 	{ MIPI_DSI_DELAY,           NULL,      10              },
-#endif /* NT35510_ENABLE_VIDEO_MODE */
 
 	{ MIPI_DSI_END,             NULL,      0                }
 };
-
-#ifdef NT35510_ENABLE_VIDEO_MODE
-static const struct specific_cmdset initialize_cmdset_phase2[] = {
-	{ MIPI_DSI_DCS_SHORT_WRITE, dispon,    sizeof(dispon)   },
-	{ MIPI_DSI_DELAY,           NULL,      150              },
-	{ MIPI_DSI_BLACK,           NULL,      0                },
-	{ MIPI_DSI_END,             NULL,      0                }
-};
-#endif /* NT35510_ENABLE_VIDEO_MODE */
 
 static const struct specific_cmdset demise_cmdset[] = {
 	{ MIPI_DSI_DCS_SHORT_WRITE, dispoff,   sizeof(dispoff)  },
@@ -553,9 +531,6 @@ static struct delayed_work esd_check_work;
 static int lcdfreq_lock_free(struct device *dev)
 {
 	void *screen_handle;
-#ifdef NT35510_ENABLE_VIDEO_MODE
-	screen_disp_set_lcd_if_param set_lcd_if_param;
-#endif
 	screen_disp_delete disp_delete;
 	int ret;
 
@@ -563,26 +538,12 @@ static int lcdfreq_lock_free(struct device *dev)
 
 	screen_handle =  screen_display_new();
 
-#ifdef NT35510_ENABLE_VIDEO_MODE
-	/* Setting peculiar to panel */
-	set_lcd_if_param.handle			= screen_handle;
-	set_lcd_if_param.port_no		= irq_portno;
-	set_lcd_if_param.lcd_if_param		= &r_mobile_lcd_if_param;
-	set_lcd_if_param.lcd_if_param_mask	= &r_mobile_lcd_if_param_mask;
-	ret = screen_display_set_lcd_if_parameters(&set_lcd_if_param);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_set_lcd_if_parameters err!\n");
-		goto out;
-	}
-
-#else /* command mode */
 	/* Transmit DSI command peculiar to a panel */
 	ret = panel_specific_cmdset(screen_handle, lcdfreq_cmd);
 	if (ret != 0) {
 		printk(KERN_ALERT "panel_specific_cmdset err!\n");
 		goto out;
 	}
-#endif /* NT35510_ENABLE_VIDEO_MODE */
 
 out:
 	disp_delete.handle = screen_handle;
@@ -863,7 +824,6 @@ out:
 
 static int lcdfreq_resume(void)
 {
-#ifndef NT35510_ENABLE_VIDEO_MODE
 	char buf[10];
 
 	/* Resume when a frame rate is not 60Hz */
@@ -872,7 +832,6 @@ static int lcdfreq_resume(void)
 		level_store(lcd_info_data.dev,
 			    lcd_info_data.attr, buf, 0);
 	}
-#endif /* NT35510_ENABLE_VIDEO_MODE */
 
 	return 0;
 }
@@ -1493,59 +1452,7 @@ retry:
 		}
 	}
 
-#ifdef NT35510_ENABLE_VIDEO_MODE
-	is_dsi_read_enabled = 0;
-
-	/* Stop a display to LCD */
-	disp_stop_lcd.handle		= screen_handle;
-	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
-	ret = screen_display_stop_lcd(&disp_stop_lcd);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "display_stop_lcd err!\n");
-		goto out;
-	}
-	/* Start a display to LCD */
-	start_lcd.handle	= screen_handle;
-	start_lcd.output_mode	= RT_DISPLAY_LCD1;
-	ret = screen_display_start_lcd(&start_lcd);
-	if (ret != SMAP_LIB_DISPLAY_OK) {
-		printk(KERN_ALERT "disp_start_lcd err!\n");
-		goto out;
-	}
-
-	is_dsi_read_enabled = 1;
-
-	/* Display ON */
-	ret = panel_specific_cmdset(screen_handle, initialize_cmdset_phase2);
-	if (ret != 0) {
-		printk(KERN_ALERT "panel_specific_cmdset err!\n");
-		is_dsi_read_enabled = 0;
-		if (retry_count == 0) {
-			printk(KERN_ALERT "retry count 0!!!!\n");
-			nt35510_panel_draw_black(screen_handle);
-			ret = -ENODEV;
-			goto out;
-		} else {
-			retry_count--;
-
-			/* Stop a display to LCD */
-			disp_stop_lcd.handle		= screen_handle;
-			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
-			ret = screen_display_stop_lcd(&disp_stop_lcd);
-			if (ret != SMAP_LIB_DISPLAY_OK) {
-				printk(KERN_ALERT "display_stop_lcd err!\n");
-				goto out;
-			}
-
-			disp_delete.handle = screen_handle;
-			screen_display_delete(&disp_delete);
-			goto retry;
-		}
-	}
-	printk(KERN_DEBUG "Panel initialized with Video mode\n");
-#else /* NT35510_ENABLE_VIDEO_MODE */
 	printk(KERN_DEBUG "Panel initialized with Command mode\n");
-#endif /* NT35510_ENABLE_VIDEO_MODE */
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 	esd_duration = DURATION_TIME;
@@ -1776,51 +1683,6 @@ retry:
 
 	/* Resume frame rate */
 	lcdfreq_resume();
-
-#ifdef NT35510_ENABLE_VIDEO_MODE
-	is_dsi_read_enabled = 0;
-
-	/* Stop a display to LCD */
-	disp_stop_lcd.handle		= screen_handle;
-	disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
-	ret = screen_display_stop_lcd(&disp_stop_lcd);
-	if (ret != SMAP_LIB_DISPLAY_OK)
-		printk(KERN_ALERT "display_stop_lcd err!\n");
-
-	/* Start a display to LCD */
-	start_lcd.handle	= screen_handle;
-	start_lcd.output_mode	= RT_DISPLAY_LCD1;
-	ret = screen_display_start_lcd(&start_lcd);
-	if (ret != SMAP_LIB_DISPLAY_OK)
-		printk(KERN_ALERT "disp_start_lcd err!\n");
-
-	is_dsi_read_enabled = 1;
-
-	/* Display ON */
-	ret = panel_specific_cmdset(screen_handle, initialize_cmdset_phase2);
-	if (ret != 0) {
-		printk(KERN_ALERT "panel_specific_cmdset err!\n");
-		is_dsi_read_enabled = 0;
-		if (retry_count == 0) {
-			printk(KERN_ALERT "retry count 0!!!!\n");
-			nt35510_panel_draw_black(screen_handle);
-			goto out;
-		} else {
-			retry_count--;
-
-			/* Stop a display to LCD */
-			disp_stop_lcd.handle		= screen_handle;
-			disp_stop_lcd.output_mode	= RT_DISPLAY_LCD1;
-			ret = screen_display_stop_lcd(&disp_stop_lcd);
-			if (ret != SMAP_LIB_DISPLAY_OK)
-				printk(KERN_ALERT "display_stop_lcd err!\n");
-
-			disp_delete.handle = screen_handle;
-			screen_display_delete(&disp_delete);
-			goto retry;
-		}
-	}
-#endif /* NT35510_ENABLE_VIDEO_MODE */
 
 #if defined(CONFIG_LCD_ESD_RECOVERY_BY_CHECK_REG)
 	/* Schedule check ESD */
