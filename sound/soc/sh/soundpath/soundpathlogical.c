@@ -4174,8 +4174,6 @@ static void sndp_work_stop(
 	}
 
 	if (SNDP_PCM_OUT == direction) {
-                /* shut down external amp prior to PMU */
-		sndp_extdev_set_state(SNDP_MODE_NORMAL,SNDP_OUT_SPEAKER,SNDP_EXTDEV_STOP );
 		/* Output device OFF */
 		fsi_d2153_set_dac_power(g_kcontrol, 0);
 	}
