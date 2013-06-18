@@ -1267,7 +1267,6 @@ int sndp_soc_put(
 		    ((SNDP_PCM_IN == uiDirection) &&
 		     (SNDP_MODE_INCOMM != SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_OUT))))) {
 
-
 			sndp_log_info("disable dfs mode min\n");
 			disable_dfs_mode_min();
 		}
@@ -1627,13 +1626,13 @@ static void sndp_work_shutdown(struct sndp_work_info *work)
 
 	if (SNDP_PCM_IN == direction) {
 		if (SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(in_old_val)) {
-		g_sndp_incomm_playrec_flg &= ~E_CAP;
-		if (!g_sndp_incomm_playrec_flg) {
-			/* To register a work queue */
-			/* to stop processing Playback */
+			g_sndp_incomm_playrec_flg &= ~E_CAP;
+			if (!g_sndp_incomm_playrec_flg) {
+				/* To register a work queue */
+				/* to stop processing Playback */
 				sndp_work_incomm_stop(SNDP_GET_DEVICE_VAL(in_old_val),
 								SNDP_VALUE_INIT);
-		}
+			}
 		} else if (g_sndp_playrec_flg & E_FM_CAP) {
 			g_sndp_playrec_flg &= ~E_FM_CAP;
 			if (!(g_sndp_playrec_flg & E_FM_PLAY))
@@ -2378,7 +2377,7 @@ static void sndp_incomm_trigger(
  */
 static void sndp_work_voice_start(struct sndp_work_info *work)
 {
-	int			iRet = ERROR_NONE;
+	int		iRet = ERROR_NONE;
 	u_int		uiDirection = SNDP_GET_DIRECTION_VAL(work->new_value);
 
 	struct snd_soc_codec *codec =
@@ -2803,8 +2802,8 @@ static void sndp_work_fm_radio_dev_chg(struct sndp_work_info *work)
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
 
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
-		SNDP_GET_AUDIO_DEVICE(work->new_value),
-		SNDP_EXTDEV_CH_DEV);
+				SNDP_GET_AUDIO_DEVICE(work->new_value),
+				SNDP_EXTDEV_CH_DEV);
 
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
@@ -3306,7 +3305,6 @@ static void sndp_work_call_capture_stop(struct sndp_work_info *work)
 
 	/* Call + Capture stop request */
 	call_record_stop();
-
 
 	/* If the state already NORMAL Playback side */
 	if ((!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) &&
@@ -3823,7 +3821,7 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 			SNDP_VALUE_INIT, SNDP_VALUE_INIT);
 
 	if (!((E_FM_PLAY & g_sndp_playrec_flg) &&
-	      (E_FM_CAP  & g_sndp_playrec_flg))) {
+		  (E_FM_CAP  & g_sndp_playrec_flg))) {
 
 		if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
 			/* FSI master */
