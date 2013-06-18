@@ -34,14 +34,12 @@
 
 #define D2153_AAD_DETECT_JACK_ADC 91
 #define D2153_AAD_CONNER_CASE_ADC 239
-#define D2153_GPIO_DEBOUNCE_TIME 4000 /* 4ms*/
-
 
 struct d2153_aad_priv *d2153_aad_ex;
 EXPORT_SYMBOL(d2153_aad_ex);
 
 static int d2153_aad_read(struct i2c_client *client, u8 reg);
-struct i2c_client *add_client = NULL;
+struct i2c_client *add_client;
 
 
 /*
@@ -85,12 +83,13 @@ static const struct button_resistance button_res_2V5_tbl[MAX_BUTTONS] = {
 };
 
 static const struct button_resistance *button_res_tbl;
-static ssize_t show_headset(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t show_headset(struct device *dev,
+			struct device_attribute *attr, char *buf);
 
-#define HEADSET_ATTR(_name)													\
-{																				\
-	.attr = { .name = #_name, .mode = 0644, },					\
-	.show = show_headset,														\
+#define HEADSET_ATTR(_name)						\
+{									\
+	.attr = { .name = #_name, .mode = 0644, },			\
+	.show = show_headset,						\
 }
 
 enum {
@@ -105,15 +104,15 @@ static struct device_attribute headset_Attrs[] = {
 	HEADSET_ATTR(adc),
 };
 
-static ssize_t show_headset(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t show_headset(struct device *dev,
+			struct device_attribute *attr, char *buf)
 {
 	ssize_t ret = 0;
 	const ptrdiff_t off = attr - headset_Attrs;
 	u8 adc_det_status = 0;
 	struct i2c_client *client = add_client;
 
-	switch (off)
-	{
+	switch (off) {
 	case STATE:
 		ret = scnprintf(buf, PAGE_SIZE, "%d\n",
 			(((d2153_aad_ex->switch_data.state == D2153_HEADPHONE)
@@ -134,7 +133,7 @@ static ssize_t show_headset(struct device *dev, struct device_attribute *attr, c
 			adc_det_status);
 		ret = scnprintf(buf, PAGE_SIZE, "%d\n", adc_det_status);
 		break;
-	default :
+	default:
 		break;
 	}
 
@@ -403,22 +402,21 @@ static irqreturn_t d2153_g_det_handler(int irq, void *data)
 	struct i2c_client *client = d2153_aad->i2c_client;
 	dlg_info("[%s] start!\n", __func__);
 
-	if ( d2153_aad->switch_data.state != D2153_NO_JACK)
-	{	
+	if (D2153_NO_JACK != d2153_aad->switch_data.state) {
 		cancel_delayed_work_sync(&d2153_aad->jack_monitor_work);
- 		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
-		
-		dlg_info("[%s] BTN Disable !\n",__func__);
-		d2153_aad_write(client,D2153_ACCDET_CONFIG,0x08);
-		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACKOUT_DEBOUNCE_MS)); 	
-	} else if(d2153_aad->l_det_status) {
-		dlg_info("[%s] d2153_aad->l_det_status [%d]\n",__func__,d2153_aad->l_det_status);
-		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACK_DEBOUNCE_MS)); 	
+		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN, 0);
+
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x08);
+		schedule_delayed_work(&d2153_aad->jack_monitor_work,
+			msecs_to_jiffies(d2153_aad->jackout_debounce_ms));
+	} else if (d2153_aad->l_det_status) {
+		schedule_delayed_work(&d2153_aad->jack_monitor_work,
+			msecs_to_jiffies(d2153_aad->jack_debounce_ms));
 	}
+
 	return IRQ_HANDLED;
 }
-
 
 /* IRQ handler for HW jack detection */
 static irqreturn_t d2153_jack_handler(int irq, void *data)
@@ -673,7 +671,6 @@ static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state,state_gpio;
 	struct snd_soc_codec *codec;
-
 	dlg_info("[%s] start!\n", __func__);
 
 	if (d2153_aad->d2153_codec == NULL ||
@@ -1003,7 +1000,6 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	d2153_register_irq(d2153_aad->d2153_codec->d2153_pmic,
 			D2153_IRQ_EACCDET, d2153_button_handler, 0,
 			"Button detect", d2153_aad);
-
 
 	d2153_reg_read(d2153_aad->d2153_codec->d2153_pmic, 0x96, &regval);
 	d2153_aad->chip_rev = regval;
