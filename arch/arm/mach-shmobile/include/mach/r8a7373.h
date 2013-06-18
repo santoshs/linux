@@ -825,9 +825,6 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define SBSC_SDMRA_28200	(0xFE528200U)
 #define SBSC_SDMRA_38200	(0xFE538200U)
 
-#define SDMRA_DONE		(0x00000000)
-#define SDMRACR1A_ZQ		(0x0000560A)
-
 /********************************************/
 /********************************************/
 #define SYS_TRACE_FUNNEL_STM_BASE       IO_ADDRESS(0xE6F8B000)
