@@ -94,6 +94,8 @@ static struct workqueue_struct *zinitix_tmr_workqueue;
 
 static struct regulator *keyled_regulator;
 
+static touchkey_regulator_cnt;
+
 #define zinitix_debug_msg(fmt, args...)	\
 	if (m_ts_debug_mode)	\
 		printk(KERN_INFO "[TSP] zinitix : [%-18s:%5d]" fmt, \
@@ -1046,9 +1048,6 @@ static bool ts_mini_init_touch(struct zinitix_touch_dev *touch_dev)
 
 
 #if defined(CONFIG_SEC_MAKE_LCD_TEST)
-	if (ts_write_reg(touch_dev->client,0xfc,1) != I2C_SUCCESS)
-	    goto fail_mini_init;
-	 
 	if (ts_write_reg(touch_dev->client,0x10a,1) != I2C_SUCCESS)
 	    goto fail_mini_init;
 	 
@@ -1917,9 +1916,6 @@ retry_init:
 		goto fail_init;
 
 #if defined(CONFIG_SEC_MAKE_LCD_TEST)
-	if (ts_write_reg(touch_dev->client,0xfc,1) != I2C_SUCCESS)
-	    goto fail_init;
-	 
 	if (ts_write_reg(touch_dev->client,0x10a,1) != I2C_SUCCESS)
 	    goto fail_init;
 	 
@@ -2835,12 +2831,24 @@ static void get_fw_ver_ic(void *device_data)
 {
 	struct zinitix_touch_dev *info = (struct zinitix_touch_dev *)device_data;
 	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
+	u16 BinVersion, BinMinorVersion, BinRegVersion, BinHWID;
+	
 	u16 firmware_version, minor_firmware_version, reg_data_version, hw_id;	
-	u32 version;
+	u32 version, binary_version, readcheck_version;
+
 	char buff[16] = {0};
 	int retry_cnt=0;
+	int	retry_cnt2=0;
 
 	set_default_result(info);
+
+	BinVersion = info->cap_info.firmware_version;
+	BinMinorVersion = info->cap_info.firmware_minor_version;
+	BinRegVersion = info->cap_info.reg_data_version;
+	BinHWID = info->cap_info.hw_id;
+
+	binary_version= (u32)((u32)(BinHWID&0xff)<<16)|((BinVersion&0xf)<<12)|((BinMinorVersion&0xf)<<8)|(BinRegVersion&0xff);
+	
 retry_init:
 	/* get chip firmware version */
 	if (ts_read_data(misc_touch_dev->client,
@@ -2875,12 +2883,32 @@ retry_init:
 	newMinorVersion = (u16)minor_firmware_version;
 	newRegVersion = (u16)reg_data_version;
 	newHWID = (u16)hw_id;	
+
+	readcheck_version = (u32)((u32)(newHWID&0xff)<<16)|((newVersion&0xf)<<12)|((newMinorVersion&0xf)<<8)|(newRegVersion&0xff);
+
+//	printk("readcheck_version=ZI%06X,binary_version=ZI%06X\n", readcheck_version, binary_version);
+	
+	if(readcheck_version==binary_version){
+		printk("TSP IC ver. read sucess!!\n");
 	goto sucess_read;
+	}
+	else{
+		if (++retry_cnt2 <= 3){
+			printk("TSP IC ver != Bin ver. Retry cnt=%d!!\n", retry_cnt2);
+			goto retry_init;
+		}
+		else{
+			printk("TSP IC ver read failed - not matched!!\n");
+			goto sucess_read;
+		}
+
+	}
 		
 fail_read:
 	if (++retry_cnt <= 3) {
 		goto	retry_init;
 	} else {
+	printk("TSP IC ver read failed - I2C problem!!\n");
 	newVersion = info->cap_info.firmware_version;
 	newMinorVersion = info->cap_info.firmware_minor_version;
 	newRegVersion = info->cap_info.reg_data_version;
@@ -4287,10 +4315,9 @@ fail_hw_cal:
 static void touchkey_led_on(struct zinitix_touch_dev *data, bool on)
 {
 	int ret;
-	printk("touchkey_led_on = %d\n", on);
+//	printk("touchkey_led_on = %d\n", on);
 
-	if(keyled_regulator == NULL)
-	{
+	if(keyled_regulator == NULL) {
 		printk(" %s, %d \n", __func__, __LINE__ );			
 		keyled_regulator = regulator_get(NULL, "key_led"); 
 		if(IS_ERR(keyled_regulator)){
@@ -4302,19 +4329,37 @@ static void touchkey_led_on(struct zinitix_touch_dev *data, bool on)
 		
 	}
 
-	if(on)
-	{
-		printk(" %s, %d Touchkey On\n", __func__, __LINE__ );	
-
+	if(on) {
+		printk("Touchkey On\n");	
+		if (!regulator_is_enabled(keyled_regulator)) {
 		ret = regulator_enable(keyled_regulator);
-		printk("regulator_enable ret = %d \n", ret);
+			if (ret) {
+				pr_err("can not enable KEY_LED_3.3V, ret=%d\n", ret);
+			}
+			else {
+				touchkey_regulator_cnt++;
+				printk("regulator_enable ret = %d, cnt=%d\n", ret, touchkey_regulator_cnt);
 	}
-	else
-	{
-		printk("%s, %d Touchkey Off\n", __func__, __LINE__ );	
 
+		}
+		else
+			printk("touchkey led regulator is already enabled!!!");
+	}
+	else {
+		printk("Touchkey Off\n");	
+		if (regulator_is_enabled(keyled_regulator)) {
 		ret = regulator_disable(keyled_regulator);
-		printk("regulator_disable ret = %d \n", ret);	
+			if (ret) {
+				pr_err("can not disabled KEY_LED_3.3V ret=%d\n", ret);
+			}
+			else {
+				touchkey_regulator_cnt--;
+				printk("regulator_disable ret = %d, cnt=%d\n", ret, touchkey_regulator_cnt);
+			}
+
+		}
+		else
+			printk("touchkey led regulator is already disabled!!!");
 
 	}
 

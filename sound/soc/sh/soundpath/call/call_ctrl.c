@@ -389,8 +389,8 @@ void call_playback_incomm_stop(void)
 
 	/* Status update */
 	g_status &= ~PLAY_INCOMM_STATUS;
-	if (!atomic_read(&g_call_watch_stop_fw)) {
-		g_sndp_stream_route &= ~SNDP_ROUTE_PLAY_DUMMY;
+	if (SNDP_ROUTE_PLAY_INCOMM_DUMMY & g_sndp_stream_route) {
+		g_sndp_stream_route &= ~SNDP_ROUTE_PLAY_INCOMM_DUMMY;
 		wake_up_interruptible(&g_call_wait_out);
 	}
 
@@ -445,8 +445,8 @@ void call_record_incomm_stop(void)
 
 	/* Status update */
 	g_status &= ~REC_INCOMM_STATUS;
-	if (!atomic_read(&g_call_watch_stop_fw)) {
-		g_sndp_stream_route &= ~SNDP_ROUTE_CAP_DUMMY;
+	if (SNDP_ROUTE_CAP_INCOMM_DUMMY & g_sndp_stream_route) {
+		g_sndp_stream_route &= ~SNDP_ROUTE_CAP_INCOMM_DUMMY;
 		wake_up_interruptible(&g_call_wait_in);
 	}
 
@@ -1447,10 +1447,9 @@ static void call_playback_incomm_cb(unsigned int buf_size)
 		g_call_incomm_cb[SNDP_PCM_OUT] = false;
 	}
 
-	if (g_sndp_stream_route & SNDP_ROUTE_PLAY_DUMMY) {
-		g_sndp_stream_route &= ~SNDP_ROUTE_PLAY_DUMMY;
+	if (SNDP_ROUTE_PLAY_INCOMM_DUMMY & g_sndp_stream_route) {
+		g_sndp_stream_route &= ~SNDP_ROUTE_PLAY_INCOMM_DUMMY;
 		wake_up_interruptible(&g_call_wait_out);
-		atomic_set(&g_call_watch_stop_fw, 0);
 	}
 
 	if (g_status & PLAY_INCOMM_STATUS)
@@ -1479,10 +1478,9 @@ static void call_record_incomm_cb(unsigned int buf_size)
 		g_call_incomm_cb[SNDP_PCM_IN] = false;
 	}
 
-	if (g_sndp_stream_route & SNDP_ROUTE_CAP_DUMMY) {
-		g_sndp_stream_route &= ~SNDP_ROUTE_CAP_DUMMY;
+	if (SNDP_ROUTE_CAP_INCOMM_DUMMY & g_sndp_stream_route) {
+		g_sndp_stream_route &= ~SNDP_ROUTE_CAP_INCOMM_DUMMY;
 		wake_up_interruptible(&g_call_wait_in);
-		atomic_set(&g_call_watch_stop_fw, 0);
 	}
 
 	if (g_status & REC_INCOMM_STATUS)
@@ -1938,8 +1936,8 @@ void call_change_incomm_play(void)
 	sndp_log_debug_func("start\n");
 
 	sndp_log_info("src [%d]\n", g_call_sampling_rate[SNDP_PCM_OUT]);
-	if (!(g_sndp_stream_route & SNDP_ROUTE_PLAY_DUMMY)) {
-		g_sndp_stream_route |= SNDP_ROUTE_PLAY_DUMMY;
+	if (!(SNDP_ROUTE_PLAY_INCOMM_DUMMY & g_sndp_stream_route)) {
+		g_sndp_stream_route |= SNDP_ROUTE_PLAY_INCOMM_DUMMY;
 		sndp_workqueue_enqueue(g_call_queue_out,
 				&g_call_work_playback_incomm_dummy_set);
 	}
@@ -2041,12 +2039,13 @@ no_proc:
 
 	wait_ret = wait_event_interruptible_timeout(
 		g_call_wait_out,
-		!(SNDP_ROUTE_PLAY_DUMMY & g_sndp_stream_route),
+		!(SNDP_ROUTE_PLAY_INCOMM_DUMMY & g_sndp_stream_route),
 		msecs_to_jiffies(CALL_WAIT_TIME));
 
 	/* Status check */
 	if (!(PLAY_INCOMM_STATUS & g_status) || (0 != wait_ret)) {
-		sndp_log_info("status 0x%02x\n", g_status);
+		sndp_log_info("status 0x%02x  route 0x%02x\n",
+					g_status, g_sndp_stream_route);
 		return;
 	}
 
@@ -2067,8 +2066,8 @@ void call_change_incomm_rec(void)
 	sndp_log_debug_func("start\n");
 
 	sndp_log_info("src [%d]\n", g_call_sampling_rate[SNDP_PCM_IN]);
-	if (!(g_sndp_stream_route & SNDP_ROUTE_CAP_DUMMY)) {
-		g_sndp_stream_route |= SNDP_ROUTE_CAP_DUMMY;
+	if (!(SNDP_ROUTE_CAP_INCOMM_DUMMY & g_sndp_stream_route)) {
+		g_sndp_stream_route |= SNDP_ROUTE_CAP_INCOMM_DUMMY;
 		sndp_workqueue_enqueue(g_call_queue_out,
 					&g_call_work_record_incomm_dummy_set);
 	}
@@ -2168,12 +2167,13 @@ no_proc:
 
 	wait_ret = wait_event_interruptible_timeout(
 		g_call_wait_in,
-		!(SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route),
+		!(SNDP_ROUTE_CAP_INCOMM_DUMMY & g_sndp_stream_route),
 		msecs_to_jiffies(CALL_WAIT_TIME));
 
 	/* Status check */
 	if (!(REC_INCOMM_STATUS & g_status) || (0 != wait_ret)) {
-		sndp_log_info("status 0x%02x\n", g_status);
+		sndp_log_info("status 0x%02x  route 0x%02x\n",
+					g_status, g_sndp_stream_route);
 		return;
 	}
 
