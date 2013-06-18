@@ -171,9 +171,9 @@ int sysctl_lowmem_reserve_ratio[MAX_NR_ZONES-1] = {
 	 256,
 #endif
 #ifdef CONFIG_HIGHMEM
-	 128,
+	 32,
 #endif
-	 128,
+	 32,
 };
 
 EXPORT_SYMBOL(totalram_pages);
