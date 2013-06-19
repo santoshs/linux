@@ -882,6 +882,11 @@ static void smb328a_work_func(struct work_struct *work)
 		| STATUS_C_CHARGER_ERROR | STATUS_C_SAFETY_TIMER_STATUS))		// 01 --> pre charger timer // 10 --> complete charger
 		&& ((val&STATUS_C_SAFETY_TIMER_STATUS) != STATUS_C_SAFETY_TIMER_STATUS)) {	// 11 --> waiting charger
 		smb328a_disable_charging(p->client);
+		if(smb_charger->chg_mode == CHG_MODE_AC)
+			smb328a_charger_function_conrol(p->client, 1200);
+		else
+			smb328a_charger_function_conrol(p->client, 500);
+
 		smb328a_enable_charging(p->client);
 		pr_info("%s charger is unexpected error.enable again.\n", __func__);
 	}
