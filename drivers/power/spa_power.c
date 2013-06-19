@@ -832,7 +832,7 @@ static int spa_set_charge(struct spa_power_desc *spa_power_iter, unsigned int ac
 #if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
 		cancel_delayed_work_sync(&spa_power_iter->back_charging_work);
 #endif
-		pr_spa_dbg(LEVEL1, "%s : Discharging!! ", __func__);
+		pr_spa_dbg(LEVEL2, "%s : Discharging!! ", __func__ );
 	}
 #if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
 	else if(act == SPA_CMD_DELAYED_DISCHARGE)

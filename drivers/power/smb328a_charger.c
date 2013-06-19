@@ -22,12 +22,7 @@
 #include <linux/power_supply.h>
 #include <linux/regulator/machine.h>
 #include <linux/bq27425.h>
-#if defined(CONFIG_USB_SWITCH_TSU6712) || defined(CONFIG_USE_MUIC)
 #include <linux/tsu6712.h>
-#endif
-#ifdef CONFIG_RT8973
-#include <../drivers/mfd/richtek/rt8973.h>
-#endif
 #include <linux/pmic/pmic.h>
 #include <linux/spa_power.h>
 #include <linux/spa_agent.h>
@@ -90,7 +85,7 @@ struct smb328a_chip {
 	struct i2c_client		*client;
 	struct wake_lock    i2c_lock;
 	struct mutex    i2c_mutex_lock;
-   struct work_struct      work;
+	struct work_struct      work;
 	struct smb328a_platform_data	*pdata;
 	int chg_mode;
 	int charger_status;
@@ -371,27 +366,6 @@ static void smb328a_charger_function_conrol(struct i2c_client *client, int chg_c
 }
 
 #if 0
-static int smb328a_check_charging_status(struct i2c_client *client)
-{
-	int val;
-	u8 data = 0;
-	int ret = -1;
-
-	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
-	if (val >= 0) {
-		data = (u8)val;
-		pm_charger_info("%s : reg (0x%x) = 0x%x\n", __func__,
-				SMB328A_BATTERY_CHARGING_STATUS_C, data);
-
-		ret = (data&(0x3<<1))>>1;
-		pm_charger_info("%s : status = 0x%x\n", __func__, data);
-	}
-
-	return ret;
-}
-#endif
-
-#if 0
 /**
  * not used function.
  */
@@ -639,6 +613,7 @@ void smb328a_otg_enable_disable(int onoff, int cable)
 }
 EXPORT_SYMBOL(smb328a_otg_enable_disable);
 
+
 int smb328a_check_charging_status(void)
 {
 	int val;
@@ -659,6 +634,7 @@ int smb328a_check_charging_status(void)
 	return ret;
 }
 EXPORT_SYMBOL(smb328a_check_charging_status);
+
 
 static void smb328a_ldo_disable(struct i2c_client *client)
 {
@@ -901,12 +877,14 @@ static void smb328a_work_func(struct work_struct *work)
 #endif
 
 	val = smb328a_read_reg(p->client, SMB328A_BATTERY_CHARGING_STATUS_C);
-	
-	if((val & STATUS_C_CHARGER_ERROR) || (val & STATUS_C_SAFETY_TIMER_STATUS)) {
-		smb328a_disable_charging(p->client);		
+
+	if((val & (STATUS_C_TERMINATED_ONE_CYCLED|STATUS_C_TERMINATED_LOW_CURRENT
+		| STATUS_C_CHARGER_ERROR | STATUS_C_SAFETY_TIMER_STATUS))		// 01 --> pre charger timer // 10 --> complete charger
+		&& ((val&STATUS_C_SAFETY_TIMER_STATUS) != STATUS_C_SAFETY_TIMER_STATUS)) {	// 11 --> waiting charger
+		smb328a_disable_charging(p->client);
 		smb328a_enable_charging(p->client);
 		pr_info("%s charger is unexpected error.enable again.\n", __func__);
-	}		
+	}
 
 
 	for(i = 0; i < 0xb; i++){
@@ -995,12 +973,13 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
 
-	if((val & STATUS_C_CHARGER_ERROR) || (val & STATUS_C_SAFETY_TIMER_STATUS)) {
-		smb328a_disable_charging(client);		
+	if(val & (STATUS_C_TERMINATED_ONE_CYCLED | STATUS_C_TERMINATED_LOW_CURRENT |
+		STATUS_C_CHARGER_ERROR | STATUS_C_SAFETY_TIMER_STATUS)) {
+		smb328a_disable_charging(client);
 		smb328a_enable_charging(client);
 		pr_info("%s charger is unexpected error.enable again.\n", __func__);
-	}		
-	
+	}
+
 	smb328a_charger_function_conrol(client, 500);
 
 	smb328a_irq_init(client);
@@ -1015,9 +994,7 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 static int __devexit smb328a_remove(struct i2c_client *client)
 {
 	struct smb328a_chip *chip = i2c_get_clientdata(client);
-
 	mutex_destroy(&smb_charger->i2c_mutex_lock);
-
 	kfree(chip);
 	return 0;
 }

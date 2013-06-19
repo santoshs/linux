@@ -1091,7 +1091,7 @@ static int d2153_micbias_event(struct snd_soc_dapm_widget *widget,
 					0);
 		} else {
 			d2153_aad_write(d2153_codec->aad_i2c_client,
-					D2153_ACCDET_CFG2, 0xBB);
+					D2153_ACCDET_CFG2, 0x99);
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -1701,7 +1701,6 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	u64 frac_div;
 
 	dlg_info("%s() fout = %d\n", __func__, fout);
-	
 	pll_ctrl = 0;
 	
 	/* Workout input divider based on MCLK rate */

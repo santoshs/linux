@@ -915,7 +915,7 @@ mhdp_netdev_rx(struct sk_buff *skb, struct net_device *dev)
 		/* and set ETH_P_IP or ETH_P_IPv6 for received packets */
 
 		newskb->protocol = htons(ETH_IP_TYPE(ip_ver));
-
+		newskb->ip_summed = CHECKSUM_NONE;
 		newskb->pkt_type = PACKET_HOST;
 
 		if (!mhdp_is_filtered(mhdp_net_dev(dev), newskb)) {

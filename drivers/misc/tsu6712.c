@@ -513,14 +513,12 @@ static void tsu6712_uart_cb(bool attached)
       printk("UART attached : send switch state 200");
       usb_uart_switch_state = 200;
       switch_set_state(&switch_usb_uart,200);
-      KERNEL_LOG = 1;
    }
    else
    {
       printk("UART detached : send switch state 201");
       usb_uart_switch_state = 201;
       switch_set_state(&switch_usb_uart,201);
-      KERNEL_LOG = 0;
    }
 #endif
 
@@ -725,7 +723,6 @@ static ssize_t tsu6712_show_UUS_state(struct device *dev,
 
 /* AT-ISI Separation starts */
 extern int stop_isi;
-static int isi_mode; /* initialized to 0 */
 char at_isi_mode[100] = {0};
 
 static ssize_t ld_show_mode(struct device *dev,
@@ -755,7 +752,6 @@ ssize_t ld_set_manualsw(struct device *dev,
 		switch_set_state(&switch_usb_uart, SWITCH_AT);
 
 		stop_isi = 1;
-                isi_mode = 0;
 	}
 	if (0 == strncmp(buf, "switch isi", 10)) {
 		printk(" ld_set_manualsw switch isi\n");
@@ -763,7 +759,6 @@ ssize_t ld_set_manualsw(struct device *dev,
 		strcpy((char *)at_isi_mode, "isi");
 		switch_set_state(&switch_usb_uart, SWITCH_ISI);
 		stop_isi = 0;
-                isi_mode = 1;
 	}
 	return count;
 }
@@ -835,23 +830,10 @@ ssize_t ld_set_switch_buf(struct device *dev,
 		return MUSB_IC_UART_AT_MODE_MODECHAN;
 	} else if (strstr(at_isi_switch_buf, "AT+ISISTART") != NULL ||
 		   strstr(at_isi_switch_buf, "AT+MODECHAN=0,0") != NULL) {
-
-                /* do not switch to isi mode if isi mode already set */
-               if (isi_mode == 0) {
-                       KERNEL_LOG = 0;
-                       memset(at_isi_switch_buf, 0, 400);
-                       ld_set_manualsw(NULL, NULL, isi_cmd_buf,
-                        strlen(isi_cmd_buf));
-                       return count;
-               }
-        }
-
-        /* this sends response if at+isistart is given in isi mode */
-        if (strstr(at_isi_switch_buf, "AT+ISISTART\r") != NULL ||
-                   strstr(at_isi_switch_buf, "AT+MODECHAN=0,0\r") != NULL) {
+		KERNEL_LOG = 0;
 		memset(at_isi_switch_buf, 0, 400);
 		ld_set_manualsw(NULL, NULL, isi_cmd_buf, strlen(isi_cmd_buf));
-	        return MUSB_IC_UART_INVALID_MODE;
+		return count;
 	}
 
 	if (error != 0) {
@@ -1797,7 +1779,7 @@ static void __exit tsu6712_exit(void)
 	i2c_del_driver(&tsu6712_i2c_driver);
 }
 
-late_initcall(tsu6712_init);
+module_init(tsu6712_init);
 module_exit(tsu6712_exit);
 
 MODULE_AUTHOR("SAMSUNG");

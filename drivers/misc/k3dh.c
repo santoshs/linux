@@ -912,8 +912,6 @@ static ssize_t k3dh_accel_reactive_alert_store(struct device *dev,
 			usleep_range(10000, 10000);
 		}        
 
-		enable_irq(g_k3dh->irq);
-
 		/* Get x, y, z data to set threshold1, threshold2. */
 		err = k3dh_read_accel_xyz(&raw_data);
 		printk(KERN_INFO "[K3DH] [%s] raw x = %d, y = %d, z = %d\n", __FUNCTION__, raw_data.x, raw_data.y, raw_data.z);
@@ -964,14 +962,18 @@ static ssize_t k3dh_accel_reactive_alert_store(struct device *dev,
 
 		g_k3dh->movement_recog_flag = ON;
         	
-		printk(KERN_INFO "[K3DH] gpio_get_value of ACC INT is %d\n",gpio_get_value(g_k3dh->irq_gpio));
+                enable_irq_wake(g_k3dh->irq);        	
+		enable_irq(g_k3dh->irq);
+        	printk(KERN_INFO "[K3DH] enable_irq IRQ_NO:%d\n",g_k3dh->irq);
         
 	} else if (onoff == OFF && g_k3dh->movement_recog_flag == ON) {
 	
 		printk(KERN_INFO "[K3DH] [%s] reactive alert is off.\n", __FUNCTION__);
 
 		disable_irq_nosync(g_k3dh->irq);
-#if 0
+        	printk(KERN_INFO "[K3DH] disable_irq IRQ_NO:%d\n",g_k3dh->irq);
+                disable_irq_wake(g_k3dh->irq);
+            
 		/* INT disable */
 		acc_data[0] = CTRL_REG3;
 		acc_data[1] = PM_OFF;
@@ -979,7 +981,7 @@ static ssize_t k3dh_accel_reactive_alert_store(struct device *dev,
 			ctrl_reg = CTRL_REG3;
 			goto err_i2c_write;
 		}
-
+#if 0
 		/* return the power state */
 		acc_data[0] = CTRL_REG1;
 		acc_data[1] = g_k3dh->ctrl_reg1_shadow;
@@ -992,8 +994,6 @@ static ssize_t k3dh_accel_reactive_alert_store(struct device *dev,
 		g_k3dh->movement_recog_flag = OFF;
         	g_k3dh->interrupt_state = 0; /* Init interrupt state.*/
             
-		printk(KERN_INFO "[K3DH] gpio_get_value of ACC INT is %d\n",gpio_get_value(g_k3dh->irq_gpio));
-        
 	}
 	return count;
 err_i2c_write:
@@ -1020,9 +1020,9 @@ static irqreturn_t k3dh_accel_interrupt_thread(int irq, void *k3dh_data_p)
 		printk(KERN_ERR "[%s] i2c write ctrl_reg3 failed\n",__FUNCTION__);
 	}
 
-	g_k3dh->interrupt_state = 1;
 	wake_lock_timeout(&g_k3dh->reactive_wake_lock, msecs_to_jiffies(2000));        
 	printk(KERN_INFO "[K3DH] [%s] called\n", __FUNCTION__);
+    	g_k3dh->interrupt_state = 1;
 	return IRQ_HANDLED;
 }
 #endif
@@ -1329,9 +1329,8 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	} else {
             printk(KERN_INFO "[K3DH] request_irq success IRQ_NO:%d, GPIO:%d", g_k3dh->irq, g_k3dh->irq_gpio);
 	} 
-
-	enable_irq_wake(g_k3dh->irq);
 	disable_irq_nosync(g_k3dh->irq);
+        printk(KERN_INFO "[K3DH] disable_irq IRQ_NO:%d\n",g_k3dh->irq);
 
 	g_k3dh->interrupt_state = 0;    
 #endif

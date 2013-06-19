@@ -133,7 +133,6 @@ vt_waitactive()
 
 Fix the race by ensuring we're registered for the event before we check
 if it's already completed.  */
-
 static void __vt_event_queue(struct vt_event_wait *vw)
 {
 	unsigned long flags;

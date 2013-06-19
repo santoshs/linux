@@ -21,11 +21,11 @@ menu "Richtek Multifunction Device Drivers"
 config RT_I2C_MUSC
 	bool "Use Richtek mUSB Switch Charger"
 	depends on (I2C&&GPIOLIB)
-	default y
+
 choice
 depends on RT_I2C_MUSC
 prompt "MUS Charger Model"
-default RT8969
+
 config RT8969
 	bool "RT8969"
 	---help---

@@ -849,9 +849,11 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 #ifndef CONFIG_D2153_SOC_GO_DOWN_IN_CHG
 	else if(pbat_data->is_charging
 		&& (soc < pbat_data->prev_soc) && pbat_data->prev_soc) {
+#if defined(CONFIG_D2153_BATTERY_DEBUG)
 		pr_info("%s: is_charging = %d, soc = %d, prev soc = %d",
 			__func__, pbat_data->is_charging,
 			soc, pbat_data->prev_soc);
+#endif
 		soc = pbat_data->prev_soc;
 
 	}

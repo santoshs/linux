@@ -2351,6 +2351,11 @@ wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
 	WL_DBG(("Enter \n"));
 	CHECK_SYS_UP(wl);
 
+	if (!ndev) {
+		WL_ERR(("net is NULL\n"));
+		return 0;
+	}
+
 	err = __wl_cfg80211_scan(wiphy, ndev, request, NULL);
 	if (unlikely(err)) {
 		WL_ERR(("scan error (%d)\n", err));
@@ -9104,7 +9109,7 @@ static s32  wl_cfg80211_detach_p2p(void)
 s32 wl_cfg80211_attach_post(struct net_device *ndev)
 {
 	struct wl_priv * wl = NULL;
-	s32 err = 0;
+	s32 err = -ENODEV;
 	WL_TRACE(("In\n"));
 	if (unlikely(!ndev)) {
 		WL_ERR(("ndev is invaild\n"));
@@ -9116,32 +9121,39 @@ s32 wl_cfg80211_attach_post(struct net_device *ndev)
 		return -EINVAL;
 	}
 	if (!wl_get_drv_status(wl, READY, ndev)) {
-			if (wl->wdev &&
-				wl_cfgp2p_supported(wl, ndev)) {
+			if (wl->wdev) {
+				err = wl_cfgp2p_supported(wl, ndev);
+				if (strstr(fw_path, "_mfg") != NULL) {
+					err = 0;
+				}							
+				if (err >= 0) {
 #if !defined(WL_ENABLE_P2P_IF)
-				wl->wdev->wiphy->interface_modes |=
-					(BIT(NL80211_IFTYPE_P2P_CLIENT)|
-					BIT(NL80211_IFTYPE_P2P_GO));
+					wl->wdev->wiphy->interface_modes |=
+						(BIT(NL80211_IFTYPE_P2P_CLIENT)|
+						BIT(NL80211_IFTYPE_P2P_GO));
 #endif
-				if ((err = wl_cfgp2p_init_priv(wl)) != 0)
-					goto fail;
+					if ((err = wl_cfgp2p_init_priv(wl)) != 0)
+						goto fail;
 
 #if defined(WLP2P) && defined(WL_ENABLE_P2P_IF)
-				if (wl->p2p_net) {
-					/* Update MAC addr for p2p0 interface here. */
-					memcpy(wl->p2p_net->dev_addr, ndev->dev_addr, ETH_ALEN);
-					wl->p2p_net->dev_addr[0] |= 0x02;
-					WL_ERR(("%s: p2p_dev_addr="MACDBG "\n",
-						wl->p2p_net->name,
-						MAC2STRDBG(wl->p2p_net->dev_addr)));
-				} else {
-					WL_ERR(("p2p_net not yet populated."
-					" Couldn't update the MAC Address for p2p0 \n"));
-					return -ENODEV;
-				}
+					if (wl->p2p_net) {
+						/* Update MAC addr for p2p0 interface here. */
+						memcpy(wl->p2p_net->dev_addr, ndev->dev_addr, ETH_ALEN);
+						wl->p2p_net->dev_addr[0] |= 0x02;
+						WL_ERR(("%s: p2p_dev_addr="MACDBG "\n",
+							wl->p2p_net->name,
+							MAC2STRDBG(wl->p2p_net->dev_addr)));
+					} else {
+						WL_ERR(("p2p_net not yet populated."
+						" Couldn't update the MAC Address for p2p0 \n"));
+						return -ENODEV;
+					}
 #endif /* defined(WLP2P) && (WL_ENABLE_P2P_IF) */
-
-				wl->p2p_supported = true;
+					wl->p2p_supported = true;
+				} else {
+					/* SDIO bus timeout */
+					goto fail;
+				}
 			}
 	}
 	wl_set_drv_status(wl, READY, ndev);

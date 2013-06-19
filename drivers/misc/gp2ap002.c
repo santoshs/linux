@@ -68,7 +68,6 @@ struct gp2a_prox_data {
 
 static struct i2c_driver  gp2a_prox_i2c_driver;
 static struct gp2a_prox_data *gp2a_data;
-static struct workqueue_struct *gp2a_prox_wq;
 static int nondetect;
 static int detect;
 
@@ -243,8 +242,6 @@ static void gp2a_prox_work_func(struct work_struct *work)
 	/* Read VO & INT Clear */	
 	debug("[PROXIMITY] %s : \n",__func__);
     
-        mutex_lock(&gp2a_data->power_lock);
-    
 	if((ret=gp2a_i2c_read((u8)(int_val), &value))<0)
 	{
             error("gp2a_i2c_read  failed\n");            
@@ -255,7 +252,7 @@ static void gp2a_prox_work_func(struct work_struct *work)
             else
                 gp2a_prox_mode(0);
             
-            goto UNLOCK_POWER_LOCK;
+            return;            
 	}
     
 	vout = value & 0x01;
@@ -281,9 +278,6 @@ static void gp2a_prox_work_func(struct work_struct *work)
 	value = 0x00;
 	gp2a_i2c_write((u8)(GP2A_REG_CON),&value);
 	
-UNLOCK_POWER_LOCK:
-        mutex_unlock(&gp2a_data->power_lock);
-
 }
 
 
@@ -293,10 +287,8 @@ static irqreturn_t gp2a_irq_handler( int irq, void *unused )
 	if(gp2a_data->irq !=-1)
 	{
         	wake_lock_timeout(&gp2a_data->prx_wake_lock, 3 * HZ);
-            
 		disable_irq_nosync(gp2a_data->irq);
-		printk(KERN_INFO "[GP2A] disable_irq : IRQ_NO:%d\n",gp2a_data->irq);
-		queue_work(gp2a_prox_wq, &gp2a_data->work_prox);
+        	schedule_work(&gp2a_data->work_prox);
 	}
 	else
 	{
@@ -479,11 +471,14 @@ static ssize_t proximity_enable_store(struct device *dev, struct device_attribut
     if (new_value ){          
         input_report_abs(gp2a_data->prox_input_dev, ABS_DISTANCE, 1);
         input_sync(gp2a_data->prox_input_dev);        
+
+        enable_irq_wake(gp2a_data->irq);        
         gp2a_prox_mode(1);        
     }
     else if (!new_value ) 
     {
         gp2a_prox_mode(0);
+	disable_irq_wake(gp2a_data->irq);        
     }
 
     mutex_unlock(&gp2a_data->power_lock);
@@ -687,13 +682,6 @@ static int gp2a_prox_probe(struct i2c_client *client,const struct i2c_device_id 
 	}
     
 	/* Workqueue Settings */
-	gp2a_prox_wq = create_singlethread_workqueue("gp2a_prox_wq");
-	if (!gp2a_prox_wq)
-	{
-		error("Not enough memory for gp2a_prox_wq");
-		ret = -ENOMEM;
-		goto INPUT_DEV_DREG;
-	}	     
 	INIT_WORK(&gp2a_data->work_prox, gp2a_prox_work_func);
 	debug("Workqueue settings complete");	
             
@@ -710,8 +698,6 @@ static int gp2a_prox_probe(struct i2c_client *client,const struct i2c_device_id 
 	} else {
             printk(KERN_INFO "[GP2A] request_irq success IRQ_NO:%d, GPIO:%d", gp2a_data->irq, gp2a_data->irq_gpio);
 	} 
-	
-        enable_irq_wake(gp2a_data->irq);
 	
 	/*Device Initialisation with recommended register values from datasheet*/
 	
@@ -750,8 +736,6 @@ static int gp2a_prox_probe(struct i2c_client *client,const struct i2c_device_id 
     
 DESTROY_WORK_QUEUE:
 	wake_lock_destroy(&gp2a_data->prx_wake_lock);
-	destroy_workqueue(gp2a_prox_wq);
-INPUT_DEV_DREG:
 	input_unregister_device(gp2a_data->prox_input_dev);	
 MISC_DREG:
 	misc_deregister(&gp2a_prox_misc_device);
@@ -768,7 +752,6 @@ static int __devexit gp2a_prox_remove(struct i2c_client *client)
 	free_irq(gp2a_data->irq,NULL);
 	sysfs_remove_group(&client->dev.kobj, &gp2a_prox_attr_group);
 	wake_lock_destroy(&gp2a_data->prx_wake_lock);    
-	destroy_workqueue(gp2a_prox_wq);
 	input_unregister_device(gp2a_data->prox_input_dev);	
 	misc_deregister(&gp2a_prox_misc_device);
 	mutex_destroy(&gp2a_data->power_lock);

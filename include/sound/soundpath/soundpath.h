@@ -43,20 +43,11 @@ enum sndp_direction {
 	SNDP_PCM_DIRECTION_MAX,
 };
 
-/* Wake lock kind */
-enum sndp_wake_lock_kind {
-	E_LOCK = 0,			/* to Wake Lock   */
-	E_UNLOCK,			/* to Wake Unlock */
-	E_FORCE_UNLOCK,			/* to Wake Unlock Forced */
-};
-
 /* Port kind */
 enum sndp_port_kind {
 	SNDP_PCM_PORTA,
 	SNDP_PCM_PORTB,
 };
-
-#ifndef __RC5T7316_CTRL_NO_EXTERN__
 
 /* Work queue processing table */
 struct sndp_workqueue {
@@ -75,9 +66,11 @@ struct sndp_stop {
 struct sndp_work_info {
 	struct work_struct		work;		 /* Work             */
 	struct snd_pcm_substream	*save_substream; /* Substream        */
+	struct snd_soc_dai		*save_dai;	 /* Dai              */
 	struct sndp_stop		stop;		 /* for Stop process */
 	u_int				new_value;	 /* PCM value (NEW)  */
 	u_int				old_value;	 /* PCM value (OLD)  */
+	u_int				save_status;
 	struct list_head		link;
 	void				(*func)(struct sndp_work_info *work);
 	int				status;
@@ -144,7 +137,6 @@ SOUNDPATH_NO_EXTERN void sndp_work_portb_start(struct work_struct *work);
 
 SOUNDPATH_NO_EXTERN void sndp_set_portb_start(bool flag);
 
-SOUNDPATH_NO_EXTERN void sndp_wake_lock(const enum sndp_wake_lock_kind kind);
 SOUNDPATH_NO_EXTERN void sndp_call_playback_normal(void);
 
 SOUNDPATH_NO_EXTERN struct sndp_workqueue	*g_sndp_queue_main;
@@ -184,8 +176,6 @@ SOUNDPATH_NO_EXTERN struct sndp_workqueue *sndp_workqueue_create(char *taskname)
 /* enqueue workqueue function */
 SOUNDPATH_NO_EXTERN void sndp_workqueue_enqueue(
 	struct sndp_workqueue *wq, struct sndp_work_info *work);
-
-#endif	/* != __RC5T7316_CTRL_NO_EXTERN__ */
 
 /* start : define for debug */
 #ifndef DEBUG
@@ -406,7 +396,7 @@ do {									\
 #define STAT_ON		(1)
 
 /* Sampling Rate */
-#define SNDP_NORMAL_RATE	(44100)
+#define SNDP_NORMAL_RATE	(48000)
 #define SNDP_CALL_RATE		(16000)
 
 /*!
