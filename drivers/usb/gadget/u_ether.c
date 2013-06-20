@@ -754,7 +754,10 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 				dev_kfree_skb_any(skb);
 				ERROR(dev, "failed to kmalloc req->buf\n");
 				multiframe->skb = NULL;
-
+				printk(KERN_DEBUG "DEBUG, allocation failed \n");
+				spin_lock_irqsave(&dev->req_lock, flags);
+				list_add(&req->list, &dev->tx_reqs);
+				spin_unlock_irqrestore(&dev->req_lock, flags);
 				return;
 			}
 
@@ -779,6 +782,10 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 				dev_kfree_skb_any(skb);
 				ERROR(dev, "failed to kmalloc req->buf\n");
 				multiframe->skb = NULL;
+				printk(KERN_DEBUG "DEBUG, allocation failed \n");
+				spin_lock_irqsave(&dev->req_lock, flags);
+				list_add(&req->list, &dev->tx_reqs);
+				spin_unlock_irqrestore(&dev->req_lock, flags);
 				return;
 			}
 			length = skb->data_len + sizeof(struct rndis_packet_msg_type);
