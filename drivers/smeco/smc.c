@@ -93,7 +93,7 @@ static smc_lock_t* g_local_lock_smc_channel            = NULL;
 static smc_lock_t* g_local_lock_smc_channel_sync       = NULL;
 static smc_lock_t* g_local_lock_smc_fifo_buffer_flush  = NULL;
 static smc_lock_t* g_local_lock_smc_fifo_buffer        = NULL;
-
+static smc_lock_t* g_local_lock_signal_handler_count   = NULL;
 
     /* Mutexes for initialization functions */
 static smc_semaphore_t* g_local_mutex_smc_channel      = NULL;
@@ -110,6 +110,12 @@ static inline smc_semaphore_t* get_local_mutex_smc_shm_var(void)
 {
     if( g_local_mutex_smc_shm_var == NULL ) g_local_mutex_smc_shm_var = smc_semaphore_create();
     return g_local_mutex_smc_shm_var;
+}
+
+static inline smc_lock_t* get_local_lock_signal_handler_count(void)
+{
+    if( g_local_lock_signal_handler_count == NULL ) g_local_lock_signal_handler_count = smc_lock_create();
+    return g_local_lock_signal_handler_count;
 }
 
 static inline smc_lock_t* get_local_lock_smc_channel(void)
@@ -198,6 +204,7 @@ uint8_t smc_init_core(void)
     get_local_lock_smc_channel_sync();
     get_local_lock_smc_fifo_buffer_flush();
     get_local_lock_smc_fifo_buffer();
+    get_local_lock_signal_handler_count();
 
 
     SMC_TRACE_PRINTF_STARTUP("Core initialization %s", (ret_val==SMC_OK)?"ok":"failed!");
@@ -2307,8 +2314,13 @@ uint32_t smc_channel_calculate_required_shared_mem( smc_channel_conf_t* smc_chan
  */
 smc_signal_handler_t* smc_signal_handler_get( uint32_t signal_id, uint32_t signal_type )
 {
+    smc_lock_t* local_lock = NULL;
+
     SMC_TRACE_PRINTF_SIGNAL("smc_signal_get: search signal handler for signal id %d, type 0x%08X", signal_id, signal_type);
 
+    /* Critical section begins */
+    local_lock = get_local_lock_signal_handler_count();
+    SMC_LOCK_IRQ( local_lock );
     for(int i = 0; i < signal_handler_count; i++ )
     {
         smc_signal_t* signal = signal_handler_ptr_array[i]->signal;
@@ -2316,9 +2328,12 @@ smc_signal_handler_t* smc_signal_handler_get( uint32_t signal_id, uint32_t signa
         if( ((signal->interrupt_id - signal_id) | (signal->signal_type - signal_type))==0 )
         {
             SMC_TRACE_PRINTF_SIGNAL("smc_signal_get: return signal handler 0x%08X", (uint32_t)signal_handler_ptr_array[i]);
+            SMC_UNLOCK_IRQ( local_lock );
             return signal_handler_ptr_array[i];
         }
     }
+    SMC_UNLOCK_IRQ( local_lock );
+    /* Critical section ends */
 
     SMC_TRACE_PRINTF_ERROR("smc_signal_handler_get: Handler for signal %d type 0x%08X not set", signal_id, signal_type);
 
@@ -2350,6 +2365,8 @@ smc_signal_handler_t* smc_signal_handler_create_and_add( smc_t* smc_instance, sm
 uint8_t smc_signal_add_handler( smc_signal_handler_t* signal_handler )
 {
     smc_signal_handler_t** old_ptr_array = NULL;
+    smc_signal_handler_t** new_ptr_array = NULL;
+    smc_lock_t* local_lock = NULL;
 
     SMC_TRACE_PRINTF_SIGNAL("smc_signal_add_handler: add handler 0x%08X, current count %d", (uint32_t)signal_handler, signal_handler_count);
 
@@ -2372,24 +2389,32 @@ uint8_t smc_signal_add_handler( smc_signal_handler_t* signal_handler )
         old_ptr_array = signal_handler_ptr_array;
     }
 
-    signal_handler_count++;
+    new_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(*signal_handler_ptr_array) * (signal_handler_count + 1) );
 
-    signal_handler_ptr_array = (smc_signal_handler_t**)SMC_MALLOC( sizeof(*signal_handler_ptr_array) * signal_handler_count );
-
-    assert( signal_handler_ptr_array != NULL );
+    assert( new_ptr_array != NULL );
 
     if( old_ptr_array )
     {
         for(int i = 0; i < signal_handler_count; i++ )
         {
-            signal_handler_ptr_array[i] = old_ptr_array[i];
+            new_ptr_array[i] = old_ptr_array[i];
         }
+    }
 
+    new_ptr_array[signal_handler_count] = signal_handler;
+
+    /* Critical section begins */
+    local_lock = get_local_lock_signal_handler_count();
+    SMC_LOCK_IRQ( local_lock );
+    signal_handler_ptr_array = new_ptr_array;
+    signal_handler_count++;
+    SMC_UNLOCK_IRQ( local_lock );
+    /* Critical section ends */
+
+    if ( old_ptr_array ) {
         SMC_FREE(old_ptr_array);
         old_ptr_array = NULL;
     }
-
-    signal_handler_ptr_array[signal_handler_count-1] = signal_handler;
 
     SMC_TRACE_PRINTF_SIGNAL("smc_signal_add_handler: completed, signal handler count is %d", signal_handler_count);
 
