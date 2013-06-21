@@ -40,11 +40,14 @@ Description :  File created
 #define SMC_LOCK_TX_BUFFER                    SMC_LOCK_IRQ
 #define SMC_UNLOCK_TX_BUFFER                  SMC_UNLOCK_IRQ
 
+#define SMC_LOCK_RX_THREADED_IRQ              SMC_LOCK_IRQ
+#define SMC_UNLOCK_RX_THREADED_IRQ            SMC_UNLOCK_IRQ
+
+
 #define SMC_CHANNEL_FIFO_BUFFER_SIZE_MAX      10
 
 #define SMC_FREE_LOCAL_PTR_OS_NOT_NEEDED
 
-/*#define SMC_LINUX_USE_TASKLET_IN_IRQ*/                      /* If defined, tasklet usage for IRQs is enabled */
 
     /* ===============================================
      * Define Linux Kernel Specific data types for SMC
@@ -147,6 +150,9 @@ typedef struct
 #define  SMC_LOCK_IRQ( lock )    { SMC_TRACE_PRINTF_LOCK("lock irq save: 0x%08X...", (uint32_t)lock); spin_lock_irqsave( &lock->mr_lock, lock->flags); }
 #define  SMC_UNLOCK_IRQ( lock )  { spin_unlock_irqrestore( &lock->mr_lock, lock->flags); SMC_TRACE_PRINTF_LOCK("unlock irq save: 0x%08X...", (uint32_t)lock); }
 
+#define  SMC_LOCK_BH( lock )     { SMC_TRACE_PRINTF_LOCK("lock bh: 0x%08X...", (uint32_t)lock); spin_lock_bh( &(lock->mr_lock)); }
+#define  SMC_UNLOCK_BH( lock )   { spin_unlock_bh( &(lock->mr_lock)); SMC_TRACE_PRINTF_LOCK("unlock bh: 0x%08X", (uint32_t)lock); }
+
 
 #define  SMC_LOCK_MUTEX( smc_semaphore )        { SMC_TRACE_PRINTF_LOCK_MUTEX("mutex lock: 0x%08X...", (uint32_t)smc_semaphore); mutex_lock( &(smc_semaphore->smc_mutex) ); }
 #define  SMC_UNLOCK_MUTEX( smc_semaphore )      { mutex_unlock( &(smc_semaphore->smc_mutex) ); SMC_TRACE_PRINTF_LOCK_MUTEX("mutex unlock: 0x%08X...", (uint32_t)smc_semaphore);}
@@ -196,6 +202,7 @@ typedef struct _smc_timer_t
 
     unsigned long      prev_jiffies;
 
+    struct hrtimer*    hr_timer;            /* Highrate timer */
 } smc_timer_t;
 
 

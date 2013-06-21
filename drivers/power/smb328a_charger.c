@@ -573,7 +573,7 @@ int smb328a_check_charging_status(void)
 }
 EXPORT_SYMBOL(smb328a_check_charging_status);
 
-
+#if 0
 static void smb328a_ldo_disable(struct i2c_client *client)
 {
 	int val;
@@ -591,7 +591,7 @@ static void smb328a_ldo_disable(struct i2c_client *client)
 			pr_err("%s : error!\n", __func__);
 	}
 }
-
+#endif
 int smb328a_enable_charging(struct i2c_client *client)
 {
 	int val;
@@ -658,8 +658,8 @@ static int smb328a_set_charge(unsigned int en)
 {
 	int ret = 0;
 	if (en) {
-		if (smb_charger->chg_mode == CHG_MODE_AC)
-			smb328a_ldo_disable(smb_charger->client);
+//		if (smb_charger->chg_mode == CHG_MODE_AC)
+//			smb328a_ldo_disable(smb_charger->client);
 		ret = smb328a_enable_charging(smb_charger->client);
 	} else {
 		ret = smb328a_disable_charging(smb_charger->client);

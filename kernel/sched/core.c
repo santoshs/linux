@@ -2173,6 +2173,14 @@ unsigned long this_cpu_load(void)
 }
 
 
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+unsigned long this_cpu_loadx(int i)
+{
+	struct rq *this = this_rq();
+	return this->cpu_load[i];
+}
+#endif
+
 /*
  * Global load-average calculations
  *

@@ -34,7 +34,7 @@
 /* Touch Panel auto detection */
 static struct i2c_client *tsp_detector_i2c_client;
 
-#if defined CONFIG_TOUCHSCREEN_MELFAS 
+#if defined CONFIG_TOUCHSCREEN_MELFAS
 static struct i2c_board_info i2c4_devices_melfas[] = {
 	{
 		I2C_BOARD_INFO("sec_touch", 0x48),
@@ -64,7 +64,7 @@ static int __devinit tsp_detector_probe(struct i2c_client *client,
 	struct i2c_adapter *adap = client->adapter;
 	struct regulator *touch_regulator;
 	unsigned short addr_list_touch[] = { 0x20, I2C_CLIENT_END };
-	
+
 
 	touch_regulator = regulator_get(NULL, "vtsp_3v");
 	if(IS_ERR(touch_regulator)){

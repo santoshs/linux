@@ -318,7 +318,7 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 	struct regulator *regulator;
 	#define D2153_LDO_AUD_RECHECK
-#ifdef D2153_LDO_AUD_RECHECK 
+#ifdef D2153_LDO_AUD_RECHECK
 	unsigned char regval = 0;
 #endif
 

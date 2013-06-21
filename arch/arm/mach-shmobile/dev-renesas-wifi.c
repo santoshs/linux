@@ -1,4 +1,4 @@
-/* 
+/*
  * ~/arch/arm/mach-shmobile/dev-u2evm-renesas-wifi.c
  */
 /*
@@ -19,7 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
- 
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
@@ -44,9 +44,9 @@ static int __init u2_mac_addr_setup(char *str)
 
 	if (!str)
 		return 0;
-		
+
 	WIFI_DEBUG("%s: Enter\n", __func__);
-	
+
 	if (strlen(str) >= sizeof(macstr))
 		return 0;
 	strcpy(macstr, str);
@@ -83,9 +83,9 @@ static int u2_wifi_get_mac_addr(unsigned char *buf)
 		u2_mac_addr[5] = (unsigned char)(rand_mac >> 16);
 	}
 	memcpy(buf, u2_mac_addr, IFHWADDRLEN);
-	
+
 	WIFI_DEBUG("%s: Done: MAC address = %s\n", __func__, buf);
-	
+
 	return 0;
 }
 
@@ -160,26 +160,26 @@ static void *u2_wifi_get_country_code(char *ccode)
 }
 
 static int u2_wifi_power(int on)
-{	
+{
 	static int state;
-	
+
 	WIFI_DEBUG("%s: %s\n", __func__, (on ? "on" : "off"));
-	
+
 	if (state == on)
 		return 0;
-	
+
 	/* Turn on/off WLAN chipset */
 	if (on) {
 		/* enable WL_REG_ON */
 		gpio_set_value(GPIO_WLAN_REG_ON, 1);
-		
+
 	} else {
 		/* disable WL_REG_ON */
 		gpio_set_value(GPIO_WLAN_REG_ON, 0);
 	}
-	
+
 	state = on;
-	
+
 	return 0;
 }
 
@@ -208,10 +208,10 @@ static struct platform_device u2_wifi_device = {
         .resource = bcmdhd_res,
 };
 
-static int u2_gpio_init(void) 
+static int u2_gpio_init(void)
 {
 	int ret;
-	
+
 	WIFI_DEBUG("%s: Enter\n", __func__);
 
 	/* WLAN IRQ */
@@ -220,12 +220,12 @@ static int u2_gpio_init(void)
 		WIFI_ERROR("%s: Fail to request IRQ GPIO\n", __func__);
 		return -EIO;
 	}
-		
+
 	gpio_direction_input(GPIO_WLAN_OOB_IRQ);
 	gpio_set_debounce(GPIO_WLAN_OOB_IRQ, 1000); /* Set debounce to 1msec */
-	
+
 	__raw_writeb(0xA0, WLAN_OOB_IRQ_CR); /* Config WLAN IRQ with PD */
-	
+
 	/* WLAN REG ON */
 	ret = gpio_request(GPIO_WLAN_REG_ON, NULL);
 	if (ret) {
@@ -233,13 +233,13 @@ static int u2_gpio_init(void)
 		return -EIO;
 	}
 	gpio_direction_output(GPIO_WLAN_REG_ON, 0);
-	
+
 	WIFI_DEBUG("%s: Done\n", __func__);
-	
+
 	return 0;
 }
 
-static void u2_gpio_free(void) 
+static void u2_gpio_free(void)
 {
 	WIFI_DEBUG("%s: Enter\n", __func__);
 
@@ -248,30 +248,30 @@ static void u2_gpio_free(void)
 
 	/* WLAN REG ON */
 	gpio_free(GPIO_WLAN_REG_ON);
-	
+
 	WIFI_DEBUG("%s: Done\n", __func__);
 }
 
 int __init u2_wifi_init(void)
 {
 	int ret;
-	
+
 	WIFI_DEBUG("%s: start\n", __func__);
-	
+
 	ret = u2_gpio_init();
 	if (ret) {
 		WIFI_ERROR("%s: Initialization fail - exiting\n", __func__);
 		return ret;
 	}
-	
+
 	ret = platform_device_register(&u2_wifi_device);
 	if (ret) {
 		WIFI_ERROR("%s: Initialization fail - exiting\n", __func__);
 		return ret;
 	}
-	
+
 	WIFI_DEBUG("%s: Done\n", __func__);
-	
+
 	return 0;
 }
 

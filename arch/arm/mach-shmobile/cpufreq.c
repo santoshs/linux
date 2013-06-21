@@ -48,11 +48,13 @@
 #define FREQ_MID_LOWER_LIMIT15 455000
 #define FREQ_MIN_UPPER_LIMIT15 364000
 #define FREQ_MIN_LOWER_LIMIT15 273000
+#define FREQ_LIMIT_MIN_CPUFREQ15 364000
 #define FREQ_MAX12 1196000
 #define FREQ_MID_UPPER_LIMIT12 897000
 #define FREQ_MID_LOWER_LIMIT12 448500
 #define FREQ_MIN_UPPER_LIMIT12 373750
 #define FREQ_MIN_LOWER_LIMIT12 299000
+#define FREQ_LIMIT_MIN_CPUFREQ12 373750
 
 #define MODE_PER_STATE       3
 
@@ -104,6 +106,7 @@ struct shmobile_cpuinfo {
 	struct cpufreq_resource upper_lowspeed;
 	struct cpufreq_resource highspeed;
 	struct cpufreq_resource disable_early_clock;
+	struct cpufreq_resource limit_min_ctrl;
 	unsigned int freq;
 	unsigned int req_rate[CONFIG_NR_CPUS];
 	unsigned int limit_maxfrq;
@@ -113,6 +116,7 @@ struct shmobile_cpuinfo {
 	unsigned int freq_min_upper_limit;
 	unsigned int freq_min_lower_limit;
 	unsigned int freq_suspend;
+	unsigned int limit_min_cpufreq;
 	int sgx_flg;
 	int clk_state;
 	int scaling_locked;
@@ -172,7 +176,11 @@ module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
 static int static_gov_flg = 1;
 #ifdef DYNAMIC_HOTPLUG_CPU
 #define HOTPLUG_IN_ACTIVE	1
+#ifdef CONFIG_RENESAS
+#define EASY_PLUGIN			0
+#else
 #define EASY_PLUGIN			1
+#endif
 
 #define DEF_MAX_REQ_NR		10
 #if EASY_PLUGIN
@@ -326,6 +334,11 @@ static inline int fixup_all_cpu_up(void)
 	/* by request */
 	if (the_cpuinfo.upper_lowspeed.used &&
 	   (the_cpuinfo.freq_min_upper_limit >= hlg_config.unplug_threshold))
+		return 1;
+
+	/* by request */
+	if (the_cpuinfo.limit_min_ctrl.used &&
+	   (the_cpuinfo.limit_min_cpufreq > hlg_config.unplug_threshold))
 		return 1;
 
 	return 0;
@@ -1003,6 +1016,67 @@ void enable_dfs_mode_min(void)
 EXPORT_SYMBOL(enable_dfs_mode_min);
 
 /*
+ * set_limit_min_cpufreq: Set the CPU minimum frequency limit.
+ * NOTE:To turn off this API, use the unset_limit_min_cpufreq.
+ *
+ * Argument:
+ *		none
+ *
+ * Return: none
+ */
+void set_limit_min_cpufreq(void)
+{
+	unsigned int freq_new = 0;
+	int ret = 0;
+
+	spin_lock(&the_cpuinfo.lock);
+
+	if (!atomic_read(&the_cpuinfo.limit_min_ctrl.usage_count)) {
+		if (the_cpuinfo.freq < the_cpuinfo.limit_min_cpufreq) {
+			freq_new = the_cpuinfo.limit_min_cpufreq;
+			ret = __set_all_clocks(freq_new);
+			if (ret)
+				pr_err("(%s) __set_all_clocks %d\n",
+					__func__, ret);
+		}
+		/* update flag */
+		the_cpuinfo.limit_min_ctrl.used = true;
+	}
+
+	atomic_inc(&the_cpuinfo.limit_min_ctrl.usage_count);
+
+	spin_unlock(&the_cpuinfo.lock);
+}
+EXPORT_SYMBOL(set_limit_min_cpufreq);
+
+/*
+ * unset_limit_min_cpufreq: Remove the limit of the CPU minimum frequency.
+ * NOTE: Call this function only once after the set_limit_min_cpufreq call.
+ * This means both the functions must be paired.
+ * Argument:
+ *		none
+ *
+ * Return:
+ *		none
+ */
+void unset_limit_min_cpufreq(void)
+{
+	spin_lock(&the_cpuinfo.lock);
+
+	if (atomic_read(&the_cpuinfo.limit_min_ctrl.usage_count) == 0) {
+		pr_err("(%s) usage_count %d\n",
+			__func__, 0);
+	} else {
+		if (atomic_dec_and_test
+			(&the_cpuinfo.limit_min_ctrl.usage_count))
+			the_cpuinfo.limit_min_ctrl.used = false;
+	}
+
+	spin_unlock(&the_cpuinfo.lock);
+}
+EXPORT_SYMBOL(unset_limit_min_cpufreq);
+
+/*
  * movie_cpufreq: change the SYS-CPU frequency to middle before entering
  * uspend state.
  * Argument:
@@ -1601,6 +1675,12 @@ int shmobile_cpufreq_target(struct cpufreq_policy *policy,
 		freq = max((unsigned int)the_cpuinfo.freq_mid_lower_limit,
 						freq);
 
+	/* If "limit_min_ctrl" is usable,  */
+	/* the current freq should be equal or above the limit_min_cpufreq. */
+	if (the_cpuinfo.limit_min_ctrl.used)
+		freq = max((unsigned int)the_cpuinfo.limit_min_cpufreq,
+						freq);
+
 	/* current frequency is set */
 	if ((the_cpuinfo.freq == freq))
 		goto done;
@@ -1698,6 +1778,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 	the_cpuinfo.highspeed.used = false;
 	the_cpuinfo.upper_lowspeed.used = false;
 	the_cpuinfo.disable_early_clock.used = false;
+	the_cpuinfo.limit_min_ctrl.used = false;
 	if (0 != zclk12_flg) {
 		the_cpuinfo.freq_max = FREQ_MAX12;
 		the_cpuinfo.freq_mid_upper_limit = FREQ_MID_UPPER_LIMIT12;
@@ -1705,6 +1786,7 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		the_cpuinfo.freq_min_upper_limit = FREQ_MIN_UPPER_LIMIT12;
 		the_cpuinfo.freq_min_lower_limit = FREQ_MIN_LOWER_LIMIT12;
 		the_cpuinfo.freq_suspend = SUSPEND_CPUFREQ12;
+		the_cpuinfo.limit_min_cpufreq = FREQ_LIMIT_MIN_CPUFREQ12;
 	} else {
 		the_cpuinfo.freq_max = FREQ_MAX15;
 		the_cpuinfo.freq_mid_upper_limit = FREQ_MID_UPPER_LIMIT15;
@@ -1712,10 +1794,12 @@ int shmobile_cpufreq_init(struct cpufreq_policy *policy)
 		the_cpuinfo.freq_min_upper_limit = FREQ_MIN_UPPER_LIMIT15;
 		the_cpuinfo.freq_min_lower_limit = FREQ_MIN_LOWER_LIMIT15;
 		the_cpuinfo.freq_suspend = SUSPEND_CPUFREQ15;
+		the_cpuinfo.limit_min_cpufreq = FREQ_LIMIT_MIN_CPUFREQ15;
 	}
 	atomic_set(&the_cpuinfo.highspeed.usage_count, 0);
 	atomic_set(&the_cpuinfo.upper_lowspeed.usage_count, 0);
 	atomic_set(&the_cpuinfo.disable_early_clock.usage_count, 0);
+	atomic_set(&the_cpuinfo.limit_min_ctrl.usage_count, 0);
 
 	/*
 	 * loader had set the frequency to MAX, already.

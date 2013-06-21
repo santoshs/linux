@@ -65,7 +65,7 @@ ccflags-y                 += -DPUBLIC_ENVIRONMENT -DSEC_HAL_TRACE_TO_KERNEL
 #		--no_inline  -DPUBLIC_ENVIRONMENT
 
 #ASFLAGS_sec_bridge_tz.o := 	--apcs=/interwork --licretry --cpu=Cortex-A9.no_neon.no_vfp --no_unaligned_access 	\
-#		--littleend -g $(ASDEFINES) 
+#		--littleend -g $(ASDEFINES)
 
 SOURCES = 			\
 		sec_bridge_tz.s	\

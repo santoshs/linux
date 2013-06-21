@@ -203,7 +203,7 @@ Description :  File created
      */
 
   /* #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS */            /* If defined, the message is buffered when FIFO is full */
-  /* #define SMC_HISTORY_DATA_COLLECTION_ENABLED */             /* If defined, the SMC data transfer collection is enabled in the modem side. This has some impact to throughput performance */
+  #define SMC_HISTORY_DATA_COLLECTION_ENABLED                   /* If defined, the SMC data transfer collection is enabled in the modem side. This has some impact to throughput performance */
   /* #define SMC_DUMP_ON_CLOSE_ENABLED */                       /* If defined, the SMC Dump is printed during SMC driver close */
 
       /* Definition for Modem to wakeup APE when the channel interrupt does not do that */
@@ -277,15 +277,19 @@ Description :  File created
                                                                                 __raw_writel(0x00000001, 0xe61c1884); /* WAKEN_STS0 - Disable WakeUp Request Enable */  \
                                                                             }
 
-  #define SMC_APE_WAKEUP_WAKELOCK_USE                              /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */
-  #define SMC_APE_WAKEUP_WAKELOCK_USE_TIMER                        /* If defined, the APE uses timer in wakelock while receiving packets from modem */
+  #define SMC_APE_WAKEUP_WAKELOCK_USE                             /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */
+  #define SMC_APE_WAKEUP_WAKELOCK_USE_TIMER                       /* If defined, the APE uses timer in wakelock while receiving packets from modem */
 
 
-  #define SMC_NETDEV_WAKELOCK_IN_TX                                /* If defined, the wakelock is used in the net device TX */
+  #define SMC_NETDEV_WAKELOCK_IN_TX                               /* If defined, the wakelock is used in the net device TX */
 
-  /*#define SMC_RX_USE_HIGHMEM*/                                        /* If defined, SMC can allocate High memory if low memory is not available */
+  /* #define SMC_RX_USE_HIGHMEM */                                /* If defined, SMC can allocate High memory if low memory is not available */
 
-  #define SMC_RX_MEMORY_REALLOC_TIMER_ENABLED                       /* If defined, the RX uses timer to check if there is memory available */
+  #define SMC_RX_MEMORY_REALLOC_TIMER_ENABLED                     /* If defined, the RX uses timer to check if there is memory available */
+
+  #define SMC_APE_USE_THREADED_IRQ                          /* If defined, the threaded IRQ is in use in SMC RX */
+
+  /* #define SMC_APE_USE_TASKLET_IN_IRQ */                        /* If defined, tasklet usage for IRQs is enabled */
 
 #endif  /* End of target specific configuration */
 

@@ -59,15 +59,15 @@ static struct mhl_platform_data sii9234_pdata = {
 	.rx_cap.device_id = 0,
 	.rx_cap.scratchpad_size = 0,
 	.rx_cap.int_stat_size = 0,
-	.rx_cap.rcp_support = 0, 
-	.rx_cap.rap_support = 0,  
-	.rx_cap.sp_support = 0, 
+	.rx_cap.rcp_support = 0,
+	.rx_cap.rap_support = 0,
+	.rx_cap.sp_support = 0,
 
 	.simg72_tx_client = NULL,
 	.simg7A_tx_client = NULL,
 	.simg92_tx_client = NULL,
 	.simg9A_tx_client = NULL,
-	.simgC8_tx_client = NULL,      
+	.simgC8_tx_client = NULL,
 };
 
 static struct i2c_board_info __initdata i2c_devs_sii9234[] = {
@@ -112,9 +112,9 @@ struct platform_device mhl_i2c_gpio_device = {
 static void sii8332_cfg_gpio(void)
 {
 	int gpio, rc;
-	
+
 	printk(KERN_INFO "sii8332: %s()\n", __func__);
-	
+
 	gpio = GPIO_MHL_INT;
 	rc = gpio_request(gpio, "MHL_INT");
 	if (rc < 0) {
@@ -122,7 +122,7 @@ static void sii8332_cfg_gpio(void)
 		return;
 	}
 	gpio_direction_input(gpio);
-	
+
 	gpio = GPIO_MHL_EN;
 	rc = gpio_request(gpio, "HDMI_EN");
 	if (rc < 0) {
@@ -138,7 +138,7 @@ static void sii8332_cfg_gpio(void)
 		return;
 	}
 	gpio_direction_output(gpio, 1);
-	
+
 }
 
 static void mhl_usb_switch_control(bool on)

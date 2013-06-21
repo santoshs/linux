@@ -1,7 +1,5 @@
 /*
  * arch/arm/mach-shmobile/setup-u2touchkey.c
- 
- 
  *
  * Copyright (C) 2012 Renesas Mobile Corporation
  *

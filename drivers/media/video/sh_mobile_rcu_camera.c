@@ -102,6 +102,7 @@ spinlock_t lock_log;
 #define RCU_MERAM_SSARA  (0x10)
 #define RCU_MERAM_SSARB  (0x14)
 #define RCU_MERAM_SBSIZE (0x18)
+#define RCU_MERAM_DBG    (0x1C)
 
 #define RCU_MERAM_CTRL_C   (0x20)
 #define RCU_MERAM_BSIZE_C  (0x24)
@@ -109,6 +110,7 @@ spinlock_t lock_log;
 #define RCU_MERAM_SSARA_C  (0x30)
 #define RCU_MERAM_SSARB_C  (0x34)
 #define RCU_MERAM_SBSIZE_C (0x38)
+#define RCU_MERAM_DBG_C    (0x3C)
 
 #define RCU_MERAM_CH_RCU0	(36)
 #define RCU_MERAM_CH_RCU1	(38)
@@ -224,6 +226,13 @@ struct sh_mobile_rcu_snd_cmd {
 #define RCEDAYR				0x0204UL
 #define RCEDSSR				0x0214UL
 #define RCEFWCR				0x0228UL
+
+#define RCMON1				0x00E0UL
+#define RCMON2				0x00E4UL
+#define RCMON3				0x00E8UL
+#define RCMON4				0x00ECUL
+#define RCMON5				0x00F0UL
+#define RCMON6				0x00F4UL
 
 #define RCAPSR_CPKIL		16	/* offset of RCAPSR.CPKIL */
 #define RCAPSR_CSE			1	/* offset of RCAPSR.CSE */
@@ -391,6 +400,8 @@ struct sh_mobile_rcu_dev {
 	u32 meram_mcnf[2];
 	u32 meram_sbsize[2];
 
+	u32 kick;
+
 	u32 int_status;
 	size_t video_limit;
 	size_t buf_total;
@@ -484,11 +495,71 @@ static void meram_ch_stop(struct sh_mobile_rcu_dev *priv,
 		meram_ch_write(priv, reg_offs, regMECTRL | stp_set);
 }
 
+static u32 meram_get_bsz(u32 bv_bsz)
+{
+	u32 ret = 1;
+	u32 bsz;
+	u32 i;
+	if (!(bv_bsz & 0x8))
+		return ret;
+
+	bsz = bv_bsz & 0x7;
+	for (i = 0; i < bsz; i++)
+		ret *= 2;
+	return ret;
+}
+
+static void meram_ch_wait(struct sh_mobile_rcu_dev *priv)
+{
+	int i = 0;
+	u32 reg;
+	u32 size;
+	u32 kwbnm, bv_bsz;
+	if (RCU_MERAM_FRAMEA == priv->meram_frame) {
+		reg = RCU_MERAM_DBG;
+		kwbnm = (meram_ch_read(priv, RCU_MERAM_MCNF) >> 28) + 1;
+		bv_bsz = meram_get_bsz(
+			meram_ch_read(priv, RCU_MERAM_CTRL) >> 28);
+		size = meram_ch_read(priv, RCU_MERAM_SBSIZE);
+	} else {
+		reg = RCU_MERAM_DBG_C;
+		kwbnm = (meram_ch_read(priv, RCU_MERAM_MCNF_C) >> 28) + 1;
+		bv_bsz = meram_get_bsz(
+			meram_ch_read(priv, RCU_MERAM_CTRL_C) >> 28);
+		size = meram_ch_read(priv, RCU_MERAM_SBSIZE_C);
+	}
+	size = ~(size * bv_bsz * kwbnm - 1) & 0x03FFFFFF;
+
+	while (1000 > i) {
+		if ((rcu_read(priv, RCMON5) & size)
+			== meram_ch_read(priv, reg))
+			break;
+		udelay(1);
+		i++;
+	}
+
+	if (1000 <= i)
+		dev_err(priv->icd->parent,
+			"MERAM Wait error %s is active:"
+			"  RCMON5[%08x] "
+			"     DBG[%08x] "
+			"    size[%08x] "
+			"   count[%08x]\n",
+			priv->meram_frame ? "A" : "B",
+			rcu_read(priv, RCMON5),
+			meram_ch_read(priv, reg), size, i);
+
+}
+
 static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 {
 	u32 reg_set = 0x20;		/* NORMAL */
 	u32 read_reg = 0;
 	u32 reg_actst1;
+
+	if (mode == RCU_MERAM_STPSEQ_FORCE) {
+		reg_set = 0x60;
+	}
 
 	if ((SH_RCU_MODE_IMAGE == pcdev->image_mode) && (!pcdev->output_ext)) {
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL, reg_set);
@@ -512,6 +583,9 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 				meram_ch_read(pcdev, RCU_MERAM_CTRL_C));
 			return;
 		}
+
+		meram_ch_wait(pcdev);
+
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL, reg_set);
 		read_reg = meram_ch_read(pcdev, RCU_MERAM_CTRL_C);
 		if (read_reg & 0x60)
@@ -537,6 +611,9 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 				meram_ch_read(pcdev, RCU_MERAM_CTRL_C));
 			return;
 		}
+
+		meram_ch_wait(pcdev);
+
 		meram_ch_stop(pcdev, RCU_MERAM_CTRL_C, reg_set);
 		read_reg = meram_ch_read(pcdev, RCU_MERAM_CTRL);
 		if (read_reg & 0x60)
@@ -633,15 +710,15 @@ static void sh_mobile_rcu_dump_reg(struct sh_mobile_rcu_dev *pcdev)
 		"  RCMON2[%08x] "
 		"  RCMON3[%08x] "
 		"  RCMON4[%08x]\n",
-		rcu_read(pcdev, 0xE0),
-		rcu_read(pcdev, 0xE4),
-		rcu_read(pcdev, 0xE8),
-		rcu_read(pcdev, 0xEC));
+		rcu_read(pcdev, RCMON1),
+		rcu_read(pcdev, RCMON2),
+		rcu_read(pcdev, RCMON3),
+		rcu_read(pcdev, RCMON4));
 	dev_err(pcdev->icd->parent,
 		"  RCMON5[%08x] "
 		"  RCMON6[%08x]\n",
-		rcu_read(pcdev, 0xF0),
-		rcu_read(pcdev, 0xF4));
+		rcu_read(pcdev, RCMON5),
+		rcu_read(pcdev, RCMON6));
 	if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
 		dev_err(pcdev->icd->parent,
 			" IMCTCR1[%08x] "
@@ -1003,9 +1080,6 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 	else
 		status = irq;
 	rcu_write(pcdev, RCEIER, rcu_read(pcdev, RCEIER) | rceier);
-	if (SH_RCU_OUTPUT_ISP != pcdev->output_mode)
-		rcu_write(pcdev, RCAPCR,
-			rcu_read(pcdev, RCAPCR) & ~RCU_RCAPCR_CTNCP);
 
 	if (SH_RCU_OUTPUT_MEM_ISP == pcdev->output_mode) {
 		status |= pcdev->int_status;
@@ -1161,8 +1235,10 @@ static int sh_mobile_rcu_capture(struct sh_mobile_rcu_dev *pcdev, u32 irq)
 	}
 
 	if (!pcdev->zsl)
-		if (SH_RCU_OUTPUT_ISP != pcdev->output_mode)
+		if (SH_RCU_OUTPUT_ISP != pcdev->output_mode) {
 			rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CE);
+			pcdev->kick++;
+		}
 
 	return ret;
 }
@@ -1265,8 +1341,6 @@ static void sh_mobile_rcu_videobuf_release(struct vb2_buffer *vb)
 	spin_lock_irqsave(&pcdev->lock, flags);
 
 	if (pcdev->active == vb) {
-		/* disable capture (release DMA buffer), reset */
-		rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CPKIL);
 		pcdev->active = NULL;
 	}
 
@@ -1327,6 +1401,7 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q, unsigned int count
 
 	spin_lock_irqsave(&pcdev->lock, flags);
 
+	pcdev->kick = 0;
 	pcdev->streaming = SH_RCU_STREAMING_ON;
 	rcu_write(pcdev, RCEIER, 0);
 
@@ -1541,7 +1616,15 @@ static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 
 	spin_unlock_irqrestore(&pcdev->lock, flags);
 
-	sh_mobile_rcu_soft_reset(pcdev);
+	for (i = 0; i < 1000; i++) {
+		if ((!pcdev->kick) && !(rcu_read(pcdev, RCSTSR) & 0x00000001))
+			break;
+		mdelay(1);
+	}
+	if (1000 <= i)
+		dev_err(pcdev->icd->parent,
+			"Stop error RCU is Active [%08x] kick is %d\n",
+			rcu_read(pcdev, RCSTSR), pcdev->kick);
 
 	if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
 		u32 reg_actst1;
@@ -1640,6 +1723,13 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 						"%s:meram clear\n", __func__);
 				}
 			}
+
+			if (0 == pcdev->kick)
+				dev_warn(pcdev->icd->parent,
+					"streaming route error kick is zero!\n");
+			else
+				pcdev->kick--;
+
 			list_del_init(&to_rcu_vb(vb)->queue);
 
 			if (!list_empty(&pcdev->capture))
@@ -1697,6 +1787,11 @@ static irqreturn_t sh_mobile_rcu_irq(int irq, void *data)
 		dev_warn(pcdev->icd->parent,
 			"%s:not stream sequence RCETCR[%08x],RCDAYR[%08x]\n",
 			__func__, regRCETCR, regRCDAYR);
+		if (0 == pcdev->kick)
+			dev_warn(pcdev->icd->parent,
+				"not streaming route error kick is zero!\n");
+		else
+			pcdev->kick--;
 	}
 
 	spin_unlock_irqrestore(&pcdev->lock, flags);
@@ -1938,40 +2033,6 @@ static void sh_mobile_rcu_set_rect(struct soc_camera_device *icd)
 	rcu_write(pcdev, RCDWDR, rcdwdr);
 }
 
-static u32 capture_save_reset(struct sh_mobile_rcu_dev *pcdev)
-{
-	u32 rcapsr = rcu_read(pcdev, RCAPSR);
-	rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CPKIL); /* reset, stop capture */
-	return rcapsr;
-}
-
-static void capture_restore(struct sh_mobile_rcu_dev *pcdev, u32 rcapsr)
-{
-	unsigned long timeout = jiffies + 10 * HZ;
-
-	/*
-	 * Wait until the end of the current frame. It can take a long time,
-	 * but if it has been aborted by a RCAPSR reset, it shoule exit sooner.
-	 */
-	while ((rcu_read(pcdev, RCSTSR) & (1 << RCSTSR_CPTON)) &&
-			time_before(jiffies, timeout))
-		msleep(1);
-
-	if (time_after(jiffies, timeout)) {
-		dev_err(pcdev->ici.v4l2_dev.dev,
-			"Timeout waiting for frame end! Interface problem?\n");
-		return;
-	}
-
-	/* Wait until reset clears, this shall not hang... */
-	while (rcu_read(pcdev, RCAPSR) & (1 << RCAPSR_CPKIL))
-		udelay(10);
-
-	/* Anything to restore? */
-	if (rcapsr & ~(1 << RCAPSR_CPKIL))
-		rcu_write(pcdev, RCAPSR, rcapsr);
-}
-
 /* Find the bus subdevice driver, e.g., CSI2 */
 static struct v4l2_subdev *find_bus_subdev(struct sh_mobile_rcu_dev *pcdev,
 					   struct soc_camera_device *icd)
@@ -2002,7 +2063,6 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd)
 	struct sh_mobile_rcu_cam *cam = icd->host_priv;
 	struct v4l2_mbus_config cfg = {.type = V4L2_MBUS_PARALLEL,};
 	unsigned long common_flags = RCU_BUS_FLAGS;
-	u32 rcapsr = capture_save_reset(pcdev);
 	u32 rcapcr = 0, rcamcr = 0, rcpicr = 0, rcdocr = 0;
 	unsigned yuv_lineskip;
 	int ret;
@@ -2182,8 +2242,6 @@ static int sh_mobile_rcu_set_bus_param(struct soc_camera_device *icd)
 
 /*	dev_dbg(icd->parent, "S_FMT successful for %c%c%c%c %ux%u\n",
 		PRINT_FOURCC(pixfmt), icd->user_width, icd->user_height);*/
-
-	capture_restore(pcdev, rcapsr);
 
 	dev_dbg(icd->parent, "> RCAPSR  : 0x%08X\n",
 		rcu_read(pcdev, RCAPSR));
@@ -3356,6 +3414,7 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 	unsigned int mmap_page_info[2];
 	unsigned int page_num = 0;
 	int ret = 0;
+	unsigned long flags;
 
 	dev_geo(icd->parent, "%s(): id=0x%x value=0x%x\n",
 			__func__, ctrl->id, ctrl->value);
@@ -3406,8 +3465,12 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 		return 0;
 	case V4L2_CID_SET_ZSL:
 		pcdev->zsl = ctrl->value;
-		if (!pcdev->zsl)
+		if (!pcdev->zsl) {
+			spin_lock_irqsave(&pcdev->lock, flags);
 			rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CE);
+			pcdev->kick++;
+			spin_unlock_irqrestore(&pcdev->lock, flags);
+		}
 		return 0;
 	case V4L2_CID_SET_MMAP_PAGE:
 		kfree(pcdev->mmap_pages);
@@ -3618,6 +3681,7 @@ static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
 	pcdev->zsl = 0;
 	pcdev->output_ext = 0;
 	pcdev->streaming = SH_RCU_STREAMING_OFF;
+	pcdev->kick = 0;
 
 	pcdev->iclk = clk_get(NULL, "icb");
 	if (IS_ERR(pcdev->iclk)) {

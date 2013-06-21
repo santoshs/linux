@@ -28,8 +28,7 @@ extern void memory_log_worker(unsigned long func_addr, unsigned long pid);
 extern void memory_log_irq(unsigned int irq, int in);
 extern void memory_log_func(unsigned long func_id, int in);
 extern void memory_log_dump_int(unsigned char dump_id, int dump_data);
-extern void memory_log_pm(unsigned long pm_id);
-#endif
+#endif /* __ASSEMBLY__ */
 
 /* Use SDRAM */
 #define MEMLOG_ADDRESS			SDRAM_MEMLOG_START_ADDRESS
@@ -69,6 +68,7 @@ extern void memory_log_pm(unsigned long pm_id);
 (CPU1_PM_START_INDEX + CPU1_PM_SIZE)
 
 #else
+#ifndef __ASSEMBLY__
 static inline void memory_log_proc(const char *name, unsigned long pid)
 {
 }
@@ -84,6 +84,7 @@ static inline void memory_log_func(unsigned long func_id, int in)
 static inline void memory_log_dump_int(unsigned char dump_id, int dump_data)
 {
 }
+#endif /* __ASSEMBLY__ */
 #endif
 
 #define PM_FUNC_ID_START_WFI			0x000001

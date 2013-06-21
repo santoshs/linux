@@ -25,20 +25,20 @@
 #include <mach/r8a7373.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
- 
+
 #if defined(CONFIG_CHARGER_SMB358)
 #include <linux/smb358_charger.h>
 
 static struct smb358_platform_data smb358_info = {
 	.irq = GPIO_SMB358_INT,
-}; 
+};
 
 struct platform_device smb358_charger =  {
 	.name		= "smb358",
-	.id		= CHARGER_I2C_BUS_ID, 
+	.id		= CHARGER_I2C_BUS_ID,
 	.dev		= {
 		.platform_data = &smb358_info,
-	},	
+	},
 };
 #endif
 
@@ -100,7 +100,7 @@ struct stc311x_platform_data stc3115_data = {
 	.OCVOffset[2] = -34,     /* OCV curve adjustment */
 	.OCVOffset[1] = -125,    /* OCV curve adjustment */
 	.OCVOffset[0] = -68,     /* OCV curve adjustment */
-		
+
 	.OCVOffset2[15] = -58,    /* OCV curve adjustment */
 	.OCVOffset2[14] = -37,   /* OCV curve adjustment */
 	.OCVOffset2[13] = -21,    /* OCV curve adjustment */

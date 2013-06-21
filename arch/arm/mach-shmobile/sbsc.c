@@ -129,7 +129,7 @@ static void shmobile_init_sharedarea(struct shared_area *sh)
 
 	/* init PLL reprog field */
 	sh->pll_reprogram = 0;
-	
+
 	/* init revision */
 	sh->revision = SHARED_AREA_REV;
 

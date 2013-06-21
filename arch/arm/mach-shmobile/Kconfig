@@ -131,13 +131,6 @@ config MACH_LT02LTE
 	help
 	  Select this to support lt02lte board.
 
-config MACH_LOGANLTE_LATIN
-	bool "LOGANLTE_LATIN board support"
-	select ARCH_REQUIRE_GPIOLIB
-	depends on ARCH_R8A7373
-	help
-	  Select this to support loganlte_latin board.
-
 config MACH_U2USB
 	bool "U2USB board"
 	select ARCH_REQUIRE_GPIOLIB
@@ -192,7 +185,7 @@ config MEMORY_SIZE
 	hex "Physical memory size"
 	default "0x08000000" if MACH_G3EVM
 	default "0x08000000" if MACH_G4EVM
-	default "0x20000000" if MACH_AG5EVM || MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE || MACH_LOGANLTE_LATIN
+	default "0x20000000" if MACH_AG5EVM || MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE
 	default "0x1e000000" if MACH_KOTA2
 	default "0x10000000" if MACH_AP4EVB || MACH_MACKEREL
 	default "0x04000000"
@@ -428,11 +421,6 @@ config BOARD_VERSION_LOGANLTE
 	  Board revision number
 
 config BOARD_VERSION_LT02LTE
-	bool "board_revision"
-	help
-	  Board revision number
-
-config BOARD_VERSION_LOGANLTE_LATIN
 	bool "board_revision"
 	help
 	  Board revision number

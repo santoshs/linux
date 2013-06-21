@@ -78,6 +78,10 @@ static irqreturn_t smc_linux_interrupt_handler_intcbb(int irq, void *dev_id );  
 static irqreturn_t smc_linux_interrupt_handler_int_genout(int irq, void *dev_id );      /* GENIO interrupt handler */
 static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_id );    /* SPI resource interrupt handler */
 
+#ifdef SMC_APE_USE_THREADED_IRQ
+  static irqreturn_t smc_linux_interrupt_handler_int_resource_threaded(int irq, void *dev_id );
+#endif
+
 static smc_lock_t* g_local_lock_sleep_control = NULL;
 
 //static struct wake_lock* wakelock    = NULL;
@@ -120,7 +124,7 @@ static inline smc_lock_t* get_local_lock_signal_intgen_clear(void)
 }
 
 
-#ifdef SMC_LINUX_USE_TASKLET_IN_IRQ
+#ifdef SMC_APE_USE_TASKLET_IN_IRQ
 
     /* ==========================
      * Tasklet function declarations
@@ -498,6 +502,60 @@ static inline irqreturn_t smc_linux_interrupt_handler_int_resource_exec(smc_sign
 }
 
 
+#ifdef SMC_APE_USE_THREADED_IRQ
+
+/**
+ * Threaded IRQ handler.
+ *
+ */
+static irqreturn_t smc_linux_interrupt_handler_int_resource_threaded(int irq, void *dev_id )
+{
+    smc_signal_handler_t* signal_handler = NULL;
+    uint32_t              signal_type    = SMC_SIGNAL_TYPE_INT_RESOURCE;
+    int                   irq_spi        = irq-SMC_APE_IRQ_OFFSET_INTCSYS_SPI;
+
+    signal_handler = smc_signal_handler_get( (uint32_t)irq_spi, signal_type );
+
+    if( signal_handler != NULL && signal_handler->smc_channel != NULL )
+    {
+        smc_channel_t* smc_channel = signal_handler->smc_channel;
+
+        smc_channel_interrupt_handler( smc_channel );
+
+        SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource_threaded: signal handler 0x%08X executed", (uint32_t)signal_handler);
+
+        if( smc_channel->smc_rx_wakelock != NULL &&
+            (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_TIMER) == SMC_CHANNEL_WAKELOCK_TIMER )
+        {
+            SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource_threaded: IRQ: 0x%02X (%d), Device 0x%08X wake_lock_timeout (wakelock timeout %d ms)", (uint32_t)irq, irq, (uint32_t)dev_id, smc_channel->wakelock_timeout_ms);
+
+            if( smc_channel->wakelock_timeout_ms > 0 )
+            {
+                wake_lock_timeout( (struct wake_lock*)smc_channel->smc_rx_wakelock, msecs_to_jiffies(smc_channel->wakelock_timeout_ms) );
+            }
+            else
+            {
+                wake_unlock( (struct wake_lock*)smc_channel->smc_rx_wakelock );
+            }
+        }
+        else if( smc_channel->smc_rx_wakelock != NULL &&
+                (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_MESSAGE) == SMC_CHANNEL_WAKELOCK_MESSAGE )
+        {
+            SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource_threaded: IRQ: 0x%02X (%d), Device 0x%08X wake_unlock", (uint32_t)irq, irq, (uint32_t)dev_id );
+
+            wake_unlock( (struct wake_lock*)smc_channel->smc_rx_wakelock );
+        }
+    }
+    else
+    {
+        SMC_TRACE_PRINTF_WARNING("smc_linux_interrupt_handler_int_resource_threaded: No channel initialized for signal handler 0x%08X", (uint32_t)signal_handler);
+    }
+
+    return IRQ_HANDLED;
+}
+
+#endif
+
 static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_id )
 {
     smc_signal_handler_t* signal_handler = NULL;
@@ -524,7 +582,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
        (smc_channel->wake_lock_flags&SMC_CHANNEL_WAKELOCK_MESSAGE) == SMC_CHANNEL_WAKELOCK_MESSAGE) )
     {
         wake_lock( (struct wake_lock*)smc_channel->smc_rx_wakelock );
-        //wake_lock( get_wake_lock() );
+
         SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource: channel %d (use wakelock)", smc_channel->id);
     }
     else
@@ -537,7 +595,7 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     if( signal != NULL && signal->peripheral_address != 0 )
     {
         /* TODO FIX: The SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM only valid for SPI 193 - 198 */
-        uint32_t genios = (1UL << ( signal->interrupt_id - SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM) );
+        uint32_t      genios = (1UL << ( signal->interrupt_id - SMC_APE_IRQ_OFFSET_INTCSYS_TO_WGM) );
         smc_gop001_t* gop001 = (smc_gop001_t*)signal->peripheral_address;
 
         SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: Clear signal %d with gop001 CLEAR value 0x%08X", signal->interrupt_id, genios);
@@ -557,10 +615,9 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
 #ifdef SMC_MODEM_WAKEUP_WAIT_TIMEOUT_MS
         SMC_HOST_ACCESS_SLEEP( get_local_lock_sleep_control() );
 #endif
-
     }
 
-#ifdef SMC_LINUX_USE_TASKLET_IN_IRQ
+#ifdef SMC_APE_USE_TASKLET_IN_IRQ
     if( signal_handler->userdata != 0x00000000 )
     {
         SMC_TRACE_PRINTF_SIGNAL("smc_linux_interrupt_handler_int_resource: signal handler 0x%08X uses tasklet 0x%08X...", (uint32_t)signal_handler, signal_handler->userdata);
@@ -572,6 +629,14 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
     else
 #endif
     {
+
+#ifdef SMC_APE_USE_THREADED_IRQ
+        /* NOTE: The Wakelock is released in the threaded IRQ handler */
+
+        retval = IRQ_WAKE_THREAD;
+    }
+#else
+
         retval = smc_linux_interrupt_handler_int_resource_exec( signal_handler );
     }
 
@@ -588,12 +653,10 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
             if( smc_channel->wakelock_timeout_ms > 0 )
             {
                 wake_lock_timeout( (struct wake_lock*)smc_channel->smc_rx_wakelock, msecs_to_jiffies(smc_channel->wakelock_timeout_ms) );
-                //wake_lock_timeout( get_wake_lock(), msecs_to_jiffies(smc_channel->wakelock_timeout_ms) );
             }
             else
             {
                 wake_unlock( (struct wake_lock*)smc_channel->smc_rx_wakelock );
-                //wake_unlock( get_wake_lock() );
             }
         }
         else if( smc_channel->smc_rx_wakelock != NULL &&
@@ -602,9 +665,9 @@ static irqreturn_t smc_linux_interrupt_handler_int_resource(int irq, void *dev_i
             SMC_TRACE_PRINTF_SIGNAL_RECEIVE("smc_linux_interrupt_handler_int_resource: IRQ: 0x%02X (%d), Device 0x%08X wake_unlock", (uint32_t)irq, irq, (uint32_t)dev_id );
 
             wake_unlock( (struct wake_lock*)smc_channel->smc_rx_wakelock );
-            //wake_unlock( get_wake_lock() );
         }
     }
+#endif
 
     return retval;
 }
@@ -755,7 +818,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
 
     assert(signal_hdlr != NULL);
 
-#ifdef SMC_LINUX_USE_TASKLET_IN_IRQ
+#ifdef SMC_APE_USE_TASKLET_IN_IRQ
     /* Initialize tasklet for IRQ if configured */
 
     if( smc_channel->protocol == 2 /*SMC_L2MUX_QUEUE_3_MHDP*/)
@@ -868,7 +931,11 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
                 device_name  = dev_name(&platform_device->dev);
                 dev_id       = platform_device;
 
+#ifdef SMC_APE_USE_THREADED_IRQ
+                result = request_threaded_irq(res->start, smc_linux_interrupt_handler_int_resource, smc_linux_interrupt_handler_int_resource_threaded, NULL, device_name, dev_id);
+#else
                 result = request_irq( res->start, smc_linux_interrupt_handler_int_resource, flags, device_name, dev_id );
+#endif
 
                 if( result )
                 {
@@ -1010,7 +1077,7 @@ uint8_t smc_signal_handler_unregister( smc_t* smc_instance, smc_signal_t* signal
 
         if( signal_handler != NULL )
         {
-#ifdef SMC_LINUX_USE_TASKLET_IN_IRQ
+#ifdef SMC_APE_USE_TASKLET_IN_IRQ
             if( signal_handler->userdata != NULL )
             {
                 struct tasklet_struct* task = NULL;
@@ -1136,6 +1203,8 @@ smc_timer_t* smc_timer_create( uint32_t timer_usec )
     timer->smc_timer_list = NULL;
     timer->prev_jiffies   = 0;
 
+    timer->hr_timer       = NULL;
+
     SMC_TRACE_PRINTF_TIMER("smc_timer_create: timer 0x%08X created, timeout is %u usec", (uint32_t)timer, timer_usec);
 
     return timer;
@@ -1148,33 +1217,60 @@ uint8_t smc_timer_start( smc_timer_t* timer, smc_timer_callback* timer_cb, uint3
 
     timer->timer_data = timer_data;
 
-    if( timer->smc_timer_list == NULL )
+
+    if( 1 )
     {
-        SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X create new timer list...", (uint32_t)timer, (uint32_t)timer_cb);
+        if( timer->smc_timer_list == NULL )
+        {
+            SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X create new timer list...", (uint32_t)timer, (uint32_t)timer_cb);
 
-        timer->smc_timer_list = (struct timer_list*)SMC_MALLOC_IRQ( sizeof(struct timer_list) );
+            timer->smc_timer_list = (struct timer_list*)SMC_MALLOC_IRQ( sizeof(struct timer_list) );
 
-        assert( timer->smc_timer_list != NULL );
+            assert( timer->smc_timer_list != NULL );
 
-        timer->smc_timer_list->data     = (unsigned long)timer;
-        timer->smc_timer_list->function = (void*)timer_cb;
-        timer->prev_jiffies             = jiffies;
-        timer->smc_timer_list->expires  = timer->prev_jiffies + period;
+            timer->smc_timer_list->data     = (unsigned long)timer;
+            timer->smc_timer_list->function = (void*)timer_cb;
+            timer->prev_jiffies             = jiffies;
+            timer->smc_timer_list->expires  = timer->prev_jiffies + period;
 
-        init_timer( timer->smc_timer_list );
+            init_timer( timer->smc_timer_list );
 
-        add_timer( timer->smc_timer_list );
+            add_timer( timer->smc_timer_list );
+        }
+        else
+        {
+            SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X: timer list created, modify it...", (uint32_t)timer, (uint32_t)timer_cb);
+
+            timer->prev_jiffies = jiffies;
+            mod_timer( timer->smc_timer_list, (timer->prev_jiffies + period) );
+        }
+
+        SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X period %d us, expires: %lu , HZ: %d...",
+                    (uint32_t)timer, (uint32_t)timer_cb, timer->period_us, timer->smc_timer_list->expires, HZ);
     }
     else
     {
-        SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X: timer list created, modify it...", (uint32_t)timer, (uint32_t)timer_cb);
+        if(timer->hr_timer == NULL )
+        {
+                /* High rate timer */
+            SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X create HR timer, CB: 0x%08X...", (uint32_t)timer, (uint32_t)timer_cb);
 
-        timer->prev_jiffies = jiffies;
-        mod_timer( timer->smc_timer_list, (timer->prev_jiffies + period) );
+            timer->hr_timer = (struct timer_list*)SMC_MALLOC_IRQ( sizeof(struct timer_list) );
+
+            hrtimer_init(timer->hr_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+
+            /* TODO Setup the callbacks
+            timer->hr_timer.function = &tx_timer_timeout;
+            tasklet_init(&tunnel->taskl, tx_timer_timeout_tasklet, (unsigned long) tunnel);
+            */
+            SMC_TRACE_PRINTF_ASSERT("smc_timer_start: Not implemented for high rate timer");
+            assert(0);
+        }
+
+        SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X period %d us", (uint32_t)timer, (uint32_t)timer_cb, timer->period_us);
+
+        hrtimer_start(timer->hr_timer, ktime_set(0, 1000*timer->period_us), HRTIMER_MODE_REL);
     }
-
-    SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X CB 0x%08X period %d us, expires: %lu , HZ: %d...",
-                (uint32_t)timer, (uint32_t)timer_cb, timer->period_us, timer->smc_timer_list->expires, HZ);
 
     return ret_val;
 }
@@ -1185,13 +1281,24 @@ uint8_t smc_timer_stop( smc_timer_t* timer )
 
     SMC_TRACE_PRINTF_TIMER("smc_timer_stop: timer 0x%08X...", (uint32_t)timer);
 
-    if( timer!= NULL && timer->smc_timer_list != NULL )
+    if( timer!= NULL )
     {
-        SMC_TRACE_PRINTF_DEBUG("smc_timer_stop: delete timer list 0x%08X...", (uint32_t)timer->smc_timer_list);
-        del_timer( timer->smc_timer_list );
-        SMC_TRACE_PRINTF_DEBUG("smc_timer_stop: free timer list ptr 0x%08X...", (uint32_t)timer->smc_timer_list);
-        SMC_FREE( timer->smc_timer_list );
-        timer->smc_timer_list = NULL;
+        if( timer->smc_timer_list != NULL )
+        {
+            SMC_TRACE_PRINTF_TIMER("smc_timer_stop: delete timer list 0x%08X...", (uint32_t)timer->smc_timer_list);
+            del_timer( timer->smc_timer_list );
+            SMC_TRACE_PRINTF_TIMER("smc_timer_stop: free timer list ptr 0x%08X...", (uint32_t)timer->smc_timer_list);
+            SMC_FREE( timer->smc_timer_list );
+            timer->smc_timer_list = NULL;
+        }
+        else if( timer->hr_timer != NULL )
+        {
+            if (hrtimer_active(timer->hr_timer))
+            {
+                SMC_TRACE_PRINTF_TIMER("smc_timer_stop: stop HR timer 0x%08X...", (uint32_t)timer->hr_timer);
+                hrtimer_cancel(timer->hr_timer);
+            }
+        }
     }
     else
     {
@@ -1218,6 +1325,21 @@ uint8_t smc_timer_destroy( smc_timer_t* timer )
             SMC_FREE( timer->smc_timer_list );
             timer->smc_timer_list = NULL;
         }
+
+        if( timer->hr_timer != NULL )
+        {
+            if (hrtimer_active(timer->hr_timer))
+            {
+                SMC_TRACE_PRINTF_TIMER("smc_timer_destroy: stop HR timer 0x%08X...", (uint32_t)timer->hr_timer);
+                hrtimer_cancel(timer->hr_timer);
+            }
+
+            SMC_TRACE_PRINTF_TIMER("smc_timer_destroy: free HR timer 0x%08X...", (uint32_t)timer->hr_timer);
+
+            SMC_FREE( timer->hr_timer );
+            timer->hr_timer = NULL;
+        }
+
 
         SMC_TRACE_PRINTF_TIMER("smc_timer_destroy: free timer 0x%08X...", (uint32_t)timer);
         SMC_FREE( timer );
@@ -1283,7 +1405,7 @@ void smc_printf_data_linux_kernel_stm(int length, uint8_t* data)
     int row_len = 16;
 
     /* TODO Fix the line break between bytes seen in Ntrace*/
-    //smc_printk("\n");
+    /*smc_printk("\n");*/
 
     for( i = 0; i < length; i++ )
     {
@@ -1868,7 +1990,7 @@ void smc_dma_destroy( smc_dma_t* dma )
 /* =======================================================
  * Tasklet Implementations
  */
-#ifdef SMC_LINUX_USE_TASKLET_IN_IRQ
+#ifdef SMC_APE_USE_TASKLET_IN_IRQ
 
 void smc_do_tasklet_test(unsigned long data)
 {

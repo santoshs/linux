@@ -354,6 +354,12 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
     SMC_TRACE_PRINTF_STARTUP("Device '%s': TX wakelock not enabled", device_name );
 #endif
 
+#ifdef SMC_APE_USE_THREADED_IRQ
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': RX threaded IRQ in use", device_name );
+#else
+    SMC_TRACE_PRINTF_STARTUP("Device '%s': RX threaded IRQ not in use", device_name );
+#endif
+
     SMC_TRACE_PRINTF_DEBUG("smc_device_create_conf_l2mux: start...");
 
     smc_instance_conf = smc_instance_conf_get_l2mux( SMC_CONFIG_USER_L2MUX, smc_cpu_name );
@@ -380,7 +386,7 @@ static smc_conf_t* smc_device_create_conf_l2mux(char* device_name)
             SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: wakelock policy 0x%02X", device_name, i, smc_channel_conf->wake_lock_flags );
         }
 
-#ifdef SMC_LINUX_USE_TASKLET_IN_IRQ
+#ifdef SMC_APE_USE_TASKLET_IN_IRQ
         if( smc_channel_conf->protocol == SMC_L2MUX_QUEUE_3_MHDP )
         {
             SMC_TRACE_PRINTF_STARTUP("Device '%s': L2MUX channel %d: IRQ uses task", device_name, i);
@@ -467,7 +473,7 @@ static void smc_rx_mem_realloc_timer_expired(uint32_t data)
             {
                 SMC_TRACE_PRINTF_TIMER("smc_rx_mem_realloc_timer_expired: No low memory available, trying high memory...");
 
-                skb = __netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE, GFP_ATOMIC|__GFP_HIGHMEM);
+                skb = __netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE, GFP_ATOMIC| __GFP_HIGHMEM );
             }
 #endif
                 /* Update the SKB */
@@ -475,13 +481,13 @@ static void smc_rx_mem_realloc_timer_expired(uint32_t data)
 
             if( unlikely(!skb) )
             {
-                SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: No low or high memory for RX SKB");
+                SMC_TRACE_PRINTF_ERROR("smc_rx_mem_realloc_timer_expired: No low or high memory for RX SKB");
 
                 if( smc_timer_start( smc_channel->rx_mem_alloc_timer,
                                      (void*)smc_rx_mem_realloc_timer_expired,
                                      (uint32_t)skb_receive_data ) != SMC_OK )
                 {
-                    SMC_TRACE_PRINTF_ERROR("smc_receive_data_callback_channel_l2mux: mem reallocation timer restart failed, packet dropped");
+                    SMC_TRACE_PRINTF_ERROR("smc_rx_mem_realloc_timer_expired: mem reallocation timer restart failed, packet dropped");
                     device->stats.rx_dropped++;
                 }
 
@@ -725,7 +731,9 @@ static inline uint8_t smc_receive_skb_l2mux( smc_skb_receive_data_t* skb_receive
     return ret_val;
 }
 
-
+/**
+ * Callback function for data receiving.
+ */
 static void  smc_receive_data_callback_channel_l2mux(void*   data,
                                                      int32_t data_length,
                                                      const struct _smc_user_data_t* userdata,
@@ -754,13 +762,18 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
         {
             struct sk_buff         *skb = NULL;
 
+#ifndef SMC_APE_USE_THREADED_IRQ
             /* ========================================
              * Critical section begins
              *
              */
             SMC_LOCK( channel->lock_read );
-
             skb = netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE );
+#else
+            skb = __netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE, GFP_KERNEL | __GFP_HIGH );
+#endif
+
+
 
 #ifdef SMC_RX_USE_HIGHMEM
             if( unlikely(!skb) )
@@ -768,8 +781,21 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: No low memory available, trying high memory...");
 
                     /* Try to allocate from HIGHMEM MEM */
+  #ifndef SMC_APE_USE_THREADED_IRQ
                 skb = __netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE, GFP_ATOMIC | __GFP_HIGHMEM );
+  #else
+                skb = __netdev_alloc_skb( device, data_length + SMC_L2MUX_HEADER_SIZE, GFP_KERNEL | __GFP_HIGH | __GFP_HIGHMEM );
+  #endif
             }
+#endif  /* #ifdef SMC_RX_USE_HIGHMEM */
+
+
+#ifdef SMC_APE_USE_THREADED_IRQ
+            /* ========================================================
+             * Critical section begins
+             * If threaded IRQ -> the lock is here after the mem alloc
+             */
+            SMC_LOCK_RX_THREADED_IRQ( channel->lock_read );
 #endif
 
             if( unlikely(!skb) )
@@ -801,8 +827,6 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                                     (uint32_t)skb_rcv_ptr ) != SMC_OK )
                 {
                     SMC_TRACE_PRINTF_TIMER("smc_receive_data_callback_channel_l2mux: memory reallocation timer not started");
-
-
 
                     if( smc_receive_skb_l2mux_free_mem( skb_rcv_ptr ) != SMC_OK )
                     {
@@ -839,7 +863,11 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 device->stats.rx_dropped++;
 #endif  /* #ifdef SMC_RX_MEMORY_REALLOC_TIMER_ENABLED */
 
+#ifdef SMC_APE_USE_THREADED_IRQ
+                SMC_UNLOCK_RX_THREADED_IRQ( channel->lock_read );
+#else
                 SMC_UNLOCK( channel->lock_read );
+#endif
                 /*
                  * Critical section ends
                  * ========================================
@@ -860,7 +888,12 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 {
                     smc_device_driver_priv_t* smc_net_dev        = NULL;
 
+#ifdef SMC_APE_USE_THREADED_IRQ
+                    SMC_UNLOCK_RX_THREADED_IRQ( channel->lock_read );
+#else
+
                     SMC_UNLOCK( channel->lock_read );
+#endif
                     /*
                      * Critical section ends
                      * ========================================
@@ -875,7 +908,11 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
                 }
                 else
                 {
+#ifdef SMC_APE_USE_THREADED_IRQ
+                    SMC_UNLOCK_RX_THREADED_IRQ( channel->lock_read );
+#else
                     SMC_UNLOCK( channel->lock_read );
+#endif
                     /*
                      * Critical section ends
                      * ========================================
@@ -893,6 +930,9 @@ static void  smc_receive_data_callback_channel_l2mux(void*   data,
     SMC_TRACE_PRINTF_DEBUG("smc_receive_data_callback_channel_l2mux: completed");
 }
 
+/**
+ * SMC event callback handler function
+ */
 static void smc_event_callback_l2mux(smc_channel_t* smc_channel, SMC_CHANNEL_EVENT event, void* event_data)
 {
     assert(smc_channel != NULL );

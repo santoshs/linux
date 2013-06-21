@@ -320,7 +320,7 @@ static int __devinit rmobile_hwsem_probe(struct platform_device *pdev)
 	/* set lockdep class */
 	for (i = 0; i < num_locks; i++) {
 		hwlock = &bank->lock[i];
-		lockdep_set_class(&hwlock->lock, pdata->key);
+		lockdep_set_class(&hwlock->lock, &pdata->descs[i].key);
 	}
 	return 0;
 

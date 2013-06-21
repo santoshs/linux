@@ -205,6 +205,8 @@ struct sh_mmcif_host {
 	struct completion	dma_complete;
 	bool			dma_active;
 
+	u64 dma_mask; /* custom DMA mask */
+
 	u32 buf_acc;
 };
 
@@ -1191,6 +1193,9 @@ static int __devinit sh_mmcif_probe(struct platform_device *pdev)
 	mmc->max_req_size = PAGE_CACHE_SIZE * mmc->max_segs;
 	mmc->max_blk_count = mmc->max_req_size / mmc->max_blk_size;
 	mmc->max_seg_size = mmc->max_req_size;
+
+	host->dma_mask = DMA_BIT_MASK(64);
+	mmc_dev(host->mmc)->dma_mask = &host->dma_mask;
 
 	if (pd->buf_acc)
 		host->buf_acc = pd->buf_acc;

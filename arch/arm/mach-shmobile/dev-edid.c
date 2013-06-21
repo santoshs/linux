@@ -40,7 +40,7 @@ static struct i2c_board_info __initdata i2c_devs_edid[] = {
 		I2C_BOARD_INFO("edid60", 0x60>>1),
 		.platform_data = &edid_pdata,
 //		.irq = irqpin2irq(MHL_INT),
-	},	
+	},
 };
 
 static void __init board_edid_init(void)

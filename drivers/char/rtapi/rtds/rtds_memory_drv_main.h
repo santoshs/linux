@@ -137,6 +137,14 @@ typedef struct {
 	unsigned int		map_id;
 } rtds_memory_app_memory_table;
 
+typedef struct {
+	struct list_head	head;		/* Manager list info */
+ 	pid_t				tgid;
+	struct task_struct	*task_info;		/* Task info */
+	unsigned int		size;
+} rtds_pid_table;
+
+
 /* RTDS memory section info */
 typedef struct {
 	unsigned long		var_address;		/* Variable address */
@@ -221,6 +229,10 @@ void rtds_memory_exit_module(
 		void
 );
 
+#if defined(CONFIG_RTDS_LMK)
+int rtds_mem_check_to_lmk(int minfree, int adj);
+#endif
+
 extern spinlock_t			g_rtds_memory_lock_recv_queue;
 extern struct list_head			g_rtds_memory_list_rcv_event;
 extern struct semaphore			g_rtds_memory_apmem_rttrig_sem;
@@ -232,6 +244,7 @@ extern spinlock_t			g_rtds_memory_lock_mpro;
 extern struct list_head			g_rtds_memory_list_mpro;
 extern struct semaphore			g_rtds_memory_mpro_sem;
 extern struct list_head			g_rtds_memory_list_shared_mem;
+extern struct list_head			g_rtds_process_list;
 extern struct list_head			g_rtds_memory_list_leak_mpro;
 extern struct semaphore			g_rtds_memory_shared_mem;
 extern struct list_head			g_rtds_memory_list_reg_phymem;

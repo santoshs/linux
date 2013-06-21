@@ -110,6 +110,7 @@ static unsigned int bitrate(struct usb_gadget *g)
 #define STATUS_BYTECOUNT		8	/* 8 bytes data */
 #define HSUSBDMA_IRQ           117
 #define R8A66597_UDC_IRQ       119
+#define smc_net		       228
 
 
 /* interface descriptor: */
@@ -804,6 +805,7 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 
 		irq_set_affinity(HSUSBDMA_IRQ, cpumask_of(1));
 		irq_set_affinity(R8A66597_UDC_IRQ, cpumask_of(1));
+		irq_set_affinity(smc_net, cpumask_of(0));
 		}
 
 	DBG(cdev, "RNDIS: %s speed IN/%s OUT/%s NOTIFY/%s\n",
@@ -860,6 +862,7 @@ rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 		start_cpufreq();
 		DBG(c->cdev, "%s(): start_cpufreq\n", __func__);
 		dfs_started = 1;
+		irq_set_affinity(smc_net, cpu_all_mask);
 	}
 	kfree(rndis);
 }

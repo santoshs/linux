@@ -208,6 +208,8 @@ static void sndp_work_fm_capture_stop(struct sndp_work_info *work);
 static void sndp_regist_watch(void);
 /* Work queue processing for VCD_COMMAND_WATCH_STOP_FW process */
 static void sndp_work_watch_stop_fw(struct sndp_work_info *work);
+/* Work queue processing for VCD_COMMAND_WATCH_STOP_CLOCK process */
+static void sndp_work_watch_stop_clk(struct sndp_work_info *work);
 
 /* Work queue processing for FM Radio start */
 static void sndp_work_fm_radio_start(struct sndp_work_info *work);

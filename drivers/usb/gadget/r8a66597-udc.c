@@ -57,7 +57,6 @@
 
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 
-/*#define UDC_LOG*/
 #define RECOVER_RESUME
 #ifdef  UDC_LOG
 #define udc_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
@@ -305,7 +304,6 @@ static void r8a66597_usb_connect(struct r8a66597 *r8a66597)
 	r8a66597_bset(r8a66597, CTRE, INTENB0);
 	r8a66597_bset(r8a66597, BEMPE | BRDYE, INTENB0);
 	r8a66597_bset(r8a66597, RESM | DVSE, INTENB0);
-
 	//usb_dump_registers(r8a66597, "Before pull up");
 	r8a66597_set_pullup(r8a66597);
 	//usb_dump_registers(r8a66597, "After Pull up");
@@ -324,6 +322,7 @@ __acquires(r8a66597->lock)
 
 	r8a66597->gadget.speed = USB_SPEED_UNKNOWN;
 	spin_unlock(&r8a66597->lock);
+
 	r8a66597->driver->disconnect(&r8a66597->gadget);
 	spin_lock(&r8a66597->lock);
 	r8a66597_inform_vbus_power(r8a66597, 0);
@@ -2020,6 +2019,11 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 
 	if (dvsq == DS_DFLT) {
 		/* bus reset */
+#ifndef CONFIG_USB_MTP_SAMSUNG
+		spin_unlock(&r8a66597->lock);
+		r8a66597->driver->disconnect(&r8a66597->gadget);
+		spin_lock(&r8a66597->lock);
+#endif
 	  udc_log("%s: USB BUS Reset speed = %d\n", __func__, r8a66597->gadget.speed);
 		r8a66597_update_usb_speed(r8a66597);
 	  udc_log("%s: USB BUS Reset speed = %d\n", __func__, r8a66597->gadget.speed);

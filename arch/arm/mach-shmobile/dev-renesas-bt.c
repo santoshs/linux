@@ -176,12 +176,12 @@ static int bcm_bt_lpm_init(struct platform_device *pdev)
 	gpio_direction_input(BT_HOST_WAKE_GPIO);
 
 	__raw_writeb(0xA0, BT_HOST_WAKE_GPIO_CR); /* Config BT HOST IRQ with PD input*/
-	
+
 	snprintf(bt_lpm.wake_lock_name, sizeof(bt_lpm.wake_lock_name),
 			"BTLowPower");
 	wake_lock_init(&bt_lpm.wake_lock, WAKE_LOCK_SUSPEND,
 			 bt_lpm.wake_lock_name);
-			 
+
 	printk(KERN_ALERT "%s: Done\n", __func__);
 
 	return 0;
@@ -223,7 +223,7 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 
 	rfkill_set_states(bt_rfkill, true, false);
 	bcm4334_bt_rfkill_set_power(NULL, true);
-	
+
 	ret = bcm_bt_lpm_init(pdev);
 	if (ret) {
 		rfkill_unregister(bt_rfkill);
@@ -232,9 +232,9 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 		gpio_free(BT_REG_GPIO);
 		printk(KERN_ERR "%s: bcm_lpm_init Failed ! err = %d\n", __func__, ret);
 	}
-	
+
 	printk(KERN_ALERT "%s: Done\n", __func__);
-	
+
 	return ret;
 }
 
@@ -274,9 +274,9 @@ int bcm4430_bluetooth_suspend(struct platform_device *pdev, pm_message_t state)
 int bcm4430_bluetooth_resume(struct platform_device *pdev)
 {
 	int irq = gpio_to_irq(BT_HOST_WAKE_GPIO);
-	
+
 	printk(KERN_ALERT "%s: Enter\n", __func__);
-	
+
 	enable_irq(irq);
 	return 0;
 }

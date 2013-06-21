@@ -348,7 +348,6 @@ static struct platform_device i2c6_device = {
 };
 #endif
 /* IIC3H */
-#ifndef CONFIG_PN544_NFC
 static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
@@ -386,7 +385,6 @@ static struct platform_device i2c7_device = {
 		.platform_data	= &i2c7_platform_data,
 	},
 };
-#endif
 
 /* IICM */
 static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
@@ -826,12 +824,10 @@ static struct hwsem_desc r8a7373_hwsem0_descs[] = {
 	HWSEM(SMSYSC, 0x70),
 };
 
-static struct lock_class_key sem0;
 static struct hwsem_pdata r8a7373_hwsem0_platform_data = {
 	.base_id	= SMGPIO,
 	.descs		= r8a7373_hwsem0_descs,
 	.nr_descs	= ARRAY_SIZE(r8a7373_hwsem0_descs),
-	.key		= &sem0,
 };
 
 static struct resource r8a7373_hwsem0_resources[] = {
@@ -872,12 +868,10 @@ static struct hwsem_desc r8a7373_hwsem1_descs[] = {
 	HWSEM(SMGP030, 0x30), HWSEM(SMGP031, 0x30),
 };
 
-static struct lock_class_key sem1;
 static struct hwsem_pdata r8a7373_hwsem1_platform_data = {
 	.base_id	= SMGP000,
 	.descs		= r8a7373_hwsem1_descs,
 	.nr_descs	= ARRAY_SIZE(r8a7373_hwsem1_descs),
-	.key		= &sem1,
 };
 
 static struct resource r8a7373_hwsem1_resources[] = {
@@ -924,12 +918,10 @@ static struct hwsem_desc r8a7373_hwsem2_descs[] = {
 	HWSEM(SMGP130, 0x40), HWSEM(SMGP131, 0x40),
 };
 
-static struct lock_class_key sem2;
 static struct hwsem_pdata r8a7373_hwsem2_platform_data = {
 	.base_id	= SMGP100,
 	.descs		= r8a7373_hwsem2_descs,
 	.nr_descs	= ARRAY_SIZE(r8a7373_hwsem2_descs),
-	.key		= &sem2,
 };
 
 static struct resource r8a7373_hwsem2_resources[] = {
@@ -1226,9 +1218,7 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 #ifndef CONFIG_SPI_SH_MSIOF
 	&i2c6_device, /* IIC2H */
 #endif
-#ifndef CONFIG_PN544_NFC
 	&i2c7_device, /* IIC3H */
-#endif
 	&i2c8_device, /* IICM  */
 	&dma0_device,
 #ifdef CONFIG_SMECO

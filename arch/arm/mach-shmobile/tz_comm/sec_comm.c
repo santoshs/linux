@@ -81,7 +81,7 @@ uint32_t sec_l2_cache_enable()
 
   sec_msg_t * q;
   sec_msg_t * p = 0;
-  
+
 printk("sec_l2_cache_enable ++ \n");
 printk(" Malloc param_sz = %d \n",sec_msg_param_size(sizeof(uint32_t)));
 
@@ -108,10 +108,10 @@ printk(" Malloc param_sz = %d \n",sec_msg_param_size(sizeof(uint32_t)));
   sec_msg_param_write32(&h_req,
                         (uint32_t)true,
                         SEC_MSG_PARAM_ID_NONE);
-  
+
 
   uint32_t rv = sec_dispatcher(SEC_SERV_L2_CACHE_CONTROL,
-                                           0,   // 
+                                           0,   //
                                            0,   // spare
                                            p,   // pointer to response (output) message
                                            q);  // pointer to input message
@@ -175,7 +175,7 @@ static uint32_t _set_rpc_handler(uint32_t (*newhandler)(uint32_t, sec_msg_t*, se
                         SEC_MSG_PARAM_ID_NONE);
 
   uint32_t rv = sec_dispatcher(SEC_SERV_RPC_ADDRESS,
-                                           0,   // 
+                                           0,   //
                                            0,   // spare
                                            p,   // pointer to response (output) message
                                            q);  // pointer to input message

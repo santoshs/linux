@@ -3640,7 +3640,6 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #endif
 #if (defined(AP) && !defined(WLP2P)) || (!defined(AP) && defined(WL_CFG80211))
 	uint32 mpc = 0; /* Turn MPC off for AP/APSTA mode */
-	uint32 frameburst = 1; /* Turn frameburst on for AP/APSTA mode */
 	struct ether_addr p2p_ea;
 #endif
 
@@ -3739,11 +3738,6 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 		if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf,
 			sizeof(iovbuf), TRUE, 0)) < 0) {
 			DHD_ERROR(("%s mpc for HostAPD failed  %d\n", __FUNCTION__, ret));
-		}
-		/* Turn on frameburst in AP mode */
-		if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_FAKEFRAG, (char *)&frameburst,
-			sizeof(frameburst), TRUE, 0)) < 0) {
-			DHD_ERROR(("%s Set frameburst failed  %d\n", __FUNCTION__, ret));
 		}
 #endif
 
