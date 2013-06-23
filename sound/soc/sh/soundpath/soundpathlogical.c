@@ -1257,10 +1257,9 @@ int sndp_soc_put(
 
 			if (SNDP_MODE_INCOMM ==
 				SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_IN))) {
-				/* Initialization of the firmware status flag */
-				atomic_set(&g_call_watch_stop_fw, 1);
 				/* Dummy record start (VoIP) */
-				if (!(SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route))
+				if (!(SNDP_ROUTE_CAP_INCOMM_DUMMY &
+							g_sndp_stream_route))
 					call_change_incomm_rec();
 			}
 
@@ -3611,11 +3610,11 @@ static void sndp_work_watch_stop_fw(struct sndp_work_info *work)
 		/* Initialization of the firmware status flag */
 		atomic_set(&g_call_watch_stop_fw, 1);
 		/* Dummy play start (VoIP) */
-		if (!(SNDP_ROUTE_PLAY_DUMMY & g_sndp_stream_route))
+		if (SNDP_STAT_IN_COMM == GET_SNDP_STATUS(SNDP_PCM_OUT))
 			call_change_incomm_play();
 
 		/* Dummy record start (VoIP) */
-		if (!(SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route))
+		if (SNDP_STAT_IN_COMM == GET_SNDP_STATUS(SNDP_PCM_IN))
 			call_change_incomm_rec();
 	}
 
