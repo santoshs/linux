@@ -176,6 +176,8 @@ static struct sndp_work_info g_sndp_work_fm_capture_stop;
 
 /* VCD_COMMAND_WATCH_STOP_FW process */
 static struct sndp_work_info g_sndp_work_watch_stop_fw;
+/* VCD_COMMAND_WATCH_STOP_CLOCK process */
+static struct sndp_work_info g_sndp_work_watch_stop_clk;
 /* FM Radio start */
 static struct sndp_work_info g_sndp_work_fm_radio_start;
 /* FM Radio stop */
@@ -596,6 +598,9 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 				&g_sndp_work_fm_capture_start);
 	sndp_work_initialize(&g_sndp_work_watch_stop_fw,
 				sndp_work_watch_stop_fw,
+				NULL);
+	sndp_work_initialize(&g_sndp_work_watch_stop_clk,
+				sndp_work_watch_stop_clk,
 				NULL);
 	sndp_work_initialize(&g_sndp_work_fm_radio_start,
 				sndp_work_fm_radio_start,
@@ -3915,6 +3920,26 @@ static void sndp_watch_start_clk_cb(void)
 
 
 /*!
+   @brief Work queue processing for VCD_COMMAND_WATCH_STOP_CLOCK process
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_watch_stop_clk(struct sndp_work_info *work)
+{
+	sndp_log_debug_func("start\n");
+
+	if (!(E_CAP  & g_sndp_playrec_flg))
+		/* Input device OFF */
+		fsi_d2153_set_adc_power(g_kcontrol, 0);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
    @brief wake up stop clkgen callback function
 
    @param[in]	none
@@ -3929,8 +3954,7 @@ static void sndp_watch_stop_clk_cb(void)
 	atomic_set(&g_sndp_watch_stop_clk, 1);
 	wake_up_interruptible(&g_watch_stop_clk_queue);
 
-	/* Input device OFF */
-	fsi_d2153_set_adc_power(g_kcontrol, 0);
+	sndp_workqueue_enqueue(g_sndp_queue_main, &g_sndp_work_watch_stop_clk);
 
 	sndp_log_debug_func("end\n");
 }
