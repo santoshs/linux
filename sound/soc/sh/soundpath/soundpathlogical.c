@@ -2502,6 +2502,12 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		goto start_err;
 	}
 
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
 		SNDP_GET_AUDIO_DEVICE(work->new_value),
 		SNDP_EXTDEV_START);
@@ -3116,6 +3122,12 @@ static void sndp_work_incomm_start(const u_int new_value,
 		goto start_err;
 	}
 
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
 			     SNDP_GET_AUDIO_DEVICE(new_value),
 			     SNDP_EXTDEV_START);
@@ -3641,14 +3653,9 @@ static void sndp_watch_start_fw_cb(void)
 
 	if ((SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(old_value)) ||
 	    (SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(old_value))) {
-		if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(old_value))) {
+		if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(old_value)))
 			fsi_fifo_reset(SNDP_PCM_PORTA);
-			/* Output device ON */
-			fsi_d2153_set_dac_power(g_kcontrol, 1);
-
-			/* Input device ON */
-			fsi_d2153_set_adc_power(g_kcontrol, 1);
-		} else
+		else
 			fsi_fifo_reset(SNDP_PCM_PORTB);
 	}
 
