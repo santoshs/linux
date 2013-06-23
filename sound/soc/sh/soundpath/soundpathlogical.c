@@ -1030,6 +1030,7 @@ int sndp_soc_put(
 	u_int	uiOldValue;
 	u_int	old_mode;
 	u_int	new_btband;
+	int	iRet = ERROR_NONE;
 
 	sndp_log_debug_func("start\n");
 
@@ -1285,7 +1286,10 @@ int sndp_soc_put(
 				disable_dfs_mode_min();
 			} else {
 				sndp_log_info("stop cpufreq\n");
-				stop_cpufreq();
+				iRet = stop_cpufreq();
+				if (ERROR_NONE != iRet)
+					sndp_log_err("stop_cpufreq ret[%d]\n",
+									iRet);
 			}
 
 		}
