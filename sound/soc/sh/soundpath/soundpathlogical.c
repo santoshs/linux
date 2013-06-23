@@ -4573,6 +4573,9 @@ int sndp_pt_device_change(u_int dev, u_int onoff)
 	g_sndp_now_direction = (SNDP_ON == onoff) ?
 		SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
 
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
 	sndp_log_debug_func("end\n");
 
 	return ERROR_NONE;
