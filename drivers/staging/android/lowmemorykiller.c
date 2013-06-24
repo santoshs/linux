@@ -563,7 +563,7 @@ static int rtds_lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			goto rtds_out;
 
 		tsk = pid_task(find_vpid(task_num), PIDTYPE_PID);	
-
+		
 		if (!tsk)
 			goto rtds_out;
 
@@ -573,10 +573,18 @@ static int rtds_lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		p = find_lock_task_mm(tsk);
 		if (!p)
 		{
-			task_unlock(p);
 			goto rtds_out;
 		}
-		
+
+		/* defense code */
+		for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
+			if (lowmem_deathpending[i] == p)
+			{
+				task_unlock(p);
+				goto rtds_out;
+			}
+		}
+
 		tasksize = get_mm_rss(p->mm);
 		task_unlock(p);
 		if (tasksize <= 0)

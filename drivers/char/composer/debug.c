@@ -34,9 +34,7 @@
 #endif
 
 #if INTERNAL_DEBUG
-#if INTERNAL_DEBUG_USE_DEBUGFS
 #include <linux/debugfs.h>
-#endif
 #include <linux/seq_file.h>
 #endif
 
@@ -62,8 +60,6 @@
 /******************************************************/
 #if INTERNAL_DEBUG
 static int         init_flag;
-static int         dump_information_flag;
-static char        dump_information_buf[6 * 1024];
 
 static int         log_tracebuf[TRACELOG_SIZE][3];
 static spinlock_t  log_irqlock;
@@ -333,7 +329,6 @@ static const char *get_RTAPImsg_graphics(int rc)
 }
 
 #if INTERNAL_DEBUG
-#if INTERNAL_DEBUG_USE_DEBUGFS
 static int sh_mobile_composer_dump_rhandle(char *p, int n,
 	struct composer_rh *rh)
 {
@@ -477,7 +472,6 @@ static int sh_mobile_composer_dump_rhandle(char *p, int n,
 finish:;
 	return p - p_org;
 }
-#endif
 #endif
 
 /*******************************
@@ -769,13 +763,13 @@ late_initcall(timerecord_debugfs_init);
 
 
 #if INTERNAL_DEBUG
+#ifdef CONFIG_DEBUG_FS
 static int internal_debug_static_show(struct seq_file *s, void *unused)
 {
 	sh_mobile_composer_debug_info_static(s);
 	return 0;
 }
 
-#if INTERNAL_DEBUG_USE_DEBUGFS
 static int internal_debug_static_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, internal_debug_static_show, inode->i_private);
@@ -791,61 +785,40 @@ static int internal_debug_queue_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, internal_debug_queue_show, inode->i_private);
 }
-#endif
 
 static int internal_debug_trace_show(struct seq_file *s, void *unused)
 {
 	int i, rp;
 	unsigned long flags;
-	int    (*tracelog)[TRACELOG_SIZE][3];
 
 	/* check initialized */
 	if (!init_flag)
 		return 0;
 
-	tracelog = (int (*)[TRACELOG_SIZE][3]) kmalloc(sizeof(log_tracebuf),
-		GFP_KERNEL);
-	if (!tracelog) {
-		printk_err("error at kmalloc\n");
-		return 0;
-	}
-
-	/* create copy of traces */
-	spin_lock_irqsave(&log_irqlock, flags);
-
-	memcpy(tracelog, &log_tracebuf[0][0], sizeof(*tracelog));
-	rp = log_tracebuf_wp & (TRACELOG_SIZE-1);
-
-	spin_unlock_irqrestore(&log_irqlock, flags);
-
 	/* create tracelog message */
+	spin_lock_irqsave(&log_irqlock, flags);
+	rp = (log_tracebuf_wp) & (TRACELOG_SIZE-1);
 	for (i = 0; i < TRACELOG_SIZE; i++) {
-		int logclass = (*tracelog)[rp][0]>>
+		int logclass = log_tracebuf[rp][0]>>
 			TRACELOG_RECORD_VALUE0_SHIFT_TO_LOGCLASS;
-		int logline  = (*tracelog)[rp][0] & 0xffffff;
-
-		if (i != 0 && (i & 0x1f) == 0) {
-			/* insert separater */
-			seq_printf(s, "\n");
-		}
-
+		int logline  = log_tracebuf[rp][0] & 0xffffff;
 		switch (logclass) {
 		case ID_TRACE_ENTER:
 			seq_printf(s, "[0x%03x:ent:%d]",
-				(*tracelog)[rp][1], logline);
+				log_tracebuf[rp][1], logline);
 			break;
 		case ID_TRACE_LEAVE:
 			seq_printf(s, "[0x%03x:lev:%d]",
-				(*tracelog)[rp][1], logline);
+				log_tracebuf[rp][1], logline);
 			break;
 		case ID_TRACE_LOG:
 			seq_printf(s, "[0x%03x:%d]",
-				(*tracelog)[rp][1], logline);
+				log_tracebuf[rp][1], logline);
 			break;
 		case ID_TRACE_LOG1:
 			seq_printf(s, "[0x%03x:%d:%d]",
-				(*tracelog)[rp][1], logline,
-				(*tracelog)[rp][2]);
+				log_tracebuf[rp][1], logline,
+				log_tracebuf[rp][2]);
 			break;
 		default:
 			printk_err2("logclass not defined.");
@@ -854,12 +827,11 @@ static int internal_debug_trace_show(struct seq_file *s, void *unused)
 		}
 		rp = (rp+1) & (TRACELOG_SIZE-1);
 	}
+	spin_unlock_irqrestore(&log_irqlock, flags);
 
-	kfree(tracelog);
 	return 0;
 }
 
-#if INTERNAL_DEBUG_USE_DEBUGFS
 static int internal_debug_trace_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, internal_debug_trace_show, inode->i_private);
@@ -898,49 +870,4 @@ static __init int internal_debug_init(void)
 }
 late_initcall(internal_debug_init);
 #endif
-
-static void sh_mobile_composer_dump_information(int flag)
-{
-	if (flag && dump_information_flag) {
-		/* avoid multiply generate debug log. */
-		printk_err2("already output ignored.");
-	} else if (!flag) {
-		/* clear output flag. */
-		dump_information_flag = false;
-	} else if (flag) {
-		struct seq_file s = {
-			.buf = dump_information_buf,
-			.size = sizeof(dump_information_buf) - 1,
-		};
-		char *p, *next_p;
-		int n;
-
-		dump_information_flag = true;
-
-		internal_debug_static_show(&s, NULL);
-		internal_debug_trace_show(&s, NULL);
-
-		p = s.buf;
-		n = s.count;
-
-		while (p && n > 0) {
-			next_p = strnchr(p, n, '\n');
-			if (next_p == NULL) {
-				/* last log */
-				printk(KERN_INFO DEV_NAME ": %s\n", p);
-				break;
-			} else {
-				int c = next_p - p;
-
-				*next_p = '\0';
-				printk(KERN_INFO DEV_NAME ": %s\n", p);
-				*next_p = '\n';
-
-				p += c + 1;
-				n -= c + 1;
-			}
-		}
-	}
-}
-
 #endif

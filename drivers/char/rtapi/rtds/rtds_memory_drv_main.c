@@ -826,6 +826,10 @@ int rtds_mem_check_to_lmk(int minfree, int adj)
 	/*RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);*/
 
 	list_for_each_entry(pid_table, &g_rtds_process_list, head) {
+		/* defense code */
+		if(pid_table->tgid != pid_table->task_info->tgid)
+			continue;
+
 		if((pid_table->size / SZ_1K) >= minfree && pid_table->size >= current_size && 
 	    	pid_table->task_info->signal->oom_score_adj >= adj &&
 			pid_table->task_info->signal->oom_score_adj >= current_adj)

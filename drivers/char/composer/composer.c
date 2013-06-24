@@ -836,7 +836,7 @@ static int waitcomp_composer(int mode)
 	/* wait queue */
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 	if (mode & WAITCOMP_COMPOSER_QUEUE) {
-		rc = wait_event_timeout(kernel_waitqueue_queued,
+		rc = wait_event_timeout(kernel_waitqueue_comp,
 			queue_data_complete,
 			msecs_to_jiffies(100));
 		if (rc == 0) {
@@ -859,15 +859,9 @@ static int waitcomp_composer(int mode)
 		if (rc == 0) {
 			/* timeout */
 			rc = CMP_NG;
-#if INTERNAL_DEBUG
-			sh_mobile_composer_dump_information(1);
-#endif
 		} else {
 			/* wait success before timeout */
 			rc = CMP_OK;
-#if INTERNAL_DEBUG
-			sh_mobile_composer_dump_information(0);
-#endif
 		}
 	} else if (mode & WAITCOMP_COMPOSER_BLEND) {
 		printk_dbg2(3, "wait complete blending.\n");
@@ -877,15 +871,9 @@ static int waitcomp_composer(int mode)
 		if (rc == 0) {
 			/* timeout */
 			rc = CMP_NG;
-#if INTERNAL_DEBUG
-			sh_mobile_composer_dump_information(1);
-#endif
 		} else {
 			/* wait success before timeout */
 			rc = CMP_OK;
-#if INTERNAL_DEBUG
-			sh_mobile_composer_dump_information(0);
-#endif
 		}
 	} else {
 		printk_dbg2(3, "nothing to do.\n");
@@ -2956,6 +2944,7 @@ static void process_composer_queue_callback(struct composer_rh *rh)
 }
 
 #if INTERNAL_DEBUG
+#ifdef CONFIG_DEBUG_FS
 static void sh_mobile_composer_debug_info_static(struct seq_file *s)
 {
 	/* log of static variable */
@@ -3056,8 +3045,6 @@ static void sh_mobile_composer_debug_info_static(struct seq_file *s)
 		skip_frame_count[0][1], skip_frame_count[1][1]);
 #endif
 }
-
-#if INTERNAL_DEBUG_USE_DEBUGFS
 
 #define DBGMSG_WORKQUEUE(ARG) { if (ARG) \
 		seq_printf(s, "  " #ARG " run:%d priority:%d\n", \
