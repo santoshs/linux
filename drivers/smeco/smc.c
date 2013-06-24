@@ -2658,13 +2658,15 @@ static inline uint8_t smc_channel_handle_sync_finalization( smc_channel_t* smc_c
 static uint8_t smc_channel_handle_sync( smc_channel_t* smc_channel, uint32_t sync_flag, uint32_t sync_msg )
 {
     uint8_t ret_val = SMC_OK;
-    uint32_t old_state = smc_channel->state;
+    uint32_t old_state = 0;
     smc_lock_t* local_lock = NULL;
 
     if( smc_channel == NULL )
     {
         return SMC_ERROR;
     }
+
+    old_state = smc_channel->state;
 
     SMC_TRACE_PRINTF_DEBUG("smc_channel_handle_sync(ch %d, 0x%08X): handle sync msg 0x%08X, state 0x%08X", smc_channel->id,(uint32_t)smc_channel,
                                         sync_msg,
@@ -2897,7 +2899,7 @@ static uint8_t smc_channel_buffer_fifo_message(smc_channel_t* channel, void* dat
         }
         else if( (channel->fifo_buffer[channel->fifo_buffer_current_index].data != 0 ||
                  channel->fifo_buffer[channel->fifo_buffer_current_index].length > 0 ||
-                 fifo_cell.flags != 0) &&
+                 channel->fifo_buffer[channel->fifo_buffer_current_index].flags != 0) &&
                  channel->fifo_buffer_data_count < SMC_CHANNEL_FIFO_BUFFER_SIZE_MAX)
         {
             /* Maybe new item has come to buffer -> Check if there is free item in other position */
@@ -3800,7 +3802,7 @@ static void smc_save_history_send(smc_channel_t* smc_channel, smc_fifo_cell_t* c
         smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data4 = 0x00000000;
         smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].data5 = 0x00000000;
 
-        if( cell->data + smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].shm_offset != NULL &&
+        if( (cell->data + smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].shm_offset) != 0 &&
             cell->length > 0)
         {
             uint32_t* data_ptr_hist = (uint32_t*)(cell->data + smc_channel->smc_history_data_sent[smc_channel->smc_history_index_sent].shm_offset);
@@ -3888,7 +3890,7 @@ static uint32_t* smc_save_history_recv(smc_channel_t* smc_channel, smc_fifo_cell
         smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].data5 = 0x00000000;
 
 
-        if( (celldata->data+smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].shm_offset) != NULL &&
+        if( (celldata->data+smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].shm_offset) != 0 &&
                 celldata->length > 0 )
         {
             uint32_t* data_ptr_hist = (uint32_t*)(celldata->data+smc_channel->smc_history_data_received[smc_channel->smc_history_index_received].shm_offset);
