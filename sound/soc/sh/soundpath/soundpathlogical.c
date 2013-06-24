@@ -176,6 +176,8 @@ static struct sndp_work_info g_sndp_work_fm_capture_stop;
 
 /* VCD_COMMAND_WATCH_STOP_FW process */
 static struct sndp_work_info g_sndp_work_watch_stop_fw;
+/* VCD_COMMAND_WATCH_STOP_CLOCK process */
+static struct sndp_work_info g_sndp_work_watch_stop_clk;
 /* FM Radio start */
 static struct sndp_work_info g_sndp_work_fm_radio_start;
 /* FM Radio stop */
@@ -596,6 +598,9 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 				&g_sndp_work_fm_capture_start);
 	sndp_work_initialize(&g_sndp_work_watch_stop_fw,
 				sndp_work_watch_stop_fw,
+				NULL);
+	sndp_work_initialize(&g_sndp_work_watch_stop_clk,
+				sndp_work_watch_stop_clk,
 				NULL);
 	sndp_work_initialize(&g_sndp_work_fm_radio_start,
 				sndp_work_fm_radio_start,
@@ -1030,6 +1035,7 @@ int sndp_soc_put(
 	u_int	uiOldValue;
 	u_int	old_mode;
 	u_int	new_btband;
+	int	iRet = ERROR_NONE;
 
 	sndp_log_debug_func("start\n");
 
@@ -1256,10 +1262,9 @@ int sndp_soc_put(
 
 			if (SNDP_MODE_INCOMM ==
 				SNDP_GET_MODE_VAL(GET_OLD_VALUE(SNDP_PCM_IN))) {
-				/* Initialization of the firmware status flag */
-				atomic_set(&g_call_watch_stop_fw, 1);
 				/* Dummy record start (VoIP) */
-				if (!(SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route))
+				if (!(SNDP_ROUTE_CAP_INCOMM_DUMMY &
+							g_sndp_stream_route))
 					call_change_incomm_rec();
 			}
 
@@ -1285,7 +1290,10 @@ int sndp_soc_put(
 				disable_dfs_mode_min();
 			} else {
 				sndp_log_info("stop cpufreq\n");
-				stop_cpufreq();
+				iRet = stop_cpufreq();
+				if (ERROR_NONE != iRet)
+					sndp_log_err("stop_cpufreq ret[%d]\n",
+									iRet);
 			}
 
 		}
@@ -2499,6 +2507,12 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		goto start_err;
 	}
 
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
 		SNDP_GET_AUDIO_DEVICE(work->new_value),
 		SNDP_EXTDEV_START);
@@ -3113,6 +3127,12 @@ static void sndp_work_incomm_start(const u_int new_value,
 		goto start_err;
 	}
 
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
+
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
 			     SNDP_GET_AUDIO_DEVICE(new_value),
 			     SNDP_EXTDEV_START);
@@ -3607,11 +3627,11 @@ static void sndp_work_watch_stop_fw(struct sndp_work_info *work)
 		/* Initialization of the firmware status flag */
 		atomic_set(&g_call_watch_stop_fw, 1);
 		/* Dummy play start (VoIP) */
-		if (!(SNDP_ROUTE_PLAY_DUMMY & g_sndp_stream_route))
+		if (SNDP_STAT_IN_COMM == GET_SNDP_STATUS(SNDP_PCM_OUT))
 			call_change_incomm_play();
 
 		/* Dummy record start (VoIP) */
-		if (!(SNDP_ROUTE_CAP_DUMMY & g_sndp_stream_route))
+		if (SNDP_STAT_IN_COMM == GET_SNDP_STATUS(SNDP_PCM_IN))
 			call_change_incomm_rec();
 	}
 
@@ -3638,14 +3658,9 @@ static void sndp_watch_start_fw_cb(void)
 
 	if ((SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(old_value)) ||
 	    (SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(old_value))) {
-		if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(old_value))) {
+		if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(old_value)))
 			fsi_fifo_reset(SNDP_PCM_PORTA);
-			/* Output device ON */
-			fsi_d2153_set_dac_power(g_kcontrol, 1);
-
-			/* Input device ON */
-			fsi_d2153_set_adc_power(g_kcontrol, 1);
-		} else
+		else
 			fsi_fifo_reset(SNDP_PCM_PORTB);
 	}
 
@@ -3905,6 +3920,26 @@ static void sndp_watch_start_clk_cb(void)
 
 
 /*!
+   @brief Work queue processing for VCD_COMMAND_WATCH_STOP_CLOCK process
+
+   @param[in]	work	work queue structure
+   @param[out]	none
+
+   @retval	none
+ */
+static void sndp_work_watch_stop_clk(struct sndp_work_info *work)
+{
+	sndp_log_debug_func("start\n");
+
+	if (!(E_CAP  & g_sndp_playrec_flg))
+		/* Input device OFF */
+		fsi_d2153_set_adc_power(g_kcontrol, 0);
+
+	sndp_log_debug_func("end\n");
+}
+
+
+/*!
    @brief wake up stop clkgen callback function
 
    @param[in]	none
@@ -3919,8 +3954,7 @@ static void sndp_watch_stop_clk_cb(void)
 	atomic_set(&g_sndp_watch_stop_clk, 1);
 	wake_up_interruptible(&g_watch_stop_clk_queue);
 
-	/* Input device OFF */
-	fsi_d2153_set_adc_power(g_kcontrol, 0);
+	sndp_workqueue_enqueue(g_sndp_queue_main, &g_sndp_work_watch_stop_clk);
 
 	sndp_log_debug_func("end\n");
 }
@@ -4569,6 +4603,9 @@ int sndp_pt_device_change(u_int dev, u_int onoff)
 
 	g_sndp_now_direction = (SNDP_ON == onoff) ?
 		SNDP_PCM_OUT : SNDP_PCM_DIRECTION_MAX;
+
+	/* Output device ON */
+	fsi_d2153_set_dac_power(g_kcontrol, 1);
 
 	sndp_log_debug_func("end\n");
 
