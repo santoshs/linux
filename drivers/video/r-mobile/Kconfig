@@ -23,19 +23,6 @@ config FB_R_MOBILE_VX5B3D
 
 endchoice
 
-config FB_LCD_ESD
-        boolean "LCD ESD RECOVERY"
-
-config LCD_ESD_RECOVERY_BY_CHECK_REG
-        boolean "LCD ESD RECOVERY by checking register"
-
-config FB_R_MOBILE_VX5B3D
-        boolean "VX5B3D PANEL"
-
-config FB_R_MOBILE_PANEL_SWITCH
-        bool "dynamically switch the panel"
-        depends on FB_SH_MOBILE_LCDC && (FB_R_MOBILE_S6E39A0X02 || FB_R_MOBILE_HX8369_B || FB_R_MOBILE_NT35510_COMMAND_MODE || FB_R_MOBILE_NT35510_VIDEO_MODE || FB_R_MOBILE_VX5B3D)
-
 choice
         depends on FB_R_MOBILE_NT35510
         prompt "ESD detect method"

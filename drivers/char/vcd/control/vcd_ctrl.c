@@ -1,4 +1,4 @@
-﻿/* vcd_ctrl.c
+/* vcd_ctrl.c
  *
  * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.
@@ -440,9 +440,8 @@ int vcd_ctrl_start_call(int call_kind, int mode)
 				notify_stop_fw = VCD_ENABLE;
 			}
 			/* notification for sound */
-			if (VCD_ENABLE == notify_stop_fw) {
+			if (VCD_ENABLE == notify_stop_fw)
 				vcd_stop_fw_only_sound();
-			}
 		}
 		g_vcd_ctrl_result = vcd_spuv_start_call();
 	} else if (VCD_CALL_KIND_1KHZ == call_kind)

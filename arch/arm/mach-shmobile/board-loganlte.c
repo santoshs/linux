@@ -113,13 +113,6 @@
 #include <linux/spa_power.h>
 #endif
 
-#define STBCHRB3  0xE6180043
-
-
-/* SBSC register address */
-#define CPG_PLL3CR_1040MHZ (0x27000000)
-#define CPG_PLLECR_PLL3ST  (0x00000800)
-
 #include <mach/sbsc.h>
 
 static int unused_gpios_logan_rev1[] = {
@@ -358,9 +351,9 @@ static void __init board_init(void)
 		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
 		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
 			SBSC_Init_520Mhz();
-			__raw_writel(SDMRACR1A_ZQ, sbsc_sdmracr1a);
-			__raw_writel(SDMRA_DONE, sbsc_sdmra_28200);
-			__raw_writel(SDMRA_DONE, sbsc_sdmra_38200);
+			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
 		} else {
 			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
 		}
@@ -401,12 +394,10 @@ static void __init board_init(void)
 
 	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 
-	if (u2_board_rev == BOARD_REV_0_1) {
-		/* Init unused GPIOs */
-		if (u2_get_board_rev() <= 1) {
-			for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
-				unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
-		}
+	/* Init unused GPIOs */
+	if (u2_board_rev <= BOARD_REV_0_1) {
+		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
+			unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
 	} else {
 		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev2); inx++)
 			unused_gpio_port_init(unused_gpios_logan_rev2[inx]);
@@ -519,15 +510,6 @@ static void __init board_init(void)
 		gpio_pull_up_port(GPIO_PORT290);
 		gpio_pull_up_port(GPIO_PORT289);
 		/* move gpio request to board-renesas_wifi.c */
-
-		/* WLAN Init API call */
-#if defined(CONFIG_BRCM_UNIFIED_DHD_SUPPORT) || defined(CONFIG_RENESAS_WIFI)
-		printk(KERN_ERR "Calling WLAN_INIT!\n");
-		renesas_wlan_init();
-		printk(KERN_ERR "DONE WLAN_INIT!\n");
-#endif
-		/* add the SDIO device */
-
 	}
 
 	/* I2C */
@@ -598,7 +580,7 @@ static void __init board_init(void)
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if ((u2_board_rev == BOARD_REV_0_0) || (u2_board_rev > BOARD_REV_0_4)) {
+	if (u2_board_rev == BOARD_REV_0_0 || u2_board_rev > BOARD_REV_0_4) {
 		int i;
 		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
 			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {

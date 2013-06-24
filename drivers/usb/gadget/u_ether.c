@@ -641,9 +641,6 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	spin_unlock(&timer_lock);
 	return NETDEV_TX_OK;
 
-	spin_unlock(&timer_lock);
-	dev->net->stats.tx_dropped++;
-	return NETDEV_TX_OK;
 tx_error:
 	spin_unlock(&timer_lock);
 	dev->net->stats.tx_errors++;
@@ -757,7 +754,10 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 				dev_kfree_skb_any(skb);
 				ERROR(dev, "failed to kmalloc req->buf\n");
 				multiframe->skb = NULL;
-
+				printk(KERN_DEBUG "DEBUG, allocation failed \n");
+				spin_lock_irqsave(&dev->req_lock, flags);
+				list_add(&req->list, &dev->tx_reqs);
+				spin_unlock_irqrestore(&dev->req_lock, flags);
 				return;
 			}
 
@@ -782,6 +782,10 @@ static void eth_start_xmit_usb(struct rndis_multiframe *multiframe)
 				dev_kfree_skb_any(skb);
 				ERROR(dev, "failed to kmalloc req->buf\n");
 				multiframe->skb = NULL;
+				printk(KERN_DEBUG "DEBUG, allocation failed \n");
+				spin_lock_irqsave(&dev->req_lock, flags);
+				list_add(&req->list, &dev->tx_reqs);
+				spin_unlock_irqrestore(&dev->req_lock, flags);
 				return;
 			}
 			length = skb->data_len + sizeof(struct rndis_packet_msg_type);

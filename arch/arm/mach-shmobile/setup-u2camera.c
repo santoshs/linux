@@ -207,8 +207,8 @@ int camera_init(void)
 	gpio_request(GPIO_PORT20, NULL);
 	gpio_direction_output(GPIO_PORT20, 0);	/* CAM0_RST_N */
 	/* Gardalte, Logan, lt02lte */
-		gpio_request(GPIO_PORT45, NULL);
-		gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
+	gpio_request(GPIO_PORT45, NULL);
+	gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
 
 	pll1_div2_clk = clk_get(NULL, "pll1_div2_clk");
 	if (IS_ERR(pll1_div2_clk))
@@ -495,12 +495,12 @@ int main_cam_led(int light, int mode)
 			MIC2871_write(1, 0);
 
 			/* Noneed to do this for torch mode */
-		/* enable */
-		gpio_set_value(CAM_FLASH_FLEN, 1);
+			/* enable */
+			gpio_set_value(CAM_FLASH_FLEN, 1);
 #else	/* Following is hte new case using registers only */
-		/* write 100%(0) to FEN/FCUR(1) */
-		MIC2871_write(1, 16);
-#endif		
+			/* write 100%(0) to FEN/FCUR(1) */
+			MIC2871_write(1, 16);
+#endif
 		}
 
 		spin_unlock_irqrestore(&lock, flags);
@@ -975,7 +975,7 @@ int SR352_power(struct device *dev, int power_on)
 		/* CAM_AVDD_2V8  enable */
 		regulator_enable(regulator_a);
 		if (BOARD_REV_0_0 == u2_board_rev) {
-		/* CAM_CORE_1_1V8 (VT)	enable */
+			/* CAM_CORE_1_1V8 (VT)	enable */
 			regulator_enable(regulator_vt);
 		} else {
 		/* CAM_CORE_1_1V8 (VT)	enable */

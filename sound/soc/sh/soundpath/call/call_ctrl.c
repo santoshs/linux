@@ -1,4 +1,4 @@
-﻿/* call_ctrl.c
+/* call_ctrl.c
  *
  * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.

@@ -128,19 +128,20 @@ smc_t* smc_instance_create_ext(smc_conf_t* smc_instance_conf, void* parent_objec
     SMC_TRACE_PRINTF_DEBUG("smc_instance_create_ext: created SMC instance 0x%08X based on configuration in 0x%08X",
             (uint32_t)smc, (uint32_t)smc_instance_conf);
 
-    smc->cpu_id_remote          = smc_instance_conf->cpu_id_remote;
-    smc->cpu_id_local           = smc_instance_conf->cpu_id_local;
-    smc->is_master              = smc_instance_conf->is_master;
-    smc->smc_channel_list_count = 0;
-    smc->smc_channel_ptr_array  = NULL;
-    smc->smc_instance_conf      = smc_instance_conf;
-    smc->smc_parent_ptr         = parent_object;
-    smc->init_status            = SMC_INSTANCE_STATUS_INIT_NONE;
-    smc->instance_name          = smc_instance_conf->name;
-    smc->tx_wakelock_count      = 0;
-    smc->rx_wakelock_count      = 0;
+    smc->cpu_id_remote                = smc_instance_conf->cpu_id_remote;
+    smc->cpu_id_local                 = smc_instance_conf->cpu_id_local;
+    smc->is_master                    = smc_instance_conf->is_master;
+    smc->smc_channel_count_configured = smc_instance_conf->smc_channel_conf_count;
+    smc->smc_channel_list_count       = 0;
+    smc->smc_channel_ptr_array        = NULL;
+    smc->smc_instance_conf            = smc_instance_conf;
+    smc->smc_parent_ptr               = parent_object;
+    smc->init_status                  = SMC_INSTANCE_STATUS_INIT_NONE;
+    smc->instance_name                = smc_instance_conf->name;
+    smc->tx_wakelock_count            = 0;
+    smc->rx_wakelock_count            = 0;
 
-    smc->initialization_flags   = smc_instance_conf->initialization_flags;
+    smc->initialization_flags         = smc_instance_conf->initialization_flags;
 
     smc_instance_add( smc );
 

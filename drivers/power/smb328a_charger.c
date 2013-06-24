@@ -616,6 +616,7 @@ int smb328a_enable_charging(struct i2c_client *client)
 		}
 	}
 
+	chip->charger_status = 1;
 	return 0;
 }
 
@@ -636,6 +637,7 @@ int smb328a_disable_charging(struct i2c_client *client)
 		}
 	}
 
+	smb_charger->charger_status = 0;
 	return 0;
 }
 
@@ -892,6 +894,8 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 
 	smb_charger = chip;
 	chip->client = client;
+	chip->charger_status = 0;
+
 	i2c_set_clientdata(client, chip);
 
 	mutex_init(&smb_charger->i2c_mutex_lock);

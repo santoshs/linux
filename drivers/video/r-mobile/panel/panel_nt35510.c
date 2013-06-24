@@ -451,7 +451,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_BLACK,           NULL,      0                },
 
 	{ MIPI_DSI_DCS_SHORT_WRITE, dispon,    sizeof(dispon)   },
-	{ MIPI_DSI_DELAY,           NULL,      10              },		
+	{ MIPI_DSI_DELAY,           NULL,      10              },
 
 	{ MIPI_DSI_END,             NULL,      0                }
 };
@@ -1362,7 +1362,6 @@ static int nt35510_panel_init(unsigned int mem_size)
 	 * hence no need for delays.
 	 */
 	regulator_enable(power_ldo_1v8);
-	usleep_range(1000, 1000);
 	regulator_enable(power_ldo_3v);
 
 	power_supplied = true;
@@ -1625,7 +1624,7 @@ retry:
 
 	msleep(20);
 	retry_count_dsi = NT35510_INIT_RETRY_COUNT;
-	do{
+	do {
 		ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
 		if (ret == 0) {
 			printk(KERN_DEBUG "read_data(RDID0) = %02X\n",
@@ -1635,9 +1634,9 @@ retry:
 			printk(KERN_DEBUG "read_data(RDID2) = %02X\n",
 								read_data[2]);
 		}
-		
+
 		retry_count_dsi--;
-		
+
 		if (retry_count_dsi == 0) {
 			printk(KERN_DEBUG "retry_count=%d, Diff LCD ID or DSI read problem\n",
 							retry_count_dsi);
