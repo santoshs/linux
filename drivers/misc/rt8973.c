@@ -1270,15 +1270,13 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	pr_info("%s\n", __func__);
 
 	tsu6712_read_reg(client, TSU6712_REG_DEVID, &value);
-
 	usbsw->rev = (int)(value >> 3);
-
 	pr_info("rt8973 chip rev is %x",usbsw->rev);
-
 	tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
-
-	ctrl = value & ((~0x1) | (0x01<<3));
-
+        if(usbsw->rev < 1) {
+        value = (value | (0x08));
+        }
+	ctrl = (value & (~0x1));
 	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, ctrl);
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
