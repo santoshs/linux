@@ -1362,6 +1362,7 @@ static int nt35510_panel_init(unsigned int mem_size)
 	 * hence no need for delays.
 	 */
 	regulator_enable(power_ldo_1v8);
+	usleep_range(1000, 1000);
 	regulator_enable(power_ldo_3v);
 
 	power_supplied = true;
@@ -1638,7 +1639,7 @@ retry:
 		retry_count_dsi--;
 
 		if (retry_count_dsi == 0) {
-			printk(KERN_DEBUG "retry_count=%d, DSI read error!!!\n",
+			printk(KERN_DEBUG "retry_count=%d, Diff LCD ID or DSI read problem\n",
 							retry_count_dsi);
 			break;
 		}
