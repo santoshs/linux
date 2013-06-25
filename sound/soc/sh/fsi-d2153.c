@@ -139,7 +139,6 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 		}
 	} else {
 		if (active) {
-			d2153_set_aif_adjust(codec);
 			sndp_log_info("adc unmute\n");
 			snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
 				D2153_ADC_MUTE_EN, 0);
