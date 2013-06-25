@@ -426,6 +426,7 @@ static int  lcd_config(struct composer_rh *rh, struct cmp_postdata *post)
 
 	data->valid = false;
 	data->display = false;
+	data->need_blend = false;
 
 	if (user_data == NULL) {
 		/* no need fb draw */
@@ -443,6 +444,7 @@ static int  lcd_config(struct composer_rh *rh, struct cmp_postdata *post)
 
 		data->valid = true;
 		data->display = true;
+		data->need_blend = true;
 		rc = CMP_OK;
 	} else {
 		int i;
@@ -490,6 +492,7 @@ static int  lcd_config(struct composer_rh *rh, struct cmp_postdata *post)
 
 		data->valid = true;
 		data->display = true;
+		data->need_blend = true;
 		rc = CMP_OK;
 	}
 finish:
