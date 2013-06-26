@@ -19,7 +19,7 @@
 #ifndef _SH_MOBILE_COMPOSER_DEBUG_H
 #define _SH_MOBILE_COMPOSER_DEBUG_H
 
-#define INTERNAL_DEBUG  0
+#define INTERNAL_DEBUG  1
 #define _TIM_DBG   0		/* record time log.                 */
 #define _LOG_DBG   1		/* generate debug log.              */
 #define _ERR_DBG   2		/* generate error log.              */
@@ -28,16 +28,17 @@
 
 #define _EXTEND_TIMEOUT  1
 
+#define INTERNAL_DEBUG_USE_DEBUGFS  (0 && defined(CONFIG_DEBUG_FS))
 
 #include <rtapi/screen_display.h>
 #include <rtapi/screen_graphics.h>
 #include <rtapi/system_memory.h>
 #if INTERNAL_DEBUG
 #include <linux/sh_mobile_composer.h>
-#ifdef CONFIG_DEBUG_FS
+#if INTERNAL_DEBUG_USE_DEBUGFS
 #include <linux/debugfs.h>
-#include <linux/seq_file.h>
 #endif
+#include <linux/seq_file.h>
 #endif
 
 #if _ATR_DBG
@@ -185,10 +186,14 @@ extern void sh_mobile_composer_tracelog_record(
 
 static void sh_mobile_composer_tracelog_init(void);
 
+#if INTERNAL_DEBUG_USE_DEBUGFS
 static int sh_mobile_composer_dump_rhandle(char *p, int n,
 	struct composer_rh *rh);
-#ifdef CONFIG_DEBUG_FS
+#endif
+
+static void sh_mobile_composer_dump_information(int flag);
 static void sh_mobile_composer_debug_info_static(struct seq_file *s);
+#if INTERNAL_DEBUG_USE_DEBUGFS
 static void sh_mobile_composer_debug_info_queue(struct seq_file *s);
 #endif
 #endif
