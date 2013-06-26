@@ -2275,7 +2275,6 @@ static int d2153codec_i2c_read_device(struct d2153_codec_priv *d2153_codec,char 
 	struct i2c_adapter *adap = d2153_codec->i2c_client->adapter;
 
 	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
-	
 	if(reg > 0x6b && reg < 0x80){
 		msgs[0].addr = D2153_AAD_I2C_ADDR;
 	}
@@ -2299,7 +2298,6 @@ static int d2153codec_i2c_read_device(struct d2153_codec_priv *d2153_codec,char 
 	ret = i2c_transfer(adap,msgs,ARRAY_SIZE(msgs));
 
 	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
-	
 	if (ret < 0 )
 		return ret;
 	else if (ret == ARRAY_SIZE(msgs))
@@ -2324,7 +2322,6 @@ static int d2153codec_i2c_write_device(struct d2153_codec_priv *d2153_codec,char
 	BUG_ON(bytes >= ARRAY_SIZE(data));
 
 	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
-	
 	if(reg > 0x6b && reg < 0x80){
 		msgs[0].addr = D2153_AAD_I2C_ADDR;
 	}
@@ -2341,7 +2338,6 @@ static int d2153codec_i2c_write_device(struct d2153_codec_priv *d2153_codec,char
 	ret = i2c_transfer(adap,msgs,ARRAY_SIZE(msgs));
 
 	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
-	
 	if (ret < 0 )
 		return ret;
 	else if (ret == ARRAY_SIZE(msgs))
