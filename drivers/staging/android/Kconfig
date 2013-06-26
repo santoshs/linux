@@ -87,12 +87,6 @@ config ANDROID_INTF_ALARM_DEV
 	  elapsed realtime, and a non-wakeup alarm on the monotonic clock.
 	  Also exports the alarm interface to user-space.
 
-config RTDS_LMK                      
-	bool "RTDS Low Memory Killer"                    
-	default N                                           
-	---help---                                          
-	  shinker rtds
-
 endif # if ANDROID
 
 endmenu

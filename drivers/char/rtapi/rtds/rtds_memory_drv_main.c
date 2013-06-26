@@ -76,7 +76,6 @@ struct list_head		g_rtds_memory_list_mpro;
 struct semaphore		g_rtds_memory_mpro_sem;
 spinlock_t			g_rtds_memory_lock_mpro;
 struct list_head		g_rtds_memory_list_shared_mem;
-struct list_head		g_rtds_process_list;
 struct list_head		g_rtds_memory_list_leak_mpro;
 struct semaphore		g_rtds_memory_shared_mem;
 struct list_head		g_rtds_memory_list_map_rtmem;
@@ -799,59 +798,6 @@ error:
 	return count;
 }
 
-#if defined(CONFIG_RTDS_LMK)
-
-static unsigned long rtds_mem_check_timeout;
-
-int rtds_mem_check_to_lmk(int minfree, int adj)
-{
-	rtds_pid_table*	pid_table = NULL;
-	int task_num = 0;
-	int current_adj = 0;
-	int current_size = 0;
-	struct task_struct* task_info;
-	/*int i = 0;*/
-
-	if (time_before_eq(jiffies, rtds_mem_check_timeout))
-	{
-		return 0;
-	}
-
-	rtds_mem_check_timeout = jiffies + (HZ*4);
-
-	if(down_trylock(&g_rtds_memory_shared_mem))
-	{
-		printk(KERN_EMERG"nus: failed get sema \n");
-		return 0;
-	}
-	/*RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);*/
-
-	list_for_each_entry(pid_table, &g_rtds_process_list, head) {
-		/* defense code */
-		task_info = NULL;
-		task_info = find_task_by_vpid(pid_table->tgid);
-		if(!task_info){
-			printk(KERN_ERR "%s : task is not exist !!\n", __func__);
-			continue;
-		}
-
-		if((pid_table->size / SZ_1K) >= minfree && pid_table->size >= current_size && 
-	    	task_info->signal->oom_score_adj >= adj &&
-			task_info->signal->oom_score_adj >= current_adj)
-		{
-			task_num = (int)(pid_table->tgid);
-			current_adj = task_info->signal->oom_score_adj;
-			current_size = pid_table->size;
-		}
-		/*printk(KERN_EMERG"nus:[%d] %d : %s : %d\n", ++i, pid_table->tgid, task_info->comm, (pid_table->size)/1024 );*/
-	}
-	up(&g_rtds_memory_shared_mem);
-
-	return task_num;
-	
-}
-
-#endif
 
 static int rtds_mem_procinfo_mpro_open(
 	struct inode *inode, struct file *file);
@@ -1075,8 +1021,6 @@ int rtds_memory_init_module(
 		sizeof(g_rtds_memory_list_mpro));
 	memset(&g_rtds_memory_list_shared_mem, 0,
 		sizeof(g_rtds_memory_list_shared_mem));
-	memset(&g_rtds_process_list, 0,
-		sizeof(g_rtds_process_list));
 	memset(&g_rtds_memory_list_leak_mpro, 0,
 		sizeof(g_rtds_memory_list_leak_mpro));
 	memset(&g_rtds_memory_list_map_rtmem, 0,
@@ -1088,7 +1032,6 @@ int rtds_memory_init_module(
 	INIT_LIST_HEAD(&g_rtds_memory_list_create_mem);
 	INIT_LIST_HEAD(&g_rtds_memory_list_mpro);
 	INIT_LIST_HEAD(&g_rtds_memory_list_shared_mem);
-	INIT_LIST_HEAD(&g_rtds_process_list);
 	INIT_LIST_HEAD(&g_rtds_memory_list_leak_mpro);
 	INIT_LIST_HEAD(&g_rtds_memory_list_map_rtmem);
 	INIT_LIST_HEAD(&g_rtds_memory_list_reg_phymem);
