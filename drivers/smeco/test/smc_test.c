@@ -149,6 +149,8 @@ static uint8_t smc_test_case_channel_state( uint8_t* test_input_data, uint16_t t
     /* Special tests for FIFO in the channel */
 static uint8_t smc_test_case_channel_fifo( uint8_t* test_input_data, uint16_t test_input_data_len );
 
+static uint8_t smc_test_case_send_data_raw( uint8_t* test_input_data, uint16_t test_input_data_len );
+
     /* ========================================================
      * SMC Test Case functions
      * First index is 0x00
@@ -174,6 +176,7 @@ smc_test_case_function smc_test_cases[] =
     smc_test_case_rpcl,                             /* 0x0F */
     smc_test_case_channel_state,                    /* 0x10 */
     smc_test_case_channel_fifo,                     /* 0x11 */
+    smc_test_case_send_data_raw,                    /* 0x12 */
     0
 };
 
@@ -2317,6 +2320,50 @@ static uint8_t smc_test_case_channel_state( uint8_t* test_input_data, uint16_t t
 
                 break;
             }
+            case 0x02:
+            {
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: Stop sending data in channel %d", smc_instance_id, smc_channel->id);
+
+                SMC_LOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+
+                if( !SMC_CHANNEL_STATE_SEND_IS_DISABLED( smc_channel->state ) && smc_channel->smc_event_cb)
+                {
+                    smc_channel->smc_event_cb( smc_channel, SMC_STOP_SEND_LOCAL, NULL );
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: data sending stopped in channel %d", smc_instance_id, smc_channel->id);
+                }
+                else
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: data sending already stopped in channel %d", smc_instance_id, smc_channel->id);
+                }
+
+                SMC_UNLOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+                test_status = SMC_OK;
+
+                break;
+            }
+            case 0x03:
+            {
+                SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: Resume sending data in channel %d", smc_instance_id, smc_channel->id);
+
+                SMC_LOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+
+                if( SMC_CHANNEL_STATE_SEND_IS_DISABLED( smc_channel->state ) && smc_channel->smc_event_cb)
+                {
+                    smc_channel->smc_event_cb( smc_channel, SMC_RESUME_SEND_LOCAL, NULL );
+
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: data sending resumed in channel %d", smc_instance_id, smc_channel->id);
+                }
+                else
+                {
+                    SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: data sending already enabled in channel %d", smc_instance_id, smc_channel->id);
+                }
+
+                SMC_UNLOCK_TX_BUFFER( smc_channel->lock_tx_queue );
+
+
+                break;
+            }
             default:
             {
                 SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_channel_state: Invalid test case 0x%02X", test_case);
@@ -2334,6 +2381,112 @@ static uint8_t smc_test_case_channel_state( uint8_t* test_input_data, uint16_t t
 
     return test_status;
 }
+
+static uint8_t smc_test_case_send_data_raw( uint8_t* test_input_data, uint16_t test_input_data_len )
+{
+    uint8_t  test_status = SMC_ERROR;
+
+    uint16_t test_input_len_required = 7;
+
+    if( test_input_data_len >= test_input_len_required )
+    {
+        uint32_t       data_index      = 0;
+        uint8_t        smc_instance_id = test_input_data[data_index++];
+        uint8_t        smc_channel_id  = test_input_data[data_index++];
+        smc_channel_t* smc_channel     = NULL;
+        smc_t*         smc             = smc_test_get_instance_by_test_instance_id( smc_instance_id );
+        uint8_t        raw_data_send_count = test_input_data[data_index++];
+        uint32_t       raw_data_len    = 0;
+        uint8_t*       raw_data        = NULL;
+        smc_user_data_t userdata;
+
+        raw_data_len    = SMC_BYTES_TO_32BIT( (test_input_data + data_index) );
+        data_index += 4;
+
+        if( smc == NULL )
+        {
+            SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_send_data_raw: Unable to get SMC instance %d", smc_instance_id);
+            return SMC_ERROR;
+        }
+
+        smc_channel = smc_channel_get(smc, smc_channel_id);
+
+        if( smc_channel == NULL )
+        {
+            SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_send_data_raw: Unable to get SMC channel %d from instance %d",
+                                            smc_channel_id, smc_instance_id);
+            return SMC_ERROR;
+        }
+
+        if( raw_data_len <= 0 ) raw_data_len = 1;
+        if( raw_data_send_count <= 0 ) raw_data_send_count = 1;
+
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: channel %d: send %d bytes of data %d times",
+                smc_instance_id, smc_channel->id, raw_data_len, raw_data_send_count);
+
+
+
+        int iFailCount = 0;
+
+        for(int i = 0; i < raw_data_send_count; i++ )
+        {
+            uint32_t x = 0;
+
+            raw_data = (uint8_t*)SMC_MALLOC( raw_data_len );
+
+            if( raw_data != NULL )
+            {
+                while( x < raw_data_len-3 )
+                {
+                    raw_data[x++] = 0x53;
+                    raw_data[x++] = 0x4D;
+                    raw_data[x++] = 0x43;
+                }
+
+                userdata.flags     = 0x00000000;
+                userdata.userdata1 = raw_data_len;
+                userdata.userdata2 = 0x00000000;
+                userdata.userdata3 = 0x00000000;
+                userdata.userdata4 = 0x00000000;
+                userdata.userdata5 = 0x00000000;
+
+
+                if( smc_send_ext(smc_channel, (void*)raw_data, raw_data_len, &userdata) != SMC_OK )
+                {
+                    iFailCount++;
+                }
+             }
+             else
+             {
+                SMC_TEST_TRACE_PRINTF_ERROR("smc_test_case_send_data_raw: Unable to allocate %d bytes of memory ",
+                        raw_data_len);
+                iFailCount++;
+             }
+        }
+
+
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: SMC instance %d: channel %d: send %d bytes of data %d times, errors %d",
+                        smc_instance_id, smc_channel->id, raw_data_len, raw_data_send_count, iFailCount);
+
+        if( iFailCount > 0 )
+        {
+            test_status = SMC_ERROR;
+        }
+        else
+        {
+            test_status = SMC_OK;
+        }
+    }
+    else
+    {
+        SMC_TEST_TRACE_PRINTF_INFO("smc_test_case_channel_state: not enough test input data (received %d, expected %d)",
+                                    test_input_data_len, test_input_len_required);
+        test_status = SMC_ERROR;
+    }
+
+    return test_status;
+}
+
 
 static uint8_t smc_test_case_channel_fifo( uint8_t* test_input_data, uint16_t test_input_data_len )
 {
@@ -2429,6 +2582,9 @@ static uint8_t smc_test_case_channel_fifo( uint8_t* test_input_data, uint16_t te
 
     return test_status;
 }
+
+
+
 
 
 

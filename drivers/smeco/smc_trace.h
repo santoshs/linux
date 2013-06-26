@@ -87,7 +87,6 @@ Description :  File created
 #define SMC_TRACE_SLEEP_CONTROL_ENABLED
 */
 
-
 /**
  * ----------- R&D Trace macros begin ---------------
  */

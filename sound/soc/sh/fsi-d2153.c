@@ -126,7 +126,6 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 				snd_soc_update_bits(codec, D2153_EP_CTRL,
 					D2153_EP_AMP_MUTE_EN, 0);
 				sndp_log_info("ep unmute\n");
-				msleep(50);
 			}
 			if (priv->hp_en) {
 				snd_soc_update_bits(codec, D2153_HP_L_CTRL,
@@ -134,11 +133,12 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 				snd_soc_update_bits(codec, D2153_HP_R_CTRL,
 					D2153_HP_AMP_MUTE_EN, 0);
 				sndp_log_info("hp unmute\n");
-				msleep(50);
 			}
+			msleep(50);
 		}
 	} else {
 		if (active) {
+			d2153_set_aif_adjust(codec);
 			sndp_log_info("adc unmute\n");
 			snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
 				D2153_ADC_MUTE_EN, 0);

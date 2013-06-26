@@ -809,6 +809,7 @@ int rtds_mem_check_to_lmk(int minfree, int adj)
 	int task_num = 0;
 	int current_adj = 0;
 	int current_size = 0;
+	struct task_struct* task_info;
 	/*int i = 0;*/
 
 	if (time_before_eq(jiffies, rtds_mem_check_timeout))
@@ -827,18 +828,22 @@ int rtds_mem_check_to_lmk(int minfree, int adj)
 
 	list_for_each_entry(pid_table, &g_rtds_process_list, head) {
 		/* defense code */
-		if(pid_table->tgid != pid_table->task_info->tgid)
+		task_info = NULL;
+		task_info = find_task_by_vpid(pid_table->tgid);
+		if(!task_info){
+			printk(KERN_ERR "%s : task is not exist !!\n", __func__);
 			continue;
+		}
 
 		if((pid_table->size / SZ_1K) >= minfree && pid_table->size >= current_size && 
-	    	pid_table->task_info->signal->oom_score_adj >= adj &&
-			pid_table->task_info->signal->oom_score_adj >= current_adj)
+	    	task_info->signal->oom_score_adj >= adj &&
+			task_info->signal->oom_score_adj >= current_adj)
 		{
 			task_num = (int)(pid_table->tgid);
-			current_adj = pid_table->task_info->signal->oom_score_adj;
+			current_adj = task_info->signal->oom_score_adj;
 			current_size = pid_table->size;
 		}
-		/*printk(KERN_EMERG"nus:[%d] %d : %s : %d\n", ++i, pid_table->tgid, pid_table->task_info->comm, (pid_table->size)/1024 );*/
+		/*printk(KERN_EMERG"nus:[%d] %d : %s : %d\n", ++i, pid_table->tgid, task_info->comm, (pid_table->size)/1024 );*/
 	}
 	up(&g_rtds_memory_shared_mem);
 

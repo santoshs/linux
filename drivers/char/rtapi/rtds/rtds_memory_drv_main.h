@@ -140,7 +140,6 @@ typedef struct {
 typedef struct {
 	struct list_head	head;		/* Manager list info */
  	pid_t				tgid;
-	struct task_struct	*task_info;		/* Task info */
 	unsigned int		size;
 } rtds_pid_table;
 

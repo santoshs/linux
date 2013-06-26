@@ -13,3 +13,7 @@ obj-$(CONFIG_ANDROID_SWITCH)		+= switch/
 obj-$(CONFIG_PERSISTENT_TRACER)		+= trace_persistent.o
 
 CFLAGS_REMOVE_trace_persistent.o = -pg
+
+ifeq ($(CONFIG_LOW_MEM_SNPR),y)
+ccflags-$(CONFIG_ANDROID_LOW_MEMORY_KILLER) += -I$(srctree)/drivers/staging/lowmemsnpr
+endif

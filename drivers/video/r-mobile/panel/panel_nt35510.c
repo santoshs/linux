@@ -1625,7 +1625,7 @@ retry:
 
 	msleep(20);
 	retry_count_dsi = NT35510_INIT_RETRY_COUNT;
-	do{
+	do {
 		ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
 		if (ret == 0) {
 			printk(KERN_DEBUG "read_data(RDID0) = %02X\n",

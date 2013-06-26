@@ -836,7 +836,7 @@ static int waitcomp_composer(int mode)
 	/* wait queue */
 #ifdef CONFIG_MISC_R_MOBILE_COMPOSER_REQUEST_QUEUE
 	if (mode & WAITCOMP_COMPOSER_QUEUE) {
-		rc = wait_event_timeout(kernel_waitqueue_comp,
+		rc = wait_event_timeout(kernel_waitqueue_queued,
 			queue_data_complete,
 			msecs_to_jiffies(100));
 		if (rc == 0) {
@@ -859,9 +859,15 @@ static int waitcomp_composer(int mode)
 		if (rc == 0) {
 			/* timeout */
 			rc = CMP_NG;
+#if INTERNAL_DEBUG
+			sh_mobile_composer_dump_information(1);
+#endif
 		} else {
 			/* wait success before timeout */
 			rc = CMP_OK;
+#if INTERNAL_DEBUG
+			sh_mobile_composer_dump_information(0);
+#endif
 		}
 	} else if (mode & WAITCOMP_COMPOSER_BLEND) {
 		printk_dbg2(3, "wait complete blending.\n");
@@ -871,9 +877,15 @@ static int waitcomp_composer(int mode)
 		if (rc == 0) {
 			/* timeout */
 			rc = CMP_NG;
+#if INTERNAL_DEBUG
+			sh_mobile_composer_dump_information(1);
+#endif
 		} else {
 			/* wait success before timeout */
 			rc = CMP_OK;
+#if INTERNAL_DEBUG
+			sh_mobile_composer_dump_information(0);
+#endif
 		}
 	} else {
 		printk_dbg2(3, "nothing to do.\n");
@@ -1010,13 +1022,14 @@ static void handle_list_blend_request(int mask)
 		goto skip_lcd_blend;
 	}
 
-	if (down_timeout(&sem_framebuf_useable, 0)) {
-		/* semaphore is not acquired. */
-		printk_dbg2(3, "not ready to blend for LCD.\n");
-	} else {
 		printk_dbg2(3, "spinlock\n");
 		spin_lock(&irqlock_list);
 
+	rh = NULL;
+	if (down_trylock(&sem_framebuf_useable)) {
+		/* semaphore is not acquired. */
+		printk_dbg2(3, "not ready to blend for LCD.\n");
+	} else {
 		if (!list_empty(&top_lcd_list)) {
 			rh = list_first_entry(&top_lcd_list,
 				struct composer_rh, lcd_list);
@@ -1024,8 +1037,9 @@ static void handle_list_blend_request(int mask)
 			/* remove list */
 			list_del_init(&rh->lcd_list);
 		} else {
-			/* blend request not found. */
-			rh = NULL;
+			/* no blend request. release semaphore */
+			up(&sem_framebuf_useable);
+		}
 		}
 		spin_unlock(&irqlock_list);
 
@@ -1044,10 +1058,6 @@ static void handle_list_blend_request(int mask)
 				/* fatal error */
 				printk_err("drop blend request.\n");
 			}
-		} else {
-			/* no blend request. release semaphore */
-			up(&sem_framebuf_useable);
-		}
 	}
 skip_lcd_blend:;
 
@@ -1060,13 +1070,14 @@ skip_lcd_blend:;
 		goto skip_hdmi_blend;
 	}
 
-	if (down_timeout(&sem_hdmi_framebuf_useable, 0)) {
-		/* semaphore is not acquired. */
-		printk_dbg2(3, "not ready to blend for HDMI.\n");
-	} else {
 		printk_dbg2(3, "spinlock\n");
 		spin_lock(&irqlock_list);
 
+	rh = NULL;
+	if (down_trylock(&sem_hdmi_framebuf_useable)) {
+		/* semaphore is not acquired. */
+		printk_dbg2(3, "not ready to blend for HDMI.\n");
+	} else {
 		if (!list_empty(&top_hdmi_list)) {
 			rh = list_first_entry(&top_hdmi_list,
 				struct composer_rh, hdmi_list);
@@ -1074,8 +1085,9 @@ skip_lcd_blend:;
 			/* remove list */
 			list_del_init(&rh->hdmi_list);
 		} else {
-			/* blend request not found. */
-			rh = NULL;
+			/* no blend request. release semaphore */
+			up(&sem_hdmi_framebuf_useable);
+		}
 		}
 		spin_unlock(&irqlock_list);
 
@@ -1096,10 +1108,6 @@ skip_lcd_blend:;
 				/* fatal error */
 				printk_err("drop blend request.\n");
 			}
-		} else {
-			/* no blend request. release semaphore */
-			up(&sem_hdmi_framebuf_useable);
-		}
 	}
 skip_hdmi_blend:;
 #endif
@@ -2944,7 +2952,6 @@ static void process_composer_queue_callback(struct composer_rh *rh)
 }
 
 #if INTERNAL_DEBUG
-#ifdef CONFIG_DEBUG_FS
 static void sh_mobile_composer_debug_info_static(struct seq_file *s)
 {
 	/* log of static variable */
@@ -3045,6 +3052,8 @@ static void sh_mobile_composer_debug_info_static(struct seq_file *s)
 		skip_frame_count[0][1], skip_frame_count[1][1]);
 #endif
 }
+
+#if INTERNAL_DEBUG_USE_DEBUGFS
 
 #define DBGMSG_WORKQUEUE(ARG) { if (ARG) \
 		seq_printf(s, "  " #ARG " run:%d priority:%d\n", \

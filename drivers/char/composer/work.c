@@ -249,6 +249,10 @@ static void localwork_flush(
 			/* report error */
 			printk_dbg2(3, "work %p not queued\n", work);
 			rc = -EINVAL;
+		} else if (current == wq->task) {
+			/* report error */
+			printk_err2("can not wait in sameworkqueue\n");
+			rc = -EINVAL;
 		} else
 			wait = true;
 		spin_unlock_irqrestore(&wq->lock, flags);
