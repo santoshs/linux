@@ -648,5 +648,12 @@ config TILE_SROM
 	  device appear much like a simple EEPROM, and knows
 	  how to partition a single ROM for multiple purposes.
 
+config MTD_TRACE
+                tristate "Modem trace buffer in R8A7373"
+                depends on ARCH_R8A7373
+                default y
+                ---help---
+                  Create device to provice access to trace buffer of LTE Modem
+
 endmenu
 
