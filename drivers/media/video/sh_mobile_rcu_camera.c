@@ -1534,17 +1534,17 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q, unsigned int count
 			pcdev->meram_bsize[RCU_MERAM_FRAMEA]);
 		meram_ch_write(pcdev, RCU_MERAM_BSIZE_C,
 			pcdev->meram_bsize[RCU_MERAM_FRAMEB]);
-			meram_ch_write(pcdev, RCU_MERAM_MCNF,
+		meram_ch_write(pcdev, RCU_MERAM_MCNF,
 			pcdev->meram_mcnf[RCU_MERAM_FRAMEA]);
-			meram_ch_write(pcdev, RCU_MERAM_MCNF_C,
+		meram_ch_write(pcdev, RCU_MERAM_MCNF_C,
 			pcdev->meram_mcnf[RCU_MERAM_FRAMEB]);
-			meram_ch_write(pcdev, RCU_MERAM_SBSIZE,
+		meram_ch_write(pcdev, RCU_MERAM_SBSIZE,
 			pcdev->meram_sbsize[RCU_MERAM_FRAMEA]);
-			meram_ch_write(pcdev, RCU_MERAM_SBSIZE_C,
+		meram_ch_write(pcdev, RCU_MERAM_SBSIZE_C,
 			pcdev->meram_sbsize[RCU_MERAM_FRAMEB]);
-			meram_ch_write(pcdev, RCU_MERAM_CTRL,
+		meram_ch_write(pcdev, RCU_MERAM_CTRL,
 			pcdev->meram_ctrl[RCU_MERAM_FRAMEA]);
-			meram_ch_write(pcdev, RCU_MERAM_CTRL_C,
+		meram_ch_write(pcdev, RCU_MERAM_CTRL_C,
 			pcdev->meram_ctrl[RCU_MERAM_FRAMEB]);
 	}
 
