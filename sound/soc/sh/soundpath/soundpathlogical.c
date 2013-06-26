@@ -3179,6 +3179,7 @@ static void sndp_work_incomm_stop(const u_int old_value, const u_int new_value)
 					SNDP_GET_AUDIO_DEVICE(old_value),
 					SNDP_EXTDEV_STOP);
 	}
+
 	sndp_log_info("Put\n");
 	/* Disable the power domain */
 	ret = sndp_pm_runtime_sync(E_PM_PUT,

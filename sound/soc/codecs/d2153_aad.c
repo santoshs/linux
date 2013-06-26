@@ -402,18 +402,17 @@ static irqreturn_t d2153_g_det_handler(int irq, void *data)
 	struct i2c_client *client = d2153_aad->i2c_client;
 	dlg_info("[%s] start!\n", __func__);
 
-	if ( d2153_aad->switch_data.state != D2153_NO_JACK)
-	{	
+	if (D2153_NO_JACK != d2153_aad->switch_data.state) {
 		cancel_delayed_work_sync(&d2153_aad->jack_monitor_work);
- 		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,0);	
-		
-		dlg_info("[%s] BTN Disable !\n",__func__);
-		d2153_aad_write(client,D2153_ACCDET_CONFIG,0x08);
-		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACKOUT_DEBOUNCE_MS)); 	
-	} else if(d2153_aad->l_det_status) {
-		dlg_info("[%s] d2153_aad->l_det_status [%d]\n",__func__,d2153_aad->l_det_status);
-		schedule_delayed_work(&d2153_aad->jack_monitor_work, msecs_to_jiffies(D2153_AAD_JACK_DEBOUNCE_MS)); 	
+		snd_soc_update_bits(d2153_aad->d2153_codec->codec,
+			D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN, 0);
+
+		d2153_aad_write(client, D2153_ACCDET_CONFIG, 0x08);
+		schedule_delayed_work(&d2153_aad->jack_monitor_work,
+			msecs_to_jiffies(d2153_aad->jackout_debounce_ms));
+	} else if (d2153_aad->l_det_status) {
+		schedule_delayed_work(&d2153_aad->jack_monitor_work,
+			msecs_to_jiffies(d2153_aad->jack_debounce_ms));
 	}
 
 	return IRQ_HANDLED;
@@ -672,7 +671,6 @@ static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
 	u8 jack_mode,btn_status;
 	int state = d2153_aad->switch_data.state,state_gpio;
 	struct snd_soc_codec *codec;
-
 	dlg_info("[%s] start!\n", __func__);
 
 	if (d2153_aad->d2153_codec == NULL ||
@@ -815,6 +813,7 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 	}
 
 	msleep(d2153_aad->button_detect_rate);
+
 	if (d2153_aad->codec_detect_enable) {
 		jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);
 		if (0 == (jack_mode & D2153_ACCDET_JACK_MODE_JACK))
