@@ -465,7 +465,7 @@ static int d2153_regulator_enable(struct regulator_dev *rdev)
 		printk(KERN_ERR "[WS] regl_id[%d], reg_num[0x%x], reg_val[0x%x]\n", regulator_id, reg_num, reg_val);
 	}
 
-	return 0;
+	return ret;
 }
 
 /*
@@ -504,7 +504,7 @@ static int d2153_regulator_disable(struct regulator_dev *rdev)
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
 /*
