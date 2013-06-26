@@ -31,6 +31,9 @@
 #include <mach/ramdump.h>
 #include <asm/mach/map.h>
 
+#ifdef CONFIG_SEC_DEBUG
+#include <mach/sec_debug.h>
+#endif
 static int debug_enabled;
 module_param_named(debug_enabled, debug_enabled, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
@@ -632,6 +635,10 @@ static struct platform_driver ramdump_pdriver = {
 static int __init init_ramdump(void)
 {
 	int ret = 0;
+#ifdef CONFIG_SEC_DEBUG
+	if (!sec_debug_level.en.kernel_fault)
+		return -1;
+#endif
 	dprintk("%s\n", __func__);
 
 	ret = platform_driver_register(&ramdump_pdriver);
