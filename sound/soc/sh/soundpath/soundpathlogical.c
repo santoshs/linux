@@ -1035,6 +1035,7 @@ int sndp_soc_put(
 	u_int	uiOldValue;
 	u_int	old_mode;
 	u_int	new_btband;
+	int	iRet = ERROR_NONE;
 
 	sndp_log_debug_func("start\n");
 
@@ -1289,7 +1290,10 @@ int sndp_soc_put(
 				disable_dfs_mode_min();
 			} else {
 				sndp_log_info("stop cpufreq\n");
-				stop_cpufreq();
+				iRet = stop_cpufreq();
+				if (ERROR_NONE != iRet)
+					sndp_log_err("stop_cpufreq ret[%d]\n",
+									iRet);
 			}
 
 		}
@@ -1649,13 +1653,13 @@ static void sndp_work_shutdown(struct sndp_work_info *work)
 
 	if (SNDP_PCM_IN == direction) {
 		if (SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(in_old_val)) {
-		g_sndp_incomm_playrec_flg &= ~E_CAP;
-		if (!g_sndp_incomm_playrec_flg) {
-			/* To register a work queue */
-			/* to stop processing Playback */
+			g_sndp_incomm_playrec_flg &= ~E_CAP;
+			if (!g_sndp_incomm_playrec_flg) {
+				/* To register a work queue */
+				/* to stop processing Playback */
 				sndp_work_incomm_stop(SNDP_GET_DEVICE_VAL(in_old_val),
 								SNDP_VALUE_INIT);
-		}
+			}
 		} else if (g_sndp_playrec_flg & E_FM_CAP) {
 			g_sndp_playrec_flg &= ~E_FM_CAP;
 			if (!(g_sndp_playrec_flg & E_FM_PLAY))
@@ -2400,7 +2404,7 @@ static void sndp_incomm_trigger(
  */
 static void sndp_work_voice_start(struct sndp_work_info *work)
 {
-	int			iRet = ERROR_NONE;
+	int		iRet = ERROR_NONE;
 	u_int		uiDirection = SNDP_GET_DIRECTION_VAL(work->new_value);
 
 	struct snd_soc_codec *codec =
@@ -2833,8 +2837,8 @@ static void sndp_work_fm_radio_dev_chg(struct sndp_work_info *work)
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
 
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(work->new_value),
-		SNDP_GET_AUDIO_DEVICE(work->new_value),
-		SNDP_EXTDEV_CH_DEV);
+				SNDP_GET_AUDIO_DEVICE(work->new_value),
+				SNDP_EXTDEV_CH_DEV);
 
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
@@ -3174,8 +3178,8 @@ static void sndp_work_incomm_stop(const u_int old_value, const u_int new_value)
 		clkgen_stop();
 
 		sndp_extdev_set_state(SNDP_GET_MODE_VAL(old_value),
-				     SNDP_GET_AUDIO_DEVICE(old_value),
-				     SNDP_EXTDEV_STOP);
+					SNDP_GET_AUDIO_DEVICE(old_value),
+					SNDP_EXTDEV_STOP);
 	}
 
 	sndp_log_info("Put\n");
@@ -3348,7 +3352,7 @@ static void sndp_work_call_capture_stop(struct sndp_work_info *work)
 	/* Call + Capture stop request */
 	call_record_stop();
 
-    /* If the state already NORMAL Playback side */
+	/* If the state already NORMAL Playback side */
 	if ((!(SNDP_ROUTE_PLAY_CHANGED & g_sndp_stream_route)) &&
 		(SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(in_old_val))) {
 		if (SNDP_MODE_NORMAL == SNDP_GET_MODE_VAL(out_old_val)) {
@@ -3535,88 +3539,6 @@ static void sndp_work_call_capture_incomm_stop(struct sndp_work_info *work)
 	sndp_log_debug_func("end\n");
 }
 
-
-#if 0
-/**
- * Not used function.
- */
- */
-/*!
-
-   @param[in]	work	work queue structure
-   @param[out]	none
-
-   @retval	none
- */
-static void sndp_work_pt_playback_start(struct sndp_work_info *work)
-{
-	int	iRet = ERROR_NONE;
-
-	sndp_log_debug_func("start\n");
-
-	/* Running Playback */
-	g_sndp_playrec_flg |= E_PLAY;
-
-	/* set Audience state (start) */
-#if 0
-	sndp_a2220_set_state(SNDP_MODE_NORMAL, g_pt_device, SNDP_A2220_START);
-#endif
-
-	/* FSI Trigger start */
-	if (NULL != g_sndp_dai_func.fsi_trigger) {
-		sndp_log_debug("fsi_dai_trigger start in PT\n");
-
-		iRet = g_sndp_dai_func.fsi_trigger(
-			g_sndp_main[SNDP_PCM_OUT].arg.fsi_substream,
-			SNDRV_PCM_TRIGGER_START,
-			g_sndp_main[SNDP_PCM_OUT].arg.fsi_dai);
-
-		if (ERROR_NONE != iRet)
-			sndp_log_err("fsi_trigger error(code=%d)\n", iRet);
-	}
-
-	sndp_log_debug_func("end\n");
-}
-#endif
-
-#if 0
-/**
- * Not used function.
- */
-/*!
-   @brief Work queue function for Stop during a PT playback
-
-   @param[in]	work	work queue structure
-   @param[out]	none
-
-   @retval	none
- */
-static void sndp_work_pt_playback_stop(struct sndp_work_info *work)
-{
-	sndp_log_debug_func("start\n");
-
-	/* Stop Playback runnning */
-	g_sndp_playrec_flg &= ~E_PLAY;
-
-	/* FSI Trigger stop */
-	if (NULL != g_sndp_dai_func.fsi_trigger) {
-		sndp_log_debug("fsi_dai_trigger stop in PT\n");
-		g_sndp_dai_func.fsi_trigger(&(work->stop.fsi_substream),
-					    SNDRV_PCM_TRIGGER_STOP,
-					    &(work->stop.fsi_dai));
-	}
-
-	/* set Audience state (stop) */
-#if 0
-	sndp_a2220_set_state(SNDP_MODE_NORMAL, g_pt_device, SNDP_A2220_STOP);
-#endif
-
-	/* Wake Unlock or Force Unlock */
-	sndp_wake_lock((g_sndp_playrec_flg) ? E_UNLOCK : E_FORCE_UNLOCK);
-
-	sndp_log_debug_func("end\n");
-}
-#endif
 
 /*!
    @brief Work queue processing for all down link mute control
@@ -3939,21 +3861,21 @@ static void sndp_work_fm_radio_stop(struct sndp_work_info *work)
 		scuw_stop();
 
 		if ((E_PLAY | E_CAP) & g_sndp_playrec_flg) {
-		/* stop FSI */
+			/* stop FSI */
 			fsi_stop(0);
 		} else {
 			/* stop FSI */
 			fsi_stop(1);
-		/* stop CLKGEN */
-		clkgen_stop();
+			/* stop CLKGEN */
+			clkgen_stop();
 		}
 
 		if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
 			if ((E_PLAY & E_CAP) & g_sndp_playrec_flg)
-			/* FSI master */
-			common_set_pll22(work->old_value,
-					 STAT_OFF,
-					 g_bluetooth_band_frequency);
+				/* FSI master */
+				common_set_pll22(work->old_value,
+						 STAT_OFF,
+						 g_bluetooth_band_frequency);
 		} else {
 			sndp_log_err("FM CLKGEN master not supported\n");
 		}
@@ -4170,8 +4092,8 @@ static void sndp_work_start(const int direction)
 	      (E_CAP  & g_sndp_playrec_flg))) {
 		if (0 == iRet || 1 == iRet) {
 			if (!((E_FM_PLAY | E_FM_CAP) & g_sndp_playrec_flg))
-			/* CPG soft reset */
-			fsi_soft_reset();
+				/* CPG soft reset */
+				fsi_soft_reset();
 		}
 	}
 
@@ -4339,8 +4261,8 @@ static void sndp_work_stop(
 		g_sndp_now_direction = SNDP_PCM_DIRECTION_MAX;
 
 		if (!((E_FM_PLAY | E_FM_CAP) & g_sndp_playrec_flg))
-		/* stop CLKGEN */
-		clkgen_stop();
+			/* stop CLKGEN */
+			clkgen_stop();
 
 		/* FSI slave setting ON for switch */
 		if (SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(uiValue)) {
