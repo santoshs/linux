@@ -4330,7 +4330,6 @@ static void touchkey_led_on(struct zinitix_touch_dev *data, bool on)
 
 	if(on) {
 		printk("Touchkey On\n");	
-		if (!regulator_is_enabled(keyled_regulator)) {
 		ret = regulator_enable(keyled_regulator);
 			if (ret) {
 				pr_err("can not enable KEY_LED_3.3V, ret=%d\n", ret);
@@ -4341,12 +4340,8 @@ static void touchkey_led_on(struct zinitix_touch_dev *data, bool on)
 	}
 
 		}
-		else
-			printk("touchkey led regulator is already enabled!!!");
-	}
 	else {
 		printk("Touchkey Off\n");	
-		if (regulator_is_enabled(keyled_regulator)) {
 		ret = regulator_disable(keyled_regulator);
 			if (ret) {
 				pr_err("can not disabled KEY_LED_3.3V ret=%d\n", ret);
@@ -4357,10 +4352,6 @@ static void touchkey_led_on(struct zinitix_touch_dev *data, bool on)
 			}
 
 		}
-		else
-			printk("touchkey led regulator is already disabled!!!");
-
-	}
 
 }
 

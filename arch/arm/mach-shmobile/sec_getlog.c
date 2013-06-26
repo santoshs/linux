@@ -84,10 +84,10 @@ void sec_getlog_supply_loggerinfo(void *p_main,
 {
 	pr_info("%s: 0x%p 0x%p 0x%p 0x%p\n", __func__, p_main, p_radio,
 		p_events, p_system);
-	plat_log_mark.p_main = p_main+0x04600000;  /* due to screen buffer, RLTE ramdump gets  datas from 0x45b00000.  so must be added 0x4600000 */
-	plat_log_mark.p_radio = p_radio+0x04600000;
-	plat_log_mark.p_events = p_events+0x04600000;
-	plat_log_mark.p_system = p_system+0x04600000;
+	plat_log_mark.p_main = p_main+0x03600000;  /* due to screen buffer, RLTE ramdump gets  datas from 0x45b00000.  so must be added 0x03500000 +0x00100000 */
+	plat_log_mark.p_radio = p_radio+0x03600000;
+	plat_log_mark.p_events = p_events+0x03600000;
+	plat_log_mark.p_system = p_system+0x03600000;
 }
 EXPORT_SYMBOL(sec_getlog_supply_loggerinfo);
 
@@ -107,7 +107,7 @@ static struct {
 void sec_getlog_supply_kloginfo(void *klog_buf)
 {
 	pr_info("%s: 0x%p\n", __func__, klog_buf);
-	kernel_log_mark.klog_buf = klog_buf+0x04600000;
+	kernel_log_mark.klog_buf = klog_buf+0x03600000;
 }
 EXPORT_SYMBOL(sec_getlog_supply_kloginfo);
 

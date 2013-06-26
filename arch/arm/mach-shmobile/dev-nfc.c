@@ -18,7 +18,7 @@
 #define NFC_FIRM_GPIO		(GPIO_PORT101) //PATCH CPN (134)
 #define NFC_CLK_REQ_GPIO	(43)           //NFC_CLK_REQ
 #define NFC_WAKE_GPIO		(88)           //NFC_WAKE
-#define NFC_I2C_BUS_ID		(9)            //PATCH CPN I2C_GPIO (3)
+#define NFC_I2C_BUS_ID		(7)            //PATCH CPN I2C_GPIO (3)
 #endif
 
 #if defined(CONFIG_BCMI2CNFC)
@@ -99,20 +99,6 @@ static struct platform_device rhea_nfc_i2c_gpio_device = {
 #endif
 
 #ifdef CONFIG_PN547_NFC
-static struct i2c_gpio_platform_data PN547_i2c_gpio_data = {
-	.sda_pin = NFC_I2C_SDA_GPIO,
-	.scl_pin =  NFC_I2C_SCL_GPIO,
- 	.udelay = 1, //### RMC ### Sample Code
-};
-
-struct platform_device PN547_i2c_gpio_device = {
- 	.name = "i2c-gpio",
- 	.id = NFC_I2C_BUS_ID,
- 	.dev = {
-	.platform_data  = &PN547_i2c_gpio_data,
-	},
-};
-
 static struct pn547_i2c_platform_data PN547_pdata = {
  	.irq_gpio 	= NFC_IRQ_GPIO,
  	.ven_gpio = NFC_EN_GPIO,
@@ -133,7 +119,6 @@ int pn547_info_size(void) {
 
 void pn547_device_i2c_register(void) {
 	pr_info("pn547_device_i2c_register\n");
-	platform_device_register(&PN547_i2c_gpio_device);
 	i2c_register_board_info(NFC_I2C_BUS_ID, PN547_info, ARRAY_SIZE(PN547_info));
 }
 #endif /* CONFIG_PN547_NFC	*/

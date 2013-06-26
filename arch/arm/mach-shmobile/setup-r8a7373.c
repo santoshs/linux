@@ -348,7 +348,6 @@ static struct platform_device i2c6_device = {
 };
 #endif
 /* IIC3H */
-#ifndef CONFIG_PN544_NFC
 static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
 	.bus_speed	= 400000,
 	.pin_multi	= true,
@@ -386,7 +385,6 @@ static struct platform_device i2c7_device = {
 		.platform_data	= &i2c7_platform_data,
 	},
 };
-#endif
 
 /* IICM */
 static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
@@ -1220,9 +1218,7 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 #ifndef CONFIG_SPI_SH_MSIOF
 	&i2c6_device, /* IIC2H */
 #endif
-#ifndef CONFIG_PN544_NFC
 	&i2c7_device, /* IIC3H */
-#endif
 	&i2c8_device, /* IICM  */
 	&dma0_device,
 #ifdef CONFIG_SMECO

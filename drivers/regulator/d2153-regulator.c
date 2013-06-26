@@ -405,6 +405,7 @@ static int d2153_regulator_enable(struct regulator_dev *rdev)
 	int ret = 0;
 	unsigned int regulator_id = rdev_get_id(rdev);
 	unsigned int reg_num;
+	int i;
 
 	if (regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
@@ -420,9 +421,18 @@ static int d2153_regulator_enable(struct regulator_dev *rdev)
 		reg_num = regulator_register_map[regulator_id].mctl_reg;
 
 		ret = d2153_reg_read(d2153, reg_num, &reg_val);
+
 		if (ret < 0) {
 			dlg_err("I2C read error\n");
-			return ret;
+			for(i=0; i<3 ; i++) {
+				ret = d2153_reg_read(d2153, reg_num, &reg_val);
+				if(ret == 0) {
+					break;
+				}
+			}
+			if(ret < 0) {
+				reg_val = 0x56;
+			}
 		}
 
 		reg_val &= ~(D2153_REGULATOR_MCTL1 | D2153_REGULATOR_MCTL3);   /* Clear MCTL11 and MCTL01 */
@@ -441,8 +451,17 @@ static int d2153_regulator_enable(struct regulator_dev *rdev)
 				reg_val |= (D2153_REGULATOR_MCTL0_ON | D2153_REGULATOR_MCTL2_ON);
 				break;
 		}
-		ret |= d2153_reg_write(d2153, reg_num, reg_val);
+		ret = d2153_reg_write(d2153, reg_num, reg_val);
 
+		if (ret < 0) {
+			dlg_err("I2C write error\n");
+			for(i=0; i<3 ; i++) {
+				ret = d2153_reg_write(d2153, reg_num, reg_val);
+				if(ret == 0) {
+					break;
+				}
+			}
+		}
 		printk(KERN_ERR "[WS] regl_id[%d], reg_num[0x%x], reg_val[0x%x]\n", regulator_id, reg_num, reg_val);
 	}
 
@@ -459,6 +478,7 @@ static int d2153_regulator_disable(struct regulator_dev *rdev)
 	unsigned int reg_num = 0;
 	int ret = 0;
 	u8 reg_val;
+	int i;
 
 	if (regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
@@ -473,6 +493,15 @@ static int d2153_regulator_disable(struct regulator_dev *rdev)
 		reg_num = regulator_register_map[regulator_id].mctl_reg;
 
 		ret = d2153_reg_write(d2153, reg_num, 0x00);
+		if (ret < 0) {
+			dlg_err("I2C write error\n");
+			for(i=0; i<3 ; i++) {
+				ret = d2153_reg_write(d2153, reg_num, 0x00);	
+				if(ret ==0) {
+					break;
+				}
+			}
+		}
 	}
 
 	return ret;

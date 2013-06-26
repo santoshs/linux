@@ -132,7 +132,6 @@ static const char __initdata d2153_battery_banner[] = \
 
 #define DISCHARGE_SLEEP_OFFSET              55    // 45
 #define LAST_VOL_UP_PERCENT                 75
-/*#define CONFIG_D2153_BATTERY_DEBUG*/
 
 /* Static Function Prototype */
 /* static void d2153_external_event_handler(int category, int event); */
@@ -170,7 +169,7 @@ static struct adc_cont_in_auto adc_cont_inven[D2153_ADC_CHANNEL_MAX - 1] = {
 		.adc_lsb_res = D2153_ADC_RES_AUTO1_REG,
 		.adc_lsb_mask = ADC_RES_MASK_MSB,
 	},
-	/*  TEMP_2 channel */
+	/* TEMP_2 channel */
 	[D2153_ADC_TEMPERATURE_2] = {
 		.adc_preset_val =  D2153_TEMP2_ISRC_EN_MASK,
 		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK),
@@ -1921,6 +1920,8 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 						pr_err("%s. Failed a battery supply instance\n", __func__);
 						goto err_adc_read;
 					}
+		
+					pr_info("%s. Battery PROP_STATUS = %d\n", __func__, value.intval);
 		
 					ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
 					if( value.intval == POWER_SUPPLY_STATUS_FULL) {

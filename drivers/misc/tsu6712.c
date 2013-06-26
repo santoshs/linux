@@ -199,6 +199,12 @@ static struct tsu6712_usbsw *local_usbsw;
 static enum cable_type_t set_cable_status;
 static struct wake_lock acc_wakelock;
 
+#if 0	//temp code to merger jbp
+#ifdef CONFIG_SAMSUNG_MHL
+#define CONFIG_VIDEO_MHL_V2
+#endif
+#endif
+
 #if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
 #define MHL_DEVICE 2
 extern u8 mhl_onoff_ex(bool onoff);
@@ -558,6 +564,37 @@ static struct tsu6712_platform_data tsu6712_pdata = {
 };
 #endif
 
+#if 0
+static void DisableTSU6712Interrupts(void)
+{
+	struct i2c_client *client = local_usbsw->client;
+	int ret;
+	u8 value;
+
+	tsu6712_read_reg(client, TSU6712_REG_CTRL,&value);
+	value |= 0x01;
+
+	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, value);
+
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+}
+
+static void EnableTSU6712Interrupts(void)
+{
+	struct i2c_client *client = local_usbsw->client;
+	int ret;
+	u8 value;
+
+	tsu6712_read_reg(client, TSU6712_REG_INT1, &value);
+	tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
+	value &= 0xFE;
+
+	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, value);
+	if (ret < 0)
+		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+}
+#endif
 
 void TSU6712_CheckAndHookAudioDock(int value, int type)
 {
@@ -709,6 +746,66 @@ struct device_attribute *attr,
 	return count;
 }
 
+#if 0
+static ssize_t tsu6712_show_usb_state(struct device *dev,
+struct device_attribute *attr,
+	char *buf)
+{
+	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
+	struct i2c_client *client = usbsw->client;
+	unsigned char device_type1, device_type2;
+
+	tsu6712_read_reg(client,TSU6712_REG_DEV_T1,&device_type1);
+	tsu6712_read_reg(client,TSU6712_REG_DEV_T2,&device_type2);
+
+	if (device_type1 & DEV_T1_USB_MASK || device_type2 & DEV_T2_USB_MASK)
+		return snprintf(buf, 22, "USB_STATE_CONFIGURED\n");
+
+	return snprintf(buf, 25, "USB_STATE_NOTCONFIGURED\n");
+}
+
+static ssize_t tsu6712_show_adc(struct device *dev,
+struct device_attribute *attr,
+	char *buf)
+{
+	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
+	struct i2c_client *client = usbsw->client;
+	u8 adc;
+
+	tsu6712_read_reg(client, TSU6712_REG_ADC,&adc);
+	if (adc < 0) {
+		dev_err(&client->dev,"%s: err at read adc %d\n", __func__, adc);
+		return snprintf(buf, 9, "UNKNOWN\n");
+	}
+
+	return snprintf(buf, 4, "%x\n", adc);
+}
+
+static ssize_t tsu6712_reset(struct device *dev,
+struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	struct tsu6712_usbsw *usbsw = dev_get_drvdata(dev);
+	struct i2c_client *client = usbsw->client;
+	int ret;
+
+	if (!strncmp(buf, "1", 1))
+	{
+		dev_info(&client->dev, "tsu6721 reset after delay 1000 msec.\n");
+		ret = tsu6712_write_reg(client, TSU6712_REG_RESET, 0x1);
+		if (ret < 0)
+			dev_err(&client->dev, "%s: err %d\n", __func__, ret);
+		msleep(1000);
+		tsu6712_reg_init(usbsw);
+		dev_info(&client->dev, "tsu6721_reset_control done!\n");
+	}
+	else {
+		dev_info(&client->dev,"tsu6721_reset_control, but not reset_value!\n");
+	}
+
+	return count;
+}
+#endif
 
 #ifdef USE_USB_UART_SWITCH
 static ssize_t tsu6712_show_UUS_state(struct device *dev,
@@ -1251,6 +1348,29 @@ static void tsu6712_detect_dev(struct tsu6712_usbsw *usbsw, u32 device_type, u8 
 				TSU6712_CheckAndHookAudioDock(1, TSU6712_ATTACHED_CAR_DOCK);
 				usbsw->attached_accy = ACC_CAR_DOCK;
 			}
+#if 0
+		}/* SmartDock */
+		else if (val2 & DEV_SMARTDOCK) {
+
+			usbsw->adc = (int)adc;
+			dev_info(&client->dev, "smart dock connect\n");
+
+			usbsw->mansw = SW_DHOST;
+			ret = tsu6712_write_reg(client,TSU6712_REG_MANSW1, SW_DHOST);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+
+			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
+			if (ret < 0)
+				dev_err(&client->dev,"%s: err %d\n", __func__, ret);
+			tsu6712_write_reg(client,TSU6712_REG_CTRL, ret & ~CON_MANUAL_SW);
+
+			if (pdata->smartdock_cb)
+				pdata->smartdock_cb(TSU6712_ATTACHED);
+#if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
+			mhl_onoff_ex(1);
+#endif
+#endif
 		} /* MHL */
 		else if(val3 & DEV_MHL)	{
 #if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
@@ -1338,6 +1458,21 @@ static void tsu6712_detect_dev(struct tsu6712_usbsw *usbsw, u32 device_type, u8 
 				usbsw->mhl_ret = 0;
 				usbsw->attached_accy = ACC_NONE;
 			}
+#endif
+#if 0
+		}/* Smart Dock */
+		else if (usbsw->adc == 0x10) {
+			dev_info(&client->dev, "smart dock disconnect\n");
+
+			tsu6712_read_reg(client,TSU6712_REG_CTRL,&ret);
+			tsu6712_write_reg(client,TSU6712_REG_CTRL,ret | CON_MANUAL_SW);
+
+			if (pdata->smartdock_cb)
+				pdata->smartdock_cb(TSU6712_DETACHED);
+			usbsw->adc = 0;
+#if defined(CONFIG_VIDEO_MHL_V1) || defined(CONFIG_VIDEO_MHL_V2)
+			mhl_onoff_ex(false);
+#endif
 #endif
 		}/*Audio dock*/
 		else if (usbsw->adc == ADC_AUDIO_DOCK) {

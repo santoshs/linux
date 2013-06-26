@@ -589,8 +589,7 @@ static int sh_mobile_i2c_xfer(struct i2c_adapter *adapter,
 			       pd->sr & (ICSR_TACK | SW_DONE),
 			       1 * HZ);
 	if (!k) {
-		err = -ETIMEDOUT;
-		dev_err(pd->dev, "Transfer request timed out\n");
+		err = -EAGAIN;
 		goto quit;
 	}
 	retry_count = 1000;
@@ -620,6 +619,8 @@ again:
 
  quit:
 	deactivate_ch(pd);
+	if ((-EAGAIN) == err)
+		dev_err(pd->dev, "Transfer request timed out\n");
 
 	if (!err)
 		err = num;

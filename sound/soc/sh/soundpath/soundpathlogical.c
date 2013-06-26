@@ -3778,7 +3778,7 @@ static void sndp_work_fm_radio_start(struct sndp_work_info *work)
 			SNDP_VALUE_INIT, SNDP_VALUE_INIT);
 
 	if (!((E_FM_PLAY & g_sndp_playrec_flg) &&
-		  (E_FM_CAP  & g_sndp_playrec_flg))) {
+	      (E_FM_CAP  & g_sndp_playrec_flg))) {
 
 		if (SNDP_IS_FSI_MASTER_DEVICE(dev)) {
 			/* FSI master */
