@@ -40,7 +40,6 @@
 #include <linux/backing-dev.h>
 #include <linux/gfp.h>
 #include <linux/version.h>
-#include <linux/list_sort.h>
 
 #include <mach/memory-r8a7373.h>
 
@@ -82,104 +81,6 @@ static struct vm_operations_struct	g_rtds_memory_vm_ops = {
 
 /**** prototype ****/
 static unsigned long rtds_memory_tablewalk(unsigned long virt_addr);
-
-
-int display_process_list( void )
-{
-#if defined(DEBUG)
-	int i=0;
-
-	rtds_pid_table*	pid_table = NULL;
-	
-	list_for_each_entry(pid_table, &g_rtds_process_list, head) {
-		pr_debug("nus:[%2d] %8d : %32s : %9d\n",
-				++i, pid_table->tgid, pid_table->task_info->comm, (pid_table->size)/1024 );
-	}
-#endif
-	return 0;
-}
-
-#if defined(RTDS_PROCESS_LIST_SORT)
-static int _sort_process_list(void *priv, struct list_head *a, struct list_head *b)
-{
-	rtds_pid_table *table1 = container_of(a, rtds_pid_table, head);
-	rtds_pid_table *table2 = container_of(b, rtds_pid_table, head);
-
-	return (table1->size <= table2->size);
-}
-#endif
-
-
-static int add_process_list( struct task_struct* task, unsigned int mem_size, unsigned long rt_cache )
-{
-	int found = 0;
-	rtds_pid_table*	pid_table = NULL;
-	
-	list_for_each_entry(pid_table, &g_rtds_process_list, head) {
-		if (task->tgid == pid_table->tgid) {
-			pid_table->size += mem_size;
-			if (RT_MEMORY_RTMAP_WBNC == rt_cache)
-				pid_table->size += mem_size;
-			found = 1;
-			break;
-		}
-	}
-	if( !found )	{
-		pid_table = kzalloc(sizeof(rtds_pid_table), GFP_KERNEL);
-		if (NULL == pid_table) {
-			MSG_ERROR("nus:[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
-			return -1;
-		}
-		pid_table->tgid = task->tgid;
-		pid_table->size += mem_size;
-		if (RT_MEMORY_RTMAP_WBNC == rt_cache)
-			pid_table->size += mem_size;
-		pid_table->task_info = task;
-		list_add_tail(&(pid_table->head), &g_rtds_process_list);
-	}
-
-#if defined(RTDS_PROCESS_LIST_SORT)
-	list_sort(NULL, &g_rtds_process_list, _sort_process_list);
-	display_process_list();
-#endif
-	
-	return 0;
-}
-
-static int del_process_list( struct task_struct* task, unsigned int mem_size, unsigned long rt_cache )
-{
-	int found = 0;
-	rtds_pid_table*	pid_table = NULL;
-	
-	list_for_each_entry(pid_table, &g_rtds_process_list, head) {
-		if (task->tgid == pid_table->tgid) {
-			pid_table->size -= mem_size;
-			if (RT_MEMORY_RTMAP_WBNC == rt_cache)
-				pid_table->size -= mem_size;
-			found = 1;
-			break;
-		}
-	}
-
-	if( !found ) {
-		pr_debug("nus: not found. tgid=%d, %s, mem_size=%d\n", task->tgid, task->comm, mem_size );
-		return -1;
-	}
-	else {
-		if( pid_table->size == 0 )
-		{
-			list_del( &(pid_table->head) );
-			kfree( pid_table );
-		}
-	}
-
-#if defined(RTDS_PROCESS_LIST_SORT)
-	list_sort(NULL, &g_rtds_process_list, _sort_process_list);
-	display_process_list();
-#endif
-
-	return 0;
-}
 
 /*****************************************************************************
  * Function   : rtds_memory_drv_init_mpro
@@ -462,7 +363,6 @@ void rtds_memory_check_shared_apmem(
 			RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 			list_add_tail(&(mem_table->list_head),
 					&g_rtds_memory_list_shared_mem);
-			add_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 			up(&g_rtds_memory_shared_mem);
 		}
 
@@ -524,7 +424,6 @@ void rtds_memory_check_shared_apmem(
 		}
 
 		list_del(&mem_table->list_head);
-		del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 		up(&g_rtds_memory_shared_mem);
 
 		MSG_LOW("[RTDSK]   |Delete process (RT trigger)\n");
@@ -966,7 +865,6 @@ map:
 					&g_rtds_memory_shared_mem);
 				list_add_tail(&(mem_table->list_head),
 					&g_rtds_memory_list_shared_mem);
-				add_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 				up(&g_rtds_memory_shared_mem);
 			}
 		} else {
@@ -988,7 +886,6 @@ map:
 
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 		list_del(&mem_table->list_head);
-		del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 		up(&g_rtds_memory_shared_mem);
 
 		ret = rtds_memory_send_close_shared_apmem(mem_table->apmem_id);
@@ -1061,7 +958,6 @@ out:
 					&g_rtds_memory_shared_mem);
 				list_add_tail(&(mem_table->list_head),
 					&g_rtds_memory_list_shared_mem);
-				add_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 				up(&g_rtds_memory_shared_mem);
 			}
 		} else {
@@ -1083,7 +979,6 @@ out:
 
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 		list_del(&mem_table->list_head);
-		del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 		up(&g_rtds_memory_shared_mem);
 
 		ret = rtds_memory_send_close_shared_apmem(mem_table->apmem_id);
@@ -2786,9 +2681,6 @@ int rtds_memory_map_mpro(
 
 	/* Add list of shared_mem */
 	list_add_tail(&(mem_table->list_head), &g_rtds_memory_list_shared_mem);
-
-	add_process_list( current, mem_size, mem_table->rt_cache );
-	
 	up(&g_rtds_memory_shared_mem);
 
 	/* Add mpro list */
@@ -2802,7 +2694,6 @@ int rtds_memory_map_mpro(
 	if (SMAP_OK != ret_code) {
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 		list_del(&(mem_table->list_head));
-		del_process_list( current, mem_size, mem_table->rt_cache );
 		kfree(mem_table);
 		up(&g_rtds_memory_shared_mem);
 	}
@@ -2844,7 +2735,6 @@ int rtds_memory_unmap_mpro(
 			(mem_size == mem_table->memory_size)) {
 			ret_code = SMAP_OK;
 			list_del(&(mem_table->list_head));
-			del_process_list( mem_table->task_info, mem_size, mem_table->rt_cache );
 			break;
 		}
 	}
@@ -2927,7 +2817,6 @@ int rtds_memory_map_pnc_mpro(
 
 	/* Add list of shared_mem */
 	list_add_tail(&(mem_table->list_head), &g_rtds_memory_list_shared_mem);
-	add_process_list( current, map_size, mem_table->rt_cache );
 	up(&g_rtds_memory_shared_mem);
 
 	/* Add mpro list */
@@ -2939,7 +2828,6 @@ int rtds_memory_map_pnc_mpro(
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 		list_del(&(mem_table->list_head));
 		ret_code = mem_table->error_code;
-		del_process_list( current, map_size, mem_table->rt_cache );
 		kfree(mem_table);
 		up(&g_rtds_memory_shared_mem);
 		MSG_MED("[RTDSK]OUT|[%s] ret_code = %d\n", __func__, ret_code);
@@ -3016,7 +2904,6 @@ int rtds_memory_unmap_pnc_mpro(
 					mem_table = entry_check_mem_table;
 					ret_code = SMAP_OK;
 					list_del(&(mem_table->list_head));
-					del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 				} else {
 					MSG_LOW("[RTDSK]   |[%s][%d] Not match.\n", __func__, __LINE__);
 					MSG_LOW("[RTDSK]   |flags[0x%08X]\n", (u32)entry_check_mem_table->task_info->flags);
@@ -3114,7 +3001,6 @@ int rtds_memory_map_pnc_nma_mpro(
 
 	/* Add list of shared_mem */
 	list_add_tail(&(mem_table->list_head), &g_rtds_memory_list_shared_mem);
-	add_process_list( current, map_size, mem_table->rt_cache );
 	up(&g_rtds_memory_shared_mem);
 
 	/* Add mpro list */
@@ -3128,7 +3014,6 @@ int rtds_memory_map_pnc_nma_mpro(
 	if (SMAP_OK != ret_code) {
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 		list_del(&(mem_table->list_head));
-		del_process_list( current, map_size, mem_table->rt_cache );
 		kfree(mem_table);
 		up(&g_rtds_memory_shared_mem);
 	}
@@ -3546,7 +3431,6 @@ void rtds_memory_drv_close_vma(
 				list_add_tail(&(mem_table->list_head_leak),
 					&g_rtds_memory_list_leak_mpro);
 				list_del(&mem_table->list_head);
-				del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 				temp_p = mem_table;
 				break;
 			}
@@ -4112,7 +3996,6 @@ int rtds_memory_share_kernel_shared_apmem(
 
 	RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 	list_add_tail(&(mem_table->list_head), &g_rtds_memory_list_shared_mem);
-	add_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 	up(&g_rtds_memory_shared_mem);
 
 	MSG_MED("[RTDSK]OUT|[%s] ret = %d\n", __func__, ret);
@@ -4271,7 +4154,7 @@ int rtds_memory_share_shared_apmem(
 	map_data->mem_table		= mem_table;
 
 	list_add_tail(&(mem_table->list_head), &g_rtds_memory_list_shared_mem);
-	add_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
+
 	up(&g_rtds_memory_shared_mem);
 
 	/* Get App cache kind */
@@ -4291,7 +4174,6 @@ int rtds_memory_share_shared_apmem(
 	if (NULL == tmp_entry_p) {
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 		list_del(&(mem_table->list_head));
-		del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 		kfree(mem_table);
 		up(&g_rtds_memory_shared_mem);
 		ret = RTDS_MEM_ERR_MAPPING;
@@ -4305,7 +4187,6 @@ int rtds_memory_share_shared_apmem(
 	if (SMAP_OK != ret) {
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 		list_del(&(mem_table->list_head));
-		del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 		kfree(mem_table);
 		up(&g_rtds_memory_shared_mem);
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
@@ -4320,7 +4201,6 @@ int rtds_memory_share_shared_apmem(
 					mem_table->memory_size);
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 		list_del(&(mem_table->list_head));
-		del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 		kfree(mem_table);
 		up(&g_rtds_memory_shared_mem);
 		ret = SMAP_MEMORY;
@@ -4336,7 +4216,6 @@ int rtds_memory_share_shared_apmem(
 					mem_table->memory_size);
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
 		list_del(&(mem_table->list_head));
-		del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 		kfree(mem_table);
 		up(&g_rtds_memory_shared_mem);
 		ret = SMAP_MEMORY;
@@ -5260,7 +5139,6 @@ void rtds_memory_leak_check_mpro(
 			list_add_tail(&(mem_table->list_head_leak),
 				&g_rtds_memory_list_leak_mpro);
 			list_del(&mem_table->list_head);
-			del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 		}
 
 	}
@@ -6016,7 +5894,6 @@ int rtds_memory_map_mpro_ma(
 
 	/* Add list of shared_mem */
 	list_add_tail(&(mem_table->list_head), &g_rtds_memory_list_shared_mem);
-	add_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 	up(&g_rtds_memory_shared_mem);
 
 	/* Add mpro list */
@@ -6027,7 +5904,6 @@ int rtds_memory_map_mpro_ma(
 		MSG_ERROR("[RTDSK]ERR|[%s][%d]\n", __func__, __LINE__);
 		ret_code = mem_table->error_code;
 		RTDS_MEM_DOWN_TIMEOUT(&g_rtds_memory_shared_mem);
-		del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 		list_del(&(mem_table->list_head));
 		kfree(mem_table);
 		up(&g_rtds_memory_shared_mem);
@@ -6082,7 +5958,6 @@ int rtds_memory_unmap_mpro_ma(
 			(map_size	== mem_table->memory_size)) {
 			ret_code = SMAP_OK;
 			list_del(&(mem_table->list_head));
-			del_process_list( mem_table->task_info, mem_table->memory_size, mem_table->rt_cache );
 			break;
 		}
 	}
