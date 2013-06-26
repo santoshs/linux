@@ -451,7 +451,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_BLACK,           NULL,      0                },
 
 	{ MIPI_DSI_DCS_SHORT_WRITE, dispon,    sizeof(dispon)   },
-	{ MIPI_DSI_DELAY,           NULL,      10              },		
+	{ MIPI_DSI_DELAY,           NULL,      10              },
 
 	{ MIPI_DSI_END,             NULL,      0                }
 };
@@ -1635,9 +1635,9 @@ retry:
 			printk(KERN_DEBUG "read_data(RDID2) = %02X\n",
 								read_data[2]);
 		}
-		
+
 		retry_count_dsi--;
-		
+
 		if (retry_count_dsi == 0) {
 			printk(KERN_DEBUG "retry_count=%d, Diff LCD ID or DSI read problem\n",
 							retry_count_dsi);
