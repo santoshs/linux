@@ -29,6 +29,8 @@
 #include <mach/r8a7373.h>
 #include <mach/memory-r8a7373.h>
 
+#include <linux/kmsg_dump.h>
+
 /* CPG_PLL2CR */
 #define PLL2CE_XOE	0x1
 
@@ -68,6 +70,7 @@
 
 static char dummy_access_for_sync;
 static char *bootflag_address;
+static unsigned int emergency_restart_in_progress;
 
 /*
  *  Stop peripheral devices
@@ -76,18 +79,16 @@ void shmobile_pm_stop_peripheral_devices(void)
 {
 	struct regulator *regulator;
 
-#if defined(CONFIG_MACH_U2EVM)
+	if (!emergency_restart_in_progress) {
+		POWEROFF_PRINTK("%s\n", __func__);
+		POWEROFF_PRINTK("Turn off SD Host Interface\n");
+		regulator = regulator_get(NULL, "vio_sd");
+		if (!IS_ERR(regulator)) {
+			regulator_force_disable(regulator);
+			regulator_put(regulator);
+		}
+		POWEROFF_PRINTK("Turn off Sensors, Display and Touch module\n");
 	}
-#elif defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
-	POWEROFF_PRINTK("%s\n", __func__);
-	POWEROFF_PRINTK("Turn off SD Host Interface\n");
-	regulator = regulator_get(NULL, "vio_sd");
-	if (!IS_ERR(regulator)) {
-		regulator_force_disable(regulator);
-		regulator_put(regulator);
-	}
-	POWEROFF_PRINTK("Turn off Sensors, Display and Touch module\n");
-#endif
 }
 
 /*
@@ -226,11 +227,39 @@ static void shmobile_pm_poweroff(void)
 		;
 }
 
+static void poweroff_kmsg_dump_handler(struct kmsg_dumper *dumper,
+				      enum kmsg_dump_reason reason,
+				      const char *s1, unsigned long l1,
+				      const char *s2, unsigned long l2)
+{
+	POWEROFF_PRINTK("%s dump reason = %d\n", __func__, reason);
+	switch (reason) {
+	case KMSG_DUMP_PANIC:
+	case KMSG_DUMP_OOPS:
+	case KMSG_DUMP_EMERG:
+		emergency_restart_in_progress = 1;
+		break;
+	case KMSG_DUMP_RESTART:
+	case KMSG_DUMP_HALT:
+	case KMSG_DUMP_POWEROFF:
+		/* not interested these */
+		break;
+	default:
+		/* not interested this */
+		break;
+	}
+}
+
+static struct kmsg_dumper kmsg_dump_block = {
+	.dump = poweroff_kmsg_dump_handler,
+};
+
 /*
  * regist pm_power_off
  */
 static int __init shmobile_init_poweroff(void)
 {
+	int ret;
 	bootflag_address = NULL;
 
 	POWEROFF_PRINTK("%s\n", __func__);
@@ -242,6 +271,11 @@ static int __init shmobile_init_poweroff(void)
 
 	bootflag_address = (char *)ioremap_nocache(
 		SDRAM_NON_VOLATILE_FLAG_AREA_START_ADDR, NVM_BOOTFLAG_SIZE);
+
+	ret = kmsg_dump_register(&kmsg_dump_block);
+	if (ret) {
+		printk(KERN_ERR "%s kmsg_dump_register: failed %d\n", __func__,	ret);
+	}
 
 	return 0;
 }
