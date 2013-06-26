@@ -206,8 +206,8 @@ int camera_init(void)
 	gpio_request(GPIO_PORT20, NULL);
 	gpio_direction_output(GPIO_PORT20, 0);	/* CAM0_RST_N */
 	/* Gardalte, Logan, lt02lte */
-		gpio_request(GPIO_PORT45, NULL);
-		gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
+	gpio_request(GPIO_PORT45, NULL);
+	gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
 
 	pll1_div2_clk = clk_get(NULL, "pll1_div2_clk");
 	if (IS_ERR(pll1_div2_clk))
@@ -493,12 +493,12 @@ int main_cam_led(int light, int mode)
 			MIC2871_write(1, 0);
 
 			/* Noneed to do this for torch mode */
-		/* enable */
-		gpio_set_value(CAM_FLASH_FLEN, 1);
+			/* enable */
+			gpio_set_value(CAM_FLASH_FLEN, 1);
 #else	/* Following is hte new case using registers only */
-		/* write 100%(0) to FEN/FCUR(1) */
-		MIC2871_write(1, 16);
-#endif		
+			/* write 100%(0) to FEN/FCUR(1) */
+			MIC2871_write(1, 16);
+#endif
 		}
 
 		spin_unlock_irqrestore(&lock, flags);
@@ -950,21 +950,21 @@ int SR352_power(struct device *dev, int power_on)
 			}
 			regulator_set_voltage(regulator_vt, 1200000, 1200000);
 		} else {
-		/* CAM_CORE_1_1V8 (VT)	 Get */
+			/* CAM_CORE_1_1V8 (VT) Get */
 			regulator_vt = regulator_get(NULL, "vt_cam");
 			if (IS_ERR(regulator_vt)) {
-		   dev_err(dev,
+				dev_err(dev,
 					"regulator_get(vt_cam) failed\n");
-		   return -1;
-		}
+				return -1;
+			}
 			regulator_set_voltage(regulator_vt, 1800000, 1800000);
 			/* CAM_af_1V2 (MAIN)  Get */
 			regulator_af = regulator_get(NULL, "cam_af");
 			if (IS_ERR(regulator_af)) {
-			dev_err(dev,
+				dev_err(dev,
 					"regulator_get(cam_af) failed\n");
-			return -1;
-		}
+				return -1;
+			}
 			regulator_set_voltage(regulator_af, 1200000, 1200000);
 		}
 		dev_err(dev, "regulator_enable s\n");
@@ -973,12 +973,12 @@ int SR352_power(struct device *dev, int power_on)
 		/* CAM_AVDD_2V8  enable */
 		regulator_enable(regulator_a);
 		if (BOARD_REV_0_0 == u2_board_rev) {
-		/* CAM_CORE_1_1V8 (VT)	enable */
+			/* CAM_CORE_1_1V8 (VT)	enable */
 			regulator_enable(regulator_vt);
 		} else {
-		/* CAM_CORE_1_1V8 (VT)	enable */
+			/* CAM_CORE_1_1V8 (VT)	enable */
 			regulator_enable(regulator_vt);
-		/* CAM_CORE_0_1V2 (MAIN)  enable */
+			/* CAM_CORE_0_1V2 (MAIN)  enable */
 			regulator_enable(regulator_af);
 		}
 		dev_err(dev, "regulator_enable e\n");
@@ -1040,21 +1040,21 @@ int SR352_power(struct device *dev, int power_on)
 				return -1;
 			}
 		} else {
-		/* CAM_CORE_0_1V2 (MAIN)  off */
+			/* CAM_CORE_0_1V2 (MAIN)  off */
 			regulator_af = regulator_get(NULL, "cam_af");
 			if (IS_ERR(regulator_af)) {
-			dev_err(dev,
+				dev_err(dev,
 					"regulator_get(cam_af) failed\n");
-			return -1;
-		}
+				return -1;
+			}
 
-		/* CAM_CORE_1_1V8 (VT)	off */
+			/* CAM_CORE_1_1V8 (VT)	off */
 			regulator_vt = regulator_get(NULL, "vt_cam");
 			if (IS_ERR(regulator_vt)) {
-			dev_err(dev,
+				dev_err(dev,
 					"regulator_get(vt_cam) failed\n");
-			return -1;
-		}
+				return -1;
+			}
 		}
 
 		/* CAM_AVDD_2V8  Off */
@@ -1078,9 +1078,9 @@ int SR352_power(struct device *dev, int power_on)
 			/* CAM_CORE_1_1V8 (VT) disable */
 			regulator_disable(regulator_vt);
 		} else {
-		/* CAM_CORE_0_1V2 (MAIN) disable */
+			/* CAM_CORE_0_1V2 (MAIN) disable */
 			regulator_disable(regulator_af);
-		/* CAM_CORE_1_1V8 (VT) disable */
+			/* CAM_CORE_1_1V8 (VT) disable */
 			regulator_disable(regulator_vt);
 		}
 		/* CAM_AVDD_2V8  disable */
@@ -1163,7 +1163,7 @@ int SR130PC20_power(struct device *dev, int power_on)
 		if (IS_ERR(regulator_io))
 			return -1;
 		regulator_set_voltage(regulator_io, 1800000, 1800000);
-		
+
 		regulator_enable(regulator_io);
 		regulator_put(regulator_io);
 		mdelay(1);
@@ -1173,12 +1173,12 @@ int SR130PC20_power(struct device *dev, int power_on)
 		if (IS_ERR(regulator_a))
 			return -1;
 		regulator_set_voltage(regulator_a, 2800000, 2800000);
-		
+
 		regulator_enable(regulator_a);
 		regulator_put(regulator_a);
 		mdelay(1);
 
-		/* CAM_CORE_1_1V8 (VT)	 On */
+		/* CAM_CORE_1_1V8 (VT) On */
 		regulator_vt = regulator_get(NULL, "vt_cam");
 		if (IS_ERR(regulator_vt))
 			return -1;
@@ -1251,7 +1251,7 @@ int SR130PC20_power(struct device *dev, int power_on)
 		regulator_put(regulator_af);
 		mdelay(1);
 
-		/* CAM_CORE_1_1V8 (VT)	 Off */
+		/* CAM_CORE_1_1V8 (VT) Off */
 		regulator_vt = regulator_get(NULL, "vt_cam");
 		if (IS_ERR(regulator_vt))
 			return -1;
