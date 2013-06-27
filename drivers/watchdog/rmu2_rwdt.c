@@ -38,6 +38,7 @@ static unsigned long cntclear_time_wa_zq;
 static int stop_func_flg;
 static int wa_zq_flg;
 static bool running;
+static bool startup;
 
 /* SBSC register address */
 static void __iomem *sbsc_sdmra_28200;
@@ -159,8 +160,11 @@ int rmu2_rwdt_cntclear(void)
 	}
 	base = IO_ADDRESS(r->start);
 
-	if (__raw_readw(base + RWTCNT_OFFSET) < RESCNT_LOW_VAL)
+	if (!startup) {
+		u16 cnt = __raw_readw(base + RWTCNT_OFFSET);
+		if (cnt >= RESCNT_INIT_VAL && cnt < RESCNT_LOW_VAL)
 		return 0;
+	}
 
 	/* check RWTCSRA wrflg */
 	reg8 = __raw_readb(base + RWTCSRA);
@@ -444,6 +448,7 @@ static int rmu2_rwdt_start(void)
 	__raw_writel(reg32, base + RWTCSRB);
 
 	running = true;
+	startup = true;
 
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();
@@ -468,6 +473,8 @@ static int rmu2_rwdt_start(void)
 			return ret;
 		}
 	}
+
+	startup = false;
 
 	/* start soft timer */
 	queue_delayed_work(wq, dwork, cntclear_time);
