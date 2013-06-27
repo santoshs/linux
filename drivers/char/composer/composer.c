@@ -1022,8 +1022,8 @@ static void handle_list_blend_request(int mask)
 		goto skip_lcd_blend;
 	}
 
-		printk_dbg2(3, "spinlock\n");
-		spin_lock(&irqlock_list);
+	printk_dbg2(3, "spinlock\n");
+	spin_lock(&irqlock_list);
 
 	rh = NULL;
 	if (down_trylock(&sem_framebuf_useable)) {
@@ -1040,24 +1040,24 @@ static void handle_list_blend_request(int mask)
 			/* no blend request. release semaphore */
 			up(&sem_framebuf_useable);
 		}
-		}
-		spin_unlock(&irqlock_list);
+	}
+	spin_unlock(&irqlock_list);
 
-		if (rh) {
-			if ((rh->refmask_disp & REFFLAG_DISPLAY_LCD) == 0)
-				printk_err("blend request list invalid.\n");
+	if (rh) {
+		if ((rh->refmask_disp & REFFLAG_DISPLAY_LCD) == 0)
+			printk_err("blend request list invalid.\n");
 
-			/* request to start blending */
-			printk_dbg2(3, "schedule to blend for lcd.\n");
+		/* request to start blending */
+		printk_dbg2(3, "schedule to blend for lcd.\n");
 
 #if FEATURE_LCD_WORKQUEUE
-			/* queue tasks */
-			localwork_flush(workqueue, &rh->rh_wqtask);
+		/* queue tasks */
+		localwork_flush(workqueue, &rh->rh_wqtask);
 #endif
-			if (!localwork_queue(workqueue, &rh->rh_wqtask)) {
-				/* fatal error */
-				printk_err("drop blend request.\n");
-			}
+		if (!localwork_queue(workqueue, &rh->rh_wqtask)) {
+			/* fatal error */
+			printk_err("drop blend request.\n");
+		}
 	}
 skip_lcd_blend:;
 
@@ -1070,8 +1070,8 @@ skip_lcd_blend:;
 		goto skip_hdmi_blend;
 	}
 
-		printk_dbg2(3, "spinlock\n");
-		spin_lock(&irqlock_list);
+	printk_dbg2(3, "spinlock\n");
+	spin_lock(&irqlock_list);
 
 	rh = NULL;
 	if (down_trylock(&sem_hdmi_framebuf_useable)) {
@@ -1088,26 +1088,26 @@ skip_lcd_blend:;
 			/* no blend request. release semaphore */
 			up(&sem_hdmi_framebuf_useable);
 		}
-		}
-		spin_unlock(&irqlock_list);
+	}
+	spin_unlock(&irqlock_list);
 
-		if (rh) {
-			if ((rh->refmask_disp & REFFLAG_DISPLAY_HDMI) == 0)
-				printk_err("blend request list invalid.\n");
+	if (rh) {
+		if ((rh->refmask_disp & REFFLAG_DISPLAY_HDMI) == 0)
+			printk_err("blend request list invalid.\n");
 
-			/* request to start blending */
-			printk_dbg2(3, "schedule to blend for hdmi.\n");
+		/* request to start blending */
+		printk_dbg2(3, "schedule to blend for hdmi.\n");
 
-			/* queue tasks */
+		/* queue tasks */
 #if FEATURE_HDMI_WORKQUEUE
-			localwork_flush(workqueue,
-				&rh->rh_wqtask_hdmi_blend);
+		localwork_flush(workqueue,
+			&rh->rh_wqtask_hdmi_blend);
 #endif
-			if (!localwork_queue(workqueue,
-				&rh->rh_wqtask_hdmi_blend)) {
-				/* fatal error */
-				printk_err("drop blend request.\n");
-			}
+		if (!localwork_queue(workqueue,
+			&rh->rh_wqtask_hdmi_blend)) {
+			/* fatal error */
+			printk_err("drop blend request.\n");
+		}
 	}
 skip_hdmi_blend:;
 #endif
