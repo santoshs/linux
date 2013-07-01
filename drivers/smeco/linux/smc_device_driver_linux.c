@@ -861,13 +861,17 @@ DROP_PACKET:
         }
         else if( drop_packet == 7 )
         {
+#if 0
+            /* Take out the warning trace because that might cause a rcu_preepmt stall when printing all the time... Testing this. */
+#else
             SMC_TRACE_PRINTF_WARNING("SMC TX Packet 0x%08X, len %d dropped (total %ld): no shared memory available", (uint32_t)skb->data, skb->len, device->stats.tx_dropped);
+#endif
         }
         else if( drop_packet == 8 )
         {
             SMC_TRACE_PRINTF_WARNING("SMC TX Packet 0x%08X, len %d dropped (total %ld): no SMC channel found", (uint32_t)skb->data, skb->len, device->stats.tx_dropped);
         }
-        else if( drop_packet == 8 )
+        else if( drop_packet == 8 /* Should this be 9 ??? */ )
         {
             SMC_TRACE_PRINTF_WARNING("SMC TX Packet 0x%08X, len %d dropped (total %ld): no SMC instance found", (uint32_t)skb->data, skb->len, device->stats.tx_dropped);
         }

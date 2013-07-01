@@ -242,7 +242,7 @@ Description :  File created
      */
 
   #define SMC_BUFFER_MESSAGE_OUT_OF_FIFO_ITEMS                  /* If defined, the message is buffered when FIFO is full */
-  #define SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM                     /* If defined, the message is buffered when out of MDB memory */
+  /* #define SMC_BUFFER_MESSAGE_OUT_OF_MDB_MEM */                    /* If defined, the message is buffered when out of MDB memory */
 
   #define SMC_SUPPORT_SKB_FRAGMENT_UL                           /* If defined, the SKB fragments are supported in uplink. NOTE: enable also the SMC_DMA_ENABLED with this for highmem config */
   #define SMC_DMA_ENABLED                                       /* If defined, the DMA initialization is enabled, this is required by the SKB fragment handling */
