@@ -1204,6 +1204,20 @@ static struct platform_device *r8a7373_early_devices[] __initdata = {
 	&ramdump_device,
 #endif
 };
+static struct resource mtd_res[] = {
+                [0] = {
+                                .name   = "mtd_trace",
+                                .start     = SDRAM_STM_TRACE_BUFFER_START_ADDR,
+                                .end       = SDRAM_STM_TRACE_BUFFER_END_ADDR,
+                                .flags     = IORESOURCE_MEM,
+                },
+};
+static struct platform_device mtd_device = {
+                .name = "mtd_trace",
+                .num_resources               = ARRAY_SIZE(mtd_res),
+                .resource             = mtd_res,
+};
+
 
 /* HS-- ES20 Specific late devices for Dialog */
 static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
@@ -1229,6 +1243,7 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&hwsem1_device,
 	&hwsem2_device,
 	&sgx_device,
+	&mtd_device,
 };
 
 void __init r8a7373_add_standard_devices(void)
