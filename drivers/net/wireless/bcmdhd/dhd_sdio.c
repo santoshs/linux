@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_sdio.c 398870 2013-04-26 09:42:18Z $
+ * $Id: dhd_sdio.c 408730 2013-06-20 08:54:49Z $
  */
 
 #include <typedefs.h>
@@ -1578,8 +1578,8 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 	int ret;
 	osl_t *osh;
 	uint8 *frame;
-	uint16 len, pad1 = 0;
-	uint32 swheader, act_len = 0;
+	uint16 len, pad1 = 0, act_len = 0;
+	uint32 swheader;
 	uint retries = 0;
 	uint32 real_pad = 0;
 	bcmsdh_info_t *sdh;
@@ -1782,8 +1782,11 @@ dhdsdio_txpkt(dhd_bus_t *bus, void *pkt, uint chan, bool free_pkt, bool queue_on
 			DHD_ERROR(("padding error size %d\n", real_pad));
 			ret = BCME_NOMEM;
 			goto done;
-		} else
+		}
+#ifndef BCMLXSDMMC
+		else
 			PKTSETLEN(osh, pkt, act_len);
+#endif
 	}
 #ifdef BCMLXSDMMC
 	PKTSETLEN(osh, pkt, len);
@@ -1864,7 +1867,7 @@ done:
 			if (act_len > 0)
 				PKTSETLEN(osh, pkt, act_len);
 #endif /* BCMLXSDMMC */
-	PKTPULL(osh, pkt, SDPCM_HDRLEN + pad1);
+			PKTPULL(osh, pkt, SDPCM_HDRLEN + pad1);
 		}
 #ifdef PROP_TXSTATUS
 	if (bus->dhd->wlfc_state) {
@@ -2364,7 +2367,7 @@ done:
 	else
 		bus->dhd->tx_ctlpkts++;
 
-	if (bus->dhd->txcnt_timeout >= MAX_CNTL_TIMEOUT)
+	if (bus->dhd->txcnt_timeout >= MAX_CNTL_TX_TIMEOUT)
 		return -ETIMEDOUT;
 
 	return ret ? -EIO : 0;
@@ -2433,7 +2436,7 @@ dhd_bus_rxctl(struct dhd_bus *bus, uchar *msg, uint msglen)
 	else
 		bus->dhd->rx_ctlerrs++;
 
-	if (bus->dhd->rxcnt_timeout >= MAX_CNTL_TIMEOUT)
+	if (bus->dhd->rxcnt_timeout >= MAX_CNTL_RX_TIMEOUT)
 		return -ETIMEDOUT;
 
 	if (bus->dhd->dongle_trap_occured)
