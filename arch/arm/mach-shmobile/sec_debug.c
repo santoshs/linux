@@ -665,10 +665,8 @@ static void dump_cpu_stat(void);
 static int sec_debug_panic_handler(struct notifier_block *nb,
 				   unsigned long l, void *buf)
 {
-#if 0
 	if (!sec_debug_level.en.kernel_fault)
 		return -1;
-#endif
 
 	local_irq_disable();
 
