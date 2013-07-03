@@ -37,8 +37,8 @@
  *      0x1604   MPACCTL    MPACCTL    MPACCTL    MPACCTL    MPACCTL
  *
  *      0x1820   SMGPIOxxx  SMGPIOxxx  SMGPIOxxx  SMGPIOxxx  SMGPIOxxx
- *      0x1830   SMDBGxxx   SMDBGxxx   -          SMDBGxxx   SMGPSRC0(*)
- *      0x1840   SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMGPSRC1(*)
+ *      0x1830   SMDBGxxx   SMDBGxxx   -          SMDBGxxx   SMGP0xxx(*)
+ *      0x1840   SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMGP1xxx(*)
  *      0x1850   SMCPGAxxx  SMCPGxxx   SMCPGxxx   SMCPGxxx   SMCPGxxx
  *      0x1860   SMCPGBxxx  -          -          -          -
  *      0x1870   SMSYSCxxx  SMSYSCxxx  SMSYSCxxx  SMSYSCxxx  SMSYSCxxx
@@ -86,6 +86,12 @@ static int hwsem_trylock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
 	u32 smsrc;
+
+	/*
+	 * Taking a HW lock with IRQs enabled could mean that we hold it
+	 * long enough to break real-time parts of the system.
+	 */
+	WARN_ON_ONCE(!irqs_disabled());
 
 	/*Check if the semaphore is open*/
 	smsrc = __raw_readl(p->sm_base + SMxxSRC) >> 24;
