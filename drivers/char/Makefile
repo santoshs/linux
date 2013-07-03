@@ -73,4 +73,5 @@ js-rtc-y = rtc.o
 obj-$(CONFIG_TTY_STM)		+= stm_tty.o
 
 obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
+obj-$(CONFIG_MTD_TRACE)		+= mtd_trace.o
 subdir-ccflags-y += -Werror
