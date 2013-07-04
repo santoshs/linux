@@ -72,8 +72,8 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
             .signal_type_slave_from_master = 0x03000001,     /* SMC_SIGNAL_TYPE_INTGEN */
 
             .priority                      = SMC_CHANNEL_PRIORITY_HIGHEST,
-            .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_BUFFER_MDB_OUT+SMC_COPY_SCHEME_ASSERT_MDB_OUT+SMC_COPY_SCHEME_ASSERT_FIFO_FULL),     /* No copy in Kernel receive --> directly to the RX handler */
-            .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE+SMC_COPY_SCHEME_BUFFER_MDB_OUT+SMC_COPY_SCHEME_ASSERT_MDB_OUT+SMC_COPY_SCHEME_ASSERT_FIFO_FULL),
+            .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),     /* No copy in Kernel receive --> directly to the RX handler */
+            .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
 
             .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
             .fifo_full_check_timeout_usec_slave  = 500,
@@ -117,8 +117,8 @@ static smc_instance_conf_channel_t smc_instance_conf_l2mux_channels[SMC_CONF_CHA
              .signal_type_slave_from_master = 0x03000001,     /* SMC_SIGNAL_TYPE_INTGEN */
 
              .priority                      = SMC_CHANNEL_PRIORITY_DEFAULT,
-             .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_BUFFER_MDB_OUT+SMC_COPY_SCHEME_ASSERT_MDB_OUT+SMC_COPY_SCHEME_ASSERT_FIFO_FULL),        /* No copy in Kernel receive --> directly to the RX handler */
-             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE+SMC_COPY_SCHEME_BUFFER_MDB_OUT+SMC_COPY_SCHEME_ASSERT_MDB_OUT+SMC_COPY_SCHEME_ASSERT_FIFO_FULL),
+             .copy_scheme_master            = (SMC_COPY_SCHEME_COPY_IN_SEND),        /* No copy in Kernel receive --> directly to the RX handler */
+             .copy_scheme_slave             = (SMC_COPY_SCHEME_COPY_IN_SEND+SMC_COPY_SCHEME_COPY_IN_RECEIVE),
 
              .fifo_full_check_timeout_usec_master = 1000,    /* Linux kernel timer supports only min 1ms timer */
              .fifo_full_check_timeout_usec_slave  =  500,
