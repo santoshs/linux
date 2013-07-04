@@ -83,6 +83,8 @@ struct sh_csi2 {
 #endif /* SH_CSI2_DEBUG */
 };
 
+unsigned int g_csi2_base[2] = {0, 0};
+
 static void sh_csi2_hwinit(struct sh_csi2 *priv);
 static void sh_csi2_l_power(struct sh_csi2 *priv, int power_on);
 
@@ -556,6 +558,13 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 		ret = -ENXIO;
 		dev_err(&pdev->dev, "Unable to ioremap CSI2 registers.\n");
 		goto eremap;
+	}
+
+	if (0 == g_csi2_base[0]) {
+		g_csi2_base[0] = (unsigned int)priv->base;
+		g_csi2_base[1] = (unsigned int)priv->base;
+	} else if ((unsigned int)priv->base != g_csi2_base[0]) {
+		g_csi2_base[1] = (unsigned int)priv->base;
 	}
 
 	priv->pdev = pdev;

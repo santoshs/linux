@@ -197,10 +197,9 @@ static int shmobile_enter_wfi_lowfreq(struct cpuidle_device *dev,
 #endif
 static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index);
-#if 0
 static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index);
-#endif
+
 static DEFINE_PER_CPU(struct cpuidle_device, shmobile_cpuidle_dev);
 
 struct cpuidle_driver shmobile_cpuidle_driver = {
@@ -239,7 +238,7 @@ struct cpuidle_driver shmobile_cpuidle_driver = {
 			.desc			= "Core Standby",
 		},
 		[SHMOBILE_STATE_4] = {
-			.enter			= shmobile_enter_corestandby,
+			.enter			= shmobile_enter_corestandby_2,
 			.exit_latency		= 400,
 			.target_residency	= 600,
 			.flags		= CPUIDLE_FLAG_TIME_VALID,
@@ -449,7 +448,6 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
  *		0		: peripheral module is no busy.
  *		-EBUSY	: peripheral module is busy.
  */
-#if 0
 static int check_peripheral_module_status(void)
 {
 	if ((__raw_readl(MSTPSR1) & MSTPST1_PLL1) != MSTPST1_PLL1)
@@ -466,7 +464,7 @@ static int check_peripheral_module_status(void)
 
 	return 0;
 }
-#endif
+
 /*
  * shmobile_enter_corestandby: executes idle PM for a CPU - Corestandby state
  * @dev: cpuidle device for this cpu
@@ -475,7 +473,7 @@ static int check_peripheral_module_status(void)
  * return:
  *		int: index into drv->states of the state to exit
  */
-#if 0
+
 static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 	struct cpuidle_driver *drv, int index)
 {
@@ -605,7 +603,6 @@ finished_wakeup:
 
 	return index;
 }
-#endif
 
 #ifdef CONFIG_PM_DEBUG
 
@@ -653,7 +650,7 @@ int control_cpuidle(int is_enable)
 		/*drv->states[1].enter = shmobile_enter_wfi_lowfreq;*/
 		drv->states[1].enter = shmobile_enter_wfi;
 		drv->states[2].enter = shmobile_enter_corestandby;
-		drv->states[3].enter = shmobile_enter_corestandby;
+		drv->states[3].enter = shmobile_enter_corestandby_2;
 		is_enable_cpuidle = is_enable;
 		break;
 

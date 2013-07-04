@@ -242,6 +242,7 @@ static int sdhi_save_register(struct renesas_sdhi_host *host)
        reg->soft_rst = sdhi_read16(host, SDHI_SOFT_RST);
        reg->ext_acc = sdhi_read16(host, SDHI_EXT_ACC);
 
+       sdhi_read16(host, SDHI_CLK_CTRL);
        clk_disable(host->clk);
 
        return 0;
@@ -267,6 +268,7 @@ static int sdhi_restore_register(struct renesas_sdhi_host *host)
 
        sdhi_write16(host, SDHI_INFO2, sdhi_read16(host, SDHI_INFO2) & ~(1 << 13));
 
+       sdhi_read16(host, SDHI_CLK_CTRL);
        clk_disable(host->clk);
 
        return 0;
@@ -477,6 +479,7 @@ static void renesas_sdhi_data_done(
 	sdhi_disable_irqs(host,
 		SDHI_INFO_BWE | SDHI_INFO_BRE | SDHI_INFO_RW_END);
 
+	sdhi_read16(host, SDHI_CLK_CTRL);
 	clk_disable(host->clk);
 	mmc_request_done(host->mmc, cmd->mrq);
 }
@@ -518,6 +521,7 @@ static void renesas_sdhi_cmd_done(
 		/* Clear interrupt */
 		val = sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DETECT;
 		sdhi_write32(host, SDHI_INFO, val);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 		host->mrq = NULL;
 		host->cmd = NULL;
@@ -614,6 +618,7 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 	}
 
 end:
+	sdhi_read16(host, SDHI_CLK_CTRL);
 	clk_disable(host->clk);
 	spin_unlock(&host->lock);
 	return IRQ_HANDLED;
@@ -644,6 +649,10 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 
 	/* updating the SD card presence*/
 	sdcard1_detect_state = host->connect;
+
+	printk(KERN_INFO "%s: %s: host->connect %d, get_cd %d\n",
+		__func__, mmc_hostname(host->mmc), host->connect,
+		pdata->get_cd(host->pdev));
 
 	/* PMIC Start: Will effect the PMIC power source on insertion /deletion
 		of Card after Boot-Up */
@@ -677,6 +686,7 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 			renesas_sdhi_data_done(host, host->cmd);
 	}
 
+	sdhi_read16(host, SDHI_CLK_CTRL);
 	clk_disable(host->clk);
 
 	mmc_detect_change(host->mmc, msecs_to_jiffies(200));
@@ -687,11 +697,15 @@ static irqreturn_t renesas_sdhi_detect_irq(int irq, void *dev_id)
 	struct renesas_sdhi_host *host = dev_id;
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 
+	printk(KERN_INFO "%s: %s: host->connect %d, get_cd %d\n",
+			__func__, mmc_hostname(host->mmc), host->connect,
+			pdata->get_cd(host->pdev));
+
 	/* Ignore the detect interrupt if previous detect state
 	 * is same as new */
-	if (host->connect == pdata->get_cd(host->pdev)) {
+	if (host->connect == pdata->get_cd(host->pdev))
 		return IRQ_HANDLED;
-	}
+	
 	spin_lock(&host->lock);
 
 	if (pdata->detect_msec)
@@ -1017,6 +1031,7 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 		/* enable card clock */
 		sdhi_write16(host, SDHI_CLK_CTRL, val16);
 		wakeup_from_suspend_sd = 0;
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 	} else {
 		/* Send command */
@@ -1074,6 +1089,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			ios->power_mode == MMC_POWER_UP) {
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 1);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 		host->power_mode = ios->power_mode;
 	}
@@ -1087,6 +1103,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		else
 			val |= SDHI_OPT_WIDTH1;
 		sdhi_write16(host, SDHI_OPTION, val);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 		host->bus_width = ios->bus_width;
 	}
@@ -1095,6 +1112,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			host->power_mode != MMC_POWER_OFF) {
 		clk_enable(host->clk);
 		renesas_sdhi_set_clock(host, ios->clock);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 		host->clock = ios->clock;
 	}
@@ -1103,6 +1121,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			ios->power_mode == MMC_POWER_OFF) {
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 0);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 		host->power_mode = ios->power_mode;
 	}
@@ -1117,6 +1136,7 @@ static int renesas_sdhi_get_ro(struct mmc_host *mmc)
 	clk_enable(host->clk);
 	ret = !((pdata->flags & RENESAS_SDHI_WP_DISABLE) ||
 			(sdhi_read32(host, SDHI_INFO) & SDHI_INFO_WP));
+	sdhi_read16(host, SDHI_CLK_CTRL);
 	clk_disable(host->clk);
 
 	return ret;
@@ -1155,6 +1175,7 @@ static void renesas_sdhi_enable_sdio_irq(struct mmc_host *mmc, int enable)
 		sdhi_write16(host, SDHI_SDIO_MODE, 0x0000);
 		sdhi_write16(host, SDHI_SDIO_INFO_MASK, val);
 		sdhi_write16(host, SDHI_SDIO_INFO, 0);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 	}
 }
@@ -1216,6 +1237,7 @@ static int renesas_sdhi_signal_voltage_switch(
 
 		/* enable card clock */
 		sdhi_write16(host, SDHI_CLK_CTRL, val16);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 	}
 	return 0;
@@ -1261,6 +1283,8 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	int i, irq, ret;
 	int sysfs_ret = 0;
 	u32 val;
+
+	printk(KERN_INFO "%s >>\n", __func__);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -1397,6 +1421,9 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		wakeup_from_suspend_sd = 0;
 	}
 
+	printk(KERN_INFO "%s: %s: host->connect %d\n",
+			__func__, mmc_hostname(host->mmc), host->connect);
+
 	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
 		/* updating the SD card presence*/
 		sdcard1_detect_state = host->connect;
@@ -1453,7 +1480,10 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%s base at 0x%08lx clock rate %u MHz\n",
 		 mmc_hostname(host->mmc), (unsigned long)res->start,
 		 host->hclk / 1000000);
+	sdhi_read16(host, SDHI_CLK_CTRL);
 	clk_disable(host->clk);
+
+	printk(KERN_INFO "%s <<\n", __func__);
 	return 0;
 
 err5:
@@ -1504,6 +1534,7 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 	if (!host->dynamic_clock) {
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 	ret = pm_runtime_put_sync(&pdev->dev);
 	if (0 > ret)
@@ -1534,6 +1565,7 @@ int renesas_sdhi_suspend(struct device *dev)
 	ret = mmc_suspend_host(host->mmc);
 	sdhi_save_register(host);
 	if (!host->dynamic_clock) {
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 
 	}

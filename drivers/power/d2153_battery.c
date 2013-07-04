@@ -165,7 +165,7 @@ static struct adc_cont_in_auto adc_cont_inven[D2153_ADC_CHANNEL_MAX - 1] = {
 		.adc_lsb_res = D2153_ADC_RES_AUTO1_REG,
 		.adc_lsb_mask = ADC_RES_MASK_MSB,
 	},
-	/*	TEMP_2 channel */
+	/* TEMP_2 channel */
 	[D2153_ADC_TEMPERATURE_2] = {
 		.adc_preset_val =  D2153_TEMP2_ISRC_EN_MASK,
 		.adc_cont_val = (D2153_ADC_AUTO_EN_MASK | D2153_ADC_MODE_MASK),
