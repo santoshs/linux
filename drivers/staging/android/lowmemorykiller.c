@@ -141,6 +141,12 @@ static uint32_t oom_count = 0;
 
 #endif /* CONFIG_INTERNAL_ISP_START_CAMERA */
 
+#if defined(CONFIG_LOW_MEM_SNPR)
+#include "lowmemsnpr.h"
+
+static int lowmem_oom_adj_to_oom_score_adj(int oom_adj);
+#endif
+
 static uint32_t lowmem_debug_level = 1;
 static int lowmem_adj[6] = {
 	0,
@@ -1171,6 +1177,13 @@ static void lowmem_autodetect_oom_adj_values(void)
 		lowmem_print(1, "oom_adj %d => oom_score_adj %d\n",
 			     oom_adj, oom_score_adj);
 	}
+
+#if defined(CONFIG_LOW_MEM_SNPR)
+	lowmemsnpr_config(
+			lowmem_oom_adj_to_oom_score_adj(HIDDEN_APP_MIN_ADJ),
+			lowmem_minfree,
+			&lowmem_minfree_size);
+#endif
 }
 
 static int lowmem_adj_array_set(const char *val, const struct kernel_param *kp)

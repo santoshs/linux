@@ -1044,7 +1044,14 @@ static bool ts_mini_init_touch(struct zinitix_touch_dev *touch_dev)
 
 	if (ts_write_reg(touch_dev->client,0x0142, 30) != I2C_SUCCESS)
 		goto fail_mini_init;
-
+	if (ts_write_reg(touch_dev->client,0x002a, 80) != I2C_SUCCESS)
+		goto fail_mini_init;
+	if (ts_write_reg(touch_dev->client,0x004b, 100) != I2C_SUCCESS)
+		goto fail_mini_init;
+	if (ts_write_reg(touch_dev->client,0x004a, 40) != I2C_SUCCESS)
+		goto fail_mini_init;
+	if (ts_write_reg(touch_dev->client,0x004c, 1) != I2C_SUCCESS)
+		goto fail_mini_init;
 
 #if defined(CONFIG_SEC_MAKE_LCD_TEST)
 	if (ts_write_reg(touch_dev->client,0x10a,1) != I2C_SUCCESS)
@@ -1912,6 +1919,14 @@ retry_init:
 		goto fail_init;
 
 	if (ts_write_reg(touch_dev->client,0x0142, 30) != I2C_SUCCESS)
+		goto fail_init;
+	if (ts_write_reg(touch_dev->client,0x002a, 80) != I2C_SUCCESS)
+		goto fail_init;
+	if (ts_write_reg(touch_dev->client,0x004b, 100) != I2C_SUCCESS)
+		goto fail_init;
+	if (ts_write_reg(touch_dev->client,0x004a, 40) != I2C_SUCCESS)
+		goto fail_init;
+	if (ts_write_reg(touch_dev->client,0x004c, 1) != I2C_SUCCESS)
 		goto fail_init;
 
 #if defined(CONFIG_SEC_MAKE_LCD_TEST)

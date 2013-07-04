@@ -2831,6 +2831,8 @@ static void sndp_work_fm_radio_dev_chg(struct sndp_work_info *work)
 
 	sndp_log_debug_func("start\n");
 
+	msleep(600);  /* to avoid audio shock according to ear,spk volume level */
+
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
 
