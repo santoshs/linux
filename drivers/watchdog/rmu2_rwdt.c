@@ -146,7 +146,10 @@ static struct miscdevice rwdt_mdev = {
  */
 int rmu2_rwdt_cntclear(void)
 {
+	static DEFINE_SPINLOCK(clear_lock);
 	unsigned int base;
+	unsigned long flags;
+	int ret;
 	struct resource *r;
 	u8 reg8;
 	u32 wrflg;
@@ -171,16 +174,22 @@ int rmu2_rwdt_cntclear(void)
 			return 0;
 	}
 
+	/* If we collide with the other core, just leave it to them */
+	if (!spin_trylock_irqsave(&clear_lock, flags))
+		return 0;
+
 	/* check RWTCSRA wrflg */
 	reg8 = __raw_readb(base + RWTCSRA);
 	wrflg = ((u32)reg8 >> 5) & 0x01U;
 	if (0U == wrflg) {
 		/*RWDT_DEBUG(KERN_DEBUG "Clear the watchdog counter!!\n");*/
 		__raw_writel(RESCNT_CLEAR_DATA, base + RWTCNT_OFFSET);
-		return 0;
+		ret = 0;
 	} else {
-		return -EAGAIN; /* try again */
+		ret = -EAGAIN; /* try again */
 	}
+	spin_unlock_irqrestore(&clear_lock, flags);
+	return ret;
 }
 
 /*
