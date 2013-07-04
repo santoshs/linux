@@ -72,7 +72,7 @@ int ist30xx_read_frame(u32 *frame_buf, int len)
 ssize_t ist30xx_mem_store(struct device *dev, struct device_attribute *attr,
 			  const char *buf, size_t size)
 {
-	sprintf(cmd_msg, "%s", buf);
+	snprintf(cmd_msg, sizeof(cmd_msg), "%s", buf);
 	return size;
 }
 

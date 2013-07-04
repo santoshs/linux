@@ -71,7 +71,7 @@ static inline void cache_sync(void)
 #ifdef CONFIG_ARCH_SHMOBILE
 	if (dummy_write_mem) {
 		writel_relaxed(
-		(unsigned long)0xA5A55A5A, IOMEM(dummy_write_mem));
+		(unsigned long)0xA5A55A5A, dummy_write_mem);
 		rmb();
 	}
 #endif
@@ -475,6 +475,10 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 			ways, cache_id, aux, l2x0_size);
 	printk(KERN_INFO "l2x0: PREFETCH_CTRL 0x%08x, POWER_CTRL 0x%08x\n",
 			prefetch, power);
+#ifdef CONFIG_ARCH_SHMOBILE
+	printk(KERN_INFO "l2x0: dummy_write_mem address = 0x%08x\n",
+			(unsigned int)dummy_write_mem);
+#endif
 }
 
 #ifdef CONFIG_OF

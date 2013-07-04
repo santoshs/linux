@@ -75,7 +75,7 @@
 #define FB_RESERVE_BUFFERID      1
 #define BUFFERID_A               0
 #define BUFFERID_B               0x12345678
-#define BUFFERID_BLANK           0x55555555
+#define BUFFERID_BLACK           0x55555555
 
 /******************************************************/
 /* define local variables                             */
@@ -432,7 +432,7 @@ static int  lcd_config(struct composer_rh *rh, struct cmp_postdata *post)
 		/* no need fb draw */
 		rc = CMP_OK;
 	} else if (user_data->num <= 1) {
-		/* turn off display (draw blank) */
+		/* turn off display (draw black) */
 		screen_grap_image_blend *blend = &data->blend;
 
 		/* clear information */
@@ -917,11 +917,11 @@ static int  lcd_config_output(struct composer_rh *blend_req,
 	info->blend_bufferid = -1;
 
 	if (data->blend.input_layer[0] == NULL) {
-		/* display blank image. */
+		/* display black image. */
 		data->need_blend = false;
 
 		y_offset = 0;
-		bufferid = FB_SCREEN_BLANKBUFFER;
+		bufferid = FB_SCREEN_BLACKBUFFER;
 	} else if (data->blend.input_layer[1] == NULL &&
 		data->blend.input_layer[0] != NULL &&
 		queue_fb_map_handle2 != NULL) {
@@ -1064,8 +1064,8 @@ static int lcd_fb_pan_display(struct composer_rh *blend_req,
 			/* display gpu buffer */
 			vInfo.reserved[FB_RESERVE_BUFFERID] = BUFFERID_B;
 		} else {
-			/* display blank buffer */
-			vInfo.reserved[FB_RESERVE_BUFFERID] = BUFFERID_BLANK;
+			/* display black buffer */
+			vInfo.reserved[FB_RESERVE_BUFFERID] = BUFFERID_BLACK;
 		}
 
 		res = fb_pan_display(fb_info, &vInfo);

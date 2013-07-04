@@ -174,7 +174,7 @@ config MEMORY_START
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL || MACH_BONITO
 	default "0x41000000" if MACH_KOTA2
-	default "0x49000000" if MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE || MACH_LOGANLTE_LATIN
+	default "0x49000000" if MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not

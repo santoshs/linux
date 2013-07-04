@@ -174,15 +174,6 @@ static struct task_struct *lowmem_deathpending;
 #endif
 static unsigned long lowmem_deathpending_timeout;
 
-#if defined(CONFIG_RTDS_LMK)
-static struct task_struct *rtds_lowmem_deathpending;
-static unsigned long rtds_lowmem_deathpending_timeout;
-#define RTDS_KILL_THRESHOLD	(1024 * 5) /* 5MB */
-#define RTDS_KILL_DOWNSTEP	(1024 * 1)  /* 1MB */
-#define RTDS_KILL_MINFREE_ADJ	(2048)		/* 8MB */
-#endif
-
-
 #define lowmem_print(level, x...)			\
 	do {						\
 		if (lowmem_debug_level >= (level))	\
@@ -219,10 +210,6 @@ task_notify_func(struct notifier_block *self, unsigned long val, void *data)
 		lowmem_deathpending = NULL;
 #endif
 
-#if defined(CONFIG_RTDS_LMK)
-	if (task == rtds_lowmem_deathpending)
-		rtds_lowmem_deathpending = NULL;
-#endif
 	return NOTIFY_OK;
 }
 
@@ -364,13 +351,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (!p)
 			continue;
 
-#if defined(CONFIG_RTDS_LMK)
-		if(p == rtds_lowmem_deathpending){
-			task_unlock(p);
-			continue;
-		}
-#endif
-
 		oom_score_adj = p->signal->oom_score_adj;
 		if (oom_score_adj < min_score_adj) {
 			task_unlock(p);
@@ -472,163 +452,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #endif
 	return rem;
 }
-
-#if defined(CONFIG_RTDS_LMK)
-static int rtds_lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
-{
-	struct task_struct *tsk = NULL;
-	struct task_struct *selected = NULL;
-	int task_num = 0;
-	int rem = 0;
-	int tasksize;
-	int i;
-	int rtds_min_score_adj = OOM_SCORE_ADJ_MAX + 1;
-	int rtds_lowmem_threshold = RTDS_KILL_THRESHOLD;
-	int selected_tasksize = 0;
-	int selected_oom_score_adj;
-	int array_size = ARRAY_SIZE(lowmem_adj);
-	int other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
-	int other_file = global_page_state(NR_FILE_PAGES) -
-						global_page_state(NR_SHMEM);
-	struct zone *zone;
-	extern int rtds_mem_check_to_lmk(int minfree, int adj);
-
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	other_file -= total_swapcache_pages;
-#endif
-
-	if (offlining) {
-		/* Discount all free space in the section being offlined */
-		for_each_zone(zone) {
-			 if (zone_idx(zone) == ZONE_MOVABLE) {
-				other_free -= zone_page_state(zone,
-						NR_FREE_PAGES);
-				lowmem_print(4, "rtds_lowmem_shrink discounted "
-					"%lu pages in movable zone\n",
-					zone_page_state(zone, NR_FREE_PAGES));
-			}
-		}
-	}
-	/*
-	 * If we already have a death outstanding, then
-	 * bail out right away; indicating to vmscan
-	 * that we have nothing further to offer on
-	 * this pass.
-	 *
-	 * Note: Currently you need CONFIG_PROFILING
-	 * for this to work correctly.
-	 */
-	if (rtds_lowmem_deathpending &&
-		time_before_eq(jiffies, rtds_lowmem_deathpending_timeout))
-		return 0;
-
-	if (lowmem_adj_size < array_size)
-		array_size = lowmem_adj_size;
-	if (lowmem_minfree_size < array_size)
-		array_size = lowmem_minfree_size;
-	for (i = 1; i < array_size; i++) {
-		if (other_free < lowmem_minfree[i]+RTDS_KILL_MINFREE_ADJ &&
-		    other_file < lowmem_minfree[i]+RTDS_KILL_MINFREE_ADJ) {
-			rtds_min_score_adj = lowmem_adj[i-1];
-			break;
-		}
-	}
-
-	if(rtds_min_score_adj < lowmem_adj[array_size-2])
-	{
-		rtds_min_score_adj = lowmem_adj[array_size-2];
-		rtds_lowmem_threshold -= RTDS_KILL_DOWNSTEP;
-	}
-	
-	if (sc->nr_to_scan > 0)
-		lowmem_print(3, "rtds_lowmem_shrink %lu, %x, ofree %d %d, ma %d\n",
-				sc->nr_to_scan, sc->gfp_mask, other_free,
-				other_file, rtds_min_score_adj);
-	rem = global_page_state(NR_ACTIVE_ANON) +
-		global_page_state(NR_ACTIVE_FILE) +
-		global_page_state(NR_INACTIVE_ANON) +
-		global_page_state(NR_INACTIVE_FILE);
-	if (sc->nr_to_scan <= 0 || rtds_min_score_adj == OOM_SCORE_ADJ_MAX + 1) {
-		lowmem_print(5, "rtds_lowmem_shrink %lu, %x, return %d\n",
-			     sc->nr_to_scan, sc->gfp_mask, rem);
-		return rem;
-	}
-
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	atomic_set(&s_reclaim.lmk_running, 1);
-#endif
-
-	read_lock(&tasklist_lock);
-	{
-		struct task_struct *p;
-		int oom_score_adj;
-
-		task_num = rtds_mem_check_to_lmk(rtds_lowmem_threshold, rtds_min_score_adj);
-
-		if(task_num == 0)
-			goto rtds_out;
-
-		tsk = pid_task(find_vpid(task_num), PIDTYPE_PID);	
-		
-		if (!tsk)
-			goto rtds_out;
-
-		if (tsk->flags & PF_KTHREAD)
-			goto rtds_out;
-
-		p = find_lock_task_mm(tsk);
-		if (!p)
-		{
-			goto rtds_out;
-		}
-
-		/* defense code */
-		for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
-			if (lowmem_deathpending[i] == p)
-			{
-				task_unlock(p);
-				goto rtds_out;
-			}
-		}
-
-		tasksize = get_mm_rss(p->mm);
-		task_unlock(p);
-		if (tasksize <= 0)
-			goto rtds_out;
-
-		oom_score_adj = p->signal->oom_score_adj;
-		selected = p;
-		selected_tasksize = tasksize;
-		selected_oom_score_adj = oom_score_adj;
-		lowmem_print(2, "rtds_lowmem_shrink : select %d (%s), adj %d, size %d, to kill\n",
-			     p->pid, p->comm, oom_score_adj, tasksize);
-	}
-	if (selected) {
-		lowmem_print(1, "rtds_lowmem_shrink : send sigkill to %d (%s), adj %d, size %d\n",
-			     selected->pid, selected->comm,
-			     selected_oom_score_adj, selected_tasksize);
-		rtds_lowmem_deathpending = selected;
-		rtds_lowmem_deathpending_timeout = jiffies + HZ;
-		send_sig(SIGKILL, selected, 0);
-		set_tsk_thread_flag(selected, TIF_MEMDIE);
-		rem -= selected_tasksize;
-#ifdef LMK_COUNT_READ
-		lmk_count++;
-#endif
-	}
-
-rtds_out:
-
-	lowmem_print(4, "rtds_lowmem_shrink %lu, %x, return %d\n",
-		     sc->nr_to_scan, sc->gfp_mask, rem);
-	read_unlock(&tasklist_lock);
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	atomic_set(&s_reclaim.lmk_running, 0);
-#endif
-	
-	return rem;
-}
-#endif
 
 /*
  * CONFIG_ANDROID_OOM_KILLER : klaatu@sec
@@ -1257,19 +1080,9 @@ static struct shrinker lowmem_shrinker = {
 	.seeks = DEFAULT_SEEKS * 16
 };
 
-#if defined(CONFIG_RTDS_LMK)
-static struct shrinker rtds_lowmem_shrinker = {
-	.shrink = rtds_lowmem_shrink,
-	.seeks = DEFAULT_SEEKS * 16
-};
-#endif
-
 static int __init lowmem_init(void)
 {
 	task_free_register(&task_nb);
-#if defined(CONFIG_RTDS_LMK)
-	register_shrinker(&rtds_lowmem_shrinker);
-#endif
 	register_shrinker(&lowmem_shrinker);
 #ifdef CONFIG_MEMORY_HOTPLUG
 	hotplug_memory_notifier(lmk_hotplug_callback, 0);
@@ -1310,9 +1123,6 @@ error_create_kcompcache_class:
 
 static void __exit lowmem_exit(void)
 {
-#if defined(CONFIG_RTDS_LMK)
-	unregister_shrinker(&rtds_lowmem_shrinker);
-#endif
 	unregister_shrinker(&lowmem_shrinker);
 	task_free_unregister(&task_nb);
 

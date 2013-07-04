@@ -1,4 +1,4 @@
-﻿/* vcd_spuv.c
+/* vcd_spuv.c
  *
  * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.

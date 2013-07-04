@@ -1,4 +1,4 @@
-﻿/* vcd_interface.h
+/* vcd_interface.h
  *
  * Copyright (C) 2012-2013 Renesas Mobile Corp.
  * All rights reserved.

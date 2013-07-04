@@ -282,7 +282,6 @@ Description :  File created
   #define SMC_APE_WAKEUP_WAKELOCK_USE                             /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */
   #define SMC_APE_WAKEUP_WAKELOCK_USE_TIMER                       /* If defined, the APE uses timer in wakelock while receiving packets from modem */
 
-
   #define SMC_NETDEV_WAKELOCK_IN_TX                               /* If defined, the wakelock is used in the net device TX */
 
   /* #define SMC_RX_USE_HIGHMEM */                                /* If defined, SMC can allocate High memory if low memory is not available */

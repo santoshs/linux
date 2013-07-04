@@ -888,8 +888,9 @@ inline void do_attach_work(int32_t regIntFlag,int32_t regDev1,int32_t regDev2)
 		if (platform_data.charger_callback)
 			platform_data.charger_callback(RT8973_ATTACHED);
 		return;
-		INFO("Unkown event!!\n");
-		return;
+	}
+	INFO("Unkown event!!\n");
+	return;
     }
     regADC = I2CRByte(RT8973_REG_ADC)&0x1f;
     pDrvData->usbid_adc = regADC;

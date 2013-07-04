@@ -37,8 +37,8 @@
  *      0x1604   MPACCTL    MPACCTL    MPACCTL    MPACCTL    MPACCTL
  *
  *      0x1820   SMGPIOxxx  SMGPIOxxx  SMGPIOxxx  SMGPIOxxx  SMGPIOxxx
- *      0x1830   SMDBGxxx   SMDBGxxx   -          SMDBGxxx   SMGPSRC0(*)
- *      0x1840   SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMGPSRC1(*)
+ *      0x1830   SMDBGxxx   SMDBGxxx   -          SMDBGxxx   SMGP0xxx(*)
+ *      0x1840   SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMCMT2xxx  SMGP1xxx(*)
  *      0x1850   SMCPGAxxx  SMCPGxxx   SMCPGxxx   SMCPGxxx   SMCPGxxx
  *      0x1860   SMCPGBxxx  -          -          -          -
  *      0x1870   SMSYSCxxx  SMSYSCxxx  SMSYSCxxx  SMSYSCxxx  SMSYSCxxx
@@ -73,10 +73,25 @@ struct hwspinlock_private {
 	void __iomem		*ext_base;
 };
 
+/*
+ * We don't get SMP/IRQ protection from the core framework for the
+ * HW semaphores backing our extension semaphores, so provide our
+ * own lock here. Formally we need one spinlock per underlying
+ * HW semaphore, but as we only hold it very briefly, one single
+ * lock for the entire extension framework should be good enough.
+ */
+static DEFINE_SPINLOCK(ext_spinlock);
+
 static int hwsem_trylock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
 	u32 smsrc;
+
+	/*
+	 * Taking a HW lock with IRQs enabled could mean that we hold it
+	 * long enough to break real-time parts of the system.
+	 */
+	WARN_ON_ONCE(!irqs_disabled());
 
 	/*Check if the semaphore is open*/
 	smsrc = __raw_readl(p->sm_base + SMxxSRC) >> 24;
@@ -91,6 +106,11 @@ static int hwsem_trylock(struct hwspinlock *lock)
 	 * For ARM MPcore systems after R-Mobile U2, each CPU core may be
 	 * given a distinct SrcID of the SHwy bus, so master ID matching
 	 * condition needs to be relaxed; ignore lower 2 bits of SMSRC.
+	 *
+	 * Note that this is only safe if we know another APE core cannot be
+	 * holding the semaphore - this guarantee is provided by the spinlock
+	 * in the hwspinlock object for the main semaphores, or by the
+	 * static ext_spinlock for the extension semaphores.
 	 */
 	smsrc = (__raw_readl(p->sm_base + SMxxSRC) >> 24) & 0xfc;
 
@@ -134,17 +154,19 @@ static void hwsem_relax(struct hwspinlock *lock)
 static int hwsem_ext_trylock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
-	unsigned long value;
+	unsigned long value, flags;
 	int ret = 0;
+
+	spin_lock_irqsave(&ext_spinlock, flags);
 
 	/* check to see if software semaphore bit is already set to be done
 	BEFORE getting the HW semaphore */
 	value = __raw_readl(p->ext_base);
 	if (value & 0xff)
-		return 0; /* no need to get HW sem, failure case */
+		goto out_unlocked; /* no need to get HW sem, failure case */
 
 	if (!hwsem_trylock(lock))
-		return 0;
+		goto out_unlocked;
 
 	/* check to see if software semaphore bit is already set */
 	value = __raw_readl(p->ext_base);
@@ -160,20 +182,24 @@ static int hwsem_ext_trylock(struct hwspinlock *lock)
 
 out:
 	hwsem_unlock(lock);
+out_unlocked:
+	spin_unlock_irqrestore(&ext_spinlock, flags);
 	return ret;
 }
 
 static void hwsem_ext_unlock(struct hwspinlock *lock)
 {
 	struct hwspinlock_private *p = lock->priv;
-	unsigned long expire, mask, value;
+	unsigned long expire, mask, value, flags;
 
 	/* try to lock hwspinlock with timeout limit */
 	expire = msecs_to_jiffies(100) + jiffies;
 	for (;;) {
+		spin_lock_irqsave(&ext_spinlock, flags);
 		if (hwsem_trylock(lock))
 			break;
 
+		spin_unlock_irqrestore(&ext_spinlock, flags);
 		if (time_is_before_eq_jiffies(expire)) {
 			dev_err(lock->bank->dev, "Timeout to lock hwspinlock\n");
 			return;
@@ -209,6 +235,7 @@ static void hwsem_ext_unlock(struct hwspinlock *lock)
 
  out:
 	hwsem_unlock(lock);
+	spin_unlock_irqrestore(&ext_spinlock, flags);
 }
 
 /*

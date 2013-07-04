@@ -658,16 +658,20 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	int bcn_li_bcn;
 #endif /* ENABLE_BCN_LI_BCN_WAKEUP */
 #ifdef PASS_ALL_MCAST_PKTS
-	struct dhd_info *dhdinfo = dhd->info;
+	struct dhd_info *dhdinfo;
 	uint32 allmulti;
 	uint i;
 #endif /* PASS_ALL_MCAST_PKTS */
 
+	if (!dhd)
+		return -ENODEV;
+
+	dhdinfo = dhd->info;
 	DHD_TRACE(("%s: enter, value = %d in_suspend=%d\n",
 		__FUNCTION__, value, dhd->in_suspend));
 
 	dhd_suspend_lock(dhd);
-	if (dhd && dhd->up) {
+	if (dhd->up) {
 		if (value && dhd->in_suspend) {
 #ifdef PKT_FILTER_SUPPORT
 				dhd->early_suspended = 1;

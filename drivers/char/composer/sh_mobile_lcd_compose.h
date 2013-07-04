@@ -35,7 +35,7 @@
 /******************************/
 #define FB_SCREEN_BUFFERID0      0 /* normal frame buffer */
 #define FB_SCREEN_BUFFERID1      1 /* gpu    frame buffer */
-#define FB_SCREEN_BLANKBUFFER    2 /* blank  frame buffer */
+#define FB_SCREEN_BLACKBUFFER    2 /* black  frame buffer */
 
 /******************************/
 /* define structure           */

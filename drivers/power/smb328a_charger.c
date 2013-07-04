@@ -116,6 +116,68 @@ extern int d2153_battery_read_status(int type);
 extern int d2153_battery_set_status(int type, int status);
 #endif
 
+/* A name value pair */
+struct dict_atom {
+	char * const name;
+	unsigned long value;
+};
+
+#define DEBUG_DICT_INIT(v)	{ .name = #v, .value = v }
+
+#define DEBUG_CHARGER_INFO            0x00000001
+#define DEBUG_BATTERY_INFO            0x00000002
+
+#define DEBUG_LEVEL_MAX	              2
+#define DEBUG_DEFAULT_LEVEL	      0
+
+unsigned long debug_level_set = DEBUG_DEFAULT_LEVEL;
+
+/*
+ * Making use of levels for different log levels, so we could have a
+ * fine grain control over the logs
+ */
+struct dict_atom generic_debug_list[DEBUG_LEVEL_MAX] = {
+	DEBUG_DICT_INIT(DEBUG_CHARGER_INFO),
+	DEBUG_DICT_INIT(DEBUG_BATTERY_INFO),
+};
+
+#define pm_charger_info(fmt, ...)				\
+	do {							\
+		if (debug_level_set & DEBUG_CHARGER_INFO)	\
+			pr_info(fmt, ##__VA_ARGS__);		\
+	} while (0)
+
+/* some debug control */
+static int param_get_debug_level(char *buffer, const struct kernel_param *kp)
+{
+	int result = 0;
+	int i;
+
+	result = sprintf(buffer, "%-25s\tHex Value   Set?\n", "Description");
+
+	for (i = 0; i < ARRAY_SIZE(generic_debug_list); i++) {
+		result += sprintf(buffer + result, "%-25s\t0x%08lX [%c]\n",
+				  generic_debug_list[i].name,
+				  generic_debug_list[i].value,
+				  (debug_level_set &
+				   generic_debug_list[i].value)
+				  ? '*' : ' ');
+	}
+	result +=
+	    sprintf(buffer + result,
+		    "--\ndebug_level = 0x%08lX (* = enabled)\n",
+		    debug_level_set);
+
+	return result;
+}
+
+static const struct kernel_param_ops param_ops_debug_level = {
+	.set = param_set_uint,
+	.get = param_get_debug_level,
+};
+
+module_param_cb(debug_level, &param_ops_debug_level, &debug_level_set, 0644);
+
 static int smb328a_write_reg(struct i2c_client *client, int reg, u8 value)
 {
 	int ret;
@@ -149,7 +211,7 @@ static void smb328a_allow_volatile_writes(struct i2c_client *client)
 	int val;
 	u8 data;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 	val = smb328a_read_reg(client, SMB328A_COMMAND);
 	if ((val >= 0) && !(val&0x80)) {
 		data = (u8)val;
@@ -164,7 +226,7 @@ static void smb328a_set_command_reg(struct i2c_client *client)
 	int val;
 	u8 data;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 	val = smb328a_read_reg(client, SMB328A_COMMAND);
 	if (val >= 0) {
 		//data = (u8)val;
@@ -313,7 +375,7 @@ static bool smb328a_check_bat_full(struct i2c_client *client)
 	u8 data = 0;
 	bool ret = false;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
 	if (val >= 0) {
@@ -333,13 +395,14 @@ static bool smb328a_check_bat_missing(struct i2c_client *client)
 	u8 data = 0;
 	bool ret = false;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_B);
 	if (val >= 0) {
 		data = (u8)val;
 		if (data&0x1) {
 			ret = true; /* missing battery */
+			pr_err("%s : error!\n", __func__);
 		}
 	}
 
@@ -357,7 +420,7 @@ static bool smb328a_check_vdcin(struct i2c_client *client)
 	u8 data = 0;
 	bool ret = false;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_A);
 	if (val >= 0) {
@@ -380,7 +443,7 @@ static bool smb328a_check_bmd_disabled(struct i2c_client *client)
 	u8 data = 0;
 	bool ret = false;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	val = smb328a_read_reg(client, SMB328A_FUNCTION_CONTROL_B);
 	if (val >= 0) {
@@ -407,7 +470,7 @@ static int smb328a_set_top_off(struct i2c_client *client, int set_val)
 	int val;
 	u8 data;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	smb328a_allow_volatile_writes(client);
 
@@ -440,9 +503,9 @@ static int smb328a_set_top_off(struct i2c_client *client, int set_val)
 static int smb328a_set_charging_current(struct i2c_client *client, int chg_current)
 {
 	struct smb328a_chip *chip = i2c_get_clientdata(client);
-    int cable_type = get_cable_type();
+	int cable_type = get_cable_type();
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s: cable = %d\n", __func__, cable_type);
 
 	if (cable_type == CABLE_TYPE_USB)
 		chip->chg_mode = CHG_MODE_USB;
@@ -459,7 +522,7 @@ static int smb328a_enable_otg(struct i2c_client *client)
 	int val;
 	u8 data;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	val = smb328a_read_reg(client, SMB328A_COMMAND);
 	if (val >= 0) {
@@ -505,7 +568,7 @@ static int smb328a_disable_otg(struct i2c_client *client)
 	int val;
 	u8 data;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	//	fsa9480_otg_detach();
 
@@ -538,7 +601,7 @@ void smb328a_otg_enable_disable(int onoff, int cable)
 {
 	struct i2c_client *client = smb_charger->client;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	if (onoff)
 	{
@@ -557,8 +620,7 @@ int smb328a_check_charging_status(void)
 	u8 data = 0;
 	bool ret = false;
 	struct i2c_client *client = smb_charger->client;
-
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
 	if (val >= 0) {
@@ -579,7 +641,7 @@ static void smb328a_ldo_disable(struct i2c_client *client)
 	int val;
 	u8 data;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	smb328a_allow_volatile_writes(client);
 
@@ -598,7 +660,7 @@ int smb328a_enable_charging(struct i2c_client *client)
 	u8 data;
 	struct smb328a_chip *chip = i2c_get_clientdata(client);
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	val = smb328a_read_reg(client, SMB328A_COMMAND);
 	if (val >= 0) {
@@ -616,6 +678,7 @@ int smb328a_enable_charging(struct i2c_client *client)
 		}
 	}
 
+	chip->charger_status = 1;
 	return 0;
 }
 
@@ -624,7 +687,7 @@ int smb328a_disable_charging(struct i2c_client *client)
 	int val;
 	u8 data;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
 	val = smb328a_read_reg(client, SMB328A_COMMAND);
 	if (val >= 0) {
@@ -636,13 +699,14 @@ int smb328a_disable_charging(struct i2c_client *client)
 		}
 	}
 
+	smb_charger->charger_status = 0;
 	return 0;
 }
 
 static int smb328a_get_charger_type (void)
 {
 	int type = get_cable_type();
-	pr_info("%s, %d\n", __func__, type);
+	pm_charger_info("%s, %d\n", __func__, type);
 	switch(type)
 	{
 	case CABLE_TYPE_USB:
@@ -676,7 +740,7 @@ static int smb328a_set_charge_current (unsigned int curr)
 	int ret = 0;
 	int validval = curr;
 
-	pr_info("%s : current =%d\n", __func__, curr);
+	pm_charger_info("%s : current =%d\n", __func__, curr);
 
 	if (curr < 500 || curr > 1200) {
 		validval = 500; //min current
@@ -693,7 +757,7 @@ static int smb328a_set_full_charge (unsigned int eoc)
 	int ret = 0;
 	int validval = eoc;
 
-	pr_info("%s : eoc =%d\n", __func__, eoc);
+	pm_charger_info("%s : eoc =%d\n", __func__, eoc);
 
 	if (eoc < 25 || eoc > 200) {
 		validval = 200; //max top-off
@@ -781,7 +845,7 @@ static void smb328a_work_func(struct work_struct *work)
 	static bool pre_vbus = false;
 	bool vbus;
 #endif
-    pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
 
     if(!p)
     {
@@ -803,8 +867,8 @@ static void smb328a_work_func(struct work_struct *work)
 	if(val & (STATUS_A_CURRENT_TERMINATION|STATUS_A_TAPER_CHARGING))
 	{
 		if(FullChargeSend==0 || (val & STATUS_A_CURRENT_TERMINATION)) {
-	        pr_info("%s: EOC\n", __func__);
-	        if(spa_event_handler(SPA_EVT_EOC, 0) < 0)
+			pm_charger_info("%s: EOC\n", __func__);	        
+			if(spa_event_handler(SPA_EVT_EOC, 0) < 0)
 				pr_info("%s: EOC is not ready\n", __func__);
 			else
 				FullChargeSend = 1;
@@ -842,7 +906,7 @@ static irqreturn_t smb328a_irq_handler(int irq, void *data)
 {
     struct smb328a_chip *p = (struct smb328a_chip *)data;
 
-	pr_info("%s\n", __func__);
+	pm_charger_info("%s\n", __func__);
    schedule_work(&(p->work));
 	smb328a_write_reg(p->client, SMB328A_CLEAR_IRQ, 1)  ;
 
@@ -892,12 +956,13 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 
 	smb_charger = chip;
 	chip->client = client;
+	chip->charger_status = 0;
+
 	i2c_set_clientdata(client, chip);
 
 	mutex_init(&smb_charger->i2c_mutex_lock);
 	wake_lock_init(&smb_charger->i2c_lock, WAKE_LOCK_SUSPEND, "smb328a_i2c");
-
-   INIT_WORK(&(chip->work), smb328a_work_func);
+	INIT_WORK(&(chip->work), smb328a_work_func);
 
 	chip->chg_mode = CHG_MODE_NONE;
 

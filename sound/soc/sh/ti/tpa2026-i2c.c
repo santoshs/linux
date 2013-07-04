@@ -31,6 +31,7 @@ static struct proc_dir_entry *g_tpa2026_i2c_parent;
 unsigned int g_tpa2026_i2c_log_level;
 unsigned int g_tpa2026_i2c_amp_state;
 
+
 /**
  * @brief	i2c write function.
  *
@@ -148,6 +149,8 @@ static void tpa2026_i2c_amp_shutdown(void)
 	if (TPA2026_I2C_ENABLE == g_tpa2026_i2c_amp_state) {
 		/* shutdown */
 		tpa2026_i2c_write_device(0x01, 0x22);
+		/* delay 20ms */
+		msleep(20);
 		/* sdz H -> L */
 		gpio_set_value(g_tpa2026_i2c_data->pdata->gpio_shdn, 0);
 	}
@@ -233,6 +236,7 @@ static int tpa2026_i2c_set_state
 
 	tpa2026_i2c_pr_func_start("mode[%d] device[%d] ch_dev[%d].\n",
 						mode, device, ch_dev);
+
 	if (TPA2026_I2C_INPUT_DEVICE & device)
 		goto rtn;
 
@@ -242,9 +246,7 @@ static int tpa2026_i2c_set_state
 		else
 			tpa2026_i2c_amp_on();
 	} else {
-#if 0 // 20130425 there is no sound after voice search. 
 		tpa2026_i2c_amp_shutdown();
-#endif
 	}
 
 rtn:

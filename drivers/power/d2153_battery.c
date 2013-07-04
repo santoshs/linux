@@ -42,6 +42,10 @@
 #include <linux/d2153/d2153_battery.h>
 #include <linux/d2153/d2153_reg.h>
 
+#ifdef CONFIG_ARCH_R8A7373
+#include <mach/pm.h>
+#endif /* CONFIG_ARCH_R8A7373 */
+
 static const char __initdata d2153_battery_banner[] = \
     "D2153 Battery, (c) 2012 Dialog Semiconductor Ltd.\n";
 
@@ -835,8 +839,6 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 	pr_info("%s. 0. SOC = %d\n", __func__, soc);
 #endif
 
-	pr_info("%s. 0. SOC = %d\n", __func__, soc);
-
 	/* Don't allow soc goes up when battery is dicharged.
 	 and also don't allow soc goes down when battey is charged. */
 	if(pbat_data->is_charging != TRUE 
@@ -846,6 +848,11 @@ static int d2153_get_soc(struct d2153_battery *pbat)
 #ifndef CONFIG_D2153_SOC_GO_DOWN_IN_CHG
 	else if(pbat_data->is_charging
 		&& (soc < pbat_data->prev_soc) && pbat_data->prev_soc) {
+#if defined(CONFIG_D2153_BATTERY_DEBUG)
+		pr_info("%s: is_charging = %d, soc = %d, prev soc = %d",
+			__func__, pbat_data->is_charging,
+			soc, pbat_data->prev_soc);
+#endif
 		soc = pbat_data->prev_soc;
 
 	}
@@ -1307,7 +1314,12 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 			pbat_data->charger_ctrl_status = D2153_BAT_CHG_MAX;
 #endif /* CONFIG_D2153_EOC_CTRL */
 	}
+#if defined(CONFIG_D2153_BATTERY_DEBUG)
+	pr_info("## %s. is_charging = %d, charger_ctrl_status = %d\n", 
+				__func__, pbat_data->is_charging,
+				pbat_data->charger_ctrl_status);
 #endif
+#endif /*CONFIG_CHARGER_SMB328A*/
 
 	// Read voltage ADC
 	ret = pbat->d2153_read_adc(pbat, D2153_ADC_VOLTAGE);
@@ -1953,7 +1965,6 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 				pbat->battery_data.average_volt_adc,
 				pbat->battery_data.average_voltage,
 				pbat->battery_data.vf_adc);
-
 #endif
 #ifdef CONFIG_D2153_HW_TIMER
 	if(is_called_by_ticker ==1) {
@@ -2280,6 +2291,10 @@ static int d2153_battery_suspend(struct platform_device *pdev, pm_message_t stat
 	cancel_delayed_work_sync(&pbat->monitor_temp_work);
 	cancel_delayed_work_sync(&pbat->monitor_volt_work);
 
+#ifdef CONFIG_ARCH_R8A7373
+	if (pmdbg_get_enable_dump_suspend())
+		pmdbg_pmic_dump_suspend(d2153);
+#endif /* CONFIG_ARCH_R8A7373 */
 
 #ifdef CONFIG_D2153_HW_TIMER
 	if(suspend_time.tv_sec == 0) {

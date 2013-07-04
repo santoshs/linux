@@ -161,7 +161,6 @@ typedef struct {
 	unsigned long		app_cache;	/* App cahce type */
 	struct page		**pages;	/* page descriptor */
 	struct task_struct	*task_info;	/* Task info */
-	pid_t			tgid;
 } rtds_memory_create_queue;
 
 typedef struct {

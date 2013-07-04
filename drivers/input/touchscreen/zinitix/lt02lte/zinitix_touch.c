@@ -3635,10 +3635,13 @@ fail_hw_cal:
 
 		u8Data = (u8 *)&misc_touch_dev->cur_data[0];
 
-		if (copy_to_user(raw_ioctl.buf, (u8 *)u8Data,
-			(unsigned long)raw_ioctl.sz)) {
-			up(&misc_touch_dev->raw_data_lock);
-			return -1;
+		if (raw_ioctl.sz > 0)
+		{
+			if (copy_to_user((void *)raw_ioctl.buf, (void *)u8Data,
+				  (unsigned long)raw_ioctl.sz)) {
+				up(&misc_touch_dev->raw_data_lock);
+				return -1;
+			}
 		}
 
 		up(&misc_touch_dev->raw_data_lock);
@@ -3774,8 +3777,9 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	set_bit(EV_ABS, touch_dev->input_dev->evbit);
 	set_bit(INPUT_PROP_DIRECT, touch_dev->input_dev->propbit);
 
-	//touch_dev->cap_info.Orientation |= TOUCH_XY_SWAP | TOUCH_H_FLIP;
-
+#ifdef CONFIG_RENESAS
+	touch_dev->cap_info.Orientation |= TOUCH_XY_SWAP | TOUCH_H_FLIP;
+#endif
 
 	for (i = 0; i < MAX_SUPPORTED_BUTTON_NUM; i++)
 		set_bit(BUTTON_MAPPING_KEY[i], touch_dev->input_dev->keybit);

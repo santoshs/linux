@@ -41,7 +41,7 @@ static ssize_t pm_boot_store(struct kobject *kobj, struct kobj_attribute *attr,
 		start_cpufreq();
 		control_cpuidle(1);
 	} else if (boot_stop == 0) {
-		stop_cpufreq();
+		(void)stop_cpufreq();
 		control_cpuidle(0);
 	}
 
