@@ -497,7 +497,6 @@ static irqreturn_t sh_mobile_i2c_isr(int irq, void *dev_id)
 	struct sh_mobile_i2c_data *pd = platform_get_drvdata(dev);
 	unsigned char sr;
 	int wakeup;
-	int i;
 
 	pd->msg = &pd->msgs[pd->curr_msg]; /* load current pd->msg */
 
@@ -531,11 +530,8 @@ static irqreturn_t sh_mobile_i2c_isr(int irq, void *dev_id)
 		iic_wr(pd, ICIC, ICIC_DTEE | ICIC_WAITE | ICIC_ALE | ICIC_TACKE);
 	}
 
-	if (sr & ICSR_WAIT) { /* TODO: add delay here to support slow acks */
-		for (i = 0; i < 10; i++)
-			udelay(10); /* TODO : Fix me!! */
+	if (sr & ICSR_WAIT) /* TODO: add delay here to support slow acks */
 		iic_wr(pd, ICSR, sr & ~ICSR_WAIT);
-	}
 
 	if (wakeup) {
 		pd->sr |= SW_DONE;
