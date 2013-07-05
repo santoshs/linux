@@ -61,6 +61,4 @@ struct sh_csi2_pdata {
 void sh_csi2_power(struct device *dev, int power_on);
 int sh_csi2__l_reset(void *handle, int reset);
 
-extern unsigned int g_csi2_base[2];
-
 #endif

@@ -500,6 +500,8 @@ static u32 meram_get_bsz(u32 bv_bsz)
 	u32 ret = 1;
 	u32 bsz;
 	u32 i;
+	if (!(bv_bsz & 0x8))
+		return ret;
 
 	bsz = bv_bsz & 0x7;
 	for (i = 0; i < bsz; i++)
@@ -1614,19 +1616,12 @@ static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 
 	spin_unlock_irqrestore(&pcdev->lock, flags);
 
-	for (i = 0; i < 1500; i++) {
+	for (i = 0; i < 1000; i++) {
 		if ((!pcdev->kick) && !(rcu_read(pcdev, RCSTSR) & 0x00000001))
 			break;
 		mdelay(1);
-		if (((i + 1) % 300) == 0) {
-			dev_err(pcdev->icd->parent,
-				"%4d : 0xfeaa0164 [0]=0x%08x [1]=0x%08x\n",
-				i + 1,
-				ioread32(g_csi2_base[0] + 0x0164),
-				ioread32(g_csi2_base[1] + 0x0164));
 	}
-	}
-	if (1500 <= i)
+	if (1000 <= i)
 		dev_err(pcdev->icd->parent,
 			"Stop error RCU is Active [%08x] kick is %d\n",
 			rcu_read(pcdev, RCSTSR), pcdev->kick);
