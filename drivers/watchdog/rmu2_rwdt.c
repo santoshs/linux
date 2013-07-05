@@ -163,7 +163,7 @@ int rmu2_rwdt_cntclear(void)
 	if (!startup) {
 		u16 cnt = __raw_readw(base + RWTCNT_OFFSET);
 		if (cnt >= RESCNT_INIT_VAL && cnt < RESCNT_LOW_VAL)
-		return 0;
+			return 0;
 	}
 
 	/* check RWTCSRA wrflg */
