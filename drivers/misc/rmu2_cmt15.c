@@ -320,10 +320,6 @@ void rmu2_cmt_clear(void)
 	if (test_mode == TEST_NO_KICK)
 		return;
 #endif
-
-	if (__raw_readl(CMCNT15) < CMT_OVF / 8)
-		return;
-
 	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(0, CMSTR15);       /* Stop counting */
 	__raw_writel(0U, CMCNT15);      /* Clear the count value */

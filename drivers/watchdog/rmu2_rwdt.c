@@ -42,10 +42,10 @@ static struct workqueue_struct *wq_wa_zq;
 static struct clk *rmu2_rwdt_clk;
 static unsigned long cntclear_time;
 static unsigned long cntclear_time_wa_zq;
+static unsigned long next_touch_at;
 static int stop_func_flg;
 static int wa_zq_flg;
 static bool running;
-static bool startup;
 
 #ifdef CONFIG_RWDT_DEBUG
 #define RWDT_DEBUG(fmt, ...)	printk(KERN_DEBUG "" fmt, ##__VA_ARGS__)
@@ -193,21 +193,15 @@ int rmu2_rwdt_cntclear(void)
 		return 0;
 #endif
 
+	/* If we collide with the other core, just leave it to them */
+	if (!spin_trylock_irqsave(&clear_lock, flags))
+		return 0;
+
 	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
 	if (NULL == r) {
 		return -ENOMEM;
 	}
 	base = IO_ADDRESS(r->start);
-
-	if (!startup) {
-		u16 cnt = __raw_readw(base + RWTCNT_OFFSET);
-		if (cnt >= RESCNT_INIT_VAL && cnt < RESCNT_LOW_VAL)
-			return 0;
-	}
-
-	/* If we collide with the other core, just leave it to them */
-	if (!spin_trylock_irqsave(&clear_lock, flags))
-		return 0;
 
 	/* check RWTCSRA wrflg */
 	reg8 = __raw_readb(base + RWTCSRA);
@@ -343,10 +337,13 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 		printk(KERN_ERR
 		"< %s > rmu2_rwdt_cntclear() = %d ->HARDWARE ERROR\n",
 		__func__, ret);
+	} else {
+		next_touch_at = jiffies + cntclear_time / 4;
 	}
 
 	if (0 == stop_func_flg)	/* do not execute while stop() */
 		queue_delayed_work(wq, dwork, cntclear_time);
+
 }
 
 #ifndef CONFIG_RMU2_RWDT_REBOOT_ENABLE
@@ -493,7 +490,6 @@ static int rmu2_rwdt_start(void)
 	__raw_writel(reg32, base + RWTCSRB);
 
 	running = true;
-	startup = true;
 
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();
@@ -518,8 +514,6 @@ static int rmu2_rwdt_start(void)
 			return ret;
 		}
 	}
-
-	startup = false;
 
 	/* start soft timer */
 	queue_delayed_work(wq, dwork, cntclear_time);
@@ -639,6 +633,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	}
 	/* set counter clear time */
 	cntclear_time = msecs_to_jiffies(CONFIG_RMU2_RWDT_CLEARTIME);
+	next_touch_at = jiffies + cntclear_time / 4;
 
 	wq = alloc_workqueue("rmu2_rwdt_queue",
 				WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
@@ -913,8 +908,12 @@ void rmu2_rwdt_software_reset(void)
 #ifndef CONFIG_LOCKUP_DETECTOR
 void touch_softlockup_watchdog(void)
 {
+	if (time_is_after_jiffies(next_touch_at))
+		return;
+
 	rmu2_cmt_clear();
-	rmu2_rwdt_cntclear();
+	if (rmu2_rwdt_cntclear() >= 0)
+		next_touch_at = jiffies + cntclear_time / 4;
 }
 
 void touch_all_softlockup_watchdogs(void)
