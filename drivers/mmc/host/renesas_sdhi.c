@@ -162,6 +162,7 @@ struct renesas_sdhi_host {
 	unsigned int hclk;	/* master clock */
 
 	spinlock_t lock;
+	spinlock_t rw_lock;
 
 	struct workqueue_struct *work;
 	struct delayed_work	detect_wq;
@@ -199,14 +200,21 @@ static void sdhi_read16s(struct renesas_sdhi_host *host,
 
 static u32 sdhi_read32(struct renesas_sdhi_host *host, u32 offset)
 {
-	return __raw_readw(host->base + (offset << host->bus_shift)) |
-	__raw_readw(host->base + ((offset + 2) << host->bus_shift)) << 16;
+	u32 val;
+	unsigned long flags;
+	spin_lock_irqsave(&host->rw_lock, flags);
+	val = __raw_readw(host->base + (offset << host->bus_shift)) |
+		__raw_readw(host->base + ((offset + 2) << host->bus_shift)) << 16;
+	spin_unlock_irqrestore(&host->rw_lock, flags);
+	return val;
 }
 
 static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 {
 	int timeout = 0;
+	unsigned long flags;
 
+	spin_lock_irqsave(&host->rw_lock, flags);
 	switch (offset) {
 	case SDHI_CMD:
 	case SDHI_STOP:
@@ -216,7 +224,7 @@ static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 	case SDHI_OPTION:
 	case SDHI_SDIO_MODE:
 	case SDHI_EXT_ACC:
-		while ((sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DIVEN) == 0) {
+		while (((sdhi_read16(host, SDHI_INFO2) << 16) & SDHI_INFO_DIVEN) == 0) {
 			if (timeout++ > 43)
 				break;
 			udelay(1);
@@ -224,6 +232,7 @@ static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 		break;
 	}
 	__raw_writew(val, host->base + (offset << host->bus_shift));
+	spin_unlock_irqrestore(&host->rw_lock, flags);
 }
 
 static int sdhi_save_register(struct renesas_sdhi_host *host)
@@ -242,6 +251,7 @@ static int sdhi_save_register(struct renesas_sdhi_host *host)
        reg->soft_rst = sdhi_read16(host, SDHI_SOFT_RST);
        reg->ext_acc = sdhi_read16(host, SDHI_EXT_ACC);
 
+       sdhi_read16(host, SDHI_CLK_CTRL);
        clk_disable(host->clk);
 
        return 0;
@@ -267,6 +277,7 @@ static int sdhi_restore_register(struct renesas_sdhi_host *host)
 
        sdhi_write16(host, SDHI_INFO2, sdhi_read16(host, SDHI_INFO2) & ~(1 << 13));
 
+       sdhi_read16(host, SDHI_CLK_CTRL);
        clk_disable(host->clk);
 
        return 0;
@@ -280,8 +291,11 @@ static void sdhi_write16s(struct renesas_sdhi_host *host,
 
 static void sdhi_write32(struct renesas_sdhi_host *host, u32 offset, u32 val)
 {
+	unsigned long flags;
+	spin_lock_irqsave(&host->rw_lock, flags);
 	__raw_writew(val & 0xffff, host->base + (offset << host->bus_shift));
 	__raw_writew(val >> 16, host->base + ((offset + 2) << host->bus_shift));
+	spin_unlock_irqrestore(&host->rw_lock, flags);
 }
 
 static void sdhi_enable_irqs(struct renesas_sdhi_host *host, u32 i)
@@ -477,6 +491,7 @@ static void renesas_sdhi_data_done(
 	sdhi_disable_irqs(host,
 		SDHI_INFO_BWE | SDHI_INFO_BRE | SDHI_INFO_RW_END);
 
+	sdhi_read16(host, SDHI_CLK_CTRL);
 	clk_disable(host->clk);
 	mmc_request_done(host->mmc, cmd->mrq);
 }
@@ -518,6 +533,7 @@ static void renesas_sdhi_cmd_done(
 		/* Clear interrupt */
 		val = sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DETECT;
 		sdhi_write32(host, SDHI_INFO, val);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 		host->mrq = NULL;
 		host->cmd = NULL;
@@ -614,6 +630,7 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 	}
 
 end:
+	sdhi_read16(host, SDHI_CLK_CTRL);
 	clk_disable(host->clk);
 	spin_unlock(&host->lock);
 	return IRQ_HANDLED;
@@ -677,6 +694,7 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 			renesas_sdhi_data_done(host, host->cmd);
 	}
 
+	sdhi_read16(host, SDHI_CLK_CTRL);
 	clk_disable(host->clk);
 
 	mmc_detect_change(host->mmc, msecs_to_jiffies(200));
@@ -1017,6 +1035,7 @@ static void renesas_sdhi_start_cmd(struct renesas_sdhi_host *host,
 		/* enable card clock */
 		sdhi_write16(host, SDHI_CLK_CTRL, val16);
 		wakeup_from_suspend_sd = 0;
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 	} else {
 		/* Send command */
@@ -1074,6 +1093,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			ios->power_mode == MMC_POWER_UP) {
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 1);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 		host->power_mode = ios->power_mode;
 	}
@@ -1087,6 +1107,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		else
 			val |= SDHI_OPT_WIDTH1;
 		sdhi_write16(host, SDHI_OPTION, val);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 		host->bus_width = ios->bus_width;
 	}
@@ -1095,6 +1116,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			host->power_mode != MMC_POWER_OFF) {
 		clk_enable(host->clk);
 		renesas_sdhi_set_clock(host, ios->clock);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 		host->clock = ios->clock;
 	}
@@ -1103,6 +1125,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			ios->power_mode == MMC_POWER_OFF) {
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 0);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 		host->power_mode = ios->power_mode;
 	}
@@ -1117,6 +1140,7 @@ static int renesas_sdhi_get_ro(struct mmc_host *mmc)
 	clk_enable(host->clk);
 	ret = !((pdata->flags & RENESAS_SDHI_WP_DISABLE) ||
 			(sdhi_read32(host, SDHI_INFO) & SDHI_INFO_WP));
+	sdhi_read16(host, SDHI_CLK_CTRL);
 	clk_disable(host->clk);
 
 	return ret;
@@ -1155,6 +1179,7 @@ static void renesas_sdhi_enable_sdio_irq(struct mmc_host *mmc, int enable)
 		sdhi_write16(host, SDHI_SDIO_MODE, 0x0000);
 		sdhi_write16(host, SDHI_SDIO_INFO_MASK, val);
 		sdhi_write16(host, SDHI_SDIO_INFO, 0);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 	}
 }
@@ -1216,6 +1241,7 @@ static int renesas_sdhi_signal_voltage_switch(
 
 		/* enable card clock */
 		sdhi_write16(host, SDHI_CLK_CTRL, val16);
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 	}
 	return 0;
@@ -1356,6 +1382,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
 
 	spin_lock_init(&host->lock);
+	spin_lock_init(&host->rw_lock);
 	host->work = create_singlethread_workqueue("sdhi");
 	INIT_DELAYED_WORK(&host->detect_wq, renesas_sdhi_detect_work);
 	INIT_DELAYED_WORK(&host->timeout_wq, renesas_sdhi_timeout_work);
@@ -1453,6 +1480,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%s base at 0x%08lx clock rate %u MHz\n",
 		 mmc_hostname(host->mmc), (unsigned long)res->start,
 		 host->hclk / 1000000);
+	sdhi_read16(host, SDHI_CLK_CTRL);
 	clk_disable(host->clk);
 	return 0;
 
@@ -1504,6 +1532,7 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 	if (!host->dynamic_clock) {
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 	ret = pm_runtime_put_sync(&pdev->dev);
 	if (0 > ret)
@@ -1534,6 +1563,7 @@ int renesas_sdhi_suspend(struct device *dev)
 	ret = mmc_suspend_host(host->mmc);
 	sdhi_save_register(host);
 	if (!host->dynamic_clock) {
+		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
 
 	}
