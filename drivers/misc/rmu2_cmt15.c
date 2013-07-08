@@ -26,6 +26,7 @@
 #include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/sched.h>
 #include <linux/uaccess.h>
 
 #include <mach/irqs.h>
@@ -99,11 +100,16 @@ void rmu2_cmt_loop(void *info)
 		"       mrs     %0, cpsr"
 		: "=r" (psr) : : "memory");
 
-	printk(KERN_ALERT "RWDT test loop (CPU %d, preemption %s, IRQs %s, FIQs %s)\n",
+	printk(KERN_ALERT "RWDT test loop (CPU %d, preemption %s, IRQs %s, FIQs %s%s)\n",
 			raw_smp_processor_id(),
 			preempt_count() ? "off" : "on",
 			psr & PSR_I_BIT ? "off" : "on",
-			psr & PSR_F_BIT ? "off" : "on");
+			psr & PSR_F_BIT ? "off" : "on",
+			(unsigned)info & 4 ? ", touches" : "");
+
+	if ((unsigned)info & 4)
+		while (1)
+			touch_softlockup_watchdog();
 
 	/* Try to avoid sucking power. Note that cpu_do_idle() etc all use
 	 * WFI, which won't do - it proceeds if there's a pending masked
@@ -666,6 +672,12 @@ int write_proc(struct file *file, const char __user *buf,
 		break;
 	case TEST_FIQOFF_LOOP_ALL:
 		on_each_cpu(rmu2_cmt_loop, (void *)3, false);
+		break;
+	case TEST_TOUCH_LOOP:
+		rmu2_cmt_loop((void *)4);
+		break;
+	case TEST_IRQOFF_TOUCH_LOOP_ALL:
+		on_each_cpu(rmu2_cmt_loop, (void *)5, false);
 		break;
 	}
 

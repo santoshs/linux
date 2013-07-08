@@ -32,22 +32,16 @@ enum crash_type {
 	TEST_NO_KICK = 1,		/* Normal system, watchdog not kicked */
 	TEST_LOOP = 2,			/* Infinite loop (1 CPU) */
 	TEST_PREEMPT_LOOP = 3,		/* Infinite loop (1 CPU, preempt off) */
-
-	/* Infinite loop (all CPUs, preempt off)*/
-	TEST_LOOP_ALL = 4,
+	/* TEST_LOOP_ALL = 4,		   not implemented */
 	TEST_IRQOFF_LOOP = 5,		/* IRQ-off infinite loop (1 CPU) */
 	TEST_IRQOFF_LOOP_ALL = 6,	/* IRQ-off infinite loop (all CPUs) */
 	TEST_WORKQUEUE_LOOP = 7,	/* Infinite loop in 1 workqueue */
-
-	/* Infinite loop in IRQ handler (all CPUs) */
-	TEST_IRQHANDLER_LOOP = 8,
+	TEST_IRQHANDLER_LOOP = 8,	/* Loop in IRQ handler (all CPUs) */
 	TEST_FIQOFF_LOOP = 9,		/* FIQ+IRQ-off infinite loop (1 CPU) */
-
-	/* FIQ+IRQ-off on 1 CPU, IRQ-off on others */
-	TEST_FIQOFF_1_LOOP_ALL = 10,
-
-	/* FIQ+IRQ-off infinite loop (all CPUs) */
-	TEST_FIQOFF_LOOP_ALL = 11,
+	TEST_FIQOFF_1_LOOP_ALL = 10,	/* FIQ-off on 1 CPU, IRQ-off on rest */
+	TEST_FIQOFF_LOOP_ALL = 11,	/* FIQ-off infinite loop (all CPUs) */
+	TEST_TOUCH_LOOP = 12,		/* Loop with touches (1 CPU) */
+	TEST_IRQOFF_TOUCH_LOOP_ALL = 13	/* IRQ-off loop with touches (all) */
 };
 
 extern int test_mode;
