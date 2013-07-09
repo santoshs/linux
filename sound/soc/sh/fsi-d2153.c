@@ -60,6 +60,8 @@ struct snd_soc_dapm_widget *capture_widget;
 struct clk *vclk4_clk;
 struct clk *main_clk;
 
+u_int  g_mode = SNDP_MODE_NORMAL;
+
 static unsigned int path_value[SNDRV_PCM_STREAM_LAST + 1];
 
 static DEFINE_SPINLOCK(fsi_d2153_lock); /* Guards the ignore suspend */
@@ -86,6 +88,9 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 	struct snd_soc_dapm_widget *w;
 	struct fsi_d2153_priv *priv =
 			snd_soc_card_get_drvdata(codec->card);
+	static int _d2153_set_dac_active = false;
+	static int _d2153_set_adc_active = false;
+	static int _capture_active = false;
 
 	if (strstr(stream, D2153_PLAYBACK_STREAM_NAME))
 		w = playback_widget;
@@ -94,13 +99,16 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 
 	if (capture_widget == w) {
 		if (!active) {
+			_capture_active = 0;
 			sndp_log_info("adc mute\n");
 			snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
 				D2153_ADC_MUTE_EN, D2153_ADC_MUTE_EN);
 			snd_soc_update_bits(codec, D2153_ADC_R_CTRL,
 				D2153_ADC_MUTE_EN, D2153_ADC_MUTE_EN);
-		}
 		msleep(20);
+		} else {
+			_capture_active = 1;
+		}
 	}
 
 	mutex_lock_nested(&codec->card->dapm_mutex,
@@ -116,6 +124,12 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 	/* Un-mute output device */
 	if (playback_widget == w) {
 		if (active) {
+			if(!_d2153_set_dac_active && !_capture_active)
+			{
+				d2153_set_aif_adjust_dac(codec);
+				_d2153_set_dac_active = active;
+			}
+
 			if (priv->spk_en) {
 				msleep(10);
 				snd_soc_update_bits(codec, D2153_SP_CTRL,
@@ -136,14 +150,25 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 				sndp_log_info("hp unmute\n");
 				msleep(50);
 			}
+		} else {
+			_d2153_set_dac_active = active;
 		}
 	} else {
 		if (active) {
+			if(!_d2153_set_adc_active) {
+				if ((SNDP_MODE_INCOMM == g_mode) || 
+				   (SNDP_MODE_INCALL == g_mode)) {
+					d2153_set_aif_adjust(codec);
+					_d2153_set_adc_active = active;
+				}
+			}
 			sndp_log_info("adc unmute\n");
 			snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
 				D2153_ADC_MUTE_EN, 0);
 			snd_soc_update_bits(codec, D2153_ADC_R_CTRL,
 				D2153_ADC_MUTE_EN, 0);
+		} else {
+			_d2153_set_adc_active = active;
 		}
 		msleep(20);
 	}
@@ -440,6 +465,9 @@ int fsi_d2153_sndp_soc_put(
 		path_value[SNDRV_PCM_STREAM_CAPTURE] = val;
 	else
 		path_value[SNDRV_PCM_STREAM_PLAYBACK] = val;
+
+	g_mode = SNDP_GET_MODE_VAL(val);
+
 	return sndp_soc_put(kcontrol, ucontrol);
 }
 

@@ -903,14 +903,21 @@ void vcd_spuv_func_start_wait(void)
 
 	init_waitqueue_head(&g_vcd_spuv_wait);
 
-	timer_cancel = wait_event_interruptible_timeout(
+	timer_cancel = wait_event_timeout(
 		g_vcd_spuv_wait,
 		g_spuv_func_is_completion,
 		msecs_to_jiffies(VCD_SPUV_FUNC_MAX_WAIT_TIME));
 
-	if (VCD_SPUV_FUNC_TIMEOUT == timer_cancel)
+	vcd_pr_spuv_info("timer_cancel[%ld].\n", timer_cancel);
+
+	if (VCD_SPUV_FUNC_TIMEOUT == timer_cancel) {
+		/* timeout */
 		vcd_pr_err("no interrupt. is_completion[%d].\n",
 				g_spuv_func_is_completion);
+	} else if (VCD_ERR_FORCE_END_WAIT == timer_cancel) {
+		/* signal interrupt */
+		vcd_pr_err("interrupted by a signal[%ld].\n", timer_cancel);
+	}
 
 	vcd_pr_end_spuv_function();
 	return;
@@ -930,7 +937,8 @@ void vcd_spuv_func_end_wait(void)
 
 	if (false == g_spuv_func_is_completion) {
 		g_spuv_func_is_completion = true;
-		wake_up_interruptible(&g_vcd_spuv_wait);
+		vcd_pr_spuv_info("wake_up.\n");
+		wake_up(&g_vcd_spuv_wait);
 	}
 
 	vcd_pr_end_spuv_function();

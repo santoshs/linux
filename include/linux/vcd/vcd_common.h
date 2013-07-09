@@ -50,6 +50,7 @@ extern unsigned int g_vcd_log_level;
 #define VCD_ERR_POWER_DOMAIN		(-ENODEV)
 #define VCD_ERR_SET_CLK			(-EIO)
 #define VCD_ERR_HWSPINLOCK_TIME_OUT	(-ETIME)
+#define VCD_ERR_FORCE_END_WAIT		(-ERESTARTSYS)
 
 
 /* log level */
