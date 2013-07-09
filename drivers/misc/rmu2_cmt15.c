@@ -42,6 +42,7 @@
 #include <linux/proc_fs.h>
 #include <asm/cacheflush.h>
 #include <asm/traps.h>
+#include <asm/fiq.h>
 
 static struct proc_dir_entry *proc_watch_entry;
 
@@ -56,8 +57,16 @@ void loop(void *info)
 
 	if ((unsigned)info & 1)
 		local_irq_disable();
-	if ((unsigned)info & 2)
+	if ((unsigned)info & 2) {
+		struct pt_regs r;
 		local_fiq_disable();
+		/* On a secure system, the above won't disable FIQs. But
+		 * setting R13_fiq can stop our secure code delivering us
+		 * the watchdog FIQ. */
+		get_fiq_regs(&r);
+		r.ARM_sp = 0xDEADDEAD;
+		set_fiq_regs(&r);
+	}
 
 	asm volatile(
 		"       mrs     %0, cpsr"

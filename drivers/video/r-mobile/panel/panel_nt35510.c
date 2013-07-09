@@ -1623,7 +1623,7 @@ retry:
 
 	is_dsi_read_enabled = 1;
 
-	msleep(20);
+	msleep(120);
 	retry_count_dsi = NT35510_INIT_RETRY_COUNT;
 	do {
 		ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);

@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfgp2p.c 395497 2013-04-08 08:22:55Z $
+ * $Id: wl_cfgp2p.c 408253 2013-06-18 06:25:11Z $
  *
  */
 #include <typedefs.h>
@@ -1069,8 +1069,8 @@ wl_cfgp2p_set_management_ie(struct wl_priv *wl, struct net_device *ndev, s32 bss
 	ASSERT(wl);
 	if(!wl)
 	{
-		CFGP2P_ERR(("wl handle is Null..\n"));
-		return -1;
+	    CFGP2P_ERR(("wl handle is Null..\n"));
+	    return -1;
 	}
 	if (wl->p2p != NULL) {
 		switch (pktflag) {
@@ -1923,8 +1923,13 @@ wl_cfgp2p_supported(struct wl_priv *wl, struct net_device *ndev)
 	ret = wldev_iovar_getint(ndev, "p2p",
 	               &p2p_supported);
 	if (ret < 0) {
-		CFGP2P_ERR(("wl p2p error %d\n", ret));
-		return BCME_NOTUP;
+		if (ret == BCME_UNSUPPORTED) {
+			CFGP2P_INFO(("p2p is unsupported\n"));
+			return 0;
+		} else {
+			CFGP2P_ERR(("wl p2p error %d\n", ret));
+			return BCME_NOTUP;
+	}
 	}
 	if (p2p_supported == 1) {
 		CFGP2P_INFO(("p2p is supported\n"));
@@ -2374,6 +2379,10 @@ static int wl_cfgp2p_do_ioctl(struct net_device *net, struct ifreq *ifr, int cmd
 	return ret;
 }
 
+#if defined(CUSTOMER_HW4) && defined(PLATFORM_SLP)
+bool wfd_if_flag = 0;
+#endif /* CUSTOMER_HW4 && PLATFORM_SLP */
+
 static int wl_cfgp2p_if_open(struct net_device *net)
 {
 	extern struct wl_priv *wlcfg_drv_priv;
@@ -2392,6 +2401,10 @@ static int wl_cfgp2p_if_open(struct net_device *net)
 	wdev->wiphy->interface_modes |= (BIT(NL80211_IFTYPE_P2P_CLIENT)
 		| BIT(NL80211_IFTYPE_P2P_GO));
 	wl_cfg80211_do_driver_init(net);
+
+#if defined(CUSTOMER_HW4) && defined(PLATFORM_SLP)
+	wfd_if_flag = 1;
+#endif /* CUSTOMER_HW4 && PLATFORM_SLP */
 
 	return 0;
 }
@@ -2422,6 +2435,9 @@ static int wl_cfgp2p_if_stop(struct net_device *net)
 	wdev->wiphy->interface_modes = (wdev->wiphy->interface_modes)
 					& (~(BIT(NL80211_IFTYPE_P2P_CLIENT)|
 					BIT(NL80211_IFTYPE_P2P_GO)));
+#if defined(CUSTOMER_HW4) && defined(PLATFORM_SLP)
+	wfd_if_flag = 0;
+#endif /* CUSTOMER_HW4 && PLATFORM_SLP */
 	return 0;
 }
 

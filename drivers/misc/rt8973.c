@@ -1272,6 +1272,10 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	tsu6712_read_reg(client, TSU6712_REG_DEVID, &value);
 	usbsw->rev = (int)(value >> 3);
 	pr_info("rt8973 chip rev is %x",usbsw->rev);
+
+	tsu6712_write_reg(client, TSU6712_REG_RESET, 0x1);
+	msleep(10);
+
 	tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
         if(usbsw->rev < 1) {
         value = (value | (0x08));
