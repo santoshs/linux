@@ -529,8 +529,13 @@ static void renesas_sdhi_cmd_done(
 			else
 				dmaengine_terminate_all(host->dma_tx);
 		}
-		__cancel_delayed_work(&host->timeout_wq);
-		renesas_sdhi_data_done(host, host->cmd);
+		if (__cancel_delayed_work(&host->timeout_wq)) {
+			renesas_sdhi_data_done(host, host->cmd);
+		} else {
+			sdhi_write32(host, SDHI_INFO, 0);
+			host->info_mask = 0xffffffff;
+			sdhi_enable_irqs(host, SDHI_INFO_ALLERR);
+		}
 	} else {
 		sdhi_disable_irqs(host, SDHI_INFO_RSP_END);
 	}
@@ -608,8 +613,13 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 	}
 
 	if (status & SDHI_INFO_RW_END) {
-		__cancel_delayed_work(&host->timeout_wq);
-		renesas_sdhi_data_done(host, host->cmd);
+		if (__cancel_delayed_work(&host->timeout_wq)) {
+			renesas_sdhi_data_done(host, host->cmd);
+		} else {
+			sdhi_write32(host, SDHI_INFO, 0);
+			host->info_mask = 0xffffffff;
+			sdhi_enable_irqs(host, SDHI_INFO_ALLERR);
+		}
 		goto end;
 	}
 
