@@ -882,6 +882,8 @@ void rmu2_rwdt_software_reset(void)
 #ifndef CONFIG_LOCKUP_DETECTOR
 void touch_softlockup_watchdog(void)
 {
+	rmu2_cmt_clear();
+	rmu2_rwdt_cntclear();
 }
 
 void touch_all_softlockup_watchdogs(void)
