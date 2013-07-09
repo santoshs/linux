@@ -289,6 +289,11 @@ void rmu2_cmt_clear(void)
 	if (!running)
 		return;
 
+#ifdef CONFIG_RWDT_CMT15_TEST
+	if (test_mode == TEST_NO_KICK)
+		return;
+#endif
+
 	if (__raw_readl(CMCNT15) < CMT_OVF / 8)
 		return;
 

@@ -154,6 +154,11 @@ int rmu2_rwdt_cntclear(void)
 	if (!running)
 		return -ENODEV;
 
+#ifdef CONFIG_RWDT_CMT15_TEST
+	if (test_mode == TEST_NO_KICK)
+		return 0;
+#endif
+
 	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
 	if (NULL == r) {
 		return -ENOMEM;
