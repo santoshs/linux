@@ -17,8 +17,12 @@
 static unsigned char dms_MP_SHwy;
 static int sh_clk_mstp32_enable(struct clk *clk)
 {
+	volatile unsigned long value;
+	dsb();
 	__raw_writel(__raw_readl(clk->enable_reg) & ~(1 << clk->enable_bit),
 		     clk->enable_reg);
+	value = __raw_readl(clk->enable_reg);	/* dummy read */
+	dsb();
 	while (__raw_readl(clk->status_reg) & (1 << clk->enable_bit))
 		cpu_relax();
 	return 0;
@@ -26,6 +30,7 @@ static int sh_clk_mstp32_enable(struct clk *clk)
 
 static void sh_clk_mstp32_disable(struct clk *clk)
 {
+	volatile unsigned long value;
 /*Disabling MP-SHwy dynamic module stop for ES2.0 and earlier*/
 	if ((system_rev & 0xFFFF) < 0x3E11)
 		if ((__raw_readl(HPB_HPBCTRL2) & (1 << 11))) {
@@ -33,8 +38,11 @@ static void sh_clk_mstp32_disable(struct clk *clk)
 						HPB_HPBCTRL2);
 				dms_MP_SHwy = 1;
 			   }
+	dsb();
 	__raw_writel(__raw_readl(clk->enable_reg) | (1 << clk->enable_bit),
 		     clk->enable_reg);
+	value = __raw_readl(clk->enable_reg);	/* dummy read */
+	dsb();
 	/*Doing the MSTP status bit check only for SPU2A,SPU2V clocks*/
 	if (clk->enable_reg == (int *)SMSTPCR2Phys && ((clk->enable_bit == 20)
 			|| (clk->enable_bit == 23))) {
@@ -129,43 +137,54 @@ static int sh_clk_div6_set_parent(struct clk *clk, struct clk *parent)
 
 static int sh_clk_div6_set_rate(struct clk *clk, unsigned long rate)
 {
-	unsigned long value;
+	volatile unsigned long value;
 	int idx;
 
 	idx = clk_rate_table_find(clk, clk->freq_table, rate);
 	if (idx < 0)
 		return idx;
 
+	dsb();
 	value = __raw_readl(clk->enable_reg);
 	value &= ~0x3f;
 	value |= idx;
 	__raw_writel(value, clk->enable_reg);
+	value = __raw_readl(clk->enable_reg);	/* dummy read */
+	dsb();
 	return 0;
 }
 
 static int sh_clk_div6_enable(struct clk *clk)
 {
-	unsigned long value;
+	volatile unsigned long value;
 	int ret;
 
 	ret = sh_clk_div6_set_rate(clk, clk->rate);
 	if (ret == 0) {
+		dsb();
 		value = __raw_readl(clk->enable_reg);
 		value &= ~(1 << clk->enable_bit); /* clear stop bit */
 		__raw_writel(value, clk->enable_reg);
+		value = __raw_readl(clk->enable_reg);	/* dummy read */
+		dsb();
 	}
 	return ret;
 }
 
 static void sh_clk_div6_disable(struct clk *clk)
 {
-	unsigned long value;
+	volatile unsigned long value;
 
+	dsb();
 	value = __raw_readl(clk->enable_reg);
 	value |= (1 << clk->enable_bit); /* stop clock */
-	if ((clk->flags & CLK_DIV_SHARED) == 0)
+	__raw_writel(value, clk->enable_reg);
+	if ((clk->flags & CLK_DIV_SHARED) == 0) {
 		value |= 0x3f; /* VDIV bits must be non-zero, overwrite divider */
 	__raw_writel(value, clk->enable_reg);
+}
+	value = __raw_readl(clk->enable_reg);	/* dummy read */
+	dsb();
 }
 
 static struct sh_clk_ops sh_clk_div6_clk_ops = {

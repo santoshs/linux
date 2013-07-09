@@ -162,6 +162,7 @@ struct renesas_sdhi_host {
 	unsigned int hclk;	/* master clock */
 
 	spinlock_t lock;
+	spinlock_t rw_lock;
 
 	struct workqueue_struct *work;
 	struct delayed_work	detect_wq;
@@ -199,14 +200,21 @@ static void sdhi_read16s(struct renesas_sdhi_host *host,
 
 static u32 sdhi_read32(struct renesas_sdhi_host *host, u32 offset)
 {
-	return __raw_readw(host->base + (offset << host->bus_shift)) |
-	__raw_readw(host->base + ((offset + 2) << host->bus_shift)) << 16;
+	u32 val;
+	unsigned long flags;
+	spin_lock_irqsave(&host->rw_lock, flags);
+	val = __raw_readw(host->base + (offset << host->bus_shift)) |
+		__raw_readw(host->base + ((offset + 2) << host->bus_shift)) << 16;
+	spin_unlock_irqrestore(&host->rw_lock, flags);
+	return val;
 }
 
 static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 {
 	int timeout = 0;
+	unsigned long flags;
 
+	spin_lock_irqsave(&host->rw_lock, flags);
 	switch (offset) {
 	case SDHI_CMD:
 	case SDHI_STOP:
@@ -216,7 +224,7 @@ static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 	case SDHI_OPTION:
 	case SDHI_SDIO_MODE:
 	case SDHI_EXT_ACC:
-		while ((sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DIVEN) == 0) {
+		while (((sdhi_read16(host, SDHI_INFO2) << 16) & SDHI_INFO_DIVEN) == 0) {
 			if (timeout++ > 43)
 				break;
 			udelay(1);
@@ -224,6 +232,7 @@ static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 		break;
 	}
 	__raw_writew(val, host->base + (offset << host->bus_shift));
+	spin_unlock_irqrestore(&host->rw_lock, flags);
 }
 
 static int sdhi_save_register(struct renesas_sdhi_host *host)
@@ -282,8 +291,11 @@ static void sdhi_write16s(struct renesas_sdhi_host *host,
 
 static void sdhi_write32(struct renesas_sdhi_host *host, u32 offset, u32 val)
 {
+	unsigned long flags;
+	spin_lock_irqsave(&host->rw_lock, flags);
 	__raw_writew(val & 0xffff, host->base + (offset << host->bus_shift));
 	__raw_writew(val >> 16, host->base + ((offset + 2) << host->bus_shift));
+	spin_unlock_irqrestore(&host->rw_lock, flags);
 }
 
 static void sdhi_enable_irqs(struct renesas_sdhi_host *host, u32 i)
@@ -1380,6 +1392,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
 
 	spin_lock_init(&host->lock);
+	spin_lock_init(&host->rw_lock);
 	host->work = create_singlethread_workqueue("sdhi");
 	INIT_DELAYED_WORK(&host->detect_wq, renesas_sdhi_detect_work);
 	INIT_DELAYED_WORK(&host->timeout_wq, renesas_sdhi_timeout_work);
