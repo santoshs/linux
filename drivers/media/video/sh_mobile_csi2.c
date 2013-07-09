@@ -326,7 +326,7 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 	unsigned long flags;
 
 	spin_lock_irqsave(&priv->lock, flags);
-	if (0 != enable) {
+	if (1 == enable) {
 		printk(KERN_ALERT "%s stream on\n", __func__);
 		if (pdata->local_reset)
 			pdata->local_reset(priv, 1);
@@ -343,7 +343,10 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 
 		priv->strm_on = 1;
 		priv->err_cnt = 0;
-	} else {
+
+		if (ioread32(priv->base + SH_CSI2_OUT) & 0x1)
+			iowrite32(0x0, priv->base + SH_CSI2_OUT);
+	} else if (0 == enable) {
 		/* stream OFF */
 		printk(KERN_ALERT "%s stream off\n", __func__);
 		iowrite8(pdata->imcr_set, priv->intcs_base +
@@ -352,6 +355,12 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 
 		if (pdata->local_reset)
 			pdata->local_reset(priv, 0);
+	} else {
+		/* force stream off */
+		dev_warn(&priv->pdev->dev, "%s force stream off\n", __func__);
+		iowrite32(0x1, priv->base + SH_CSI2_SRST);
+		iowrite32(0x1, priv->base + SH_CSI2_OUT);
+		iowrite32(0x0, priv->base + SH_CSI2_SRST);
 	}
 	spin_unlock_irqrestore(&priv->lock, flags);
 	return 0;

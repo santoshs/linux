@@ -500,8 +500,6 @@ static u32 meram_get_bsz(u32 bv_bsz)
 	u32 ret = 1;
 	u32 bsz;
 	u32 i;
-	if (!(bv_bsz & 0x8))
-		return ret;
 
 	bsz = bv_bsz & 0x7;
 	for (i = 0; i < bsz; i++)
@@ -531,7 +529,7 @@ static void meram_ch_wait(struct sh_mobile_rcu_dev *priv)
 	size = ~(size * bv_bsz * kwbnm - 1) & 0x03FFFFFF;
 
 	while (1000 > i) {
-		if ((rcu_read(priv, RCMON5) & size)
+		if ((rcu_read(priv, RCMON6) & size)
 			== meram_ch_read(priv, reg))
 			break;
 		udelay(1);
@@ -541,12 +539,12 @@ static void meram_ch_wait(struct sh_mobile_rcu_dev *priv)
 	if (1000 <= i)
 		dev_err(priv->icd->parent,
 			"MERAM Wait error %s is active:"
-			"  RCMON5[%08x] "
+			"  RCMON6[%08x] "
 			"     DBG[%08x] "
 			"    size[%08x] "
 			"   count[%08x]\n",
 			priv->meram_frame ? "A" : "B",
-			rcu_read(priv, RCMON5),
+			rcu_read(priv, RCMON6),
 			meram_ch_read(priv, reg), size, i);
 
 }
@@ -571,7 +569,7 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 		(0x3 & (reg_actst1 >> (RCU_MERAM_CH(pcdev->meram_ch) - 32)));
 
 	if (RCU_MERAM_FRAMEA == pcdev->meram_frame) {
-		if ((RCU_MERAM_STP_FORCE == mode) && !(reg_actst1 & 0x1)) {
+		if ((RCU_MERAM_STPSEQ_NORMAL != mode) && !(reg_actst1 & 0x1)) {
 			dev_warn(pcdev->icd->parent,
 				"MERAM FORCE NoAct %s :"
 				"  ACTST1[%08x] "
@@ -599,7 +597,7 @@ static void meram_stop_seq(struct sh_mobile_rcu_dev *pcdev, u32 mode)
 				meram_ch_read(pcdev, RCU_MERAM_CTRL),
 				read_reg);
 	} else {
-		if ((RCU_MERAM_STP_FORCE == mode) && !(reg_actst1 & 0x2)) {
+		if ((RCU_MERAM_STPSEQ_NORMAL != mode) && !(reg_actst1 & 0x2)) {
 			dev_warn(pcdev->icd->parent,
 				"MERAM FORCE NoAct %s :"
 				"  ACTST1[%08x] "
@@ -1621,12 +1619,25 @@ static int sh_mobile_rcu_stop_streaming(struct vb2_queue *q)
 			break;
 		mdelay(1);
 	}
-	if (1000 <= i)
+	if (1000 <= i) {
 		dev_err(pcdev->icd->parent,
 			"Stop error RCU is Active [%08x] kick is %d\n",
 			rcu_read(pcdev, RCSTSR), pcdev->kick);
+		ret = v4l2_device_call_until_err(sd->v4l2_dev, 0,
+			video, s_stream, 2);
+		if (ret) {
+			dev_err(pcdev->icd->parent,
+				"%s :Error v4l2_device_call_until_err"
+				"[s_stream](%d)\n",
+				__func__, ret);
+		}
+		if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram)
+			meram_stop_seq(pcdev, RCU_MERAM_STPSEQ_FORCE);
+		ret = -1;
+	} else
+		ret = 0;
 
-	if (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram) {
+	if (!ret && (SH_RCU_OUTPUT_SDRAM != pcdev->output_meram)) {
 		u32 reg_actst1;
 		meram_stop_seq(pcdev, RCU_MERAM_STP_FORCE);
 		dev_geo(pcdev->icd->parent, "%s:meram stop\n", __func__);
