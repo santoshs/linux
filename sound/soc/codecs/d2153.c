@@ -45,6 +45,14 @@
 
 static const char *mixout_r_select_widget;
 
+u8 d2153_aif_adjusted_val [] = {
+	0x01,0x11,0x02,0x12,0x03,0x13,0x04,0x14,
+	0x05,0x15,0x06,0x16,0x07,0x17,0x08,0x18,
+	0x09,0x19,0x0a,0x1a,0x0b,0x1b,0x0c,0x1c,
+	0x0d,0x1d,0x0e,0x1e,0x0f,0x1f,0x10,0x00,
+	0x11,0x02,0x12,0x03,0x13,0x04,0x14,0x00,	
+};
+
 /*
  * Gain and Volume
  */
@@ -294,6 +302,67 @@ static const struct soc_enum d2153_sp_hld_time =
 /*
  * Control functions
  */
+int d2153_set_aif_adjust(struct snd_soc_codec *codec)
+{
+	int i;
+	int loop_max = ARRAY_SIZE(d2153_aif_adjusted_val);
+	dlg_info("%s()\n",__FUNCTION__);		
+
+	snd_soc_update_bits(codec, D2153_DAC_FILTERS5, D2153_DAC_SOFTMUTE_EN,
+		 D2153_DAC_SOFTMUTE_EN);
+	snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
+				D2153_ADC_MUTE_EN, D2153_ADC_MUTE_EN);
+	msleep(10);
+
+	snd_soc_write(codec, D2153_PC_COUNT, 0x02);
+	for (i = 0; i < loop_max; i++) {
+		snd_soc_write(codec, D2153_AIF_OFFSET,
+				d2153_aif_adjusted_val[i]);
+		usleep_range(500, 500);
+	}
+	msleep(50); // need to optimize
+
+	snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
+				D2153_ADC_MUTE_EN, 0);
+	snd_soc_update_bits(codec, D2153_DAC_FILTERS5, 
+				D2153_DAC_SOFTMUTE_EN, 0);
+	msleep(10); // need to optimize
+
+	return 0;
+}
+EXPORT_SYMBOL(d2153_set_aif_adjust);
+
+int d2153_set_aif_adjust_dac(struct snd_soc_codec *codec)
+{
+	int i;
+	int loop_max = ARRAY_SIZE(d2153_aif_adjusted_val);
+	u8 adc_ctrl;
+
+
+	adc_ctrl = snd_soc_read(codec, D2153_ADC_L_CTRL);
+	if (!(adc_ctrl & D2153_ADC_MUTE_EN))
+		return 0;
+
+	dlg_info("%s()\n",__FUNCTION__);
+
+	snd_soc_update_bits(codec, D2153_DAC_FILTERS5,
+		D2153_DAC_SOFTMUTE_EN, D2153_DAC_SOFTMUTE_EN);
+
+	msleep(10);
+
+	snd_soc_write(codec, D2153_PC_COUNT, 0x02);
+	for (i = 0; i < loop_max; i++) {
+		snd_soc_write(codec, D2153_AIF_OFFSET,
+				d2153_aif_adjusted_val[i]);
+		usleep_range(500, 500);
+	}
+	msleep(50);
+
+	snd_soc_update_bits(codec, D2153_DAC_FILTERS5,
+				D2153_DAC_SOFTMUTE_EN, 0);
+	return 0;
+}
+EXPORT_SYMBOL(d2153_set_aif_adjust_dac);
 
 static int d2153_snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)

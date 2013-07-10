@@ -467,6 +467,18 @@ not_relocated:	mov	r0, #0
         */
 		bl	l2_cache_clean_flush
 #endif
+
+		ldr	r0, =0x45000400
+		str	r0, [r0]
+		dsb
+		ldr	r0, =0xE6F10054
+		ldr	r2, =0x7004
+		str	r2, [r0]
+		dsb
+		ldr	r2, =0x4004
+		str	r2, [r0]
+		dsb
+
 		mov	r0, #0			@ must be zero
 		mov	r1, r7			@ restore architecture number
 		mov	r2, r8			@ restore atags pointer

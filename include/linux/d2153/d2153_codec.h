@@ -426,6 +426,7 @@
 #define D2153_PLL_INDIV_20_40_MHZ			(2 << 2)
 #define D2153_PLL_INDIV_40_54_MHZ			(3 << 2)
 #define D2153_PLL_INDIV_MASK				(3 << 2)
+#define D2153_PLL_MSQR_EN				(1 << 4)
 #define D2153_PLL_32K_MODE				(1 << 5)
 #define D2153_PLL_SRM_EN				(1 << 6)
 #define D2153_PLL_EN					(1 << 7)
@@ -781,4 +782,6 @@ struct d2153_codec_priv {
 int d2153_codec_power(struct snd_soc_codec *codec, int on);
 int d2153_aad_enable(struct snd_soc_codec *codec);
 int d2153_aad_resume(struct snd_soc_codec *codec);
+int d2153_set_aif_adjust(struct snd_soc_codec *codec);
+int d2153_set_aif_adjust_dac(struct snd_soc_codec *codec);
 #endif /* _D2153_H */
