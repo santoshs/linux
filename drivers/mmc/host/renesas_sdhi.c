@@ -162,6 +162,7 @@ struct renesas_sdhi_host {
 	unsigned int hclk;	/* master clock */
 
 	spinlock_t lock;
+	spinlock_t rw_lock;
 
 	struct workqueue_struct *work;
 	struct delayed_work	detect_wq;
@@ -199,14 +200,21 @@ static void sdhi_read16s(struct renesas_sdhi_host *host,
 
 static u32 sdhi_read32(struct renesas_sdhi_host *host, u32 offset)
 {
-	return __raw_readw(host->base + (offset << host->bus_shift)) |
-	__raw_readw(host->base + ((offset + 2) << host->bus_shift)) << 16;
+	u32 val;
+	unsigned long flags;
+	spin_lock_irqsave(&host->rw_lock, flags);
+	val = __raw_readw(host->base + (offset << host->bus_shift)) |
+		__raw_readw(host->base + ((offset + 2) << host->bus_shift)) << 16;
+	spin_unlock_irqrestore(&host->rw_lock, flags);
+	return val;
 }
 
 static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 {
 	int timeout = 0;
+	unsigned long flags;
 
+	spin_lock_irqsave(&host->rw_lock, flags);
 	switch (offset) {
 	case SDHI_CMD:
 	case SDHI_STOP:
@@ -216,7 +224,7 @@ static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 	case SDHI_OPTION:
 	case SDHI_SDIO_MODE:
 	case SDHI_EXT_ACC:
-		while ((sdhi_read32(host, SDHI_INFO) & SDHI_INFO_DIVEN) == 0) {
+		while (((sdhi_read16(host, SDHI_INFO2) << 16) & SDHI_INFO_DIVEN) == 0) {
 			if (timeout++ > 43)
 				break;
 			udelay(1);
@@ -224,6 +232,7 @@ static void sdhi_write16(struct renesas_sdhi_host *host, u32 offset, u16 val)
 		break;
 	}
 	__raw_writew(val, host->base + (offset << host->bus_shift));
+	spin_unlock_irqrestore(&host->rw_lock, flags);
 }
 
 static int sdhi_save_register(struct renesas_sdhi_host *host)
@@ -282,8 +291,11 @@ static void sdhi_write16s(struct renesas_sdhi_host *host,
 
 static void sdhi_write32(struct renesas_sdhi_host *host, u32 offset, u32 val)
 {
+	unsigned long flags;
+	spin_lock_irqsave(&host->rw_lock, flags);
 	__raw_writew(val & 0xffff, host->base + (offset << host->bus_shift));
 	__raw_writew(val >> 16, host->base + ((offset + 2) << host->bus_shift));
+	spin_unlock_irqrestore(&host->rw_lock, flags);
 }
 
 static void sdhi_enable_irqs(struct renesas_sdhi_host *host, u32 i)
@@ -372,10 +384,8 @@ static void renesas_sdhi_power(struct renesas_sdhi_host *host, int power)
 	int ret = 0;
 	switch (power) {
 	case 1:
-		if (pdata->set_pwr) {
-			printk(KERN_ERR "**%s:%s calling set_pwr RENESAS_SDHI_POWER_ON\n", __func__, mmc_hostname(host->mmc));
+		if (pdata->set_pwr)
 			pdata->set_pwr(host->pdev, RENESAS_SDHI_POWER_ON);
-		}
 		if (host->dynamic_clock) {
 			ret = pm_runtime_get_sync(&host->pdev->dev);
 			if (0 > ret)
@@ -391,11 +401,9 @@ static void renesas_sdhi_power(struct renesas_sdhi_host *host, int power)
 				printk(KERN_ALERT "[%s]ret %d/n",__func__,ret);
 			else
 			{
-				if (pdata->set_pwr) {
-					printk(KERN_ERR "**%s:%s calling set_pwr RENESAS_SDHI_POWER_OFF\n", __func__, mmc_hostname(host->mmc));
+				if (pdata->set_pwr)
 					pdata->set_pwr(host->pdev,
 						 RENESAS_SDHI_POWER_OFF);
-				}
 			}
 		}
 		break;
@@ -643,28 +651,28 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 	clk_enable(host->clk);
 
 	if (pdata->detect_irq) {
-		printk(KERN_ERR "**%s:%s setting host->connect to %d\n", __func__, mmc_hostname(host->mmc), pdata->get_cd(host->pdev));
 		host->connect = pdata->get_cd(host->pdev);
 		if (pdata->detect_msec)
 			enable_irq(pdata->detect_irq);
 	} else {
 		status = sdhi_read32(host, SDHI_INFO);
 		host->connect = status & SDHI_INFO_CD ? 1 : 0;
-		printk(KERN_ERR "**%s:%s setting host->connect = %d\n", __func__, mmc_hostname(host->mmc), host->connect);
 	}
 
 	/* updating the SD card presence*/
 	sdcard1_detect_state = host->connect;
 
+	printk(KERN_INFO "%s: %s: host->connect %d, get_cd %d\n",
+		__func__, mmc_hostname(host->mmc), host->connect,
+		pdata->get_cd(host->pdev));
+
 	/* PMIC Start: Will effect the PMIC power source on insertion /deletion
 		of Card after Boot-Up */
 	if (host->connect) {
-		printk(KERN_ERR "**%s:%s calling renesas_sdhi_power 1\n", __func__, mmc_hostname(host->mmc));
 		renesas_sdhi_power(host, 1);
 		host->power_mode = MMC_POWER_UP;
 		sdhi_reset(host);
 	} else {
-		printk(KERN_ERR "**%s:%s calling renesas_sdhi_power 0\n", __func__, mmc_hostname(host->mmc));
 		renesas_sdhi_power(host, 0);
 		host->power_mode = MMC_POWER_OFF;
 	}
@@ -701,13 +709,15 @@ static irqreturn_t renesas_sdhi_detect_irq(int irq, void *dev_id)
 	struct renesas_sdhi_host *host = dev_id;
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 
-	printk(KERN_ERR "**%s:%s start host->connect %d pdata->get_cd(host->pdev) %d\n", __func__, mmc_hostname(host->mmc), host->connect, pdata->get_cd(host->pdev));
+	printk(KERN_INFO "%s: %s: host->connect %d, get_cd %d\n",
+			__func__, mmc_hostname(host->mmc), host->connect,
+			pdata->get_cd(host->pdev));
+
 	/* Ignore the detect interrupt if previous detect state
 	 * is same as new */
-	if (host->connect == pdata->get_cd(host->pdev)) {
-		printk(KERN_ERR "**%s:%s host->connect %d pdata->get_cd(host->pdev) %d returning \n", __func__, mmc_hostname(host->mmc), host->connect, pdata->get_cd(host->pdev));
+	if (host->connect == pdata->get_cd(host->pdev))
 		return IRQ_HANDLED;
-	}
+	
 	spin_lock(&host->lock);
 
 	if (pdata->detect_msec)
@@ -1090,7 +1100,6 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (host->power_mode != ios->power_mode &&
 			ios->power_mode == MMC_POWER_UP) {
 		clk_enable(host->clk);
-		printk(KERN_ERR "**%s:%s calling renesas_sdhi_power 1\n", __func__, mmc_hostname(host->mmc));
 		renesas_sdhi_power(host, 1);
 		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
@@ -1123,7 +1132,6 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (host->power_mode != ios->power_mode &&
 			ios->power_mode == MMC_POWER_OFF) {
 		clk_enable(host->clk);
-		printk(KERN_ERR "**%s:%s calling renesas_sdhi_power 0\n", __func__, mmc_hostname(host->mmc));
 		renesas_sdhi_power(host, 0);
 		sdhi_read16(host, SDHI_CLK_CTRL);
 		clk_disable(host->clk);
@@ -1227,10 +1235,8 @@ static int renesas_sdhi_signal_voltage_switch(
 	u16 val16;
 
 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
-		if (pdata->set_pwr) {
-			printk(KERN_ERR "**%s:%s calling set_pwr RENESAS_SDHI_SIGNAL_V330\n", __func__, mmc_hostname(host->mmc));
+		if (pdata->set_pwr)
 			pdata->set_pwr(host->pdev, RENESAS_SDHI_SIGNAL_V330);
-		}
 	} else if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
 		clk_enable(host->clk);
 
@@ -1238,10 +1244,8 @@ static int renesas_sdhi_signal_voltage_switch(
 		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
 		sdhi_write16(host, SDHI_CLK_CTRL, val16 & ~0x100);
 
-		if (pdata->set_pwr) {
-			printk(KERN_ERR "**%s:%s calling set_pwr RENESAS_SDHI_SIGNAL_V180\n", __func__, mmc_hostname(host->mmc));
+		if (pdata->set_pwr)
 			pdata->set_pwr(host->pdev, RENESAS_SDHI_SIGNAL_V180);
-		}
 
 		/* enable card clock */
 		sdhi_write16(host, SDHI_CLK_CTRL, val16);
@@ -1388,6 +1392,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
 
 	spin_lock_init(&host->lock);
+	spin_lock_init(&host->rw_lock);
 	host->work = create_singlethread_workqueue("sdhi");
 	INIT_DELAYED_WORK(&host->detect_wq, renesas_sdhi_detect_work);
 	INIT_DELAYED_WORK(&host->timeout_wq, renesas_sdhi_timeout_work);
@@ -1501,10 +1506,8 @@ err4:
 	pm_runtime_disable(&pdev->dev);
 	/* PMIC Start: Disable the Power source if card not available.
 		Will happen if transfer IRQ is not functinal */
-	if (pdata->set_pwr) {
-		printk(KERN_ERR "**%s:%s err4 calling set_pwr 0\n", __func__, mmc_hostname(host->mmc));
+	if (pdata->set_pwr)
 		pdata->set_pwr(pdev, 0);
-	}
 	/* PMIC End */
 err3:
 	if (host->work)
@@ -1616,17 +1619,14 @@ int renesas_sdhi_resume(struct device *dev)
 			sdhi_reset(host);
 		val = sdhi_read32(host, SDHI_INFO);
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
-		printk(KERN_ERR "**%s:%s setting host->connect to %d\n", __func__, mmc_hostname(host->mmc), host->connect);
 	}
  	sdhi_restore_register(host);
 	ret = mmc_resume_host(host->mmc);
 
 	if (CHANNEL_SDHI1 == pdev->id) {
 		if (OFF == host->state) {
-			if (pdata->set_pwr) {
-				printk(KERN_ERR "**%s:%s calling set_pwr 0\n", __func__, mmc_hostname(host->mmc));
+			if (pdata->set_pwr)
 				pdata->set_pwr(host->pdev, 0);
-			}
 		}
 	}
 	return ret;
