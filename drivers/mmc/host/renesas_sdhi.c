@@ -647,6 +647,15 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 	dwflag = true;
 
 	flush_delayed_work_sync(&host->mmc->detect);
+	/* Ignore the detect interrupt if previous detect state
+	 * is same as new */
+	if (pdata->detect_irq && pdata->get_cd) {
+		if (host->connect == pdata->get_cd(host->pdev)) {
+			pr_warning("%s:%s Prev card status is same as new\n",
+					__func__, mmc_hostname(host->mmc));
+			return;
+		}
+	}
 
 	clk_enable(host->clk);
 
@@ -713,10 +722,6 @@ static irqreturn_t renesas_sdhi_detect_irq(int irq, void *dev_id)
 			__func__, mmc_hostname(host->mmc), host->connect,
 			pdata->get_cd(host->pdev));
 
-	/* Ignore the detect interrupt if previous detect state
-	 * is same as new */
-	if (host->connect == pdata->get_cd(host->pdev))
-		return IRQ_HANDLED;
 	
 	spin_lock(&host->lock);
 
