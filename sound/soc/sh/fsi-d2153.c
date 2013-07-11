@@ -86,8 +86,7 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 	struct snd_soc_dapm_widget *w;
 	struct fsi_d2153_priv *priv =
 			snd_soc_card_get_drvdata(codec->card);
-	static int _d2153_set_dac_active = false;
-	static int _d2153_set_adc_active = false;
+	static int _d2153_set_adc_active = 0;
 
 	if (strstr(stream, D2153_PLAYBACK_STREAM_NAME))
 		w = playback_widget;
@@ -115,9 +114,6 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 		w->name, w->active);
 	snd_soc_dapm_sync(&codec->dapm);
 
-	if((!_d2153_set_dac_active) && (!_d2153_set_adc_active))
-		d2153_set_aif_adjust(codec);
-
 	/* Un-mute output device */
 	if (playback_widget == w) {
 		if (active) {
@@ -141,9 +137,10 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 			}
 			msleep(50);
 		}
-		_d2153_set_dac_active = active;
 	} else {
 		if (active) {
+			if(!_d2153_set_adc_active)
+				d2153_set_aif_adjust(codec);
 			sndp_log_info("adc unmute\n");
 			snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
 				D2153_ADC_MUTE_EN, 0);

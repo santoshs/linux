@@ -305,23 +305,36 @@ static const struct soc_enum d2153_sp_hld_time =
 int d2153_set_aif_adjust(struct snd_soc_codec *codec)
 {
 	int i;
+	int loop_max = ARRAY_SIZE(d2153_aif_adjusted_val);
+	u8 sr_status;
 
-	//dlg_info("%s() \n",__FUNCTION__);
+	dlg_info("%s()\n",__FUNCTION__);		
 	
+	sr_status = snd_soc_read(codec, D2153_SR);
+	if (sr_status > D2153_SR_16000) 
+	{
+		msleep(300);
+	}
+
+	snd_soc_update_bits(codec, D2153_DAC_FILTERS5, D2153_DAC_SOFTMUTE_EN,
+		 D2153_DAC_SOFTMUTE_EN);
+	snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
+				D2153_ADC_MUTE_EN, D2153_ADC_MUTE_EN);
+	msleep(30);		
+
 	snd_soc_write(codec, D2153_PC_COUNT, 0x02);
-	snd_soc_update_bits(codec, D2153_ADC_L_CTRL, D2153_ADC_MUTE_EN,
-			    D2153_ADC_MUTE_EN);
-	//snd_soc_update_bits(codec, D2153_ADC_R_CTRL, D2153_ADC_MUTE_EN,
-			   // D2153_ADC_MUTE_EN);
-	for (i = 0; i < 40; i++) {
-		snd_soc_write(codec, D2153_AIF_OFFSET, d2153_aif_adjusted_val[i]);
-		usleep_range(500,500);
+	for (i = 0; i < loop_max; i++) {
+		snd_soc_write(codec, D2153_AIF_OFFSET,
+				d2153_aif_adjusted_val[i]);
+		usleep_range(500, 500);
 	}
 	msleep(50);
-	snd_soc_update_bits(codec, D2153_ADC_L_CTRL, D2153_ADC_MUTE_EN,
-			    0);
-	//snd_soc_update_bits(codec, D2153_ADC_R_CTRL, D2153_ADC_MUTE_EN,
-			    //0);
+
+	snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
+				D2153_ADC_MUTE_EN, 0);
+	snd_soc_update_bits(codec, D2153_DAC_FILTERS5, 
+				D2153_DAC_SOFTMUTE_EN, 0);
+	msleep(10); 
 
 	return 0;
 }
