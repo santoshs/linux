@@ -66,7 +66,7 @@
 
 #define STATUS_C_TERMINATED_ONE_CYCLED	(0x01 << 7)
 #define STATUS_C_TERMINATED_LOW_CURRENT	(0x01 << 6)
-#define STATUS_C_SAFETY_TIMER_STATUS	(0x11 << 4)	// 4,5 two bit. 
+#define STATUS_C_SAFETY_TIMER_STATUS	(0x03 << 4)	// 4,5 two bit. 
 #define STATUS_C_CHARGER_ERROR			(0x01 << 3)
 
 

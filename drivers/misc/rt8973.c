@@ -1377,23 +1377,20 @@ static void tsu6712_detect_func(struct work_struct *work)
 	
 	tsu6712_detect_dev(usbsw, dev, adc);
 
-#if 0 // mUSB_temp_20130308
-	/* Check OVP */
-	if(intr & 0xFF)
+	if(intr & 0x10) // ovp
 	{
-		if(intr & 0x20) // ovp
-		{
-			usbsw->ovp = 1;
-			usbsw->pdata->ovp_cb(true);
-		}
-		else if(intr & 0x80 && usbsw->ovp == 1)
-		{
-			usbsw->ovp = 0;
-			usbsw->pdata->ovp_cb(false);
-		}
+		printk("ovp enable !!\n");
+		usbsw->ovp = 1;
+		usbsw->pdata->ovp_cb(true);
 	}
-#endif
+	else if(((intr & 0x10) == 0) && usbsw->ovp == 1)
+	{
+		printk("ovp disable !!\n");
+		usbsw->ovp = 0;
+		usbsw->pdata->ovp_cb(false);
+	}
 }
+
 
 static void tsu6712_irq_func(struct work_struct *work)
 {
