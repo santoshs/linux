@@ -19,10 +19,18 @@
   */
 
 #include <linux/rmu2_cmt15.h>
-#include <linux/io.h>
-#include <linux/hwspinlock.h>
-#include <linux/cpumask.h>
 #include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/io.h>
+#include <linux/irq.h>
+#include <linux/jiffies.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/sched.h>
+#include <linux/uaccess.h>
+
+#include <mach/irqs.h>
+#include <mach/r8a7373.h>
 
 /* Android provides the fiq_glue API, which hasn't yet made it into core
  * Linux. This works better if the glue is available, but it can still work
@@ -38,6 +46,29 @@
  * images, it's up to the secure code whether the CMT is a FIQ or not. */
 #define CONFIG_RMU2_CMT_FIQ
 
+#define CONFIG_GIC_NS_CMT
+
+/* Macro definition */
+#define CPG_CHECK_REG		IO_ADDRESS(0xE61503D0U)
+#define CPG_CHECK_STATUS	IO_ADDRESS(0xE61503DCU)
+#define CPG_CHECK_MODULES	IO_ADDRESS(0xE6150440U)
+
+#ifdef CONFIG_GIC_NS_CMT
+#define CMSTR15			IO_ADDRESS(0xE6130500U)
+#define CMCSR15			IO_ADDRESS(0xE6130510U)
+#define CMCNT15			IO_ADDRESS(0xE6130514U)
+#define CMCOR15			IO_ADDRESS(0xE6130518U)
+#define CMT15_SPI		98U
+
+#define ICD_ISR0 0xF0001080
+#define ICD_IPR0 0xF0001400
+#define ICD_IPTR0 0xf0001800
+
+/* FIQ handle excecute panic before RWDT request CPU reset system */
+#define CMT_OVF			((256*CONFIG_RMU2_RWDT_CMT_OVF)/1000 - 2)
+
+#endif  /* CONFIG_GIC_NS_CMT */
+
 #ifdef CONFIG_RWDT_CMT15_TEST
 #include <linux/proc_fs.h>
 #include <asm/cacheflush.h>
@@ -46,12 +77,9 @@
 
 static struct proc_dir_entry *proc_watch_entry;
 
-/* Various nasty things we can do to the system to test the watchdog and
- * CMT timer. Example: "echo 8 > /proc/proc_watch_entry"
- */
 int test_mode;
 
-void loop(void *info)
+void rmu2_cmt_loop(void *info)
 {
 	uint32_t psr = 0;
 
@@ -72,11 +100,16 @@ void loop(void *info)
 		"       mrs     %0, cpsr"
 		: "=r" (psr) : : "memory");
 
-	printk(KERN_ALERT "RWDT test loop (CPU %d, preemption %s, IRQs %s, FIQs %s)\n",
+	printk(KERN_ALERT "RWDT test loop (CPU %d, preemption %s, IRQs %s, FIQs %s%s)\n",
 			raw_smp_processor_id(),
 			preempt_count() ? "off" : "on",
 			psr & PSR_I_BIT ? "off" : "on",
-			psr & PSR_F_BIT ? "off" : "on");
+			psr & PSR_F_BIT ? "off" : "on",
+			(unsigned)info & 4 ? ", touches" : "");
+
+	if ((unsigned)info & 4)
+		while (1)
+			touch_softlockup_watchdog();
 
 	/* Try to avoid sucking power. Note that cpu_do_idle() etc all use
 	 * WFI, which won't do - it proceeds if there's a pending masked
@@ -289,9 +322,10 @@ void rmu2_cmt_clear(void)
 	if (!running)
 		return;
 
-	if (__raw_readl(CMCNT15) < CMT_OVF / 8)
+#ifdef CONFIG_RWDT_CMT15_TEST
+	if (test_mode == TEST_NO_KICK)
 		return;
-
+#endif
 	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(0, CMSTR15);       /* Stop counting */
 	__raw_writel(0U, CMCNT15);      /* Clear the count value */
@@ -614,30 +648,36 @@ int write_proc(struct file *file, const char __user *buf,
 
 	switch (test_mode) {
 	case TEST_LOOP:
-		loop(0);
+		rmu2_cmt_loop(0);
 		break;
 	case TEST_PREEMPT_LOOP:
 		preempt_disable();
-		loop(0);
+		rmu2_cmt_loop(0);
 		break;
 	case TEST_IRQOFF_LOOP:
-		loop((void *)1);
+		rmu2_cmt_loop((void *)1);
 		break;
 	case TEST_IRQOFF_LOOP_ALL:
-		on_each_cpu(loop, (void *)1, false);
+		on_each_cpu(rmu2_cmt_loop, (void *)1, false);
 		break;
 	case TEST_IRQHANDLER_LOOP:
 		loop_processor_vector("IRQ", 0x18);
 		break;
 	case TEST_FIQOFF_LOOP:
-		loop((void *)3);
+		rmu2_cmt_loop((void *)3);
 		break;
 	case TEST_FIQOFF_1_LOOP_ALL:
 		local_fiq_disable();
-		on_each_cpu(loop, (void *)1, false);
+		on_each_cpu(rmu2_cmt_loop, (void *)1, false);
 		break;
 	case TEST_FIQOFF_LOOP_ALL:
-		on_each_cpu(loop, (void *)3, false);
+		on_each_cpu(rmu2_cmt_loop, (void *)3, false);
+		break;
+	case TEST_TOUCH_LOOP:
+		rmu2_cmt_loop((void *)4);
+		break;
+	case TEST_IRQOFF_TOUCH_LOOP_ALL:
+		on_each_cpu(rmu2_cmt_loop, (void *)5, false);
 		break;
 	}
 

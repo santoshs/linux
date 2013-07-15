@@ -19,13 +19,20 @@
  */
 
 #include <linux/rmu2_rwdt.h>
-#include <linux/io.h>
-#include <linux/hwspinlock.h>
-#include <mach/r8a7373.h>
-#include <linux/cpumask.h>
-#include <linux/delay.h>
-#include <linux/sched.h>
 #include <linux/rmu2_cmt15.h>
+#include <linux/clk.h>
+#include <linux/delay.h>
+#include <linux/fs.h>
+#include <linux/hwspinlock.h>
+#include <linux/io.h>
+#include <linux/miscdevice.h>
+#include <linux/module.h>
+#include <linux/sched.h>
+#include <linux/slab.h>
+#include <linux/workqueue.h>
+
+#include <mach/irqs.h>
+#include <mach/r8a7373.h>
 #include <mach/sbsc.h>
 
 static struct delayed_work *dwork;
@@ -35,20 +42,44 @@ static struct workqueue_struct *wq_wa_zq;
 static struct clk *rmu2_rwdt_clk;
 static unsigned long cntclear_time;
 static unsigned long cntclear_time_wa_zq;
+static unsigned long next_touch_at;
 static int stop_func_flg;
 static int wa_zq_flg;
 static bool running;
-static bool startup;
+
+#ifdef CONFIG_RWDT_DEBUG
+#define RWDT_DEBUG(fmt, ...)	printk(KERN_DEBUG "" fmt, ##__VA_ARGS__)
+#else /* CONFIG_RWDT_DEBUG */
+#define RWDT_DEBUG(fmt, ...)
+#endif /* CONFIG_RWDT_DEBUG */
+
+/* register address define */
+#define REG_SIZE		0xCU
+#define RWTCNT_OFFSET           0x0U
+#define RWTCSRA			0x4U
+#define RWTCSRB			0x8U
+
+/* register mask define */
+#define RESCSR_HEADER		0xA5A5A500U
+#define RESCNT_INIT_VAL		0xFF00
+#define RESCNT_LOW_VAL		0xFF20
+#define RESCNT_CLEAR_DATA	(0x5A5A0000U | RESCNT_INIT_VAL)
+#define RESCNT2_RWD0A_MASK	0x00003000U
+#define RESCNT2_PRES_MASK	0x80000000U
+#define RWTCSRA_TME_MASK	0x80U
+#define RWTCSRA_WOVF_MASK	0x10U
+#define RWTCSRA_WOVFE_MASK	0x08U
+#define RWTCSRA_CSK0_MASK	0x07U
+#define RWDT_SPI		141U
+
+/* wait time define */
+#define WRFLG_WAITTIME		214000	/* [nsec] 7RCLK */
 
 /* SBSC register address */
 static void __iomem *sbsc_sdmra_28200;
 static void __iomem *sbsc_sdmra_38200;
 
 #define CONFIG_RMU2_RWDT_ZQ_CALIB	(500)
-
-#ifdef CONFIG_RWDT_CMT15_TEST
-extern int test_mode;
-#endif
 
 /*
  * Modify register
@@ -146,7 +177,10 @@ static struct miscdevice rwdt_mdev = {
  */
 int rmu2_rwdt_cntclear(void)
 {
+	static DEFINE_SPINLOCK(clear_lock);
 	unsigned int base;
+	unsigned long flags;
+	int ret;
 	struct resource *r;
 	u8 reg8;
 	u32 wrflg;
@@ -154,17 +188,20 @@ int rmu2_rwdt_cntclear(void)
 	if (!running)
 		return -ENODEV;
 
+#ifdef CONFIG_RWDT_CMT15_TEST
+	if (test_mode == TEST_NO_KICK)
+		return 0;
+#endif
+
+	/* If we collide with the other core, just leave it to them */
+	if (!spin_trylock_irqsave(&clear_lock, flags))
+		return 0;
+
 	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
 	if (NULL == r) {
 		return -ENOMEM;
 	}
 	base = IO_ADDRESS(r->start);
-
-	if (!startup) {
-		u16 cnt = __raw_readw(base + RWTCNT_OFFSET);
-		if (cnt >= RESCNT_INIT_VAL && cnt < RESCNT_LOW_VAL)
-			return 0;
-	}
 
 	/* check RWTCSRA wrflg */
 	reg8 = __raw_readb(base + RWTCSRA);
@@ -172,10 +209,12 @@ int rmu2_rwdt_cntclear(void)
 	if (0U == wrflg) {
 		/*RWDT_DEBUG(KERN_DEBUG "Clear the watchdog counter!!\n");*/
 		__raw_writel(RESCNT_CLEAR_DATA, base + RWTCNT_OFFSET);
-		return 0;
+		ret = 0;
 	} else {
-		return -EAGAIN; /* try again */
+		ret = -EAGAIN; /* try again */
 	}
+	spin_unlock_irqrestore(&clear_lock, flags);
+	return ret;
 }
 
 /*
@@ -261,7 +300,7 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 		printk(KERN_DEBUG "Skip clearing RWDT for debug!\n");
 		return;
 	case TEST_WORKQUEUE_LOOP:
-		loop((void *) 0);
+		rmu2_cmt_loop((void *) 0);
 		break;
 	}
 #endif
@@ -298,10 +337,13 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 		printk(KERN_ERR
 		"< %s > rmu2_rwdt_cntclear() = %d ->HARDWARE ERROR\n",
 		__func__, ret);
+	} else {
+		next_touch_at = jiffies + cntclear_time / 4;
 	}
 
 	if (0 == stop_func_flg)	/* do not execute while stop() */
 		queue_delayed_work(wq, dwork, cntclear_time);
+
 }
 
 #ifndef CONFIG_RMU2_RWDT_REBOOT_ENABLE
@@ -448,7 +490,6 @@ static int rmu2_rwdt_start(void)
 	__raw_writel(reg32, base + RWTCSRB);
 
 	running = true;
-	startup = true;
 
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();
@@ -473,8 +514,6 @@ static int rmu2_rwdt_start(void)
 			return ret;
 		}
 	}
-
-	startup = false;
 
 	/* start soft timer */
 	queue_delayed_work(wq, dwork, cntclear_time);
@@ -594,6 +633,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	}
 	/* set counter clear time */
 	cntclear_time = msecs_to_jiffies(CONFIG_RMU2_RWDT_CLEARTIME);
+	next_touch_at = jiffies + cntclear_time / 4;
 
 	wq = alloc_workqueue("rmu2_rwdt_queue",
 				WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
@@ -868,6 +908,12 @@ void rmu2_rwdt_software_reset(void)
 #ifndef CONFIG_LOCKUP_DETECTOR
 void touch_softlockup_watchdog(void)
 {
+	if (time_is_after_jiffies(next_touch_at))
+		return;
+
+	rmu2_cmt_clear();
+	if (rmu2_rwdt_cntclear() >= 0)
+		next_touch_at = jiffies + cntclear_time / 4;
 }
 
 void touch_all_softlockup_watchdogs(void)
