@@ -306,7 +306,15 @@ int d2153_set_aif_adjust(struct snd_soc_codec *codec)
 {
 	int i;
 	int loop_max = ARRAY_SIZE(d2153_aif_adjusted_val);
+	u8 sr_status;
+
 	dlg_info("%s()\n",__FUNCTION__);		
+
+	sr_status = snd_soc_read(codec, D2153_SR);
+	if (sr_status > D2153_SR_16000) 
+	{
+		msleep(300);
+	}
 
 	snd_soc_update_bits(codec, D2153_DAC_FILTERS5, D2153_DAC_SOFTMUTE_EN,
 		 D2153_DAC_SOFTMUTE_EN);

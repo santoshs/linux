@@ -1514,6 +1514,9 @@ static void spa_batt_work(struct work_struct *work)
 {
 	struct spa_power_desc *spa_power_iter = container_of(work,
 							struct spa_power_desc, battery_work.work);
+#if !defined(SPA_TEMPERATURE_INT)
+	struct spa_power_data *pdata = spa_power_iter->pdata;
+#endif
 
 	pr_spa_dbg(LEVEL4, "%s : enter\n", __func__);
 
@@ -1589,7 +1592,33 @@ static void spa_batt_work(struct work_struct *work)
 		spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_GOOD;
 		spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_CHARGING, SPA_STATUS_NONE);
 	}
+#else
+		if( spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY &&
+			spa_power_iter->charging_status.status != SPA_STATUS_SUSPEND_TEMP_HOT &&
+				spa_power_iter->batt_info.temp > pdata->suspend_temp_hot)
+		{ // hot temperature
+			spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_NOT_CHARGING, SPA_STATUS_SUSPEND_TEMP_HOT);
+		}
+		else if( spa_power_iter->charger_info.charger_type != POWER_SUPPLY_TYPE_BATTERY &&
+			spa_power_iter->charging_status.status != SPA_STATUS_SUSPEND_TEMP_COLD &&
+				spa_power_iter->batt_info.temp < pdata->suspend_temp_cold)
+		{ // cold temperature
+			spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_NOT_CHARGING, SPA_STATUS_SUSPEND_TEMP_COLD);
+		}
+		else if( spa_power_iter->charging_status.status == SPA_STATUS_SUSPEND_TEMP_HOT &&
+				spa_power_iter->batt_info.temp < pdata->recovery_temp_hot)
+		{ // recovery from hot temperature
+			spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_GOOD;
+			spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_CHARGING, SPA_STATUS_NONE);
+		}
+		else if( spa_power_iter->charging_status.status == SPA_STATUS_SUSPEND_TEMP_COLD &&
+				spa_power_iter->batt_info.temp > pdata->recovery_temp_cold)
+		{ // recovery from hot temperature
+			spa_power_iter->batt_info.health = POWER_SUPPLY_HEALTH_GOOD;
+			spa_do_status(spa_power_iter, SPA_MACHINE_NORMAL, POWER_SUPPLY_STATUS_CHARGING, SPA_STATUS_NONE);
+		}
 #endif
+
 #endif
 
 	/* check vf */
