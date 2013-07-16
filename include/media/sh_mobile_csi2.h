@@ -56,6 +56,8 @@ struct sh_csi2_pdata {
 	char *cmod_name;
 	int (*local_reset)(void*, int);
 	struct v4l2_device *v4l2_dev;
+	void (*log_output)(void*, int);
+	void *log_data;
 };
 
 void sh_csi2_power(struct device *dev, int power_on);
