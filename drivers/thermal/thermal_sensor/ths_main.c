@@ -323,7 +323,7 @@ static void ths_initialize_hardware(void)
 	/* Loop until getting the lock */
 	for (;;) {
 		/* Take the lock, spin for 1 msec if it's already taken */
-		ret = hwspin_lock_timeout(r8a7373_hwlock_sysc, HPB_TIMEOUT);
+		ret = hwspin_lock_timeout_irq(r8a7373_hwlock_sysc, HPB_TIMEOUT);
 		if (0 == ret) {
 			THS_DEBUG_MSG("Get lock successfully\n");
 			break;
@@ -334,7 +334,7 @@ static void ths_initialize_hardware(void)
 	ths_enable_reset_signal();
 
 	/* Release the lock */
-	hwspin_unlock(r8a7373_hwlock_sysc);
+	hwspin_unlock_irq(r8a7373_hwlock_sysc);
 
 	/* Set thresholds  (reset and raising interrupts) for THS0 and THS1 */
 	set_register_32(INTCTLR0_RW_32B, CTEMP3_HEX | CTEMP2_HEX | CTEMP1_HEX

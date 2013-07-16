@@ -401,7 +401,7 @@ static int rmu2_rwdt_start(void)
 	base = IO_ADDRESS(r->start);
 
 	for (;;) {
-		hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
+		hwlock = hwspin_lock_timeout_irq(r8a7373_hwlock_sysc, 1);
 		if (0 == hwlock)
 			break;
 	}
@@ -412,7 +412,7 @@ static int rmu2_rwdt_start(void)
 	rmu2_modify_register32(RESCNT2, RESCNT2_RWD0A_MASK, 0x00000000);
 #endif	/* CONFIG_RMU2_RWDT_REBOOT_ENABLE */
 
-	hwspin_unlock(r8a7373_hwlock_sysc);
+	hwspin_unlock_irq(r8a7373_hwlock_sysc);
 
 	/* module stop release */
 	clk_enable(rmu2_rwdt_clk);
@@ -841,6 +841,7 @@ void rmu2_rwdt_software_reset(void)
 {
 	u8 reg = 0;
 	int hwlock;
+	unsigned long flags;
 	/* set 0x22 to STBCHRB1(0xE6180041) */
 	/* __raw_writeb(0x22, (unsigned long)STBCHRB1Phys); */
 
@@ -850,7 +851,8 @@ void rmu2_rwdt_software_reset(void)
 	/* execute software reset by setting 0x80000000 to RESCNT2 */
 
 	for (;;) {
-		hwlock = hwspin_lock_timeout(r8a7373_hwlock_sysc, 1);
+		hwlock = hwspin_lock_timeout_irqsave(r8a7373_hwlock_sysc, 1,
+							&flags);
 		if (0 == hwlock) {
 			RWDT_DEBUG(">>> %s Get lock in loop successfully\n",
 							__func__);
@@ -860,7 +862,7 @@ void rmu2_rwdt_software_reset(void)
 	rmu2_modify_register32(RESCNT2, RESCNT2_PRES_MASK,
 							RESCNT2_PRES_MASK);
 
-	hwspin_unlock(r8a7373_hwlock_sysc);
+	hwspin_unlock_irqrestore(r8a7373_hwlock_sysc, &flags);
 }
 
 #ifndef CONFIG_LOCKUP_DETECTOR
