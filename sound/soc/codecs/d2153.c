@@ -2680,7 +2680,7 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 #endif /* CONFIG_SND_SOC_D2153_AAD */
 
 	#ifdef CONFIG_PROC_FS
-		d2153_codec_debug_proc_init(d2153_codec);
+		//d2153_codec_debug_proc_init(d2153_codec);
 	#endif
 
 	return ret;

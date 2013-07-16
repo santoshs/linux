@@ -1080,10 +1080,6 @@ int sndp_soc_put(
 		/* Initialization of the firmware status flag */
 		atomic_set(&g_call_watch_start_fw, 0);
 	}
-	if (SNDP_MODE_INCALL != uiMode) {
-		atomic_set(&g_sndp_watch_start_clk, 0);
-		atomic_set(&g_sndp_watch_stop_clk, 0);
-	}
 	if (SNDP_MODE_INCOMM != uiMode) {
 		g_call_incomm_cb[SNDP_PCM_OUT] = true;
 		g_call_incomm_cb[SNDP_PCM_IN] = true;
@@ -2458,8 +2454,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 
 		if (0 == atomic_read(&g_sndp_watch_start_clk))
 			sndp_log_err("watch clk timeout\n");
-
-		atomic_set(&g_sndp_watch_start_clk, 0);
 	}
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
@@ -2482,8 +2476,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 
 		if (0 == atomic_read(&g_sndp_watch_start_clk))
 			sndp_log_err("watch clk timeout\n");
-
-		atomic_set(&g_sndp_watch_start_clk, 0);
 	}
 #else /* !__SNDP_INCALL_CLKGEN_MASTER */
 	wait_event_interruptible_timeout(
@@ -2492,8 +2484,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 
 	if (0 == atomic_read(&g_sndp_watch_start_clk))
 		sndp_log_err("watch clk timeout\n");
-
-	atomic_set(&g_sndp_watch_start_clk, 0);
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
 	/* start CLKGEN */
@@ -2502,6 +2492,15 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 		goto start_err;
 	}
+
+	/* FSI FIFO reset */
+	if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(work->new_value)))
+		fsi_fifo_reset(SNDP_PCM_PORTA);
+	else
+		fsi_fifo_reset(SNDP_PCM_PORTB);
+
+	/* Set FSIIR_FSIF */
+	scuw_set_fsiir();
 
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
@@ -2550,8 +2549,6 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 
 		if (0 == atomic_read(&g_sndp_watch_stop_clk))
 			sndp_log_err("watch clk timeout\n");
-
-		atomic_set(&g_sndp_watch_stop_clk, 0);
 	}
 
 	/* stop SCUW */
@@ -2714,7 +2711,11 @@ static int sndp_work_voice_dev_chg_audioic_to_bt(
 	if (ERROR_NONE != iRet)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 
+	/* FSI FIFO reset */
 	fsi_fifo_reset(SNDP_PCM_PORTB);
+
+	/* Set FSIIR_FSIF */
+	scuw_set_fsiir();
 
 	sndp_log_debug_func("end\n");
 
@@ -2776,7 +2777,11 @@ static int sndp_work_voice_dev_chg_bt_to_audioic(
 	if (ERROR_NONE != iRet)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 
+	/* FSI FIFO reset */
 	fsi_fifo_reset(SNDP_PCM_PORTA);
+
+	/* Set FSIIR_FSIF */
+	scuw_set_fsiir();
 
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
@@ -3095,8 +3100,6 @@ static void sndp_work_incomm_start(const u_int new_value,
 
 		if (0 == atomic_read(&g_sndp_watch_start_clk))
 			sndp_log_err("watch clk timeout\n");
-
-		atomic_set(&g_sndp_watch_start_clk, 0);
 	}
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
@@ -3115,7 +3118,6 @@ static void sndp_work_incomm_start(const u_int new_value,
 	if (0 == atomic_read(&g_sndp_watch_start_clk))
 		sndp_log_err("watch clk timeout\n");
 
-	atomic_set(&g_sndp_watch_start_clk, 0);
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
 	/* start CLKGEN */
@@ -3124,6 +3126,15 @@ static void sndp_work_incomm_start(const u_int new_value,
 		sndp_log_err("clkgen start error(code=%d)\n", ret);
 		goto start_err;
 	}
+
+	/* FSI FIFO reset */
+	if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(new_value)))
+		fsi_fifo_reset(SNDP_PCM_PORTA);
+	else
+		fsi_fifo_reset(SNDP_PCM_PORTB);
+
+	/* Set FSIIR_FSIF */
+	scuw_set_fsiir();
 
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
@@ -3729,20 +3740,10 @@ static void sndp_work_watch_stop_fw(struct sndp_work_info *work)
  */
 static void sndp_watch_start_fw_cb(void)
 {
-	u_int	old_value = GET_OLD_VALUE(SNDP_PCM_OUT);
-
 	sndp_log_debug_func("start\n");
 	sndp_log_info("FW was started <incall or incommunication>\n");
 
 	atomic_set(&g_call_watch_start_fw, 1);
-
-	if ((SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(old_value)) ||
-	    (SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(old_value))) {
-		if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(old_value)))
-			fsi_fifo_reset(SNDP_PCM_PORTA);
-		else
-			fsi_fifo_reset(SNDP_PCM_PORTB);
-	}
 
 	sndp_log_debug_func("end\n");
 }
@@ -3994,6 +3995,7 @@ static void sndp_watch_start_clk_cb(void)
 
 	atomic_set(&g_sndp_watch_start_clk, 1);
 	wake_up_interruptible(&g_watch_start_clk_queue);
+	atomic_set(&g_sndp_watch_stop_clk, 0);
 
 	sndp_log_debug_func("end\n");
 }
@@ -4033,6 +4035,7 @@ static void sndp_watch_stop_clk_cb(void)
 
 	atomic_set(&g_sndp_watch_stop_clk, 1);
 	wake_up_interruptible(&g_watch_stop_clk_queue);
+	atomic_set(&g_sndp_watch_start_clk, 0);
 
 	sndp_workqueue_enqueue(g_sndp_queue_main, &g_sndp_work_watch_stop_clk);
 
@@ -4132,10 +4135,14 @@ static void sndp_path_backout(const u_int uiValue)
 	if (ERROR_NONE != iRet)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 
+	/* FSI FIFO reset */
 	if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(uiValue)))
 		fsi_fifo_reset(SNDP_PCM_PORTA);
 	else
 		fsi_fifo_reset(SNDP_PCM_PORTB);
+
+	/* Set FSIIR_FSIF */
+	scuw_set_fsiir();
 
 	sndp_log_debug_func("end\n");
 }
@@ -4598,7 +4605,11 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 			return iRet;
 		}
 
+		/* FSI FIFO reset */
 		fsi_fifo_reset(SNDP_PCM_PORTA);
+
+		/* Set FSIIR_FSIF */
+		scuw_set_fsiir();
 
 		/* Output device ON */
 		fsi_d2153_set_dac_power(g_kcontrol, 1);

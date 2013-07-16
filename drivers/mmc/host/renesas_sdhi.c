@@ -545,8 +545,13 @@ static void renesas_sdhi_cmd_done(
 			else
 				dmaengine_terminate_all(host->dma_tx);
 		}
-		__cancel_delayed_work(&host->timeout_wq);
-		renesas_sdhi_data_done(host, host->cmd);
+		if (__cancel_delayed_work(&host->timeout_wq)) {
+			renesas_sdhi_data_done(host, host->cmd);
+		} else {
+			sdhi_write32(host, SDHI_INFO, 0);
+			host->info_mask = 0xffffffff;
+			sdhi_enable_irqs(host, SDHI_INFO_ALLERR);
+		}
 	} else {
 		sdhi_disable_irqs(host, SDHI_INFO_RSP_END);
 	}
@@ -624,8 +629,13 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 	}
 
 	if (status & SDHI_INFO_RW_END) {
-		__cancel_delayed_work(&host->timeout_wq);
-		renesas_sdhi_data_done(host, host->cmd);
+			if (__cancel_delayed_work(&host->timeout_wq)) {
+			renesas_sdhi_data_done(host, host->cmd);
+		} else {
+			sdhi_write32(host, SDHI_INFO, 0);
+			host->info_mask = 0xffffffff;
+			sdhi_enable_irqs(host, SDHI_INFO_ALLERR);
+		}
 		goto end;
 	}
 
@@ -1104,6 +1114,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	if (host->power_mode != ios->power_mode &&
 			ios->power_mode == MMC_POWER_UP) {
+		renesas_sdhi_request_dma(host);
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 1);
 		sdhi_read16(host, SDHI_CLK_CTRL);
@@ -1136,6 +1147,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	if (host->power_mode != ios->power_mode &&
 			ios->power_mode == MMC_POWER_OFF) {
+		renesas_sdhi_release_dma(host);
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 0);
 		sdhi_read16(host, SDHI_CLK_CTRL);
@@ -1478,7 +1490,6 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		}
 	}
 
-	renesas_sdhi_request_dma(host);
 
 	platform_set_drvdata(pdev, host);
 	mmc_add_host(mmc);

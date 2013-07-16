@@ -1263,9 +1263,10 @@ void __init r8a7373_add_standard_devices(void)
 #ifdef CONFIG_ARCH_SHMOBILE
 void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
 {
-	dummy_write_mem = ioremap_nocache(
+	dummy_write_mem = __arm_ioremap(
 	(unsigned long)(SDRAM_NON_SECURE_SPINLOCK_START_ADDR + 0x00000400),
-	0x00000400/*1k*/);
+	0x00000400/*1k*/, MT_UNCACHED);
+
 	if (dummy_write_mem == NULL)
 		printk(KERN_ERR "97373_a2slpowerdown_workaround Failed\n");
 }
