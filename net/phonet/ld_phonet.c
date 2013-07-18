@@ -94,6 +94,9 @@ MODULE_ALIAS_LDISC(N_PHONET);
 #define LD_UART_EMPTY_CR          3
 #define LD_UART_EMPTY_CRLF        4
 
+#define LD_SWITCH_ATSTART_RESP    1
+#define LD_SWITCH_MODECHAN02_RESP 2
+
 struct ld_phonet {
 	struct tty_struct *tty;
 	wait_queue_head_t wait;
@@ -131,6 +134,7 @@ static struct ld_tty_wakeup_work_t *ld_tty_wakeup_work;
 /* Wotk to Handle AT+ATSTART Switch */
 struct ld_uart_switch_work_t {
 	struct work_struct ld_work;
+	unsigned long at_modechan02_mode;
 };
 static struct ld_uart_switch_work_t *ld_uart_switch_work;
 
@@ -617,38 +621,14 @@ static void ld_phonet_ldisc_receive
 #endif
 			ret = ld_set_switch_buf(NULL, NULL, cp, count);
 			if (LD_UART_AT_MODE == ret) {
-				dbg("MATCH FOR change mode \
-				LD_PHONET_SWITCH%c\n", *cp);
-				ld_atcmd_len = sprintf \
-						(ld_pn->ld_atcmd_buffer, \
-						"\r\n\r\n+ATSTART:OK\r\n"  \
-						"\r\n" "OK\r\n");
-				room = tty_write_room(tty);
-				if (room >= ld_atcmd_len) {
-					/* Refer Comment 01 above */
-					tty->ops->write(tty, \
-						ld_pn->ld_atcmd_buffer, \
-						ld_atcmd_len);
-				}
-				/* Refer Comment 02 above */
+				ld_uart_switch_work->at_modechan02_mode \
+					 = LD_SWITCH_ATSTART_RESP;
 				queue_work(ld_phonet_wq, \
 				(struct work_struct *)ld_uart_switch_work);
 				ld_pn->ld_phonet_state = LD_PHONET_NEW_ISI_MSG;
 			} else if (LD_UART_AT_MODE_MODECHAN == ret) {
-				dbg("MATCH FOR change mode \
-					LD_PHONET_SWITCH%c\n", *cp);
-				ld_atcmd_len = sprintf \
-						 (ld_pn->ld_atcmd_buffer, \
-						"\r\n\r\n+MODECHAN:OK\r\n"  \
-						  "\r\n" "OK\r\n");
-				room = tty_write_room(tty);
-				if (room >= ld_atcmd_len) {
-					/* Refer Comment 01 above */
-					tty->ops->write(tty, \
-						ld_pn->ld_atcmd_buffer, \
-						ld_atcmd_len);
-				}
-				/* Refer Comment 02 above */
+				ld_uart_switch_work->at_modechan02_mode \
+					= LD_SWITCH_MODECHAN02_RESP;
 				queue_work(ld_phonet_wq, \
 				(struct work_struct *)ld_uart_switch_work);
 				ld_pn->ld_phonet_state = LD_PHONET_NEW_ISI_MSG;
@@ -876,8 +856,15 @@ static void ld_phonet_ldisc_receive
 
 static void ld_uart_switch_function(struct work_struct *work)
 {
+	struct ld_uart_switch_work_t *at_mode_work;
+	at_mode_work = (struct ld_uart_switch_work_t *)work;
 	set_current_state(TASK_INTERRUPTIBLE);
-	ld_set_manualsw(NULL, NULL, "switch at", 9);
+	if (at_mode_work->at_modechan02_mode ==  LD_SWITCH_ATSTART_RESP)
+		ld_set_manualsw(NULL, NULL, "AT+ATSTART", 10);
+	else
+		ld_set_manualsw(NULL, NULL, "AT+MODECHAN=0,2", 15);
+
+	ld_uart_switch_work->at_modechan02_mode = 0;
 	return;
 }
 
@@ -968,6 +955,8 @@ static ssize_t ld_phonet_show_stats(struct device *dev,
 		ld_phonet_hangup_events);
 	printk(KERN_CRIT"LD Phonet Tx overflow events %lu\n", \
 		ld_phonet_drop_events);
+	printk(KERN_CRIT"LD Phonet TX buffer len %d\n", \
+		ld_buff_len);
 	return 0;
 }
 

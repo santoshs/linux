@@ -206,6 +206,11 @@ static struct tsu6712_usbsw *local_usbsw;
 static enum cable_type_t set_cable_status;
 static struct wake_lock acc_wakelock;
 
+#define SWITCH_AT       103
+#define SWITCH_ISI      104
+#define SWITCH_MODECHAN_02 105
+#define SWITCH_MODECHAN_00 106
+
 #if 0	//temp code to merger jbp
 #ifdef CONFIG_SAMSUNG_MHL
 #define CONFIG_VIDEO_MHL_V2
@@ -880,21 +885,39 @@ ssize_t ld_set_manualsw(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
 {
-	printk(" ld_set_manualsw invoked\n");
-	if (0 == strncmp(buf, "switch at", 9)) {
-		printk(" ld_set_manualsw switch at\n");
+	printk(KERN_CRIT"ld_set_manualsw invoked\n");
+	if (0 == strncmp(buf, "AT+ATSTART", 10)) {
+		printk(KERN_CRIT"switch at %d\n", SWITCH_AT);
 		memset((char *)at_isi_mode, 0, 100);
 		strcpy((char *)at_isi_mode, "at");
 		switch_set_state(&switch_usb_uart, SWITCH_AT);
+		stop_isi = 1;
+		isi_mode = 0;
+	}
+	if (0 == strncmp(buf, "AT+MODECHAN=0,2", 15)) {
+		printk(KERN_CRIT"modechan 0,2 %d\n", SWITCH_MODECHAN_02);
+		memset((char *)at_isi_mode, 0, 100);
+		strcpy((char *)at_isi_mode, "at");
+		switch_set_state(&switch_usb_uart, SWITCH_MODECHAN_02);
 
 		stop_isi = 1;
 		isi_mode = 0;
 	}
-	if (0 == strncmp(buf, "switch isi", 10)) {
-		printk(" ld_set_manualsw switch isi\n");
+
+	if (0 == strncmp(buf, "AT+ISISTART", 11)) {
+		printk(KERN_CRIT"switch isi %d\n", SWITCH_ISI);
 		memset((char *)at_isi_mode, 0, 100);
 		strcpy((char *)at_isi_mode, "isi");
 		switch_set_state(&switch_usb_uart, SWITCH_ISI);
+		stop_isi = 0;
+		isi_mode = 1;
+	}
+
+	if (0 == strncmp(buf, "AT+MODECHAN=0,0", 15)) {
+		printk(KERN_CRIT"modechan 0,0 %d\n", SWITCH_MODECHAN_00);
+		memset((char *)at_isi_mode, 0, 100);
+		strcpy((char *)at_isi_mode, "isi");
+		switch_set_state(&switch_usb_uart, SWITCH_MODECHAN_00);
 		stop_isi = 0;
 		isi_mode = 1;
 	}
@@ -929,6 +952,12 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	memset(temp, 0, 100);
 	for (i = 0; i < count; i++)
 		temp[i] = toupper(buf[i]);
+
+	/* This will clear any partial commands due to intermediate inputs */
+	if ((!strcmp("AT+MODECHAN=0, 0", buf)) \
+			 || (!strcmp("AT+ISISTART", buf))) {
+		memset(at_isi_switch_buf, 0, 400);
+	}
 
 	strncat((char *)at_isi_switch_buf, temp, count);
 
@@ -969,9 +998,10 @@ ssize_t ld_set_switch_buf(struct device *dev,
 		/*do not switch to isi mode if isi mode already set*/
 		if (isi_mode == 0) {
 			KERNEL_LOG = 0;
+
+			ld_set_manualsw(NULL, NULL, at_isi_switch_buf,
+				strlen(at_isi_switch_buf));
 			memset(at_isi_switch_buf, 0, 400);
-			ld_set_manualsw(NULL, NULL, isi_cmd_buf,
-				strlen(isi_cmd_buf));
 			return count;
 		}
 	}
