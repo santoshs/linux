@@ -2817,6 +2817,10 @@ static int sndp_work_voice_dev_chg_in_audioic(
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
 
+	if (SNDP_PCM_IN == SNDP_GET_DIRECTION_VAL(new_value))
+		/* Input device ON */
+		fsi_d2153_set_adc_power(g_kcontrol, 1);
+
 	sndp_log_debug_func("end\n");
 
 	return ERROR_NONE;
@@ -3007,6 +3011,9 @@ static void sndp_work_capture_incomm_start(struct sndp_work_info *work)
 	/* Running Capture */
 	g_sndp_incomm_playrec_flg |= E_CAP;
 
+	/* Input device ON */
+	fsi_d2153_set_adc_power(g_kcontrol, 1);
+
 	/* Wake Unlock */
 	sndp_wake_lock(E_UNLOCK);
 
@@ -3142,9 +3149,6 @@ static void sndp_work_incomm_start(const u_int new_value,
 
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
-
-	/* Input device ON */
-	fsi_d2153_set_adc_power(g_kcontrol, 1);
 
 	sndp_extdev_set_state(SNDP_GET_MODE_VAL(new_value),
 			     SNDP_GET_AUDIO_DEVICE(new_value),
