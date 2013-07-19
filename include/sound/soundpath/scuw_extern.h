@@ -29,8 +29,10 @@
 SCUW_NO_EXTERN int scuw_start(const u_int uiValue, u_int rate);
 /* SCUW stop */
 SCUW_NO_EXTERN int scuw_stop(void);
-/*  SCUW registers dump */
+/* SCUW registers dump */
 SCUW_NO_EXTERN void scuw_reg_dump(void);
+/* SCUW FSIIF_FSIIR Setting and dummy read */
+SCUW_NO_EXTERN void scuw_set_fsiir(void);
 
 /* SCUW FFD physical address top. */
 #define SCUW_PHY_BASE_FFD	(0xEC748000)

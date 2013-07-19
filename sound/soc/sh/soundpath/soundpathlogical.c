@@ -2507,6 +2507,15 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 		goto start_err;
 	}
 
+	/* FSI FIFO reset */
+	if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(work->new_value)))
+		fsi_fifo_reset(SNDP_PCM_PORTA);
+	else
+		fsi_fifo_reset(SNDP_PCM_PORTB);
+
+	/* Set FSIIR_FSIF */
+	scuw_set_fsiir();
+
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
 
@@ -2718,7 +2727,11 @@ static int sndp_work_voice_dev_chg_audioic_to_bt(
 	if (ERROR_NONE != iRet)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 
+	/* FSI FIFO reset */
 	fsi_fifo_reset(SNDP_PCM_PORTB);
+
+	/* Set FSIIR_FSIF */
+	scuw_set_fsiir();
 
 	sndp_log_debug_func("end\n");
 
@@ -2780,7 +2793,11 @@ static int sndp_work_voice_dev_chg_bt_to_audioic(
 	if (ERROR_NONE != iRet)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 
+	/* FSI FIFO reset */
 	fsi_fifo_reset(SNDP_PCM_PORTA);
+
+	/* Set FSIIR_FSIF */
+	scuw_set_fsiir();
 
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
@@ -3128,6 +3145,15 @@ static void sndp_work_incomm_start(const u_int new_value,
 		sndp_log_err("clkgen start error(code=%d)\n", ret);
 		goto start_err;
 	}
+
+	/* FSI FIFO reset */
+	if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(new_value)))
+		fsi_fifo_reset(SNDP_PCM_PORTA);
+	else
+		fsi_fifo_reset(SNDP_PCM_PORTB);
+
+	/* Set FSIIR_FSIF */
+	scuw_set_fsiir();
 
 	/* Output device ON */
 	fsi_d2153_set_dac_power(g_kcontrol, 1);
@@ -3651,20 +3677,10 @@ static void sndp_work_watch_stop_fw(struct sndp_work_info *work)
  */
 static void sndp_watch_start_fw_cb(void)
 {
-	u_int	old_value = GET_OLD_VALUE(SNDP_PCM_OUT);
-
 	sndp_log_debug_func("start\n");
 	sndp_log_info("FW was started <incall or incommunication>\n");
 
 	atomic_set(&g_call_watch_start_fw, 1);
-
-	if ((SNDP_MODE_INCALL == SNDP_GET_MODE_VAL(old_value)) ||
-	    (SNDP_MODE_INCOMM == SNDP_GET_MODE_VAL(old_value))) {
-		if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(old_value)))
-			fsi_fifo_reset(SNDP_PCM_PORTA);
-		else
-			fsi_fifo_reset(SNDP_PCM_PORTB);
-	}
 
 	sndp_log_debug_func("end\n");
 }
@@ -4054,10 +4070,14 @@ static void sndp_path_backout(const u_int uiValue)
 	if (ERROR_NONE != iRet)
 		sndp_log_err("clkgen start error(code=%d)\n", iRet);
 
+	/* FSI FIFO reset */
 	if (!(SNDP_BLUETOOTHSCO & SNDP_GET_DEVICE_VAL(uiValue)))
 		fsi_fifo_reset(SNDP_PCM_PORTA);
 	else
 		fsi_fifo_reset(SNDP_PCM_PORTB);
+
+	/* Set FSIIR_FSIF */
+	scuw_set_fsiir();
 
 	sndp_log_debug_func("end\n");
 }
@@ -4520,7 +4540,11 @@ int sndp_pt_loopback(u_int mode, u_int device, u_int dev_chg)
 			return iRet;
 		}
 
+		/* FSI FIFO reset */
 		fsi_fifo_reset(SNDP_PCM_PORTA);
+
+		/* Set FSIIR_FSIF */
+		scuw_set_fsiir();
 
 		/* Output device ON */
 		fsi_d2153_set_dac_power(g_kcontrol, 1);
