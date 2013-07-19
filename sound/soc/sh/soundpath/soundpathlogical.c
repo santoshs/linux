@@ -1081,10 +1081,6 @@ int sndp_soc_put(
 		/* Initialization of the firmware status flag */
 		atomic_set(&g_call_watch_start_fw, 0);
 	}
-	if (SNDP_MODE_INCALL != uiMode) {
-		atomic_set(&g_sndp_watch_start_clk, 0);
-		atomic_set(&g_sndp_watch_stop_clk, 0);
-	}
 	if (SNDP_MODE_INCOMM != uiMode) {
 		g_call_incomm_cb[SNDP_PCM_OUT] = true;
 		g_call_incomm_cb[SNDP_PCM_IN] = true;
@@ -2462,8 +2458,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 
 		if (0 == atomic_read(&g_sndp_watch_start_clk))
 			sndp_log_err("watch clk timeout\n");
-
-		atomic_set(&g_sndp_watch_start_clk, 0);
 	}
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
@@ -2486,8 +2480,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 
 		if (0 == atomic_read(&g_sndp_watch_start_clk))
 			sndp_log_err("watch clk timeout\n");
-
-		atomic_set(&g_sndp_watch_start_clk, 0);
 	}
 #else /* !__SNDP_INCALL_CLKGEN_MASTER */
 	wait_event_interruptible_timeout(
@@ -2496,8 +2488,6 @@ static void sndp_work_voice_start(struct sndp_work_info *work)
 
 	if (0 == atomic_read(&g_sndp_watch_start_clk))
 		sndp_log_err("watch clk timeout\n");
-
-	atomic_set(&g_sndp_watch_start_clk, 0);
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
 	/* start CLKGEN */
@@ -2563,8 +2553,6 @@ static void sndp_work_voice_stop(struct sndp_work_info *work)
 
 		if (0 == atomic_read(&g_sndp_watch_stop_clk))
 			sndp_log_err("watch clk timeout\n");
-
-		atomic_set(&g_sndp_watch_stop_clk, 0);
 	}
 
 	/* stop SCUW */
@@ -3116,8 +3104,6 @@ static void sndp_work_incomm_start(const u_int new_value,
 
 		if (0 == atomic_read(&g_sndp_watch_start_clk))
 			sndp_log_err("watch clk timeout\n");
-
-		atomic_set(&g_sndp_watch_start_clk, 0);
 	}
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
@@ -3136,7 +3122,6 @@ static void sndp_work_incomm_start(const u_int new_value,
 	if (0 == atomic_read(&g_sndp_watch_start_clk))
 		sndp_log_err("watch clk timeout\n");
 
-	atomic_set(&g_sndp_watch_start_clk, 0);
 #endif /* __SNDP_INCALL_CLKGEN_MASTER */
 
 	/* start CLKGEN */
@@ -3932,6 +3917,7 @@ static void sndp_watch_start_clk_cb(void)
 
 	atomic_set(&g_sndp_watch_start_clk, 1);
 	wake_up_interruptible(&g_watch_start_clk_queue);
+	atomic_set(&g_sndp_watch_stop_clk, 0);
 
 	sndp_log_debug_func("end\n");
 }
@@ -3971,6 +3957,7 @@ static void sndp_watch_stop_clk_cb(void)
 
 	atomic_set(&g_sndp_watch_stop_clk, 1);
 	wake_up_interruptible(&g_watch_stop_clk_queue);
+	atomic_set(&g_sndp_watch_start_clk, 0);
 
 	sndp_workqueue_enqueue(g_sndp_queue_main, &g_sndp_work_watch_stop_clk);
 
