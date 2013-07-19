@@ -14,12 +14,6 @@
 #define MHL_INT 48
 #define I2C_BUS_ID_MHL	  15
 
-#if 0
-struct edid_platform_data {
-        struct i2c_client *edidA0_tx_client;
-        struct i2c_client *edid60_tx_client;
-};
-#endif
 
 static void edid_set_on(void)
 {
@@ -34,16 +28,14 @@ static struct i2c_board_info __initdata i2c_devs_edid[] = {
 	{
 		I2C_BOARD_INFO("edidA0", 0xA0>>1),
 		.platform_data = &edid_pdata,
-//		.irq = irqpin2irq(MHL_INT),
 	},
 	{
 		I2C_BOARD_INFO("edid60", 0x60>>1),
 		.platform_data = &edid_pdata,
-//		.irq = irqpin2irq(MHL_INT),
 	},
 };
 
-static void __init board_edid_init(void)
+void __init board_edid_init(void)
 {
 	int ret;
 	printk("%s : START", __func__);
