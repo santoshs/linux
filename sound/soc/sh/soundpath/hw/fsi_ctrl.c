@@ -784,34 +784,15 @@ void fsi_all_dl_mute_ctrl(bool mute)
 
 void fsi_fifo_reset(int port)
 {
-	u_long doff = 0x0;
-	u_long diff = 0x0;
-	u_long r_doff = 0x0;
-	u_long r_diff = 0x0;
-	int iCnt = 0;
-
+	u_long porta_base = g_fsi_Base;
+	u_long portb_base = g_fsi_Base + FSI_PORTB_OFFSET;
 
 	if (SNDP_PCM_PORTA == port) {
-		doff = g_fsi_Base + FSI_DOFF_CTL;
-		diff = g_fsi_Base + FSI_DIFF_CTL;
+		sh_modify_register32((porta_base + FSI_DOFF_CTL), 0, 0x00000001);
+		sh_modify_register32((porta_base + FSI_DIFF_CTL), 0, 0x00000001);
 	} else {
-		doff = g_fsi_Base + FSI_PORTB_OFFSET + FSI_DOFF_CTL;
-		diff = g_fsi_Base + FSI_PORTB_OFFSET + FSI_DIFF_CTL;
-	}
-
-	/* Reg write */
-	sh_modify_register32(doff, 0, 0x00000001);
-	sh_modify_register32(diff, 0, 0x00000001);
-
-	for (iCnt = 0; iCnt < FSI_RESTET_RETRY_MAX; iCnt++) {
-		/* FIFO reset check */
-		r_doff = ioread32(doff);
-		r_diff = ioread32(diff);
-
-		if ((!(0x00000001 & r_doff)) && (!(0x00000001 & r_diff)))
-			break;
-
-		udelay(100);
+		sh_modify_register32((portb_base + FSI_DOFF_CTL), 0, 0x00000001);
+		sh_modify_register32((portb_base + FSI_DIFF_CTL), 0, 0x00000001);
 	}
 }
 

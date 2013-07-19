@@ -75,9 +75,6 @@ struct sh_csi2 {
 	unsigned int			err_cnt;
 	int				power;
 	int				first_power;
-	int				first_log;
-	struct workqueue_struct		*workqueue;
-	struct work_struct		lnp_work;
 #if SH_CSI2_DEBUG
 	int				vd_s_cnt;
 	int				vd_e_cnt;
@@ -188,21 +185,9 @@ static int sh_csi2_try_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static void sh_csi2_lnp_work(struct work_struct *work)
-{
-	struct sh_csi2 *priv = container_of(work, struct sh_csi2, lnp_work);
-	struct sh_csi2_pdata *pdata = priv->pdev->dev.platform_data;
-	int first = (0 == priv->first_log) ? 1 : 0;
-
-	pdata->log_output(pdata->log_data, first);
-	if (!priv->first_log)
-		priv->first_log = 1;
-}
-
 static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 {
 	struct sh_csi2 *priv = data;
-	struct sh_csi2_pdata *pdata = priv->pdev->dev.platform_data;
 	u32 intstate = ioread32(priv->base + SH_CSI2_INTSTATE);
 	unsigned long flags;
 
@@ -212,12 +197,6 @@ static irqreturn_t sh_mobile_csi2_irq(int irq, void *data)
 	if (intstate & SH_CSI2_INT_ERROR) {
 		priv->err_cnt++;
 		printk(KERN_INFO "CSI Interrupt(0x%08X)\n", intstate);
-	}
-	if (intstate & (1 << 16)) {
-		if (pdata->log_output) {
-			queue_work(priv->workqueue, &priv->lnp_work);
-		}
-
 	}
 #if SH_CSI2_ERROR_RESET
 	if (intstate & SH_CSI2_INT_RESET_ERROR) {
@@ -364,7 +343,6 @@ static int sh_csi2_s_stream(struct v4l2_subdev *sd, int enable)
 
 		priv->strm_on = 1;
 		priv->err_cnt = 0;
-		priv->first_log = 0;
 
 		if (ioread32(priv->base + SH_CSI2_OUT) & 0x1)
 			iowrite32(0x0, priv->base + SH_CSI2_OUT);
@@ -609,11 +587,6 @@ static __devinit int sh_csi2_probe(struct platform_device *pdev)
 
 	spin_lock_init(&priv->lock);
 
-	priv->workqueue = create_singlethread_workqueue("sh_csi2_workqueue");
-	if (!priv->workqueue)
-		goto esdreg;
-	INIT_WORK(&priv->lnp_work, sh_csi2_lnp_work);
-
 	priv->strm_on = 0;
 	priv->err_cnt = 0;
 #if SH_CSI2_DEBUG
@@ -645,11 +618,6 @@ static __devexit int sh_csi2_remove(struct platform_device *pdev)
 	if (!res) {
 		printk(KERN_ERR "platform_get_resource is NULL.\n");
 		return -ENOMEM;
-	}
-	if (priv->workqueue) {
-		flush_workqueue(priv->workqueue);
-		destroy_workqueue(priv->workqueue);
-
 	}
 	v4l2_device_unregister_subdev(&priv->subdev);
 	pm_runtime_disable(&pdev->dev);
