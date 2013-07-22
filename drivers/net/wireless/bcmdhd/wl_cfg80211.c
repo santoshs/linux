@@ -3803,6 +3803,8 @@ wl_cfg80211_get_station(struct wiphy *wiphy, struct net_device *dev,
 			goto get_station_err;
 		}
 		rssi = dtoh32(scb_val.val) + RSSI_OFFSET;
+                if (rssi >= -15)
+                     rssi = -15;
 		sinfo->filled |= STATION_INFO_SIGNAL;
 		sinfo->signal = rssi;
 		WL_DBG(("RSSI %d dBm\n", rssi));
@@ -6510,6 +6512,8 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi, u8 i
 		return -EINVAL;
 	}
 	notif_bss_info->rssi = dtoh16(bi->RSSI) + RSSI_OFFSET;
+	if(notif_bss_info->rssi >= -15)
+             notif_bss_info->rssi = -15;
 	memcpy(mgmt->bssid, &bi->BSSID, ETHER_ADDR_LEN);
 	mgmt_type = wl->active_scan ?
 		IEEE80211_STYPE_PROBE_RESP : IEEE80211_STYPE_BEACON;
