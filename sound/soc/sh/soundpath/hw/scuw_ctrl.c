@@ -228,7 +228,7 @@ static struct common_reg_table scuw_reg_tbl_loopbackBA[] = {
 	/*   1 : FSI IF enters the operating state. */
 	{ SCUW_FSIIF_SWRSR,	0x00000001,	0, 0 },
 	/*   1 : Initialization */
-/*	{ SCUW_FSIIF_FSIIR,	0x00000001,	0, 0 }, */
+	{ SCUW_FSIIF_FSIIR,	0x00000001,	0, 0 },
 	/* 010 : 2 channel */
 	{ SCUW_FSIIF_ADINRW0,	0x00000002,	0, 0 },
 	/* 010 : 2 channel */
@@ -238,7 +238,7 @@ static struct common_reg_table scuw_reg_tbl_loopbackBA[] = {
 	/* target module : FSI2(0x00), Read address : FSI2 port B(0x18) */
 	{ SCUW_FSIIF_RADCR1,	0x00000018,	0, 0 },
 	/*   0 : Processing State */
-/*	{ SCUW_FSIIF_FSIIR,	0x00000000,	0, 0 }, */
+	{ SCUW_FSIIF_FSIIR,	0x00000000,	0, 0 },
 
 	/*   1 : FFD operates. */
 	{ SCUW_MSTP2,		0x00000001,	0, 0 },
