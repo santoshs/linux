@@ -293,8 +293,9 @@ int d2153_platform_regulator_init(struct d2153 *d2153)
 	reg_val = 0x0F;
 	d2153_reg_write(d2153_regl_info, D2153_MISC_MCTL_REG, reg_val);
 
+#if 0	// 20130720 remove
 	d2153_reg_write(d2153_regl_info,D2153_BUCK_D_REG,0x67);
-
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(d2153_platform_regulator_init);
@@ -410,6 +411,13 @@ static int d2153_regulator_enable(struct regulator_dev *rdev)
 	if (regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
 
+#if 1	// 20130720 add
+	if((regulator_id == D2153_BUCK_5) || (regulator_id == D2153_BUCK_6)) {
+		dlg_info("	 => Not used, regulator_id[%d]\n", regulator_id);
+		return 0;
+	}
+#endif
+
 	if (!is_mode_control_enabled()) {
 		reg_num = regulator_register_map[regulator_id].en_reg;
 
@@ -482,6 +490,13 @@ static int d2153_regulator_disable(struct regulator_dev *rdev)
 
 	if (regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
+
+#if 1	// 20130720 add
+	if((regulator_id == D2153_BUCK_5) || (regulator_id == D2153_BUCK_6)) {
+		dlg_info("	 => Not used, regulator_id[%d]\n", regulator_id);
+		return 0;
+	}
+#endif
 
 	if (!is_mode_control_enabled()) {
 		reg_num = regulator_register_map[regulator_id].en_reg;

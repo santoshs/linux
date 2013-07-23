@@ -95,10 +95,12 @@ static void set_wake_locked(int wake)
 {
 	printk(KERN_DEBUG "%s: %s\n", __func__, (wake ? "lock" : "unlock"));
 	bt_lpm.wake = wake;
+	gpio_set_value(BT_WAKE_GPIO, wake);
 
 	if (!wake)
 		wake_unlock(&bt_lpm.wake_lock);
-	gpio_set_value(BT_WAKE_GPIO, wake);
+	else if(wake)
+		wake_lock(&bt_lpm.wake_lock);
 }
 
 static enum hrtimer_restart enter_lpm(struct hrtimer *timer) {

@@ -1114,7 +1114,6 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	if (host->power_mode != ios->power_mode &&
 			ios->power_mode == MMC_POWER_UP) {
-		renesas_sdhi_request_dma(host);
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 1);
 		sdhi_read16(host, SDHI_CLK_CTRL);
@@ -1147,7 +1146,6 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	if (host->power_mode != ios->power_mode &&
 			ios->power_mode == MMC_POWER_OFF) {
-		renesas_sdhi_release_dma(host);
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 0);
 		sdhi_read16(host, SDHI_CLK_CTRL);
@@ -1490,6 +1488,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		}
 	}
 
+	renesas_sdhi_request_dma(host);
 
 	platform_set_drvdata(pdev, host);
 	mmc_add_host(mmc);

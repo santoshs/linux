@@ -501,6 +501,9 @@ static dma_cookie_t sh_dmae_tx_submit(struct dma_async_tx_descriptor *tx)
 
 	cookie = dma_cookie_assign(tx);
 	if (power_up) {
+		spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
+		pm_runtime_get_sync(sh_chan->dev);
+		spin_lock_irqsave(&sh_chan->desc_lock, flags);
 
 		dev_dbg(sh_chan->dev, "Bring up channel %d\n", sh_chan->id);
 
@@ -606,7 +609,7 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 	struct sh_desc *desc;
 	struct sh_dmae_slave *param = chan->private;
 	int ret;
-	pm_runtime_get_sync(sh_chan->dev);
+
 	/*
 	 * This relies on the guarantee from dmaengine that
 	 * alloc_chan_resources never runs concurrently with itself
@@ -617,13 +620,11 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 
 		cfg = sh_dmae_find_slave(sh_chan, param);
 		if (!cfg) {
-			pm_runtime_put_sync(sh_chan->dev);
 			ret = -EINVAL;
 			goto efindslave;
 		}
 
 		if (test_and_set_bit(param->slave_id, sh_dmae_slave_used)) {
-			pm_runtime_put_sync(sh_chan->dev);
 			ret = -EBUSY;
 			goto etestused;
 		}
@@ -645,7 +646,6 @@ static int sh_dmae_alloc_chan_resources(struct dma_chan *chan)
 	}
 
 	if (!sh_chan->descs_allocated) {
-		pm_runtime_put_sync(sh_chan->dev);
 		ret = -ENOMEM;
 		goto edescalloc;
 	}
@@ -703,7 +703,6 @@ static void sh_dmae_free_chan_resources(struct dma_chan *chan)
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 
-	pm_runtime_put_sync(sh_chan->dev);
 	list_for_each_entry_safe(desc, _desc, &list, node)
 		kfree(desc);
 }
@@ -1187,6 +1186,12 @@ static dma_async_tx_callback __ld_cleanup(struct sh_dmae_chan *sh_chan,
 
 			list_move(&desc->node, &sh_chan->ld_free);
 
+			if (list_empty(&sh_chan->ld_queue)) {
+				dev_dbg(sh_chan->dev, "Bring down channel %d\n", sh_chan->id);
+				spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
+				pm_runtime_put(sh_chan->dev);
+				spin_lock_irqsave(&sh_chan->desc_lock, flags);
+			}
 		}
 	}
 
@@ -1356,6 +1361,10 @@ static bool sh_dmae_reset(struct sh_dmae_device *shdev)
 
 		list_splice_init(&sh_chan->ld_queue, &dl);
 
+		if (!list_empty(&dl)) {
+			dev_dbg(sh_chan->dev, "Bring down channel %d\n", sh_chan->id);
+			pm_runtime_put_sync(sh_chan->dev);
+		}
 
 		spin_unlock(&sh_chan->desc_lock);
 
@@ -1922,6 +1931,7 @@ static int sh_dmae_resume(struct device *dev)
 	struct sh_dmae_device *shdev = dev_get_drvdata(dev);
 	int i;
 
+	pm_runtime_get_sync(dev);
 
 	for (i = 0; i < shdev->pdata->channel_num; i++) {
 		struct sh_dmae_chan *sh_chan = shdev->chan[i];
@@ -1940,6 +1950,7 @@ static int sh_dmae_resume(struct device *dev)
 		}
 	}
 
+	pm_runtime_put(dev);
 
 	return 0;
 }
