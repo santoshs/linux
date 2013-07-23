@@ -91,14 +91,6 @@ static struct i2c_board_info __initdata i2c_devs_sii9234[] = {
 		I2C_BOARD_INFO("SIMGC8", 0xC8>>1),
 		.platform_data = &sii9234_pdata,
 	},
-	{
-		I2C_BOARD_INFO("SIMGA0", 0xA0>>1),
-		.platform_data = &sii9234_pdata,
-	},
-	{
-		I2C_BOARD_INFO("SIMG60", 0x60>>1),
-		.platform_data = &sii9234_pdata,
-	},
 };
 
 struct platform_device mhl_i2c_gpio_device = {
