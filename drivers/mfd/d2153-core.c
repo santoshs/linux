@@ -819,7 +819,7 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 
 	d2153_system_event_init(d2153);
 #ifdef CONFIG_PROC_FS
-	d2153_debug_proc_init(d2153);
+	//d2153_debug_proc_init(d2153);
 #endif
 
 	INIT_DELAYED_WORK(&d2153->vdd_fault_work, init_vdd_fault_work);
