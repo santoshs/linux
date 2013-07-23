@@ -259,4 +259,3 @@ struct platform_device csi21_device = {
 	},
 };
 
-

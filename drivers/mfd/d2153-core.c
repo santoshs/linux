@@ -720,9 +720,9 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 
 	d2153->pdata = pdata;
 	mutex_init(&d2153->d2153_io_mutex);
-	
+
 	d2153_reg_write(d2153, D2153_GPADC_MCTL_REG, 0x55);
-	
+
 
 #ifdef D2153_AUD_LDO_FOR_ESD
 	d2153_reg_write(d2153, D2153_LDO21_MCTL_REG, 0x00);
