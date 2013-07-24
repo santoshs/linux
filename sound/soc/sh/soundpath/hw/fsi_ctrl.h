@@ -104,9 +104,6 @@
 /* DL all mute value */
 #define FSI_DL_ALL_MUTE_VALUE	(0x00000202)
 
-/* FIFO reset retry max */
-#define FSI_RESTET_RETRY_MAX	(2)
-
 /*
  * STRUCTURE Definitions
  */
