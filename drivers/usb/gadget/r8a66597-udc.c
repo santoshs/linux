@@ -57,7 +57,7 @@
 
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 
-/* #define UDC_LOG */
+#define UDC_LOG
 #define RECOVER_RESUME
 #ifdef  UDC_LOG
 #define udc_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
@@ -2569,17 +2569,41 @@ static int r8a66597_vbus_draw(struct usb_gadget *gadget, unsigned mA)
 	return r8a66597_set_vbus_draw(gadget_to_r8a66597(gadget), mA);
 }
 
+void usb_reinitialize(struct r8a66597 *r8a66597)
+{
+	u16 bwait = r8a66597->pdata->buswait ? : 0xf;
+	udc_log("%s: \n", __func__);
+	if (r8a66597->pdata->module_stop)
+		r8a66597->pdata->module_stop();
+	udelay(10);
+	usb_core_clk_ctrl(r8a66597, 0);
+
+        usb_core_clk_ctrl(r8a66597, 1);
+        if (r8a66597->pdata->module_start)
+                r8a66597->pdata->module_start();
+        /* start clock */
+        r8a66597_write(r8a66597, bwait, SYSCFG1);
+        r8a66597_bset(r8a66597, HSE, SYSCFG0);
+        r8a66597_bset(r8a66597, USBE, SYSCFG0);
+        r8a66597_bset(r8a66597, SCKE, SYSCFG0);
+        r8a66597_bclr(r8a66597, DRPD, SYSCFG0);
+}
+
 static int r8a66597_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct r8a66597 *r8a66597 = gadget_to_r8a66597(gadget);
 	unsigned long flags;
 
+	udc_log("%s: \n", __func__);
 	spin_lock_irqsave(&r8a66597->lock, flags);
 	r8a66597->softconnect = (is_on != 0);
-	if (r8a66597->vbus_active)
-		r8a66597_set_pullup(r8a66597);
+	if (r8a66597->vbus_active) {
+		if(r8a66597->softconnect == 0)
+			usb_reinitialize(r8a66597);
+		else 
+			r8a66597_usb_connect(r8a66597);
+	}
 	spin_unlock_irqrestore(&r8a66597->lock, flags);
-
 	return 0;
 }
 
