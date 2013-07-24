@@ -236,7 +236,7 @@ int d2153_aad_enable(struct snd_soc_codec *codec)
 
 	d2153_aad_write(client, D2153_ACCDET_TST2, 0x10);
 	d2153_aad_write(client, D2153_ACCDET_THRESH1, 0x1a);
-	d2153_aad_write(client, D2153_ACCDET_THRESH2, 0x56);
+	d2153_aad_write(client, D2153_ACCDET_THRESH2, 0x62);
 	d2153_aad_write(client, D2153_ACCDET_THRESH3, 0x08);
 	d2153_aad_write(client, D2153_ACCDET_THRESH4, 0x44);
 
