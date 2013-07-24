@@ -659,10 +659,13 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 	flush_delayed_work_sync(&host->mmc->detect);
 	/* Ignore the detect interrupt if previous detect state
 	 * is same as new */
-	if (pdata->detect_irq && pdata->get_cd) {
+	if (pdata->detect_irq) {
 		if (host->connect == pdata->get_cd(host->pdev)) {
-			pr_warning("%s:%s Prev card status is same as new\n",
+			pr_debug("%s:%s Prev card status is same as new\n",
 					__func__, mmc_hostname(host->mmc));
+
+			if (pdata->detect_msec)
+				enable_irq(pdata->detect_irq);
 			return;
 		}
 	}
@@ -1298,7 +1301,7 @@ static ssize_t sd_detection_cmd_show(struct device *dev,
 		return sprintf(buf, "Remove\n");
 	}
 }
-
+	
 static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
 
 static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
