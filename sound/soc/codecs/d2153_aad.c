@@ -4,13 +4,13 @@
  * Copyright (c) 2012 Dialog Semiconductor
  *
  * Written by Adam Thomson <Adam.Thomson.Opensource@diasemi.com>
- * 
+ *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
  * Free Software Foundation;  either version 2 of the  License, or (at your
  * option) any later version.
  */
- 
+
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
@@ -145,13 +145,13 @@ static ssize_t show_headset(struct device *dev,
 static int d2153_aad_read(struct i2c_client *client, u8 reg)
 {
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
-	
+
 	struct i2c_msg xfer[2];
 	u8 data;
 	int ret;
-	
+
 	mutex_lock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
-	
+
 	/* Write register */
 	xfer[0].addr = client->addr;
 	xfer[0].flags = 0;
@@ -167,7 +167,7 @@ static int d2153_aad_read(struct i2c_client *client, u8 reg)
 	ret = i2c_transfer(client->adapter, xfer, 2);
 
 	mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
-	
+
 	if (ret == 2)
 		return data;
 	else if (ret < 0)
@@ -183,7 +183,7 @@ int d2153_aad_write(struct i2c_client *client, u8 reg, u8 value)
 	int ret;
 
 	mutex_lock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
-	
+
     reg &= 0xff;
     data[0] = reg;
     data[1] = value & 0xff;
@@ -191,7 +191,7 @@ int d2153_aad_write(struct i2c_client *client, u8 reg, u8 value)
 	ret = i2c_master_send(client, data, 2);
 
 	mutex_unlock(&d2153_aad->d2153_codec->d2153_pmic->d2153_io_mutex);
-	
+
 	if (ret == 2)
 		return 0;
 	else if (ret < 0)
@@ -543,7 +543,7 @@ static void d2153_aad_jackdet_monitor_timer_work(struct work_struct *work)
 
 	msleep(D2153_AAD_MICBIAS_SETUP_TIME_MS);
 
-	jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);	
+	jack_mode = d2153_aad_read(client, D2153_ACCDET_CFG3);
 	dlg_info(" %s, JACK MODE = 0x%x\n", __func__, jack_mode);
 
 	if (jack_mode & D2153_ACCDET_JACK_MODE_JACK) {

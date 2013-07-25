@@ -5,7 +5,7 @@
  *
  * Written by Adam Thomson <Adam.Thomson.Opensource@diasemi.com>
  * Based on DA9055 ALSA SoC codec driver.
- * 
+ *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
  * Free Software Foundation;  either version 2 of the  License, or (at your
@@ -50,7 +50,7 @@ u8 d2153_aif_adjusted_val [] = {
 	0x05,0x15,0x06,0x16,0x07,0x17,0x08,0x18,
 	0x09,0x19,0x0a,0x1a,0x0b,0x1b,0x0c,0x1c,
 	0x0d,0x1d,0x0e,0x1e,0x0f,0x1f,0x10,0x00,
-	0x11,0x02,0x12,0x03,0x13,0x04,0x14,0x00,	
+	0x11,0x02,0x12,0x03,0x13,0x04,0x14,0x00,
 };
 
 /*
@@ -308,10 +308,10 @@ int d2153_set_aif_adjust(struct snd_soc_codec *codec)
 	int loop_max = ARRAY_SIZE(d2153_aif_adjusted_val);
 	u8 sr_status;
 
-	dlg_info("%s()\n",__FUNCTION__);		
+	dlg_info("%s()\n",__FUNCTION__);
 
 	sr_status = snd_soc_read(codec, D2153_SR);
-	if (sr_status > D2153_SR_16000) 
+	if (sr_status > D2153_SR_16000)
 	{
 		msleep(300);
 	}
@@ -332,7 +332,7 @@ int d2153_set_aif_adjust(struct snd_soc_codec *codec)
 
 	snd_soc_update_bits(codec, D2153_ADC_L_CTRL,
 				D2153_ADC_MUTE_EN, 0);
-	snd_soc_update_bits(codec, D2153_DAC_FILTERS5, 
+	snd_soc_update_bits(codec, D2153_DAC_FILTERS5,
 				D2153_DAC_SOFTMUTE_EN, 0);
 	msleep(10); // need to optimize
 
@@ -433,7 +433,7 @@ static int d2153_get_alc_data(struct snd_soc_codec *codec, u8 reg_val)
 
 		sum += ((mid_data << 8) | (top_data << 16));
 	}
-	
+
 	return sum / D2153_ALC_AVG_ITERATIONS;
 }
 
@@ -495,7 +495,7 @@ static void d2153_alc_calib_auto(struct snd_soc_codec *codec)
 				    D2153_ALC_OFFSET_EN | D2153_ALC_SYNC_MODE,
 				    D2153_ALC_OFFSET_EN | D2153_ALC_SYNC_MODE);
 	}
-	
+
 }
 
 static void d2153_alc_calib(struct snd_soc_codec *codec)
@@ -539,7 +539,7 @@ static void d2153_alc_calib(struct snd_soc_codec *codec)
 			    D2153_MIXIN_R_MIX_SELECT_MIC_R |
 			    D2153_MIXIN_R_MIX_SELECT_MIC_L |
 			    D2153_MIXIN_R_MIX_SELECT_MIC_EXT);
-	
+
 	/* Mute MIC PGAs */
 	snd_soc_update_bits(codec, D2153_MIC_L_CTRL, D2153_MIC_AMP_MUTE_EN,
 			    D2153_MIC_AMP_MUTE_EN);
@@ -547,7 +547,7 @@ static void d2153_alc_calib(struct snd_soc_codec *codec)
 			    D2153_MIC_AMP_MUTE_EN);
 	snd_soc_update_bits(codec, D2153_MIC_EXT_CTRL, D2153_MIC_AMP_MUTE_EN,
 			    D2153_MIC_AMP_MUTE_EN);
-	
+
 	/* Perform calibration */
 	if (d2153_codec->alc_calib_auto)
 		d2153_alc_calib_auto(codec);
@@ -575,13 +575,13 @@ static int d2153_put_mixin_gain(struct snd_kcontrol *kcontrol,
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 	int ret;
 
-	/* 
+	/*
 	 * DLG - Does setting the register before calibration have an impact
 	 * on recording quality? This may require some tweaking, or user
 	 * nees to disable ALC first before changing this.
 	 */
 	ret = snd_soc_put_volsw_2r(kcontrol, ucontrol);
-	
+
 	/* If ALC in operation, make sure calibrated offsets are updated */
 	if ((!ret) && (d2153_codec->alc_en))
 		d2153_alc_calib(codec);
@@ -617,7 +617,7 @@ static int d2153_put_alc_ext_mic_enum(struct snd_kcontrol *kcontrol,
 	int ret;
 
 	ret = snd_soc_put_enum_double(kcontrol, ucontrol);
-	
+
 	/* If ALC in operation, make sure calibrated offsets are updated */
 	if ((!ret) && (d2153_codec->alc_en))
 		d2153_alc_calib(codec);
@@ -813,7 +813,7 @@ static const struct snd_kcontrol_new d2153_snd_controls[] = {
 	/* DAC Inversion control */
 	SOC_DOUBLE("DAC Invert Switch", D2153_DIG_CTRL, D2153_DAC_L_INV_SHIFT,
 		   D2153_DAC_R_INV_SHIFT, D2153_DAC_INV_MAX, D2153_NO_INVERT),
-	
+
 	/* DMIC controls */
 	SOC_DOUBLE_R("DMIC Switch", D2153_MIXIN_L_SELECT, D2153_MIXIN_R_SELECT,
 		     D2153_DMIC_EN_SHIFT, D2153_DMIC_EN_MAX, D2153_NO_INVERT),
@@ -954,7 +954,7 @@ static const char * const d2153_mic_amp_in_sel_txt[] = {
 	"Differential", "MIC_P", "MIC_N"
 };
 
-/* 
+/*
  * DLG - Have to map these to MIXIN_L/R_SELECT for DA9055 as the bit fields have
  * moved register in D2153. Unfortunately it requires a conditional compilation.
  */
@@ -1145,17 +1145,17 @@ static const struct snd_kcontrol_new d2153_dapm_mixoutsp_controls[] = {
 /*
  * DAPM widgets
  */
- 
+
 #ifdef CONFIG_SND_SOC_D2153_AAD
 /* HACK to deal with issue of ADC 1/8 bit reads for button detect */
 static int d2153_micbias_event(struct snd_soc_dapm_widget *widget,
 				   struct snd_kcontrol *kctl, int event)
 {
 	struct snd_soc_codec *codec = widget->codec;
-	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);	
+	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
-	
+
 	dlg_info("%s() event = %d  \n",__FUNCTION__,event);
 
 	switch (event) {
@@ -1174,7 +1174,7 @@ static int d2153_micbias_event(struct snd_soc_dapm_widget *widget,
 	case SND_SOC_DAPM_POST_PMD:
 		if(d2153_aad->switch_data.state ==D2153_HEADSET)
 			snd_soc_update_bits(d2153_aad->d2153_codec->codec,
-				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);		
+				D2153_MICBIAS1_CTRL, D2153_MICBIAS_EN,D2153_MICBIAS_EN);
 		if (D2153_AA_Silicon == d2153_aad->chip_rev) {
 			d2153_aad->button.status = D2153_BUTTON_PRESS;
 			d2153_aad_update_bits(d2153_codec->aad_i2c_client, D2153_ACCDET_CONFIG,
@@ -1190,7 +1190,7 @@ static int d2153_micbias_event(struct snd_soc_dapm_widget *widget,
 
 	return 0;
 }
-#endif /* CONFIG_SND_SOC_D2153_AAD */	
+#endif /* CONFIG_SND_SOC_D2153_AAD */
 
 static const struct snd_soc_dapm_widget d2153_dapm_widgets[] = {
 	/* AIF */
@@ -1213,17 +1213,17 @@ static const struct snd_soc_dapm_widget d2153_dapm_widgets[] = {
 			 &d2153_mic_r_amp_in_sel_mux),
 	SND_SOC_DAPM_MUX("Mic Ext Amp Source MUX", SND_SOC_NOPM, 0, 0,
 			 &d2153_mic_ext_amp_in_sel_mux),
-	
+
 	/* Mic Biases */
 #ifdef CONFIG_SND_SOC_D2153_AAD
 	/* HACK to deal with issue of ADC 1/8 bit reads for button detect */
 	SND_SOC_DAPM_SUPPLY("Mic Bias 1", D2153_MICBIAS1_CTRL,
 				D2153_MICBIAS_EN_SHIFT, D2153_NO_INVERT,
 				d2153_micbias_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-#else	
+#else
 	SND_SOC_DAPM_SUPPLY("Mic Bias 1", D2153_MICBIAS1_CTRL,
 			    D2153_MICBIAS_EN_SHIFT, D2153_NO_INVERT, NULL, 0),
-#endif /* CONFIG_SND_SOC_D2153_AAD */			    
+#endif /* CONFIG_SND_SOC_D2153_AAD */
 	SND_SOC_DAPM_SUPPLY("Mic Bias 2", D2153_MICBIAS2_CTRL,
 			    D2153_MICBIAS_EN_SHIFT, D2153_NO_INVERT, NULL, 0),
 	SND_SOC_DAPM_SUPPLY("Mic Bias 3", D2153_MICBIAS3_CTRL,
@@ -1259,7 +1259,7 @@ static const struct snd_soc_dapm_widget d2153_dapm_widgets[] = {
 			 D2153_ADC_EN_SHIFT, D2153_NO_INVERT),
 	SND_SOC_DAPM_ADC("ADC Right", NULL, D2153_ADC_R_CTRL,
 			 D2153_ADC_EN_SHIFT, D2153_NO_INVERT),
-	
+
 	/* AIF */
 	SND_SOC_DAPM_MUX("AIF Left Source MUX", SND_SOC_NOPM, 0, 0,
 			 &d2153_aif_l_src_mux),
@@ -1295,7 +1295,7 @@ static const struct snd_soc_dapm_widget d2153_dapm_widgets[] = {
 				   ARRAY_SIZE(d2153_dapm_mixoutep_controls)),
 	SND_SOC_DAPM_MIXER("Out Mixer Speaker", SND_SOC_NOPM, 0, 0,
 			   d2153_dapm_mixoutsp_controls,
-			   ARRAY_SIZE(d2153_dapm_mixoutsp_controls)),	
+			   ARRAY_SIZE(d2153_dapm_mixoutsp_controls)),
 
 	/* Output PGAs */
 	SND_SOC_DAPM_PGA("Out Mixer Left PGA", D2153_MIXOUT_L_CTRL,
@@ -1334,30 +1334,30 @@ static const struct snd_soc_dapm_route d2153_audio_map[] = {
 	/* Dest  |  Connecting Widget  |  Source */
 
 	/* Input path */
-	{"MICL", NULL, "Mic Bias 2"}, 
+	{"MICL", NULL, "Mic Bias 2"},
 	{"MICR", NULL, "Mic Bias 3"},
 	{"MICEXT", NULL, "Mic Bias 1"},
 
 	{"Mic Left Amp Source MUX", "Differential", "MICL"},
 	{"Mic Left Amp Source MUX", "MIC_P", "MICL"},
 	{"Mic Left Amp Source MUX", "MIC_N", "MICL"},
-	
+
 	{"Mic Right Amp Source MUX", "Differential", "MICR"},
 	{"Mic Right Amp Source MUX", "MIC_P", "MICR"},
 	{"Mic Right Amp Source MUX", "MIC_N", "MICR"},
-	
+
 	{"Mic Ext Amp Source MUX", "Differential", "MICEXT"},
 	{"Mic Ext Amp Source MUX", "MIC_P", "MICEXT"},
 	{"Mic Ext Amp Source MUX", "MIC_N", "MICEXT"},
-	
+
 	{"Aux Left PGA", NULL, "AUXL"},
 	{"Aux Right PGA", NULL, "AUXR"},
 	/*
-	 * DLG - for DA9055 the following are the mappings: 
+	 * DLG - for DA9055 the following are the mappings:
 	 * MICL   -> MIC1
 	 * MICR	  -> MIC2L
 	 * MICEXT -> MIC2R
-	 * 
+	 *
 	 * As D2153 has a PGA for each mic. This means that for use with
 	 * DA9055, the mapping of MIC2L to Mic Left PGA is lost.
 	 */
@@ -1381,17 +1381,17 @@ static const struct snd_soc_dapm_route d2153_audio_map[] = {
 
 	{"In Mixer Right PGA", NULL, "In Mixer Right"},
 	{"ADC Right", NULL, "In Mixer Right PGA"},
-	
+
 	{"AIF Left Source MUX", "ADC Left", "ADC Left"},
 	{"AIF Left Source MUX", "ADC Right", "ADC Right"},
 	{"AIF Left Source MUX", "AIF Input Left", "AIFINL"},
 	{"AIF Left Source MUX", "AIF Input Right", "AIFINR"},
-	
+
 	{"AIF Right Source MUX", "ADC Left", "ADC Left"},
 	{"AIF Right Source MUX", "ADC Right", "ADC Right"},
 	{"AIF Right Source MUX", "AIF Input Left", "AIFINL"},
 	{"AIF Right Source MUX", "AIF Input Right", "AIFINR"},
-	
+
 	{"AIFOUTL", NULL, "AIF Left Source MUX"},
 	{"AIFOUTR", NULL, "AIF Right Source MUX"},
 
@@ -1438,7 +1438,7 @@ static const struct snd_soc_dapm_route d2153_audio_map[] = {
 	{"Out Mixer Earpiece", "Aux Right Invert Switch", "Aux Right PGA"},
 	{"Out Mixer Earpiece", "Mixin Right Invert Switch", "In Mixer Right PGA"},
 	{"Out Mixer Earpiece", "Mixin Left Invert Switch", "In Mixer Left PGA"},
-	
+
 	{"Out Mixer Speaker", "Aux Right Switch", "Aux Right PGA"},
 	{"Out Mixer Speaker", "Mixin Right Switch", "In Mixer Right PGA"},
 	{"Out Mixer Speaker", "Mixin Left Switch", "In Mixer Left PGA"},
@@ -1451,7 +1451,7 @@ static const struct snd_soc_dapm_route d2153_audio_map[] = {
 	{"Out Mixer Right PGA", NULL, "Out Mixer Right"},
 	{"Out Mixer Speaker PGA", NULL, "Out Mixer Speaker"},
 	{"Out Mixer Earpiece PGA", NULL, "Out Mixer Earpiece"},
-	
+
 	{"Headphone Left PGA", NULL, "Out Mixer Left PGA"},
 	{"Headphone Left PGA", NULL, "Charge Pump"},
 	{"HPL", NULL, "Headphone Left PGA"},
@@ -1463,7 +1463,7 @@ static const struct snd_soc_dapm_route d2153_audio_map[] = {
 	{"Earpiece PGA", NULL, "Out Mixer Earpiece PGA"},
 	{"Earpiece PGA", NULL, "Charge Pump"},
 	{"EP", NULL, "Earpiece PGA"},
-	
+
 	{"Speaker PGA", NULL, "Out Mixer Speaker PGA"},
 	{"SP", NULL, "Speaker PGA"},
 };
@@ -1575,7 +1575,7 @@ static int d2153_volatile_register(struct snd_soc_codec *codec,
 	}
 }
 
-/* 
+/*
  * Need to make this method availabe outside of the file for Soundpath usage
  * as we don't want to assign the function to the snd_soc_dai_ops. If we do
  * assign it then the method is automatically called from ALSA framework and
@@ -1700,7 +1700,7 @@ static int d2153_set_dai_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
 	case SND_SOC_DAIFMT_DSP_A:
 	case SND_SOC_DAIFMT_DSP_B:
 		aif_ctrl |= D2153_AIF_FORMAT_DSP;
-		break;	
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1721,14 +1721,14 @@ static int d2153_mute(struct snd_soc_dai *dai, int mute)
 
 
 	dlg_info("%s() mute = %d  \n",__FUNCTION__,mute);
-	
+
 	if (mute) {
-#if 0		
+#if 0
 		snd_soc_update_bits(codec, D2153_DAC_L_CTRL,
 				   D2153_DAC_MUTE_EN, D2153_DAC_MUTE_EN);
 		snd_soc_update_bits(codec, D2153_DAC_R_CTRL,
 				   D2153_DAC_MUTE_EN, D2153_DAC_MUTE_EN);
-#endif		
+#endif
 	} else {
 		snd_soc_update_bits(codec, D2153_DAC_L_CTRL,
 				    D2153_DAC_MUTE_EN, 0);
@@ -1746,7 +1746,7 @@ static int d2153_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
 
 	dlg_info("%s() clk_id = %d  \n",__FUNCTION__,clk_id);
-	
+
 	switch (clk_id) {
 	case D2153_CLKSRC_MCLK:
 		if ((freq == 32768) ||
@@ -1779,7 +1779,7 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 
 	dlg_info("%s() fout = %d\n", __func__, fout);
 	pll_ctrl = 0;
-	
+
 	/* Workout input divider based on MCLK rate */
 	if ((d2153_codec->mclk_rate == 32768) && (source == D2153_SYSCLK_PLL)) {
 		/* 32KHz PLL Mode */
@@ -1808,7 +1808,7 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 		}
 		freq_ref = (d2153_codec->mclk_rate / indiv);
 	}
-	
+
 	pll_ctrl |= indiv_bits;
 
 	/* If SRM enabled, freq_out is (98304000 + 90316800)/2 = 94310400 */
@@ -1845,7 +1845,7 @@ static int d2153_set_dai_pll(struct snd_soc_dai *codec_dai, int pll_id,
 	snd_soc_write(codec, D2153_PLL_INTEGER, pll_integer);
 	snd_soc_write(codec, 0x52, 0x03);
 	snd_soc_update_bits(codec, D2153_PC_COUNT, 0x02, 0x02);
-	
+
 	d2153_codec->source = source;
 	d2153_codec->freq_ref = freq_ref;
 	d2153_codec->fout = fout;
@@ -1919,7 +1919,7 @@ static int d2153_set_bias_level(struct snd_soc_codec *codec,
 				enum snd_soc_bias_level level)
 {
 	dlg_info("%s() level = %d  \n",__FUNCTION__,level);
-	
+
 	switch (level) {
 	case SND_SOC_BIAS_ON:
 		if (codec->dapm.bias_level == SND_SOC_BIAS_OFF) {
@@ -1956,7 +1956,7 @@ static int d2153_set_bias_level(struct snd_soc_codec *codec,
 static void d2153_setup(struct snd_soc_codec *codec)
 {
 	struct d2153_codec_priv *d2153_codec = snd_soc_codec_get_drvdata(codec);
-		
+
 #ifdef CONFIG_SND_SOC_USE_DA9055_HW
 	/*
 	 * Default to using ALC manual offset calibration mode.
@@ -1971,7 +1971,7 @@ static void d2153_setup(struct snd_soc_codec *codec)
 	d2153_codec->alc_calib_auto = true;
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
 
-	/* 
+	/*
 	 * DLG - The following defaults should probably be platform
 	 * data, but for now they're hardcoded here as a reminder.
 	 */
@@ -2015,7 +2015,7 @@ static void d2153_setup(struct snd_soc_codec *codec)
 			    D2153_MICBIAS_LEVEL_2_1V);
 #endif	/* D2153_DEFAULT_SET_MICBIAS */
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
-	
+
 	/*
 	 * DLG - From the technical datasheet diagram for D2153 this should
 	 * not be needed as there is a bias for each MIC input.
@@ -2039,7 +2039,7 @@ static void d2153_setup(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, D2153_IO_CTRL,
 			    D2153_IO_VOLTAGE_LEVEL_MASK,
 			    D2153_IO_VOLTAGE_LEVEL_1_2V_2_8V);
-	
+
 	/* Default LDO settings */
 	snd_soc_update_bits(codec, D2153_LDO_CTRL, D2153_LDO_LEVEL_SELECT_MASK,
 			    D2153_LDO_LEVEL_SELECT_1_05V);
@@ -2071,7 +2071,7 @@ static void d2153_setup(struct snd_soc_codec *codec)
 			    D2153_EP_AMP_RAMP_EN, D2153_EP_AMP_RAMP_EN);
 	snd_soc_update_bits(codec, D2153_SP_CTRL,
 			    D2153_SP_AMP_RAMP_EN, D2153_SP_AMP_RAMP_EN);
-	
+
 	/*
 	 * There are two separate control bits for input and output mixers as
 	 * well as headphone and speaker outs.
@@ -2104,7 +2104,7 @@ static void d2153_setup(struct snd_soc_codec *codec)
 			    //D2153_CP_MCHANGE_LARGEST_VOL);
 
 	snd_soc_write(codec, D2153_CP_VOL_THRESHOLD1 ,0x34);
-	
+
 	/* Enable AIF output */
 	snd_soc_update_bits(codec, D2153_AIF_CTRL, D2153_AIF_OE, D2153_AIF_OE);
 
@@ -2133,7 +2133,7 @@ static int d2153_suspend(struct snd_soc_codec *codec)
 	if ((d2153_codec->switch_state == D2153_HEADSET) &&
 			(d2153_aad->chip_rev < D2153_AC_Silicon))
 		return 0;
-	
+
 	d2153_codec_power(codec, 0);
 	return 0;
 }
@@ -2182,7 +2182,7 @@ int d2153_aad_resume(struct snd_soc_codec *codec)
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 
 	d2153_aad_write(client,D2153_ACCDET_UNLOCK_AO,0x4a);
-	
+
 	d2153_aad_write(client,D2153_ACCDET_TST2,0x10);
 	d2153_aad_write(client, D2153_ACCDET_THRESH1, 0x1a);
 	d2153_aad_write(client,D2153_ACCDET_THRESH2,0x56);
@@ -2237,7 +2237,7 @@ static int d2153_probe(struct snd_soc_codec *codec)
 	}
 
 #ifdef CONFIG_SND_SOC_USE_DA9055_HW
-	/* 
+	/*
 	 * DLG - When using DA9055 for testing, some registers are shared due
 	 * to new/modified registers for D2153. If we don't do cache bypass,
 	 * then controls don't always operate correctly.
@@ -2246,9 +2246,9 @@ static int d2153_probe(struct snd_soc_codec *codec)
 #endif /* CONFIG_SND_SOC_USE_DA9055_HW */
 
 		d2153_codec_power(d2153_codec->codec,1);
-		d2153_setup(codec);	
-#ifdef CONFIG_SND_SOC_D2153_AAD		
-		d2153_aad_enable(codec);	
+		d2153_setup(codec);
+#ifdef CONFIG_SND_SOC_D2153_AAD
+		d2153_aad_enable(codec);
 		d2153_codec->codec_init =1;
 #endif
 
@@ -2269,7 +2269,7 @@ static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsi
 
 	mutex_lock(&d2153_codec->d2153_pmic->d2153_io_mutex);
 
-	
+
 	reg &= 0xff;
 	data[0] = reg;
 	data[1] = value & 0xff;
@@ -2277,7 +2277,7 @@ static int d2153_codec_write(struct snd_soc_codec *codec, unsigned int reg, unsi
 	ret = i2c_master_send(d2153_codec->i2c_client, data, 2);
 
 	mutex_unlock(&d2153_codec->d2153_pmic->d2153_io_mutex);
-	
+
 	if (ret == 2)
 		return 0;
 	else if (ret < 0)
@@ -2295,10 +2295,10 @@ static struct snd_soc_codec_driver soc_codec_dev_d2153 = {
 	.reg_cache_size		= ARRAY_SIZE(d2153_reg_defaults),
 	.reg_word_size		= sizeof(u8),
 	.reg_cache_default	= d2153_reg_defaults,
-	.volatile_register	= d2153_volatile_register,	
+	.volatile_register	= d2153_volatile_register,
 	.set_bias_level		= d2153_set_bias_level,
 	.controls		= d2153_snd_controls,
-	.num_controls		= ARRAY_SIZE(d2153_snd_controls),	
+	.num_controls		= ARRAY_SIZE(d2153_snd_controls),
 	.dapm_widgets		= d2153_dapm_widgets,
 	.num_dapm_widgets	= ARRAY_SIZE(d2153_dapm_widgets),
 	.dapm_routes		= d2153_audio_map,
@@ -2358,7 +2358,7 @@ static int d2153codec_i2c_write_device(struct d2153_codec_priv *d2153_codec,char
 	struct i2c_msg msgs[1];
 	u8 data[12];
 	u8 *buf = data;
-	
+
 	struct i2c_adapter *adap = d2153_codec->i2c_client->adapter;
 
 	if (bytes == 0)
@@ -2414,12 +2414,12 @@ static long d2153_codec_ioctl(struct file *file, unsigned int cmd, unsigned long
 		pmu_reg reg;
 		int ret = 0;
 		u8 reg_val;
-	
+
 		if (!d2153_codec)
-			return -ENOTTY; 		
+			return -ENOTTY;
 
 		switch (cmd) {
-			
+
 			case D2153_IOCTL_READ_REG:
 				if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 					return -EFAULT;
@@ -2429,12 +2429,12 @@ static long d2153_codec_ioctl(struct file *file, unsigned int cmd, unsigned long
 				}
 				else {
 					reg_val=snd_soc_read(d2153_codec->codec,reg.reg);
-				}	
+				}
 				reg.val = (unsigned short)reg_val;
 				if (copy_to_user((pmu_reg *)arg, &reg, sizeof(pmu_reg)) != 0)
 					return -EFAULT;
 			break;
-	
+
 			case D2153_IOCTL_WRITE_REG:
 				if (copy_from_user(&reg, (pmu_reg *)arg, sizeof(pmu_reg)) != 0)
 					return -EFAULT;
@@ -2444,13 +2444,13 @@ static long d2153_codec_ioctl(struct file *file, unsigned int cmd, unsigned long
 				else {
 					snd_soc_write(d2153_codec->codec, reg.reg, reg.val);
 				}
-			break;	
-	
+			break;
+
 		default:
 			dlg_err("%s: unsupported cmd\n", __func__);
 			ret = -ENOTTY;
 		}
-	
+
 		return ret;
 }
 
@@ -2656,8 +2656,8 @@ void d2153_codec_debug_proc_init(struct d2153_codec_priv *d2153_codec)
 }
 
 void d2153_codec_debug_proc_exit(void)
-{	
-	remove_proc_entry("codec0", NULL);	
+{
+	remove_proc_entry("codec0", NULL);
 }
 #endif /* CONFIG_PROC_FS */
 
@@ -2665,8 +2665,8 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 				     const struct i2c_device_id *id)
 {
 	struct d2153_codec_priv *d2153_codec;
-	int ret;	
-	
+	int ret;
+
 	d2153_codec = devm_kzalloc(&client->dev,
 				   sizeof(struct d2153_codec_priv), GFP_KERNEL);
 	if (!d2153_codec)
@@ -2688,7 +2688,7 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, d2153_codec);
 
 	d2153_codec->i2c_client=client;
-		
+
 	ret = snd_soc_register_codec(&client->dev, &soc_codec_dev_d2153,
 				     d2153_dai, ARRAY_SIZE(d2153_dai));
 	if (ret < 0) {
@@ -2732,7 +2732,7 @@ static int __devexit d2153_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 
-void d2153_i2c_shutdown(struct i2c_client *client) 
+void d2153_i2c_shutdown(struct i2c_client *client)
 {
     struct d2153_codec_priv *d2153_codec;
 
