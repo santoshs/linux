@@ -30,6 +30,7 @@
 #define MTD_BUF_NUM	1
 
 #define MTD_IOCTL_TYPE	0xBA
+#define MTD_IOCTL_ADDR_NR 2
 #define MTD_IOCTL_ADDR	_IOR(MTD_IOCTL_TYPE, 2, struct mtd_trace_buf)
 
 struct mtd_trace_buf
@@ -112,7 +113,7 @@ static long mtd_buf_ioctl(struct file *file, unsigned int cmd,
 	if (MTD_IOCTL_TYPE != _IOC_TYPE(cmd)) {
 		return -EPERM;
 	}
-	if (_IOC_NR(cmd) == _IOC_NR(MTD_IOCTL_ADDR)) {
+	if (_IOC_NR(cmd) == MTD_IOCTL_ADDR_NR) {
 		addr = (u_int32_t)mtd->mem->start;
 		ret = put_user(addr, &out->phy_addr);
 		size = mtd->mem->end - mtd->mem->start;
