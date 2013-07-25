@@ -1594,6 +1594,11 @@ int renesas_sdhi_suspend(struct device *dev)
 			host->state = pdata->get_pwr(host->pdev);
 	}
 	ret = mmc_suspend_host(host->mmc);
+	/*In case of sdhi interface which has MMC_PM_KEEP_POWER flag set,
+	 * release DMA channel in suspend */
+	if (mmc_card_keep_power(host->mmc))
+		renesas_sdhi_release_dma(host);
+
 	sdhi_save_register(host);
 	if (!host->dynamic_clock) {
 		sdhi_read16(host, SDHI_CLK_CTRL);
@@ -1639,6 +1644,11 @@ int renesas_sdhi_resume(struct device *dev)
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
 	}
  	sdhi_restore_register(host);
+	/*In case of sdhi interface which has MMC_PM_KEEP_POWER flag set,
+	 * request the dma channel during resume */
+	if (mmc_card_keep_power(host->mmc))
+		renesas_sdhi_request_dma(host);
+
 	ret = mmc_resume_host(host->mmc);
 
 	if (CHANNEL_SDHI1 == pdev->id) {
