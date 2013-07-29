@@ -1,5 +1,5 @@
 /*
- * drivers/power/process.c - Functions for starting/stopping processes on 
+ * drivers/power/process.c - Functions for starting/stopping processes on
  *                           suspend transitions.
  *
  * Originally from swsusp.
@@ -18,8 +18,9 @@
 #include <linux/workqueue.h>
 #include <linux/kmod.h>
 #include <linux/wakelock.h>
+#include "power.h"
 
-/* 
+/*
  * Timeout for stopping processes
  */
 #define TIMEOUT	(20 * HZ)
@@ -175,6 +176,12 @@ int freeze_processes(void)
 int freeze_kernel_threads(void)
 {
 	int error;
+
+	printk(KERN_INFO "PM: Wait for syncing filesystems ... ");
+	error = suspend_sys_sync_wait();
+	if (error)
+		return error;
+	printk("done.\n");
 
 	printk("Freezing remaining freezable tasks ... ");
 	pm_nosig_freezing = true;
