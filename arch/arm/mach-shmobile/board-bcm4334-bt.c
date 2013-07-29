@@ -95,6 +95,7 @@ static void set_wake_locked(int wake)
 {
 	printk(KERN_DEBUG "%s: %s\n", __func__, (wake ? "lock" : "unlock"));
 	bt_lpm.wake = wake;
+	gpio_set_value(BT_WAKE_GPIO, wake);
 
 	gpio_set_value(BT_WAKE_GPIO, wake);
 	if (!wake)

@@ -111,8 +111,10 @@ static int __devexit d2153_onkey_remove(struct platform_device *pdev)
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_onkey *dlg_onkey = &d2153->onkey;
 
+#if 0	// 20130720 remove
 	d2153_free_irq(d2153, D2153_IRQ_ENONKEY_LO);
 	d2153_free_irq(d2153, D2153_IRQ_ENONKEY_HI);
+#endif
 	input_unregister_device(dlg_onkey->input);
 	return 0;
 }
