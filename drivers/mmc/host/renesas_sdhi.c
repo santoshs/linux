@@ -591,13 +591,14 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 					__func__, host->cmd->opcode);
 			host->cmd->error = -ETIMEDOUT;
 		} else if (status & SDHI_INFO_CRCERR) {
-			dev_dbg(&host->pdev->dev, "%s: cmd=%d CRC error\n",
-					__func__, host->cmd->opcode);
+			dev_err(&host->pdev->dev, "%s: cmd=%d st %x ag %x fg %x %x)\n",
+				__func__, host->cmd->opcode, status, host->cmd->arg,
+				host->cmd->flags, sdhi_read16(host, SDHI_CMD));
 			host->cmd->error = -EILSEQ;
 		} else {
-			dev_dbg(&host->pdev->dev,
-					"%s: cmd=%d Other error.(0x%x)\n",
-					__func__, host->cmd->opcode, status);
+			dev_err(&host->pdev->dev, "%s: cmd=%d st %x ag %x fg %x %x)\n",
+				__func__, host->cmd->opcode, status, host->cmd->arg,
+				host->cmd->flags, sdhi_read16(host, SDHI_CMD));
 			host->cmd->error = -EILSEQ;
 		}
 		if (host->data) {
@@ -607,9 +608,9 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 					__func__, host->cmd->opcode);
 				host->data->error = -ETIMEDOUT;
 			} else {
-				dev_dbg(&host->pdev->dev,
-					"%s: cmd=%d Other err.(0x%x)\n",
-					__func__, host->cmd->opcode, status);
+				dev_err(&host->pdev->dev, "%s: cmd=%d st %x ag %x fg %x %x)\n",
+					__func__, host->cmd->opcode, status, host->cmd->arg,
+					host->cmd->flags, sdhi_read16(host, SDHI_CMD));
 				host->data->error = -EILSEQ;
 			}
 		}
@@ -1114,6 +1115,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	if (host->power_mode != ios->power_mode &&
 			ios->power_mode == MMC_POWER_UP) {
+		renesas_sdhi_request_dma(host);
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 1);
 		sdhi_read16(host, SDHI_CLK_CTRL);
@@ -1146,6 +1148,7 @@ static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	if (host->power_mode != ios->power_mode &&
 			ios->power_mode == MMC_POWER_OFF) {
+		renesas_sdhi_release_dma(host);
 		clk_enable(host->clk);
 		renesas_sdhi_power(host, 0);
 		sdhi_read16(host, SDHI_CLK_CTRL);
@@ -1488,7 +1491,6 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		}
 	}
 
-	renesas_sdhi_request_dma(host);
 
 	platform_set_drvdata(pdev, host);
 	mmc_add_host(mmc);
@@ -1591,6 +1593,11 @@ int renesas_sdhi_suspend(struct device *dev)
 			host->state = pdata->get_pwr(host->pdev);
 	}
 	ret = mmc_suspend_host(host->mmc);
+	/*In case of sdhi interface which has MMC_PM_KEEP_POWER flag set,
+	 * release DMA channel in suspend */
+	if (mmc_card_keep_power(host->mmc))
+		renesas_sdhi_release_dma(host);
+
 	sdhi_save_register(host);
 	if (!host->dynamic_clock) {
 		sdhi_read16(host, SDHI_CLK_CTRL);
@@ -1636,6 +1643,11 @@ int renesas_sdhi_resume(struct device *dev)
 		host->connect = val & SDHI_INFO_CD ? 1 : 0;
 	}
  	sdhi_restore_register(host);
+	/*In case of sdhi interface which has MMC_PM_KEEP_POWER flag set,
+	 * request the dma channel during resume */
+	if (mmc_card_keep_power(host->mmc))
+		renesas_sdhi_request_dma(host);
+
 	ret = mmc_resume_host(host->mmc);
 
 	if (CHANNEL_SDHI1 == pdev->id) {

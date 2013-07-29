@@ -1457,6 +1457,11 @@ static int _regulator_enable(struct regulator_dev *rdev)
 {
 	int ret, delay;
 
+	if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15)){
+		printk(KERN_INFO "%s:>> name %s, id %d, use_count %d\n", 
+			__func__, rdev_get_name(rdev), rdev_get_id(rdev), rdev->use_count);
+	}
+
 	/* check voltage and requested load before enabling */
 	if (rdev->constraints &&
 	    (rdev->constraints->valid_ops_mask & REGULATOR_CHANGE_DRMS))
@@ -1510,11 +1515,21 @@ static int _regulator_enable(struct regulator_dev *rdev)
 		} else if (ret < 0) {
 			rdev_err(rdev, "is_enabled() failed: %d\n", ret);
 			return ret;
+		}else {
+			if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15)){
+				printk(KERN_INFO "%s: _regulator_is_enabled ret %d\n", __func__, ret);
+			}
 		}
+
 		/* Fallthrough on positive return values - already enabled */
 	}
 
 	rdev->use_count++;
+
+	if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15)){
+		printk(KERN_INFO "%s:<< name %s, id %d, use_count %d\n", 
+			__func__, rdev_get_name(rdev), rdev_get_id(rdev), rdev->use_count);
+	}
 
 	return 0;
 }
@@ -1557,6 +1572,11 @@ static int _regulator_disable(struct regulator_dev *rdev)
 {
 	int ret = 0;
 
+	if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15)){
+		printk(KERN_INFO "%s:>> name %s, id %d, use_count %d\n", 
+			__func__, rdev_get_name(rdev), rdev_get_id(rdev), rdev->use_count);
+	}
+
 	if (WARN(rdev->use_count <= 0,
 		 "unbalanced disables for %s\n", rdev_get_name(rdev)))
 		return -EIO;
@@ -1591,6 +1611,11 @@ static int _regulator_disable(struct regulator_dev *rdev)
 			drms_uA_update(rdev);
 
 		rdev->use_count--;
+	}
+
+	if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15)){
+		printk(KERN_INFO "%s:<< name %s, id %d, use_count %d\n", 
+			__func__, rdev_get_name(rdev), rdev_get_id(rdev), rdev->use_count);
 	}
 
 	return ret;
@@ -1662,11 +1687,19 @@ int regulator_force_disable(struct regulator *regulator)
 	mutex_lock(&rdev->mutex);
 	regulator->uA_load = 0;
 	ret = _regulator_force_disable(regulator->rdev);
+	if (!rdev->supply)
+		 if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15))
+			rdev->use_count = 0;
 	mutex_unlock(&rdev->mutex);
 
 	if (rdev->supply)
 		while (rdev->open_count--)
 			regulator_disable(rdev->supply);
+
+	if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15)){
+		printk(KERN_INFO "%s:>> name %s, id %d, use_count %d\n", 
+			__func__, rdev_get_name(rdev), rdev_get_id(rdev), rdev->use_count);
+	}
 
 	return ret;
 }

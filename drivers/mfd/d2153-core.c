@@ -281,19 +281,20 @@ int d2153_block_read(struct d2153 * const d2153, u8 const start_reg, u8 const re
 		      u8 * const dest)
 {
 	int err = 0;
+#ifdef D2153_REG_DEBUG
 	int i;
+#endif
 
 	mutex_lock(&d2153->d2153_io_mutex);
-	for(i = 0 ; i< regs ; i++) {
-		err = d2153_read(d2153, start_reg+i, 1, (dest+i));
-		if (err != 0)
-			dlg_err("block read starting from R%d failed\n", start_reg);
+	err = d2153_read(d2153, start_reg, regs, dest);
+	if (err != 0)
+		dlg_err("block read starting from R%d failed\n", start_reg);
 #ifdef D2153_REG_DEBUG
-		else {
-				d2153_write_reg_history(D2153D_HISTORY_WRITE_OP,start_reg+i,*(dest+i));
-		}
-#endif
+	else {
+		for(i=0; i<regs; i++)
+			d2153_write_reg_history(D2153D_HISTORY_WRITE_OP,start_reg+i,*(dest+i));
 	}
+#endif
 	mutex_unlock(&d2153->d2153_io_mutex);
 	return err;
 }
@@ -312,21 +313,20 @@ int d2153_block_write(struct d2153 * const d2153, u8 const start_reg, u8 const r
 		       u8 * const src)
 {
 	int ret = 0;
+#ifdef D2153_REG_DEBUG
 	int i;
-
+#endif
 
 	mutex_lock(&d2153->d2153_io_mutex);
-
-	for(i = 0 ; i< regs ; i++) {
-		ret = d2153_write(d2153, start_reg+i, 1, (src+i));
-		if (ret != 0)
-			dlg_err("block write starting at R%d failed\n", start_reg);
+	ret = d2153_write(d2153, start_reg, regs, src);
+	if (ret != 0)
+		dlg_err("block write starting at R%d failed\n", start_reg);
 #ifdef D2153_REG_DEBUG
-		else {
-				d2153_write_reg_cache(start_reg+i,*(src+i));
-		}
-#endif
+	else {
+		for(i=0; i<regs; i++)
+			d2153_write_reg_cache(start_reg+i,*(src+i));
 	}
+#endif
 	mutex_unlock(&d2153->d2153_io_mutex);
 	return ret;
 }
@@ -721,8 +721,9 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	d2153->pdata = pdata;
 	mutex_init(&d2153->d2153_io_mutex);
 
-	d2153_dev_info = d2153;
-	
+	d2153_dev_info = d2153;	
+
+	d2153_reg_write(d2153, D2153_CONTROL_A_REG, 0xA3); //Internal supply
 	d2153_reg_write(d2153, D2153_GPADC_MCTL_REG, 0x55);
 	
 
@@ -731,7 +732,6 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	d2153_reg_write(d2153, D2153_LDO22_MCTL_REG, 0x00);
 #endif
 
-#if 0 //use repeated mode
 #ifdef D2153_SUPPORT_I2C_HIGH_SPEED
 	d2153_set_bits(d2153, D2153_CONTROL_B_REG, D2153_I2C_SPEED_MASK);
 
@@ -741,8 +741,6 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	/* Page write for I2C we donot support repeated write and I2C speed set to 400KHz */
 	d2153_clear_bits(d2153, D2153_CONTROL_B_REG, D2153_WRITE_MODE_MASK | D2153_I2C_SPEED_MASK);
 #endif
-#endif
-
 #ifdef CONFIG_BATTERY_D2153
 	msleep(1);
 	d2153_reg_write(d2153, D2153_ADC_CONT_REG, (D2153_ADC_AUTO_EN_MASK
@@ -766,9 +764,9 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	d2153_reg_write(d2153, D2153_AUDIO_REG_DFLT_6_REG,0x20);
 
 	d2153_set_bits(d2153,  D2153_OUT2_32K_ONKEY_CONT_REG, D2153_OUT2_32K_EN_MASK);
-
+	
 	/*pm_power_off = d2153_system_poweroff;*/
-
+	
 	ret = d2153_irq_init(d2153, irq, pdata);
 	if (ret < 0)
 		goto err;
@@ -878,12 +876,50 @@ void d2153_device_exit(struct d2153 *d2153)
 }
 EXPORT_SYMBOL_GPL(d2153_device_exit);
 
+void d2153_set_default_volt(struct d2153 *d2153)
+{
+	d2153_reg_write(d2153,0x28, 0xD4); //BUCK1 1.125v on
+	d2153_reg_write(d2153,0x29, 0x5D); //BUCK2 1.225v on
+
+	d2153_reg_write(d2153,0x2A, 0x35 | (0x1<<6)); //BUCK3 1.825v on
+	d2153_reg_write(d2153,0x2B, 0x1E | (0x1<<6)); //BUCK4 1.250v on
+	d2153_reg_write(d2153,0x2C, 0x29); //BUCK5 1.525v off
+
+	// skip BUCK6
+	d2153_reg_write(d2153,0x2F, 0x02 | (0x1<<6)); //LDO1 1.10v on
+	d2153_reg_write(d2153,0x30, 0x04); //LDO2 1.20v off
+	d2153_reg_write(d2153,0x31, 0x21 | (0x1<<6)); //LDO3 2.85v on
+	d2153_reg_write(d2153,0x32, 0x0C | (0x1<<6)); //LDO4 1.80v on
+	d2153_reg_write(d2153,0x33, 0x0C | (0x1<<6)); //LDO5 1.80v on
+	d2153_reg_write(d2153,0x34, 0x0C); //LDO6 1.80v off
+	d2153_reg_write(d2153,0x35, 0x24); //LDO7 3.00v off
+	d2153_reg_write(d2153,0x36, 0x24); //LDO8 3.00v off
+	d2153_reg_write(d2153,0x37, 0x0C); //LDO9 1.80v off
+	d2153_reg_write(d2153,0x38, 0x21); //LDO10 2.85v off
+	d2153_reg_write(d2153,0x39, 0x2A); //LDO11 3.30v off
+	d2153_reg_write(d2153,0x3A, 0x20); //LDO12 2.80v off
+
+	d2153_reg_write(d2153,0x3F, 0x20); //LDO13 2.80v off
+	d2153_reg_write(d2153,0x40, 0x06); //LDO14 1.50v off
+	d2153_reg_write(d2153,0x41, 0x21); //LDO15 2.85v off
+	d2153_reg_write(d2153,0x42, 0x0C); //LDO16 1.80v off
+	d2153_reg_write(d2153,0x43, 0x0C); //LDO17 1.80v off
+
+	// LDO_VRFANA
+	d2153_reg_write(d2153,0x44, 0x20); //LDO18 off
+
+	d2153_reg_write(d2153,0x45, 0x24); //LDO19 3.00v off
+	d2153_reg_write(d2153,0x46, 0x0C); //LDO20 1.80v off
+	d2153_reg_write(d2153,0x48, 0x1E); //LDO_AUD2 2.70v off
+	d2153_reg_write(d2153,0x47, 0x0C); //LDO_AUD1 1.80v off
+}
+
 /*
  * d2153_system_poweroff
  */
 void d2153_system_poweroff(void)
 {
-//	u8 dst;
+	//u8 dst;
 	struct d2153 *d2153 = d2153_dev_info;
 
 	dlg_info("%s\n", __func__);
@@ -895,11 +931,8 @@ void d2153_system_poweroff(void)
 
 	/* Disable OTP reloading and MCTL */
 	d2153_clear_bits(d2153, D2153_CONTROL_B_REG, D2153_OTPREAD_EN_MASK);
-	d2153_clear_bits(d2153, D2153_POWER_CONT_REG, D2153_MCTRL_EN_MASK);
 
-	/* Disable nOnkey interrupt */
-	d2153_reg_write(d2153, D2153_IRQ_MASK_B_REG, 0x0);	/* onkey mask clear */
-
+#if 0
 	/* Disable LDOs(LDO2, LDO6 ~ LDO20, LDOAUD1 and LDOAUD2) */
 	d2153_clear_bits(d2153, D2153_LDO2_REG, 			(0x1<<6));
 	d2153_clear_bits(d2153, D2153_LDO6_REG, 			(0x1<<6));
@@ -918,18 +951,28 @@ void d2153_system_poweroff(void)
 	d2153_clear_bits(d2153, D2153_LDO20_LDO_20_REG, 	(0x1<<6));
 	d2153_clear_bits(d2153, D2153_LDO21_LDO_AUD1_REG, 	(0x1<<6));
 	d2153_clear_bits(d2153, D2153_LDO22_LDO_AUD2_REG, 	(0x1<<6));
-
+#else
+	d2153_set_default_volt(d2153);
+#endif
 	/* Do BUCK5 and LDO18 are turned off even if
 	 *these are controlled by HOST's GPIO ???
 	 */
 
-	d2153_reg_write(d2153, D2153_POWER_CONT_REG, 0x0A);
-	d2153_reg_write(d2153, D2153_PD_DIS_REG, 0xCF);
+	d2153_clear_bits(d2153, D2153_BUCKPERI_BUCK5_REG,   (0x1<<6));
 
+	d2153_reg_write(d2153, D2153_PD_DIS_REG, 0xCF);
+	d2153_reg_write(d2153, D2153_POWER_CONT_REG, 0x0A); //disable mctl	
+
+	d2153_reg_write(d2153, D2153_SUPPLY_REG, 0x10);
+	d2153_reg_write(d2153, D2153_CONTROL_D_REG, 0x30); //H/W reset
+
+	d2153_reg_write(d2153, D2153_IRQ_MASK_B_REG, 0x00); //onkey mask clear
+	d2153_set_bits(d2153, D2153_CONTROL_B_REG, D2153_WRITE_MODE_MASK);//repeat mode
+	
 	d2153_set_bits(d2153, D2153_CONTROL_B_REG,D2153_DEEP_SLEEP_MASK);
 
 	while(1);
-
+	
 	dlg_info("%s : LEAVE\n", __func__);
 
 	return;

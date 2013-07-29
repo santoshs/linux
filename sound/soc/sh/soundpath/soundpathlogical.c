@@ -447,11 +447,15 @@ static int sndp_pm_runtime_sync(const enum sndp_pm_runtime_kind kind,
 		}
 		break;
 	case E_PM_PUT:
+		sndp_log_info("new[0x%08x] other[0x%08x] flg[0x%02x]\n",
+				new_value, other_value, g_sndp_playrec_flg);
 		if ((0 < g_pm_cnt) &&
 		   ((SNDP_VALUE_INIT == new_value) ||
-		     (SNDP_MODE_NORMAL == SNDP_GET_MODE_VAL(new_value))) &&
+		     (SNDP_MODE_NORMAL == SNDP_GET_MODE_VAL(new_value)) ||
+		     (SNDP_MODE_RING == SNDP_GET_MODE_VAL(new_value))) &&
 		    ((SNDP_VALUE_INIT == other_value) ||
-		     (SNDP_MODE_NORMAL == SNDP_GET_MODE_VAL(other_value))) &&
+		     (SNDP_MODE_NORMAL == SNDP_GET_MODE_VAL(other_value)) ||
+		     (SNDP_MODE_RING == SNDP_GET_MODE_VAL(other_value))) &&
 		    (E_IDLE == g_sndp_playrec_flg)) {
 			for ( ; 0 < g_pm_cnt; g_pm_cnt--) {
 				/* Disable the power domain */
@@ -1649,8 +1653,8 @@ static void sndp_work_shutdown(struct sndp_work_info *work)
 		if (!g_sndp_incomm_playrec_flg) {
 			/* To register a work queue */
 			/* to stop processing Playback */
-				sndp_work_incomm_stop(SNDP_GET_DEVICE_VAL(in_old_val),
-								SNDP_VALUE_INIT);
+				sndp_work_incomm_stop(
+					in_old_val, SNDP_VALUE_INIT);
 		}
 		} else if (g_sndp_playrec_flg & E_FM_CAP) {
 			g_sndp_playrec_flg &= ~E_FM_CAP;

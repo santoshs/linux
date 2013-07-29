@@ -95,6 +95,8 @@ static struct workqueue_struct *zinitix_tmr_workqueue;
 static struct regulator *keyled_regulator;
 
 static touchkey_regulator_cnt;
+static touch_regulator_cnt;
+
 
 #define zinitix_debug_msg(fmt, args...)	\
 	if (m_ts_debug_mode)	\
@@ -879,63 +881,78 @@ fail_power_sequence:
 	return false;
 }
 
-static struct regulator *tsp_regulator_3_3=NULL;
+static struct regulator *tsp_regulator=NULL;
 
 static bool ts_power_control(struct zinitix_touch_dev *touch_dev, u8 ctl)
 {
 	int ret = 0;
 
-	if (tsp_regulator_3_3 == NULL){
-		tsp_regulator_3_3 = regulator_get(NULL, "vtsp_3v");
+	if (tsp_regulator == NULL){
+		tsp_regulator = regulator_get(NULL, "vtsp_3v");
 
-		if (IS_ERR(tsp_regulator_3_3)) {
-			ret = PTR_ERR(tsp_regulator_3_3);
-			pr_err("can not get TSP AVDD 3.3V, ret=%d\n", ret);
-			tsp_regulator_3_3 = NULL;
+		if (IS_ERR(tsp_regulator)) {
+			ret = PTR_ERR(tsp_regulator);
+			pr_err("[TSP] can not get AVDD 3.0V, ret=%d\n", ret);
+			tsp_regulator = NULL;
 			return ret;
 		}
 
-		ret = regulator_set_voltage(tsp_regulator_3_3,3000000,3000000);
-		printk("--> regulator_set_voltage ret = %d \n", ret);
+		ret = regulator_set_voltage(tsp_regulator,3000000,3000000);
+		printk("[TSP] 3.0v regulator_set_voltage ret = %d \n", ret);
 		if (ret) {
-			pr_err("can not set voltage TSP AVDD 3.3V, ret=%d\n", ret);
-			regulator_put(tsp_regulator_3_3);
-			tsp_regulator_3_3 = NULL;
+			pr_err("[TSP] can not set voltage TSP AVDD 3.0V, ret=%d\n", ret);
+			regulator_put(tsp_regulator);
+			tsp_regulator = NULL;
 			return ret;
 		}
 	}
 
 	if (ctl == POWER_OFF) {
-		if (regulator_is_enabled(tsp_regulator_3_3)) {
-			ret = regulator_disable(tsp_regulator_3_3);
-			printk(" --> 3.3v regulator_disable ret = %d \n", ret);
+		if (!regulator_is_enabled(tsp_regulator)) {
+			printk("[TSP] Regulator Error,  already off status\n");
+		}
+		ret = regulator_disable(tsp_regulator);
+	
 			if (ret) {
-				pr_err("can not disable TSP AVDD 3.3V, ret=%d\n", ret);
+			printk("[TSP] can not disable TSP AVDD 3.0V, ret=%d, cnt=%d\n", ret, touch_regulator_cnt);
 				return ret;
 			}
+		else {
+			touch_regulator_cnt--;
+			printk("[TSP] 3.0v reg_disable ret=%d, cnt=%d\n", ret, touch_regulator_cnt);
 		}
 		msleep(CHIP_OFF_DELAY);
 	} else if (ctl == POWER_ON_SEQUENCE) {
-		if (!regulator_is_enabled(tsp_regulator_3_3)) {
-			ret = regulator_enable(tsp_regulator_3_3);
-			printk(" --> 3.3v regulator_enable ret = %d \n", ret);
+		if (regulator_is_enabled(tsp_regulator)) {
+			printk("[TSP] Regulator Error, already on status\n");
+		}
+		ret = regulator_enable(tsp_regulator);
+		
 			if (ret) {
-				pr_err("can not enable TSP AVDD 3.3V, ret=%d\n", ret);
+			printk("[TSP] can not enable AVDD 3.0V, ret=%d, cnt=%d\n", ret, touch_regulator_cnt);
 				return ret;
 			}
+		else {
+			touch_regulator_cnt++;
+		 	printk("[TSP] 3.0v reg_enable ret=%d, cnt=%d\n", ret, touch_regulator_cnt);
 		}
 		msleep(CHIP_ON_DELAY);
 		//zxt power on sequence
 		return ts_power_sequence(touch_dev);
 	}
 	else if (ctl == POWER_ON) {
-		if (!regulator_is_enabled(tsp_regulator_3_3)) {
-			ret = regulator_enable(tsp_regulator_3_3);
-			printk(" --> 3.3v regulator_enable ret = %d \n", ret);
+		if (regulator_is_enabled(tsp_regulator)) {
+			printk("[TSP] Regulator Error, already on status\n");
+		}
+
+		ret = regulator_enable(tsp_regulator);
 			if (ret) {
-				pr_err("can not enable TSP AVDD 3.3V, ret=%d\n", ret);
+			printk("[TSP] can not enable AVDD 3.0V, ret=%d, cnt=%d\n", ret, touch_regulator_cnt);
 				return ret;
 			}
+		else {
+			touch_regulator_cnt++;
+ 			printk("[TSP] 3.0v reg_enable ret = %d, cnt=%d\n", ret, touch_regulator_cnt);
 		}
 	}
 
