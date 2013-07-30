@@ -40,10 +40,6 @@ static atomic_t modem_reset_handing = ATOMIC_INIT(0);
 #define EOS2_HWSEM_LEN			4		/* Register Length for ioremap */
 #define EOS2_HWSEM_MASTER_ON		0xC0000000	/* Enable the master access for acquisition of HW sen */
 #define EOS2_HWSEM_MASTER_OFF		0x0		/* Disable the master access for acquisition of HW sen */
-#define EOS2_HWSEM_SMGP0SRC		0xE6001830	/* General-purpose0 semaphore acquisition ID register */
-#define EOS2_HWSEM_SMGP1SRC		0xE6001840	/* General-purpose1 semaphore acquisition ID register */
-#define EOS2_HWSEM_MPACCTL		0xE6001604	/* Master access control register MPACCTL */
-
 
 /*
  * d2153_get_hw_sem_timeout() - lock an hwspinlock with timeout limit
@@ -177,8 +173,8 @@ EXPORT_SYMBOL(d2153_put_i2c_hwsem);
  *		0x40: AP System side
  *		0x93: Baseband side
  * @hwsem: Hardware semaphore address
- *		EOS2_HWSEM_SMGP0SRC
- *		EOS2_HWSEM_SMGP1SRC
+ *	        HPB_SEM_PMICPhys
+ *		HPB_SEM_SMGP1SRCPhys
  * return: void
  */
 static void d2153_force_release_hwsem(u8 hwsem_id, unsigned int hwsem)
@@ -213,10 +209,10 @@ static void d2153_force_release_hwsem(u8 hwsem_id, unsigned int hwsem)
 		return;
 
 	/*enable master access*/
-	ptr = ioremap(EOS2_HWSEM_MPACCTL, EOS2_HWSEM_LEN);
+	ptr = ioremap(HPB_SEM_MPACCTLPhys, EOS2_HWSEM_LEN);
 	if (ptr == NULL) {
 		dlg_err("%s: can not release hwsem 0x%x ioremap failed",
-			 __func__, EOS2_HWSEM_MPACCTL);
+			 __func__, HPB_SEM_MPACCTLPhys);
 		return;
 	}
 	for (;;) {
@@ -281,10 +277,10 @@ static void d2153_force_release_hwsem(u8 hwsem_id, unsigned int hwsem)
 
 	/*Disable master access*/
 	expire = msecs_to_jiffies(5) + jiffies;
-	ptr = ioremap(EOS2_HWSEM_MPACCTL, EOS2_HWSEM_LEN);
+	ptr = ioremap(HPB_SEM_MPACCTLPhys, EOS2_HWSEM_LEN);
 	if (ptr == NULL) {
 		dlg_err("%s: can not release hwsem 0x%x ioremap failed",
-			 __func__, EOS2_HWSEM_MPACCTL);
+			 __func__, HPB_SEM_MPACCTLPhys);
 		return;
 	}
 	for (;;) {
@@ -394,13 +390,13 @@ static int d2153_modem_thread(void *ptr)
 		wait_event_interruptible(d2153_modem_reset_event,
 					atomic_read(&modem_reset_handing));
 
-		d2153_force_release_hwsem(BB_CPU_SIDE, EOS2_HWSEM_SMGP0SRC);
+		d2153_force_release_hwsem(BB_CPU_SIDE, HPB_SEM_PMICPhys);
 		if (hwlock_adc)
 			d2153_force_release_swsem(hwlock_adc, BB_CPU_SIDE);
 		if (hwlock_i2c_hw0)
 			d2153_force_release_swsem(hwlock_i2c_hw0, BB_CPU_SIDE);
 
-		d2153_force_release_hwsem(BB_CPU_SIDE, EOS2_HWSEM_SMGP1SRC);
+		d2153_force_release_hwsem(BB_CPU_SIDE, HPB_SEM_SMGP1SRCPhys);
 		if (hwlock_i2c_hw1)
 			d2153_force_release_swsem(hwlock_i2c_hw1, BB_CPU_SIDE);
 

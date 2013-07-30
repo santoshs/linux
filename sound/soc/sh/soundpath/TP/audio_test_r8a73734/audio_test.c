@@ -1150,7 +1150,7 @@ static int audio_test_get_logic_addr(void)
 	/* Get FSI Logical Address         */
 	/***********************************/
 	g_audio_test_fsi_Base =
-		(u_long)ioremap_nocache(AUDIO_TEST_FSI_PHY_BASE,
+		(u_long)ioremap_nocache(FSI_BASE_PHYS,
 					AUDIO_TEST_FSI_MAP_LEN);
 	if (0 >= g_audio_test_fsi_Base) {
 		audio_test_log_err("fsi ioremap failed");
@@ -1162,7 +1162,7 @@ static int audio_test_get_logic_addr(void)
 	/* Get SCUW Logical Address        */
 	/***********************************/
 	g_audio_test_scuw_Base =
-		(u_long)ioremap_nocache(AUDIO_TEST_SCUW_PHY_BASE,
+		(u_long)ioremap_nocache(SCUW_BASE_PHYS,
 					AUDIO_TEST_SUCW_MAP_LEN);
 	if (0 >= g_audio_test_scuw_Base) {
 		audio_test_log_err("scuw ioremap failed");
@@ -1174,7 +1174,7 @@ static int audio_test_get_logic_addr(void)
 	/* Get CLKGEN Logical Address      */
 	/***********************************/
 	g_audio_test_clkgen_Base =
-		(u_long)ioremap_nocache(AUDIO_TEST_CLKGEN_PHY_BASE,
+		(u_long)ioremap_nocache(CLKGEN_BASE_PHYS,
 					AUDIO_TEST_CLKGEN_MAP_LEN);
 	if (0 >= g_audio_test_clkgen_Base) {
 		audio_test_log_err("clkgen ioremap failed");

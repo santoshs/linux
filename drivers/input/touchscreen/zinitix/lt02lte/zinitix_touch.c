@@ -39,6 +39,7 @@
 #include <linux/uaccess.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
+#include <mach/r8a7373.h>
 
 #include "zinitix_touch.h"
 #if MULTI_PROTOCOL_TYPE_B
@@ -3653,9 +3654,6 @@ fail_hw_cal:
 	return 0;
 }
 
-
-#define I2C_SDA0H_ADDR	0xE6050055	//PORT85CR
-#define I2C_SCL0H_ADDR	0xE6050054	//PORT84CR
 #define PORTCR_REG_SIZE	1
 static int zinitix_touch_probe(struct i2c_client *client,
 		const struct i2c_device_id *i2c_id)
@@ -3670,8 +3668,8 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	printk(KERN_INFO "[zinitix touch] driver version = %s\r\n",
 		TS_DRVIER_VERSION);
 
-	i2c_sda0_addr = (unsigned int)ioremap(I2C_SDA0H_ADDR, PORTCR_REG_SIZE);
-	i2c_scl0_addr = (unsigned int)ioremap(I2C_SCL0H_ADDR, PORTCR_REG_SIZE);
+	i2c_sda0_addr = (unsigned int)ioremap(I2C_SDA0H_ADDR_PHYS, PORTCR_REG_SIZE);
+	i2c_scl0_addr = (unsigned int)ioremap(I2C_SCL0H_ADDR_PHYS, PORTCR_REG_SIZE);
 
 	if (strcmp(client->name, ZINITIX_DRIVER_NAME) != 0) {
 		printk(KERN_INFO "not zinitix driver. \r\n");

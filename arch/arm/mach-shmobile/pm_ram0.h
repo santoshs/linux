@@ -43,7 +43,7 @@
 /****************************************************************************/
 /* RAM0/RAM1/SECRAM MAPPING */
 /****************************************************************************/
-#define ram0BasePhys	0xE63A2000	/* RAM0 Base physical address */
+#define ram0BasePhys	RAM0_BASE_PHYS	/* RAM0 Base physical address */
 #define ram0Base		IO_ADDRESS(ram0BasePhys)
 
 #define secramBasePhys	0xE6300000	/* Secure RAM Base physical address */

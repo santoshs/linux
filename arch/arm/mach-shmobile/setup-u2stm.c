@@ -19,8 +19,6 @@
 /* Following should come from proper include file from drivers/sec_hal/exports/sec_hal_cmn.h */
 extern uint32_t sec_hal_dbg_reg_set(uint32_t *dbgreg1, uint32_t *dbgreg2, uint32_t *dbgreg3);
 
-#define DBGREG3			0xE6100028
-#define DBGREG11		0xE6100048
 
 #define DBGREG9_AID 		0xA5
 #define DBGREG9_AID_SHIFT	8
@@ -28,12 +26,18 @@ extern uint32_t sec_hal_dbg_reg_set(uint32_t *dbgreg1, uint32_t *dbgreg2, uint32
 #define DBGREG9_KEY_SHIFT	0x0
 #define DBGREG9_KEY_MASK	0x1
 
-#define SYS_TPIU_BASE              0xE6F83000
-#define CPU_TPIU_BASE              0xE6FA3000
-#define CPU_ETR_BASE               0xE6FA5000
-#define CPU_ETF_BASE               0xE6FA1000
-#define CPU_TRACE_FUNNEL_BASE      0xE6FA4000
-#define SYS_TRACE_FUNNEL_BASE      0xE6F84000
+#define SYS_TPIU_BASE_PHYS         0xE6F83000
+#define SYS_TPIU_BASE              IO_ADDRESS(SYS_TPIU_BASE_PHYS)
+#define CPU_TPIU_BASE_PHYS         0xE6FA3000
+#define CPU_TPIU_BASE              IO_ADDRESS(CPU_TPIU_BASE_PHYS)
+#define CPU_ETR_BASE_PHYS          0xE6FA5000
+#define CPU_ETR_BASE               IO_ADDRESS(CPU_ETR_BASE_PHYS)
+#define CPU_ETF_BASE_PHYS          0xE6FA1000
+#define CPU_ETF_BASE               IO_ADDRESS(CPU_ETF_BASE_PHYS)
+#define CPU_TRACE_FUNNEL_BASE_PHYS 0xE6FA4000
+#define CPU_TRACE_FUNNEL_BASE      IO_ADDRESS(CPU_TRACE_FUNNEL_BASE_PHYS)
+#define SYS_TRACE_FUNNEL_BASE_PHYS 0xE6F84000
+#define SYS_TRACE_FUNNEL_BASE      IO_ADDRESS(SYS_TRACE_FUNNEL_BASE_PHYS)
 
 static int stm_select=-1;
 
@@ -358,25 +362,25 @@ static int __init stm_sdhi0_regulator_late_init(void)
 	  printk(KERN_ALERT "%s:err reg_get1 vio_sd\n", __func__);
 	  return ret;
 	}
-	
+
 	ret = regulator_enable(regulator);
 	if (ret)
 	  printk(KERN_ALERT "%s:err reg_ena1 vio_sd %d\n",
 		 __func__ , ret);
-	
+
 	regulator_put(regulator);
-	
+
 	regulator = regulator_get(NULL, "vsd");
 	if (IS_ERR(regulator)) {
 	  printk(KERN_ALERT "%s:err reg_get1 vsd\n", __func__);
 	  return ret;
 	}
-	
+
 	ret = regulator_enable(regulator);
 	if (ret)
 	  printk(KERN_ALERT "%s:err reg_ena1 vsd %d\n",
 		 __func__ , ret);
-	
+
 	regulator_put(regulator);
 
 	/* SET 1.8V */
@@ -386,51 +390,51 @@ static int __init stm_sdhi0_regulator_late_init(void)
 	  printk(KERN_ALERT "%s:err reg_get2 vio_sd\n", __func__);
 	  return ret;
 	}
-	
+
 	if (regulator_is_enabled(regulator)) {
 	  ret = regulator_disable(regulator);
 	  if (ret)
 	    printk(KERN_ALERT "%s:err reg_dis vio_sd %d\n",
 		   __func__ , ret);
 	}
-	
+
 	ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
 	if (ret)
 	  printk(KERN_ALERT "%s:err reg_set_v vio_sd %d\n",
 		 __func__, ret);
-	
+
 	ret = regulator_enable(regulator);
 	if (ret)
 	  printk(KERN_ALERT "%s:err reg_ena2 vio_sd %d\n",
 		 __func__, ret);
-	
+
 	regulator_put(regulator);
-	
+
 	regulator = regulator_get(NULL, "vsd");
 	if (IS_ERR(regulator)) {
 	  printk(KERN_ALERT "%s:err reg_get2 vsd\n", __func__);
 	  return ret;
 	}
-	
+
 	if (regulator_is_enabled(regulator)) {
 	  ret = regulator_disable(regulator);
 	  if (ret)
 	    printk(KERN_ALERT "%s:err reg_dis vsd %d\n",
 		   __func__ , ret);
 	}
-	
+
 	ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
 	if (ret)
 	  printk(KERN_ALERT "%s:err reg_set_v vsd %d\n",
 		 __func__, ret);
-	
+
 	ret = regulator_enable(regulator);
 	if (ret)
 	  printk(KERN_ALERT "%s:err reg_ena2 vsd %d\n",
 		 __func__, ret);
-	
+
 	regulator_put(regulator);
-	
+
 	printk(KERN_ALERT "%s <<", __func__);
 	return ret;
 }

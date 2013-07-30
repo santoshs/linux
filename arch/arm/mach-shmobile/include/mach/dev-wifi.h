@@ -19,10 +19,12 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <mach/r8a7373.h>
+
 /* Define GPIO aliases */
 #define GPIO_WLAN_REG_ON 260
 #define GPIO_WLAN_OOB_IRQ 98
-#define WLAN_OOB_IRQ_CR 0xE6050062
+#define WLAN_OOB_IRQ_CR GPIO_PORT98CR
 
 /* Enable debug messages */
 #define U2EVM_WIFI_DEBUG_MSG

@@ -27,40 +27,29 @@
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
 #include "log_kernel.h"
+#include <mach/r8a7373.h>
 
-
-#define SYSC_BASE			(0xE6180000)
 #define SYSC_SIZE			(0x300)
 static unsigned long sysc_base;
 #define RBAR				(sysc_base + 0x001C)
-#define SYSC_BASE8			(0xE6188000)
 #define SYSC_SIZE8			(0x100)
 static unsigned long sysc_base8;
-#define RESCNT				(sysc_base8 + 0x001C)
 #define RESCNT_RT			(1 << 9)
 
-#define CPGA_BASE			(0xE6150000)
 #define CPGA_SIZE			(0x200)
 static unsigned long cpga_base;
-#define MSTPSR0				(cpga_base + 0x0030)
-#define MSTPSR2				(cpga_base + 0x0040)
-#define RMSTPCR0			(cpga_base + 0x0110)
 #define RMSTPCR0_TLB		(1 << 31)
 #define RMSTPCR0_IC			(1 << 30)
 #define RMSTPCR0_OC			(1 << 29)
 #define RMSTPCR0_INTCRT		(1 << 22)
-#define RMSTPCR2			(cpga_base + 0x0118)
 #define RMSTPCR2_MFI		(1 << 13)
 
-#define CPGA_BASE8			(0xE6158000)
 #define CPGA_SIZE8			(0x200)
 static unsigned long cpga_base8;
-#define SRCR0				(cpga_base8 + 0x00a0)
 #define SRCR0_RT			(1 << 30)
-#define SRCR2				(cpga_base8 + 0x00b0)
 #define SRCR2_MFI			(1 << 13)
 
-#define MFIS_BASE			(0xE6260000)
+#define MFIS_BASE_ADDR_PHYS     0xE6260000
 #define MFIS_SIZE			(0x100)
 static unsigned long mfis_base;
 #define MFIS_GSR			(mfis_base + 0x0004)
@@ -100,11 +89,11 @@ static int set_screen_data(unsigned int disp_addr);
 
 void do_ioremap_register(void)
 {
-	sysc_base = (unsigned long)ioremap(SYSC_BASE, SYSC_SIZE);
-	sysc_base8 = (unsigned long)ioremap(SYSC_BASE8, SYSC_SIZE8);
-	cpga_base = (unsigned long)ioremap(CPGA_BASE, CPGA_SIZE);
-	cpga_base8 = (unsigned long)ioremap(CPGA_BASE8, CPGA_SIZE8);
-	mfis_base = (unsigned long)ioremap(MFIS_BASE, MFIS_SIZE);
+	sysc_base = (unsigned long)ioremap(SYSC0_BASEPhys, SYSC_SIZE);
+	sysc_base8 = (unsigned long)ioremap(SYSC_SEMCTRLPhys, SYSC_SIZE8);
+	cpga_base = (unsigned long)ioremap(CPG_BASEPhys, CPGA_SIZE);
+	cpga_base8 = (unsigned long)ioremap(CPG_SEMCTRLPhys, CPGA_SIZE8);
+	mfis_base = (unsigned long)ioremap(MFIS_BASE_ADDR_PHYS, MFIS_SIZE);
 	intcrt_base2 = (unsigned long)ioremap(INTCRT_BASE2, INTCRT_SIZE2);
 	intcrt_base5 = (unsigned long)ioremap(INTCRT_BASE5, INTCRT_SIZE5);
 }

@@ -35,7 +35,7 @@ struct i2c_gpio_port2addr_tbl {
 	unsigned int PORTnDataClearRegAddr;	// DataClearRegisterAddress
 };
 
-#define GPIO_BASE_ADDR		0xE6050000u							// BaseAddress for GPIO
+#define GPIO_BASE_ADDR		GPIO_BASE							// BaseAddress for GPIO
 #define GPIO_CR_OFFSET		0u									// OffsetAddress of ControlRegister
 #define GPIO_CR_BASE_ADDR	(GPIO_BASE_ADDR + GPIO_CR_OFFSET)	// BaseAddress for ControlRegister
 #define GPIO_DR_OFFSET		0x4000u								// OffsetAddress of DataRegister

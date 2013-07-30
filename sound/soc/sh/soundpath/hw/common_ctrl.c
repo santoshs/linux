@@ -139,7 +139,7 @@ void common_iounmap(void)
 static int fsi_ioremap(void)
 {
 	/* Get FSI Logical Address */
-	g_fsi_Base = (u_long)ioremap_nocache(FSI_PHY_BASE, FSI_MAP_LEN);
+	g_fsi_Base = (u_long)ioremap_nocache(FSI_BASE_PHYS, FSI_MAP_LEN);
 	if (0 >= g_fsi_Base) {
 		sndp_log_err("error fsi ioremap failed\n");
 		return -ENOMEM;
@@ -162,7 +162,7 @@ static int fsi_ioremap(void)
 static int scuw_ioremap(void)
 {
 	/* Get SCUW Logical Address */
-	g_scuw_Base = (u_long)ioremap_nocache(SCUW_PHY_BASE, SUCW_MAP_LEN);
+	g_scuw_Base = (u_long)ioremap_nocache(SCUW_BASE_PHYS, SUCW_MAP_LEN);
 	if (0 >= g_scuw_Base) {
 		sndp_log_err("error scuw ioremap failed\n");
 		return -ENOMEM;
@@ -170,7 +170,7 @@ static int scuw_ioremap(void)
 
 	/* Get SCUW(FFD) Logical Address */
 	g_scuw_Base_FFD =
-		(u_long)ioremap_nocache(SCUW_PHY_BASE_FFD, SUCW_MAP_LEN_FFD);
+		(u_long)ioremap_nocache(SCUW_BASE_FFD_PHYS, SUCW_MAP_LEN_FFD);
 	if (0 >= g_scuw_Base_FFD) {
 		sndp_log_err("error scuw(FFD) ioremap failed\n");
 		/* Release SCUW Logical Address */
@@ -181,7 +181,7 @@ static int scuw_ioremap(void)
 
 	/* Get SCUW(CPUFIFO2) Logical Address */
 	g_scuw_Base_CPUFIFO2 =
-		(u_long)ioremap_nocache(SCUW_PHY_BASE_CPUFIFO2,
+		(u_long)ioremap_nocache(SCUW_BASE_CPUFIFO2_PHYS,
 					SUCW_MAP_LEN_CPUFIFO2);
 	if (0 >= g_scuw_Base_CPUFIFO2) {
 		sndp_log_err("error scuw(CPUFIFO2) ioremap failed\n");
@@ -211,7 +211,7 @@ int clkgen_ioremap(void)
 {
 	/* Get CLKGEN Logical Address */
 	g_clkgen_Base =
-		(u_long)ioremap_nocache(CLKGEN_PHY_BASE, CLKGEN_MAP_LEN);
+		(u_long)ioremap_nocache(CLKGEN_BASE_PHYS, CLKGEN_MAP_LEN);
 	if (0 >= g_clkgen_Base) {
 		sndp_log_err("error clkgen ioremap failed\n");
 		return -ENOMEM;
@@ -253,7 +253,7 @@ static int common_audio_status_ioremap(void)
 
 	/* Get GPIO Logical Address */
 	g_common_ulClkGpioRegBase =
-		(u_long)ioremap_nocache(GPIO_PHY_BASE, GPIO_REG_MAX);
+		(u_long)ioremap_nocache(GPIO_PHY_BASE_AUDIO_STATUS, GPIO_REG_MAX);
 	if (0 >= g_common_ulClkRstRegBase) {
 		sndp_log_err("error GPIO register ioremap failed\n");
 		return -ENOMEM;
@@ -585,13 +585,13 @@ void common_set_register(
 				if ((SCUW_FFDIR_FFD <= reg_tbl[i].uiReg) &&
 				    (reg_tbl[i].uiReg <= SCUW_DEVCR_FFD)) {
 					addr = reg_tbl[i].uiReg -
-							SCUW_PHY_BASE_FFD;
+							SCUW_BASE_FFD_PHYS;
 					iowrite32(reg_tbl[i].uiValue,
 						  (g_scuw_Base_FFD + addr));
 				} else if ((SCUW_CF2IR <= reg_tbl[i].uiReg) &&
 					   (reg_tbl[i].uiReg <= SCUW_CF2EVCR)) {
 					addr = reg_tbl[i].uiReg -
-							SCUW_PHY_BASE_CPUFIFO2;
+							SCUW_BASE_CPUFIFO2_PHYS;
 					iowrite32(reg_tbl[i].uiValue,
 						(g_scuw_Base_CPUFIFO2 + addr));
 				} else {

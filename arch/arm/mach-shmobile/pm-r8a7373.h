@@ -36,14 +36,6 @@
 #define SPCMMR		(CPG_BASEPhys + 0x01ac)
 #define SPCDMR		(CPG_BASEPhys + 0x01b0)
 
-/* SYSC */
-#define APARMBAREA	0xe6f10020
-
-/*
- * Inter connect RAM0
- */
-#define RAM0_BASE	0xe63a2000
-
 /* size */
 #define RAM0_VECTOR_SIZE	0x80
 

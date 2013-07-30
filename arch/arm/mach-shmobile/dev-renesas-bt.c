@@ -15,7 +15,7 @@
 #define BT_REG_GPIO 268
 #define BT_WAKE_GPIO 262
 #define BT_HOST_WAKE_GPIO 272
-#define BT_HOST_WAKE_GPIO_CR 0xE6052110
+#define BT_HOST_WAKE_GPIO_CR GPIO_PORT272_CR
 
 struct platform_device bcm4334_bluetooth_device = {
 	.name = "bcm4334_bluetooth",

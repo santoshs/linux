@@ -224,14 +224,12 @@
 /***************************/
 /* FSI physical address    */
 /***************************/
-#define AUDIO_TEST_FSI_PHY_BASE		(0xEC230000)
 #define AUDIO_TEST_FSI_REG_MAX		(0x040C)
 #define AUDIO_TEST_FSI_MAP_LEN		(AUDIO_TEST_FSI_REG_MAX + 4)
 /***************************/
 /* SCUW physical address   */
 /***************************/
 /* SCUW physical address top. */
-#define AUDIO_TEST_SCUW_PHY_BASE	(0xEC700000)
 /* SCUW physical address offset size. */
 #define AUDIO_TEST_SCUW_REG_MAX		(0x00738)
 /* SCUW physical address mapped size. */
@@ -239,7 +237,6 @@
 /***************************/
 /* CLKGEN physical address */
 /***************************/
-#define AUDIO_TEST_CLKGEN_PHY_BASE	(0xEC270000)
 #define AUDIO_TEST_CLKGEN_REG_MAX	(0x0098)
 #define AUDIO_TEST_CLKGEN_MAP_LEN	(AUDIO_TEST_CLKGEN_REG_MAX + 4)
 /***************************/

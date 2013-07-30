@@ -20,6 +20,8 @@
 #ifndef __ICCOM_HW_H__
 #define __ICCOM_HW_H__
 
+#include <mach/r8a7373.h>
+
 /* interrupt number */
 #ifdef RMU2
 #define INT_ICCOM                   (32+126)
@@ -83,15 +85,15 @@
 
 /* MFIS */
 #ifdef RMU2
-#define MFIS_BASE_ADDR  0xE6260000
-
+#define MFIS_BASE_ADDR_PHYS     0xE6260000
+#define MFIS_BASE_ADDR          IO_ADDRESS(MFIS_BASE_ADDR_PHYS)
 #define MFIS_GSR        (MFIS_BASE_ADDR + 0x00000004)
 #define MFIS_IICR       (MFIS_BASE_ADDR + 0x00000010)
 #define MFIS_EICR       (MFIS_BASE_ADDR + 0x00000014)
 #define MFIS_SM4        (MFIS_BASE_ADDR + 0x00000080)
 #else
-#define MFIS_BASE_ADDR  0xE6A60000
-
+#define MFIS_BASE_ADDR_PHYS     0xE6A60000
+#define MFIS_BASE_ADDR          IO_ADDRESS(MFIS_BASE_ADDR_PHYS)
 #define MFIS_IDX		(MFIS_BASE_ADDR + 0x00000000)
 #define MFIS_GSR		(MFIS_BASE_ADDR + 0x00000004)
 #define MFIS_SCR		(MFIS_BASE_ADDR + 0x00000008)

@@ -32,6 +32,22 @@
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 
+#define ISREQ_TIMEOUT_MONITOR_S_PHYS    0xE6150440U
+#define ISREQ_TIMEOUT_MONITOR_S         IO_ADDRESS(ISREQ_TIMEOUT_MONITOR_S_PHYS)
+
+#define PDACK_TIMEOUT_MONITOR_A_PHYS    0xE615047CU
+#define PDACK_TIMEOUT_MONITOR_A         IO_ADDRESS(PDACK_TIMEOUT_MONITOR_A_PHYS)     
+
+#define ISREQ_TIMEOUT_MONITOR_F_PHYS    0xE6150490U 
+#define ISREQ_TIMEOUT_MONITOR_F         IO_ADDRESS(ISREQ_TIMEOUT_MONITOR_F_PHYS)
+
+#define PDACK_TIMEOUT_MONITOR_F_PHYS    0xE615049CU
+#define PDACK_TIMEOUT_MONITOR_F         IO_ADDRESS(PDACK_TIMEOUT_MONITOR_F_PHYS) 
+
+#define PORT2_CONTROL_REGISTER_PHYS     0xE605001AU
+#define PORT2_CONTROL_REGISTER          IO_ADDRESS(PORT2_CONTROL_REGISTER_PHYS)
+
+
 /* Android provides the fiq_glue API, which hasn't yet made it into core
  * Linux. This works better if the glue is available, but it can still work
  * with the basic fiq API, if we need to run on non-Android Linux.
@@ -48,16 +64,7 @@
 
 #define CONFIG_GIC_NS_CMT
 
-/* Macro definition */
-#define CPG_CHECK_REG		IO_ADDRESS(0xE61503D0U)
-#define CPG_CHECK_STATUS	IO_ADDRESS(0xE61503DCU)
-#define CPG_CHECK_MODULES	IO_ADDRESS(0xE6150440U)
-
 #ifdef CONFIG_GIC_NS_CMT
-#define CMSTR15			IO_ADDRESS(0xE6130500U)
-#define CMCSR15			IO_ADDRESS(0xE6130510U)
-#define CMCNT15			IO_ADDRESS(0xE6130514U)
-#define CMCOR15			IO_ADDRESS(0xE6130518U)
 #define CMT15_SPI		98U
 
 #define ICD_ISR0 0xF0001080
@@ -208,11 +215,11 @@ void cpg_check_check(void)
 					__raw_readl(CPG_CHECK_STATUS));
 		printk(KERN_EMERG " %08x=%08x\n", CPG_CHECK_REG, val0);
 		printk(KERN_EMERG " %08x=%08x\n", CPG_CHECK_REG + 4, val1);
-		for (addr = 0xE6150440U; addr <= 0xE615047CU; addr += 4U) {
+		for (addr = ISREQ_TIMEOUT_MONITOR_S; addr <= PDACK_TIMEOUT_MONITOR_A; addr += 4U) {
 			printk(KERN_EMERG " %08x=%08x\n",
 					addr, __raw_readl(addr));
 		}
-		for (addr = 0xE6150490U; addr <= 0xE615049CU; addr += 4U) {
+		for (addr = ISREQ_TIMEOUT_MONITOR_F; addr <= PDACK_TIMEOUT_MONITOR_F; addr += 4U) {
 			printk(KERN_EMERG " %08x=%08x\n",
 					addr, __raw_readl(addr));
 		}

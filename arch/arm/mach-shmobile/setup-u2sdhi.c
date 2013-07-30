@@ -217,8 +217,8 @@ static int sdhi0_get_cd(struct platform_device *pdev)
 	return gpio_get_value(GPIO_PORT327) ? 0 : 1;
 }
 
-#define SDHI0_EXT_ACC	0xee1000e4
-#define SDHI0_DMACR	0xee108000
+#define SDHI0_EXT_ACC_PHYS	0xEE1000E4
+#define SDHI0_DMACR_PHYS	0xEE108000
 
 static void sdhi0_set_dma(struct platform_device *pdev, int size)
 {
@@ -226,9 +226,9 @@ static void sdhi0_set_dma(struct platform_device *pdev, int size)
 	u32 val, val2;
 
 	if (!dmacr)
-		dmacr = ioremap_nocache(SDHI0_DMACR, 4);
+		dmacr = ioremap_nocache(SDHI0_DMACR_PHYS, 4);
 	if (!ext_acc)
-		ext_acc = ioremap_nocache(SDHI0_EXT_ACC, 4);
+		ext_acc = ioremap_nocache(SDHI0_EXT_ACC_PHYS, 4);
 
 	switch (size) {
 	case 32:

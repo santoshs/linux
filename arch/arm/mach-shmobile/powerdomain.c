@@ -267,7 +267,7 @@ static void power_areas_info(void);
 static void power_areas_info(void)
 {
 	u32 reg_val;
-	reg_val = __raw_readl(PSTR);
+	reg_val = __raw_readl(SYSC_PSTR);
 	printk(KERN_INFO "[PDC] PSTR(0x%08x) = 0x%08x\n",
 			SYSC_PSTR, reg_val);
 	printk(KERN_INFO "[PDC] A3SG = %s\n",
@@ -365,7 +365,7 @@ static bool is_power_status_on(unsigned int area)
 {
 	if (0 != (area & ~POWER_ALL))
 		panic("power status invalid argument: 0%08x", area);
-	return ((__raw_readl(PSTR) & area) == area);
+	return ((__raw_readl(SYSC_PSTR) & area) == area);
 }
 
 /*
@@ -420,7 +420,7 @@ static void power_status_set(unsigned int area, bool on)
 	}
 
 	panic("power status error (area:0x%08x on:%d PSTR:0x%08x)",
-					area, on, __raw_readl(PSTR));
+					area, on, __raw_readl(SYSC_PSTR));
 
 }
 
@@ -900,7 +900,7 @@ printk(KERN_INFO "[PDC] workqueue function\n");
 #endif
 
 	a2ri_status_old = a2ri_status_new;
-	pstr_val = __raw_readl(PSTR);
+	pstr_val = __raw_readl(SYSC_PSTR);
 
 	a2ri_status_new = ((pstr_val & POWER_A2RI) == POWER_A2RI);
 	if (a2ri_status_new && (a2ri_status_new != a2ri_status_old)) {

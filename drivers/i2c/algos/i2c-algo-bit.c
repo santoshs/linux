@@ -30,7 +30,7 @@
 #include <linux/sched.h>
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
-
+#include <mach/r8a7373.h>
 #include <linux/io.h>
 
 /* ----- global defines ----------------------------------------------- */
@@ -85,7 +85,7 @@ inline void half_udelay(unsigned long half_usecs)
 		for( cnt = 0; cnt < half_usecs; cnt++ )
 		{
 			/* dummy read (one access: about 0.5usec) */
-			(void)__raw_readb(0xE605001Au);
+			(void)__raw_readb(GPIO_PORT26_CR_PHYS);
 		}
 	}
 }

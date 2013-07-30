@@ -150,15 +150,15 @@ void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode)
 #endif /* CONFIG_PM_HAS_SECURE */
 
 	/* W/A for RMU2-E059 start */
-	POWEROFF_PRINTK(" PSTR (A4SF) value 0x%x\n", __raw_readl(PSTR));
+	POWEROFF_PRINTK(" PSTR (A4SF) value 0x%x\n", __raw_readl(SYSC_PSTR));
 	/* If A4SF area is off now */
-	if (0x0 == (A4SFST & (__raw_readl(PSTR)))) {
+	if (0x0 == (A4SFST & (__raw_readl(SYSC_PSTR)))) {
 		POWEROFF_PRINTK("A4SF area is off, need Errata059 W/A\n");
 		/* A4SF area is controlled by SPDCR/SWUCR */
 		if (0x0 == (A4SFBL & (__raw_readl(SWBCR)))) {
 			/* Power On A4SF area */
 			__raw_writel(__raw_readl(SWUCR) | A4SFWU, SWUCR);
-			while (0x0 == (A4SFST & (__raw_readl(PSTR))))
+			while (0x0 == (A4SFST & (__raw_readl(SYSC_PSTR))))
 				;
 		} else
 			POWEROFF_PRINTK(

@@ -42,7 +42,7 @@ static int power_areas_info(char *buf)
 	char *s = buf;
 	FUNC_MSG_IN;
 
-	reg_val = __raw_readl(PSTR);
+	reg_val = __raw_readl(SYSC_PSTR);
 	s += sprintf(s, "Power Areas Info:\n");
 	s += sprintf(s, "PSTR(0x%08x) = 0x%08x\n",
 		SYSC_PSTR, reg_val);

@@ -24,7 +24,6 @@
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 
-#define EXSTMON2	0xe6180088
 
 /* 26 MHz default rate for the EXTAL1 root input clock */
 static struct clk extal1_clk = {

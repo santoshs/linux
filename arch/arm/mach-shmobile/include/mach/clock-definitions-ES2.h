@@ -10,7 +10,6 @@
 
 
 /***************************************************************************/
-#define EXSTMON2        IO_ADDRESS(0xe6180088)
 
 static int extal2_clk_enable(struct clk *clk)
 {

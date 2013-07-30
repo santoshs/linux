@@ -26,7 +26,7 @@
 
 #define CPG_REG_MAX_SRST	(0x01CC)
 
-#define GPIO_PHY_BASE		(0xE6058000)
+#define GPIO_PHY_BASE_AUDIO_STATUS		(0xE6058000)
 #define GPIO_REG_MAX		(0x0150)
 
 #define CPG_SMSTPCR2		(g_common_ulClkRstRegBase + 0x00000138)
@@ -46,12 +46,10 @@
 #define	CPG_SUBCKCR		(g_common_ulSrstRegBase + 0x00000080)
 #endif
 
-#define FSI_PHY_BASE		(0xEC230000)
 #define FSI_REG_MAX		(0x040C)
 #define FSI_MAP_LEN		(FSI_REG_MAX + 4)
 
 /* SCUW physical address top. */
-#define SCUW_PHY_BASE		(0xEC700000)
 /* SCUW physical address offset size. */
 #define SCUW_REG_MAX		(0x00738)
 /* SCUW physical address mapped size. */
@@ -65,7 +63,6 @@
 /* SCUW FFD physical address mapped size. */
 #define SUCW_MAP_LEN_CPUFIFO2	(SCUW_REG_MAX_CPUFIFO2 + 4)
 
-#define CLKGEN_PHY_BASE		(0xEC270000)
 #define CLKGEN_REG_MAX		(0x0098)
 #define CLKGEN_MAP_LEN		(CLKGEN_REG_MAX + 4)
 

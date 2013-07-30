@@ -506,7 +506,7 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 			ret = check_peripheral_module_status();
 			if (ret == 0)	{
 				/* RT domain(A3R) is not off */
-				if (__raw_readl(PSTR) & (POWER_A3R))
+				if (__raw_readl(SYSC_PSTR) & (POWER_A3R))
 					goto skip_clock_change;
 			} else {
 				goto skip_clock_change;
