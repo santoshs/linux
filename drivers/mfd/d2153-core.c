@@ -39,7 +39,7 @@
 
 #include <mach/common.h>
 
-#define D2153_REG_DEBUG
+//#define D2153_REG_DEBUG
 /* #define D2153_SUPPORT_I2C_HIGH_SPEED */
 #define D2153_AUD_LDO_FOR_ESD
 
@@ -281,20 +281,19 @@ int d2153_block_read(struct d2153 * const d2153, u8 const start_reg, u8 const re
 		      u8 * const dest)
 {
 	int err = 0;
-#ifdef D2153_REG_DEBUG
 	int i;
-#endif
 
 	mutex_lock(&d2153->d2153_io_mutex);
-	err = d2153_read(d2153, start_reg, regs, dest);
-	if (err != 0)
-		dlg_err("block read starting from R%d failed\n", start_reg);
+	for(i = 0 ; i< regs ; i++) {
+		err = d2153_read(d2153, start_reg+i, 1, (dest+i));
+		if (err != 0)
+			dlg_err("block read starting from R%d failed\n", start_reg);
 #ifdef D2153_REG_DEBUG
-	else {
-		for(i=0; i<regs; i++)
-			d2153_write_reg_history(D2153D_HISTORY_WRITE_OP,start_reg+i,*(dest+i));
-	}
+		else {
+				d2153_write_reg_history(D2153D_HISTORY_WRITE_OP,start_reg+i,*(dest+i));
+		}
 #endif
+	}
 	mutex_unlock(&d2153->d2153_io_mutex);
 	return err;
 }
@@ -313,20 +312,21 @@ int d2153_block_write(struct d2153 * const d2153, u8 const start_reg, u8 const r
 		       u8 * const src)
 {
 	int ret = 0;
-#ifdef D2153_REG_DEBUG
 	int i;
-#endif
+
 
 	mutex_lock(&d2153->d2153_io_mutex);
-	ret = d2153_write(d2153, start_reg, regs, src);
-	if (ret != 0)
-		dlg_err("block write starting at R%d failed\n", start_reg);
+
+	for(i = 0 ; i< regs ; i++) {
+		ret = d2153_write(d2153, start_reg+i, 1, (src+i));
+		if (ret != 0)
+			dlg_err("block write starting at R%d failed\n", start_reg);
 #ifdef D2153_REG_DEBUG
-	else {
-		for(i=0; i<regs; i++)
-			d2153_write_reg_cache(start_reg+i,*(src+i));
-	}
+		else {
+				d2153_write_reg_cache(start_reg+i,*(src+i));
+		}
 #endif
+	}
 	mutex_unlock(&d2153->d2153_io_mutex);
 	return ret;
 }
@@ -721,6 +721,8 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	d2153->pdata = pdata;
 	mutex_init(&d2153->d2153_io_mutex);
 
+	d2153_dev_info = d2153;
+	
 	d2153_reg_write(d2153, D2153_GPADC_MCTL_REG, 0x55);
 
 
@@ -729,6 +731,7 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	d2153_reg_write(d2153, D2153_LDO22_MCTL_REG, 0x00);
 #endif
 
+#if 0 //use repeated mode
 #ifdef D2153_SUPPORT_I2C_HIGH_SPEED
 	d2153_set_bits(d2153, D2153_CONTROL_B_REG, D2153_I2C_SPEED_MASK);
 
@@ -738,6 +741,8 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	/* Page write for I2C we donot support repeated write and I2C speed set to 400KHz */
 	d2153_clear_bits(d2153, D2153_CONTROL_B_REG, D2153_WRITE_MODE_MASK | D2153_I2C_SPEED_MASK);
 #endif
+#endif
+
 #ifdef CONFIG_BATTERY_D2153
 	msleep(1);
 	d2153_reg_write(d2153, D2153_ADC_CONT_REG, (D2153_ADC_AUTO_EN_MASK
@@ -762,7 +767,6 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 
 	d2153_set_bits(d2153,  D2153_OUT2_32K_ONKEY_CONT_REG, D2153_OUT2_32K_EN_MASK);
 
-	d2153_dev_info = d2153;
 	/*pm_power_off = d2153_system_poweroff;*/
 
 	ret = d2153_irq_init(d2153, irq, pdata);
@@ -819,7 +823,7 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 
 	d2153_system_event_init(d2153);
 #ifdef CONFIG_PROC_FS
-	//d2153_debug_proc_init(d2153);
+//	d2153_debug_proc_init(d2153);
 #endif
 
 	INIT_DELAYED_WORK(&d2153->vdd_fault_work, init_vdd_fault_work);
@@ -858,7 +862,7 @@ EXPORT_SYMBOL_GPL(d2153_device_init);
 void d2153_device_exit(struct d2153 *d2153)
 {
 #ifdef CONFIG_PROC_FS
-	d2153_debug_proc_exit();
+//	d2153_debug_proc_exit();
 #endif
 	d2153_dev_info = NULL;
 
@@ -879,7 +883,7 @@ EXPORT_SYMBOL_GPL(d2153_device_exit);
  */
 void d2153_system_poweroff(void)
 {
-	u8 dst;
+//	u8 dst;
 	struct d2153 *d2153 = d2153_dev_info;
 
 	dlg_info("%s\n", __func__);
@@ -919,15 +923,18 @@ void d2153_system_poweroff(void)
 	 *these are controlled by HOST's GPIO ???
 	 */
 
-	d2153_reg_write(d2153, D2153_POWER_CONT_REG, 0x0E);
+	d2153_reg_write(d2153, D2153_POWER_CONT_REG, 0x0A);
 	d2153_reg_write(d2153, D2153_PD_DIS_REG, 0xCF);
 
-	d2153_reg_read(d2153, D2153_CONTROL_B_REG, &dst);
-	dst |= D2153_DEEP_SLEEP_MASK;
-	d2153_reg_write(d2153, D2153_CONTROL_B_REG, dst);
+	d2153_set_bits(d2153, D2153_CONTROL_B_REG,D2153_DEEP_SLEEP_MASK);
+
+	while(1);
+
+	dlg_info("%s : LEAVE\n", __func__);
 
 	return;
 }
+
 EXPORT_SYMBOL(d2153_system_poweroff);
 
 
