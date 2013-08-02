@@ -65,13 +65,13 @@ static struct map_desc r8a7373_io_desc[] __initdata = {
  *   we use KOTA K3.4.5 parameter.
  */
 	{
-		.virtual	= 0xe6000000,
+		.virtual	= IO_ADDRESS(0xe6000000),
 		.pfn		= __phys_to_pfn(0xe6000000),
 		.length		= SZ_16M,
 		.type		= MT_DEVICE
 	},
 	{
-		.virtual	= 0xf0000000,
+		.virtual	= IO_ADDRESS(0xf0000000),
 		.pfn		= __phys_to_pfn(0xf0000000),
 		.length		= SZ_2M,
 		.type		= MT_DEVICE
@@ -1487,7 +1487,7 @@ static void __init r8a7373_timer_init(void)
 	r8a7373_clock_init();
 	shmobile_calibrate_delay_early();
 	cmt_clocksource_init();
-	cmt_clockevent_init(cmt1_timers, 2, 0, CMCLKE);
+	cmt_clockevent_init(cmt1_timers, 2, 0, CMCLKE_PHYS);
 	setup_current_timer();
 }
 

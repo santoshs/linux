@@ -55,7 +55,7 @@ Description :  File created
 #include <linux/if_arp.h>
 #include <linux/if_phonet.h>
 #include <linux/skbuff.h>
-
+#include <mach/r8a7373.h>
 #include <net/sch_generic.h>
 
 #include "smc_linux.h"

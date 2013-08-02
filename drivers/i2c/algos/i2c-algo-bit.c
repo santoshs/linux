@@ -85,7 +85,7 @@ inline void half_udelay(unsigned long half_usecs)
 		for( cnt = 0; cnt < half_usecs; cnt++ )
 		{
 			/* dummy read (one access: about 0.5usec) */
-			(void)__raw_readb(GPIO_PORT26_CR_PHYS);
+			(void)__raw_readb(GPIO_PORT26_CR);
 		}
 	}
 }

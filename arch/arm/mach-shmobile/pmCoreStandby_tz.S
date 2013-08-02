@@ -505,7 +505,7 @@ ENTRY(corestandby)
 
 	/* Check IRQ */
 	LDR		r6, =1023
-	LDR		r5, =BaseInterruptIFPhys
+	LDR		r5, =BaseInterruptIF
 	LDR		r3, [r5, #ICC_HPIR]
 	AND		r3, r3, r6
 	CMP		r3, r6
@@ -1749,7 +1749,7 @@ ENTRY(corestandby_2)
 
 	/* Check IRQ */
 	LDR		r6, =1023
-	LDR		r5, =BaseInterruptIFPhys
+	LDR		r5, =BaseInterruptIF
 	LDR		r3, [r5, #ICC_HPIR]
 	AND		r3, r3, r6
 	CMP		r3, r6

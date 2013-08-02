@@ -289,7 +289,7 @@ int shmobile_init_pm(void)
 		__raw_writel((unsigned long)map, IOMEM(ram0MemlogPmAddressVA));
 		__raw_writel((unsigned long)(
 			MEMLOG_ADDRESS + CPU0_PM_START_INDEX),
-			IOMEM(ram0MemlogPmAddressPAPhys));
+			IOMEM(ram0MemlogPmAddressPA));
 		for (i = 0 ; i <  ((CPU0_PM_SIZE + CPU1_PM_SIZE) >> 2); i++) {
 			__raw_writel((unsigned long)0x0, IOMEM(map));
 			map++;

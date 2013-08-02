@@ -546,9 +546,9 @@ M1_CLK_CHANGED | M3_CLK_CHANGED | M5_CLK_CHANGED | ZB3_CLK_CHANGED)
 /* wake-up address */
 #define WAKEUP_ADDRESS					ram0ArmVectorPhys
 #define WAKEUP_ADDRESS_DUMMY			0x00000000
-#define WAKEUP_ADDRESS_CORESTANDBY		ram0ArmVectorPhys
-#define WAKEUP_ADDRESS_HOTPLUG			ram0ArmVectorPhys
-#define WAKEUP_ADDRESS_SYSTEMSUSPEND	ram0ArmVectorPhys
+#define WAKEUP_ADDRESS_CORESTANDBY		ram0ArmVector
+#define WAKEUP_ADDRESS_HOTPLUG			ram0ArmVector
+#define WAKEUP_ADDRESS_SYSTEMSUSPEND	ram0ArmVector
 
 /* Context save address */
 #define CONTEXT_SAVE_ADDRESS		0x00000000

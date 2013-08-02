@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#include <mach/r8a7373.h>
 #define SCFSR		0x14
 #define SCFTDR		0x20
 #define FSR_TEND	(1 << 6)
@@ -26,7 +27,7 @@
 #if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
 	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
 #define DEBUG_UART_BASE_PHY	0xe6450000
-#define DEBUG_UART_BASE_VIRT	0xe6450000
+#define DEBUG_UART_BASE_VIRT	IO_ADDRESS(DEBUG_UART_BASE_PHY)
 
 	.macro	addruart, rp, rv, tmp
 	ldr	\rp, =DEBUG_UART_BASE_PHY
@@ -46,3 +47,5 @@
 
 	.macro	waituart, rd, rx
 	.endm
+
+#endif

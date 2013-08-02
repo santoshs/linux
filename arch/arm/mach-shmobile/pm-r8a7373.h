@@ -27,14 +27,14 @@
 #define SCU_INVALL	(SCU_BASE + 0x0c)
 
 /* CPG */
-#define WUPCR		(CPG_BASEPhys + 0x1010)
-#define SRESCR		(CPG_BASEPhys + 0x1018)
-#define SCPUSTR		(CPG_BASEPhys + 0x1040)
-#define CPU0RFR		(CPG_BASEPhys + 0x1104)
-#define CPU1RFR		(CPG_BASEPhys + 0x1114)
-#define SPCTR		(CPG_BASEPhys + 0x01a4)
-#define SPCMMR		(CPG_BASEPhys + 0x01ac)
-#define SPCDMR		(CPG_BASEPhys + 0x01b0)
+#define WUPCR		(CPG_BASE + 0x1010)
+#define SRESCR		(CPG_BASE + 0x1018)
+#define SCPUSTR		(CPG_BASE + 0x1040)
+#define CPU0RFR		(CPG_BASE + 0x1104)
+#define CPU1RFR		(CPG_BASE + 0x1114)
+#define SPCTR		(CPG_BASE + 0x01a4)
+#define SPCMMR		(CPG_BASE + 0x01ac)
+#define SPCDMR		(CPG_BASE + 0x01b0)
 
 /* size */
 #define RAM0_VECTOR_SIZE	0x80

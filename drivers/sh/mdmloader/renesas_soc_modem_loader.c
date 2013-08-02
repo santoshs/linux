@@ -19,7 +19,7 @@
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 
-#define DBGREG4                         0xE610002C
+#define DBGREG4                         IO_ADDRESS(0xE610002C)
 #define DBGREG4_ALL_ON                  0x3F
 #define SYSC_PSTR_D4                    (1<<1)
 
@@ -93,6 +93,8 @@ static int all_toc_entries_loaded = 0;
 #define WPMCIF_EPMU_RFCLK_CR		(WPMCIF_EPMU_BASE + 0x0024)
 #define WPMCIF_EPMU_HPSSCLK_CR		(WPMCIF_EPMU_BASE + 0x0028)
 
+#define EPMU_DBGMD_CR1			IO_ADDRESS(0xE61900C0)
+					
 /* HostCPU CoreSight ETR for modem STM traces to SDRAM */
 #define CPU_ETR_BASE			IO_ADDRESS(0xE6FA5000)
 #define CPU_ETR_RSZ			(CPU_ETR_BASE + 0x004)
@@ -421,13 +423,13 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 				/* if ((data & (1 << 29))) */
 				{
 					printk("EPMU DBGMD_CR 1\n");
-					__raw_writel(0x00008001, 0xE61900C0);
+					__raw_writel(0x00008001, EPMU_DBGMD_CR1);
 				}
 
 			} else {
 				/* printk("ES2.01 on earlier\n"); */
 				printk("EPMU DBGMD_CR B\n");
-				__raw_writel(0x0000800B, 0xE61900C0);
+				__raw_writel(0x0000800B, EPMU_DBGMD_CR1);
 			}
 
 		}

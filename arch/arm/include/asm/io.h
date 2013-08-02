@@ -58,10 +58,6 @@
 extern char *tmplog_nocache_address;
 #endif  /* CONFIG_IRQ_TRACE */
 
-/* IO_ADDRESS */
-#ifndef IO_ADDRESS
-#define IO_ADDRESS(x)   x
-#endif
 
 /*
  * ISA I/O bus memory addresses are 1:1 with the physical address.

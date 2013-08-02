@@ -142,14 +142,14 @@ Description :  File created
 #define SMC_APE_IRQ_OFFSET_IRQ_SPI                   512        /* APE IRQ offset (#define IRQPIN_IRQ_BASE 512 in irqs.h )*/
 
 
-#define SMC_WPMCIF_EPMU_BASE                         0xE6190000
+#define SMC_WPMCIF_EPMU_BASE                         IO_ADDRESS(0xE6190000)
 #define SMC_WPMCIF_EPMU_ACC_CR                       (SMC_WPMCIF_EPMU_BASE + 0x0004)    /* Used for checking that modem is up */
     /* Register values of the EPMU ACC CR */
 #define SMC_WPMCIF_EPMU_ACC_CR_MODEM_SLEEP_REQ       0x00000000
 #define SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_REQ      0x00000002
 #define SMC_WPMCIF_EPMU_ACC_CR_MODEM_ACCESS_OK       0x00000003
 
-#define SMC_HPB_BASE                                 0xE6000000                         /* Used to retrieve EOS2 ASIC version */
+#define SMC_HPB_BASE                                 IO_ADDRESS(0xE6000000)                         /* Used to retrieve EOS2 ASIC version */
 #define SMC_CCCR                                     (SMC_HPB_BASE + 0x101C)
 
 #if( SMC_RUNTIME_TRACES_ENABLED == TRUE )
@@ -268,15 +268,15 @@ Description :  File created
                                                                                     SMC_TRACE_PRINTF_ASSERT("SMC_PLATFORM_DEVICE_DRIVER_SUSPEND: invalid wakeup IRQ sense value"); \
                                                                                     assert(0);                                                              \
                                                                                 }                                                                           \
-                                                                                __raw_writel(0x00000001, 0xe61c2414);           /* PORT_SET */              \
-                                                                                __raw_writel(signal_event_sense, 0xe61c1980);   /* CONFIG_0 - 1 = low level detect, 2 = high level detect */ \
-                                                                                __raw_writel(0x00000001, 0xe61c1888);           /* WAKEN_SET0 */            \
+                                                                                __raw_writel(0x00000001, IO_ADDRESS(0xe61c2414));           /* PORT_SET */              \
+                                                                                __raw_writel(signal_event_sense, IO_ADDRESS(0xe61c1980));   /* CONFIG_0 - 1 = low level detect, 2 = high level detect */ \
+                                                                                __raw_writel(0x00000001, IO_ADDRESS(0xe61c1888));           /* WAKEN_SET0 */            \
                                                                             }
 
       /* Called from the smc_platform_device_driver_resume() */
   #define SMC_PLATFORM_DEVICE_DRIVER_RESUME( device )                       {                                                                               \
-                                                                                __raw_writel(0x00000000, 0xe61c1980); /* CONFIG_02 - Disable Interrupt */               \
-                                                                                __raw_writel(0x00000001, 0xe61c1884); /* WAKEN_STS0 - Disable WakeUp Request Enable */  \
+                                                                                __raw_writel(0x00000000, IO_ADDRESS(0xe61c1980)); /* CONFIG_02 - Disable Interrupt */               \
+                                                                                __raw_writel(0x00000001, IO_ADDRESS(0xe61c1884)); /* WAKEN_STS0 - Disable WakeUp Request Enable */  \
                                                                             }
 
   #define SMC_APE_WAKEUP_WAKELOCK_USE                             /* If defined, the APE uses wakelock, otherwise there is no wakelocks at all */

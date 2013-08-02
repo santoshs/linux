@@ -146,27 +146,22 @@ struct reg_info {
 
 static struct base_map map[] = {
 	[IRQC_EVENTDETECTOR_BLK0] = {
-		.phys = IRQC_EVENTDETECTOR_BLK0_BASE,
 		.size = SZ_4K,
 		.base = IRQC_EVENTDETECTOR_BLK0_BASE,
 	},
 	[IRQC_EVENTDETECTOR_BLK1] = {
-		.phys = IRQC_EVENTDETECTOR_BLK1_BASE,
 		.size = SZ_4K,
 		.base = IRQC_EVENTDETECTOR_BLK1_BASE,
 	},
 	[IRQC_EVENTDETECTOR_BLK10] = {
-		.phys = IRQC_EVENTDETECTOR_BLK10_BASE,
 		.size = SZ_4K,
 		.base = IRQC_EVENTDETECTOR_BLK10_BASE,
 	},
 	[IRQC_EVENTDETECTOR_BLK11] = {
-		.phys = IRQC_EVENTDETECTOR_BLK11_BASE,
 		.size = SZ_4K,
 		.base = IRQC_EVENTDETECTOR_BLK11_BASE,
 	},
 	[IRQC_EVENTDETECTOR_BLK12] = {
-		.phys = IRQC_EVENTDETECTOR_BLK12_BASE,
 		.size = SZ_4K,
 		.base = IRQC_EVENTDETECTOR_BLK12_BASE,
 	},
@@ -181,17 +176,14 @@ static struct base_map map[] = {
 		.base = 0x0,	/* Allocate at boot time */
 	},
 	[HPB] = {
-		.phys = HPB_BASE,
 		.size = SZ_8K,
 		.base = HPB_BASE,
 	},
 	[SHWYSTATHS] = {
-		.phys = SHWYSTATHS_BASE,
 		.size = SZ_4K,
 		.base = SHWYSTATHS_BASE,
 	},
 	[SHWYSTATSY] = {
-		.phys = SHWYSTATSY_BASE,
 		.size = SZ_4K,
 		.base = SHWYSTATSY_BASE,
 	},
@@ -557,10 +549,10 @@ static void wakeups_factor(void)
 		/* For IRQ0,IRQ1 wakeup factors */
 		if ((dummy & 0x40) != 0)
 			pr_debug(PMDBG_PRFX " Wakeup by IRQ[31:0]: 0x%08x\n", \
-					__raw_readl(ram0_ICSPISR0Phys));
+					__raw_readl(ram0_ICSPISR0));
 		else if ((dummy & 0x80) != 0)
 			pr_debug(PMDBG_PRFX " Wakeup by IRQ[63:32]: 0x%08x\n",\
-					__raw_readl(ram0_ICSPISR1Phys));
+					__raw_readl(ram0_ICSPISR1));
 		else
 			pr_debug(PMDBG_PRFX "Not wakeup by IRQ wakeup factors.\n");
 	}

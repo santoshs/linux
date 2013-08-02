@@ -249,7 +249,7 @@ static int mfis_resume_noirq(struct device *dev)
 		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 #if EARLYSUSPEND_STANDBY
-	if (CLOCK_TLB_IC_OC == (readl(MSTPSR0Phys) & CLOCK_TLB_IC_OC)) {
+	if (CLOCK_TLB_IC_OC == (readl(MSTPSR0) & CLOCK_TLB_IC_OC)) {
 #endif /* EARLYSUSPEND_STANDBY */
 		clk_enable(clk_data);
 
@@ -515,7 +515,7 @@ int mfis_drv_resume(void)
 	if (0 != down_timeout(&mfis_sem, jiffies))
 		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
-	if (CLOCK_TLB_IC_OC == (readl(MSTPSR0Phys) & CLOCK_TLB_IC_OC)) {
+	if (CLOCK_TLB_IC_OC == (readl(MSTPSR0) & CLOCK_TLB_IC_OC)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
 
 		late_resume_phase_flag = 1;

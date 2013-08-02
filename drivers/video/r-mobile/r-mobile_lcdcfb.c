@@ -102,7 +102,7 @@
 #define IRQC_CPORT0_BASE	 0x2000
 #define IRQC_CPORT0_STS0	(IRQC_CPORT0_BASE + 0x000)
 
-unsigned int irqc_baseaddr;
+static char __iomem *irqc_baseaddr;
 
 struct sh_mobile_lcdc_priv;
 struct sh_mobile_lcdc_chan {
@@ -1235,7 +1235,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	priv->irq = i;
 
 	/* irq base address */
-	irqc_baseaddr =  res->start;
+	irqc_baseaddr = ioremap(res->start,resource_size(res));
 
 #if FB_SH_MOBILE_REFRESH
 	sh_mobile_wq = create_singlethread_workqueue("sh_mobile_lcd");

@@ -233,7 +233,7 @@
 
 /* HPB registers */
 #define SPUV_FUNC_HPB_REG_SIZE		0x8
-#define SPUV_FUNC_HPB_REG_TOP_PHY	(HPB_BASE + 0x1014)
+#define SPUV_FUNC_HPB_REG_TOP_PHY	(HPB_BASE_PHYS + 0x1014)
 #define SPUV_FUNC_HPB_REG_TOP		g_spuv_func_hpb_register_top
 #define SPUV_FUNC_RW_32_HPB_HPBCTRL2	(SPUV_FUNC_HPB_REG_TOP + 0x00000004)
 

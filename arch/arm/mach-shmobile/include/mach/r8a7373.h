@@ -501,10 +501,9 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 
 #endif /* __ASSEMBLY__*/
 /* IO_ADDRESS */
-#ifndef IO_ADDRESS
-#define IO_ADDRESS(x) (x)
-#endif
 
+#define IO_OFFSET      0x10000000
+#define IO_ADDRESS(n) ((n) | (IO_OFFSET))
 
 #define SMGP000_PMIC	SMGP000 /* for PMIC GPADC access from APE/Modem */
 #define SMGP001_DFS		SMGP001
@@ -556,6 +555,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define CMCLKE		IO_ADDRESS(CMCLKE_PHYS)
 
 #define CPG_BASEPhys	0xE6150000
+#define CPG_BASE	IO_ADDRESS(CPG_BASEPhys)
 #define FRQCRA		IO_ADDRESS(CPG_BASEPhys)
 #define FRQCRB_PHYS	0xE6150004
 #define FRQCRB		IO_ADDRESS(FRQCRB_PHYS)
@@ -747,12 +747,9 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define CPG_CHECK_STATUS_PHYS           0xE61503DCU
 #define CPG_CHECK_STATUS                IO_ADDRESS(0xE61503DCU)
 
-#define CPG_PLL3CR_1040MHZ_PHYS		0x27000000
-#define CPG_PLL3CR_1040MHZ		IO_ADDRESS(CPG_PLL3CR_1040MHZ_PHYS)
-#define CPG_PLL3CR_X30_PHYS		0x1D000000
-#define CPG_PLL3CR_X30			IO_ADDRESS(CPG_PLL3CR_X30_PHYS)
-#define CPG_PLLECR_PLL3ST_PHYS		0x00000800
-#define CPG_PLLECR_PLL3ST		IO_ADDRESS(CPG_PLLECR_PLL3ST_PHYS)
+#define CPG_PLL3CR_1040MHZ		0x27000000
+#define CPG_PLL3CR_X30			0x1D000000
+#define CPG_PLLECR_PLL3ST		0x00000800
 
 /*System-CPU PERIPHCLK Control Register*/
 #define PCLKCR_PHYS	0xE6151020
@@ -765,11 +762,11 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 
 #define GPIO_BASE_PHYS		0xE6050000
 #define GPIO_BASE		IO_ADDRESS(GPIO_BASE_PHYS)
-#define GPIO_DRVCR_SD0_PHYS	(volatile ushort*)(0xE6050000ul + 0x818E)
+#define GPIO_DRVCR_SD0_PHYS	0xE605818E
 #define GPIO_DRVCR_SD0		IO_ADDRESS(GPIO_DRVCR_SD0_PHYS)
-#define GPIO_DRVCR_SIM1_PHYS	(volatile ushort*)(0xE6050000ul + 0x8192)
+#define GPIO_DRVCR_SIM1_PHYS	0xE6058192
 #define GPIO_DRVCR_SIM1		IO_ADDRESS(GPIO_DRVCR_SIM1_PHYS)
-#define GPIO_DRVCR_SIM2_PHYS	(volatile ushort*)(0xE6050000ul + 0x8194)
+#define GPIO_DRVCR_SIM2_PHYS	0xE6058194
 #define GPIO_DRVCR_SIM2		IO_ADDRESS(GPIO_DRVCR_SIM2_PHYS)
 
 #define GPIO_PORT26_CR_PHYS         0xE605001AU
@@ -873,6 +870,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define STBCHRB2_PHYS	0xE6180042
 #define STBCHRB2	IO_ADDRESS(STBCHRB2_PHYS)
 #define STBCHRB3Phys	0xE6180043
+#define STBCHRB3	IO_ADDRESS(STBCHRB3Phys)
 
 #define STBCHR0_PHYS	0xE6180000
 #define STBCHR0		IO_ADDRESS(STBCHR0_PHYS)
