@@ -327,7 +327,7 @@ static void sndp_work_shutdown(struct sndp_work_info *work);
 #define GET_OLD_VALUE(stream)		(g_sndp_main[stream].old_value)
 #define GET_OTHER_VALUE(value)						\
 	(GET_OLD_VALUE((SNDP_PCM_OUT ==					\
-		SNDP_GET_DIRECTION_VAL(value)) ? SNDP_PCM_OUT : SNDP_PCM_IN))
+		SNDP_GET_DIRECTION_VAL(value)) ? SNDP_PCM_IN : SNDP_PCM_OUT))
 
 /*
  *

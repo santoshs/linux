@@ -408,6 +408,11 @@ static int d2153_regulator_enable(struct regulator_dev *rdev)
 	unsigned int reg_num;
 	int i;
 
+	if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15)){
+		printk(KERN_INFO "%s:>> rdev_get_id %d\n", 
+				__func__, rdev_get_id(rdev));
+	}
+
 	if (regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
 
@@ -473,6 +478,11 @@ static int d2153_regulator_enable(struct regulator_dev *rdev)
 		printk(KERN_ERR "[WS] regl_id[%d], reg_num[0x%x], reg_val[0x%x]\n", regulator_id, reg_num, reg_val);
 	}
 
+	if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15)){
+		printk(KERN_INFO "%s:<< rdev_get_id %d\n", 
+				__func__, rdev_get_id(rdev));
+	}
+
 	return ret;
 }
 
@@ -487,6 +497,11 @@ static int d2153_regulator_disable(struct regulator_dev *rdev)
 	int ret = 0;
 	u8 reg_val;
 	int i;
+
+	if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15)){
+		printk(KERN_INFO "%s:>> rdev_get_id %d\n", 
+				__func__, rdev_get_id(rdev));
+	}
 
 	if (regulator_id >= D2153_NUMBER_OF_REGULATORS)
 		return -EINVAL;
@@ -517,6 +532,11 @@ static int d2153_regulator_disable(struct regulator_dev *rdev)
 				}
 			}
 		}
+	}
+
+	if ((rdev_get_id(rdev) == 20) || (rdev_get_id(rdev) == 15)){
+		printk(KERN_INFO "%s:<< rdev_get_id %d\n", 
+				__func__, rdev_get_id(rdev));
 	}
 
 	return ret;

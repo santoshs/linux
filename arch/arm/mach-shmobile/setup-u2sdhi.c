@@ -28,6 +28,11 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		if (IS_ERR(regulator))
 			return;
 
+		ret = regulator_force_disable(regulator);
+		if (ret)
+			printk(KERN_INFO "%s:err regulator_force_disable ret = %d\n",
+							__func__ , ret);
+
 		ret = regulator_enable(regulator);
 		if (ret)
 			printk(KERN_INFO "%s:err regulator_enable ret = %d\n",
@@ -38,6 +43,11 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		regulator = regulator_get(NULL, "vio_sd");
 		if (IS_ERR(regulator))
 			return;
+
+		ret = regulator_force_disable(regulator);
+		if (ret)
+			printk(KERN_INFO "%s:err regulator_force_disable ret = %d\n",
+							__func__ , ret);
 
 		ret = regulator_enable(regulator);
 		if (ret)
@@ -57,12 +67,10 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		if (IS_ERR(regulator))
 			return;
 
-		if (regulator_is_enabled(regulator)) {
-			ret = regulator_disable(regulator);
-			if (ret)
-				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+		ret = regulator_force_disable(regulator);
+		if (ret)
+			printk(KERN_INFO "%s:err regulator_force_disable ret = %d\n",
 							__func__ , ret);
-		}
 
 		regulator_put(regulator);
 
@@ -70,12 +78,10 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		if (IS_ERR(regulator))
 			return;
 
-		if (regulator_is_enabled(regulator)) {
-			ret = regulator_disable(regulator);
-			if (ret)
-				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+		ret = regulator_force_disable(regulator);
+		if (ret)
+			printk(KERN_INFO "%s:err regulator_force_disable ret = %d\n",
 							__func__ , ret);
-		}
 
 		regulator_put(regulator);
 
@@ -97,9 +103,9 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 			printk(KERN_INFO"vsd change as %duV\n", E3_3_V);
 
 		if (regulator_is_enabled(regulator)) {
-			ret = regulator_disable(regulator);
+			ret = regulator_force_disable(regulator);
 			if (ret)
-				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+				printk(KERN_INFO "%s:err regulator_force_disable ret = %d\n",
 							__func__ , ret);
 		}
 
@@ -127,9 +133,9 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 
 		if (regulator_is_enabled(regulator)) {
-			ret = regulator_disable(regulator);
+			ret = regulator_force_disable(regulator);
 			if (ret)
-				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+				printk(KERN_INFO "%s:err regulator_force_disable ret = %d\n",
 							__func__ , ret);
 		}
 
@@ -158,9 +164,9 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 			printk(KERN_INFO"vsd change as %duV\n", E1_8_V);
 
 		if (regulator_is_enabled(regulator)) {
-			ret = regulator_disable(regulator);
+			ret = regulator_force_disable(regulator);
 			if (ret)
-				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+				printk(KERN_INFO "%s:err regulator_force_disable ret = %d\n",
 							__func__ , ret);
 		}
 
@@ -187,9 +193,9 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 			printk(KERN_INFO"vio_sd change as %duV\n", E1_8_V);
 
 		if (regulator_is_enabled(regulator)) {
-			ret = regulator_disable(regulator);
+			ret = regulator_force_disable(regulator);
 			if (ret)
-				printk(KERN_INFO "%s:err regulator_disable ret = %d\n",
+				printk(KERN_INFO "%s:err regulator_force_disable ret = %d\n",
 							__func__ , ret);
 		}
 
