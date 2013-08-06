@@ -502,7 +502,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #endif /* __ASSEMBLY__*/
 /* IO_ADDRESS */
 
-#define IO_OFFSET      0x10000000
+#define IO_OFFSET      0x18000000
 #define IO_ADDRESS(n) ((n) | (IO_OFFSET))
 
 #define SMGP000_PMIC	SMGP000 /* for PMIC GPADC access from APE/Modem */
