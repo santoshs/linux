@@ -27,7 +27,7 @@
 #ifndef CONFIG_FIQ_GLUE
 
 /* These are in <asm/io.h>, but can't include it from assembler */
-#define	STBCHR2		0xE6180002
+#define	STBCHR2		IO_ADDRESS(0xE6180002)
 #define APE_RESETLOG_RWDT_CMT_FIQ        (0x40)
 
 #if defined(CONFIG_AEABI) && (__LINUX_ARM_ARCH__ >= 5)

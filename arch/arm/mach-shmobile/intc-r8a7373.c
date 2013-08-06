@@ -334,8 +334,8 @@ static int r8a7373_irq_set_wake(struct irq_data *d, unsigned int on)
 
 void __init r8a7373_init_irq(void)
 {
-	void __iomem *gic_dist_base = IOMEM(0xf0001000);
-	void __iomem *gic_cpu_base = IOMEM(0xf0000100);
+	void __iomem *gic_dist_base = IOMEM(GIC_DIST_BASE);
+	void __iomem *gic_cpu_base = IOMEM(GIC_CPU_BASE);
 	void __iomem *intevtsa = ioremap_nocache(0xffd20100, PAGE_SIZE);
 	int i;
 	BUG_ON(!intevtsa);

@@ -22,9 +22,8 @@
 
 #include <mach/r8a7373.h>
 /* SCU */
-#define SCU_BASE	0xF0000000
-#define SCU_PWRST	(SCU_BASE + 0x08)
-#define SCU_INVALL	(SCU_BASE + 0x0c)
+#define SCU_PWRST      (SCU_BASE + 0x08)
+#define SCU_INVALL     (SCU_BASE + 0x0c)
 
 /* CPG */
 #define WUPCR		(CPG_BASE + 0x1010)

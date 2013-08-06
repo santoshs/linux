@@ -2273,7 +2273,7 @@ ENTRY(corestandby_down_status)
 	CMP		r4, #0x0
 	LDREQ	r5, =0x0003 /* CPU0 Powered-off mode */
 	LDRNE	r5, =0x0300 /* CPU1 Powered-off mode */
-	LDR		r6, =SCU_PWRST_ADDRPhys
+	LDR		r6, =SCU_PWRST_PHYS
 	LDR		r7, [r6]
 	ORR		r7, r7, r5
 	STR		r7, [r6] /* Set the CPU Powered-off mode */
@@ -2316,7 +2316,7 @@ ENTRY(corestandby_up_status)
 	CMP		r4, #0x0
 	LDREQ	r5, =0x0003 /* CPU0 status clear mask */
 	LDRNE	r5, =0x0300 /* CPU1 status clear mask */
-	LDR		r6, =SCU_PWRST_ADDRPhys
+	LDR		r6, =SCU_PWRST_PHYS
 	LDR		r7, [r6]
 	BIC		r7, r7, r5
 	STR		r7, [r6] /* Set the CPU Normal mode */

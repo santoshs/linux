@@ -67,9 +67,9 @@
 #ifdef CONFIG_GIC_NS_CMT
 #define CMT15_SPI		98U
 
-#define ICD_ISR0 0xF0001080
-#define ICD_IPR0 0xF0001400
-#define ICD_IPTR0 0xf0001800
+#define ICD_ISR0	(GIC_DIST_BASE + 0x80)
+#define ICD_IPR0	(GIC_DIST_BASE + 0x400)
+#define ICD_IPTR0	(GIC_DIST_BASE + 0x800)
 
 /* FIQ handle excecute panic before RWDT request CPU reset system */
 #define CMT_OVF			((256*CONFIG_RMU2_RWDT_CMT_OVF)/1000 - 2)

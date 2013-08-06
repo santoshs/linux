@@ -1441,10 +1441,22 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /********************************************/
 #define BasePl310Phys		0xF0100000
 
+
+
 /************************************/
 /* SCU Register						*/
 /***********************************/
-#define SCU_PWRST_ADDRPhys	0xF0000008
+#define SCU_BASE_PHYS	0xF0000000
+#define SCU_BASE	IO_ADDRESS(SCU_BASE_PHYS)
+#define SCU_PWRST_PHYS	SCU_BASE_PHYS + 0x08
+
+
+#define GIC_CPU_BASE_PHYS	0xF0000100
+#define GIC_CPU_BASE		IO_ADDRESS(GIC_CPU_BASE_PHYS)
+#define GIC_DIST_BASE_PHYS	0xF0001000
+#define GIC_DIST_BASE		IO_ADDRESS(GIC_DIST_BASE_PHYS)
+#define PRIV_TIMERS_BASE_PHYS	0xF0000600
+#define PRIV_TIMERS_BASE	IO_ADDRESS(PRIV_TIMERS_BASE_PHYS)
 
 /* I2CDVM */
 #define ICCRDVM_PHYS		0xE60A0004

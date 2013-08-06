@@ -193,7 +193,6 @@ static struct base_map map[] = {
 		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SHBUF] = {
-		.phys = SHBUF_BASE,
 		.size = SZ_4K,
 		.base = SHBUF_BASE,
 	},

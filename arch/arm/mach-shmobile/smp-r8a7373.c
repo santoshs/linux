@@ -40,13 +40,13 @@ static struct wake_lock smp_idle_wakelock;
 
 static void __iomem *scu_base_addr(void)
 {
-	return IOMEM(0xf0000000);
+	return IOMEM(SCU_BASE);
 }
 
 static DEFINE_SPINLOCK(scu_lock);
 
 #ifdef CONFIG_HAVE_ARM_TWD
-static DEFINE_TWD_LOCAL_TIMER(twd_local_timer, 0xf0000600, 29);
+static DEFINE_TWD_LOCAL_TIMER(twd_local_timer, PRIV_TIMERS_BASE, 29);
 
 void __init r8a7373_register_twd(void)
 {
@@ -106,7 +106,7 @@ int r8a7373_platform_cpu_die(unsigned int cpu)
 {
 	pr_debug("smp-r8a7373: smp_cpu_die is called\n");
 	/* disable gic cpu_if */
-	__raw_writel(0, IOMEM(0xf0000100 + GIC_CPU_CTRL));
+	__raw_writel(0, IOMEM(GIC_CPU_BASE + GIC_CPU_CTRL));
 
 	return 1;
 }

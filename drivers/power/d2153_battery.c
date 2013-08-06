@@ -2050,9 +2050,6 @@ static void d2153_battery_data_init(struct d2153_battery *pbat)
 #ifdef CONFIG_D2153_HW_TIMER
 #define CMT17_SPI			100U
 
-#define ICD_ISR0 0xF0001080
-#define ICD_IPTR0 0xf0001800
-
 static DEFINE_SPINLOCK(cmt_lock);
 #define CONFIG_D2153_BAT_CMT_OVF 60*5
 
