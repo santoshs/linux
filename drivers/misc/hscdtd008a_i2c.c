@@ -71,11 +71,15 @@
 #define MAGDBG(fmt, args...)
 #endif
 
+#define HSCD_TCS_TIME    10000    /* Measure temp. of every 10 sec */
+
 static struct i2c_driver hscd_driver;
 static struct i2c_client *client_hscd = NULL;
 
 static atomic_t flgEna;
 static atomic_t delay;
+static int      tcs_thr;
+static int      tcs_cnt;
 
 static s8 hscd_orientation[9];
 
@@ -222,6 +226,46 @@ int hscd_self_test_B(void)
 }
 EXPORT_SYMBOL(hscd_self_test_B);
 
+static int hscd_soft_reset(void)
+{
+	int rc;
+	u8 buf[2];
+
+        printk(KERN_INFO "[HSCD] Software Reset\n");
+
+	buf[0] = HSCD_CTRL3;
+	buf[1] = 0x80;
+	rc = hscd_i2c_writem(buf, 2);
+	usleep_range(5000, 5000);
+
+	return rc;
+}
+
+static int hscd_tcs_setup(void)
+{
+	int rc;
+	u8 buf[2];
+
+	buf[0] = HSCD_CTRL3;
+	buf[1] = 0x02;
+	rc = hscd_i2c_writem(buf, 2);
+	usleep_range(1000, 1000);
+	tcs_thr = HSCD_TCS_TIME / atomic_read(&delay);
+	tcs_cnt = 0;
+
+	return rc;
+}
+
+static int hscd_force_setup(void)
+{
+	u8 buf[2];
+
+	buf[0] = HSCD_CTRL3;
+	buf[1] = 0x40;
+
+	return hscd_i2c_writem(buf, 2);
+}
+
 int hscd_get_magnetic_field_data(int *xyz)
 {
         int err = -1;
@@ -250,6 +294,9 @@ int hscd_get_magnetic_field_data(int *xyz)
         MAGDBG("Mag_I2C, x:%d, y:%d, z:%d\n",xyz[0], xyz[1], xyz[2]);
         /*** <end> DEBUG OUTPUT - REMOVE ***/
 
+	if (++tcs_cnt > tcs_thr)
+		hscd_tcs_setup();
+	hscd_force_setup();
 
         return err;
 }
@@ -261,22 +308,31 @@ void hscd_activate(int flgatm, int flg, int dtime)
 
         MAGDBG("[HSCD] hscd_activate : flgatm=%d, flg=%d, dtime=%d\n", flgatm, flg, dtime);
 
-        if (flg != 0) flg = 1;
+	//int Ena = atomic_read(&flgEna);
+	if (flg != 0)
+		flg = 1;
 
-        if (flg) {
-            buf[0] = HSCD_CTRL4;                       // 15 bit signed value
-            buf[1] = 0x90;
-            hscd_i2c_writem(buf, 2);
-        }
-        mdelay(1);
-
-        if      (dtime <=  20) buf[1] = (3<<3);        // 100Hz- 10msec
-        else if (dtime <=  70) buf[1] = (2<<3);        //  20Hz- 50msec
-        else                   buf[1] = (1<<3);        //  10Hz-100msec
-        buf[0]  = HSCD_CTRL1;
-        buf[1] |= (flg<<7);
-        hscd_i2c_writem(buf, 2);
-        mdelay(3);
+	if (flg) {
+		buf[0] = HSCD_CTRL4;		/* 15 bit signed value */
+		buf[1] = 0x90;
+		hscd_i2c_writem(buf, 2);
+		tcs_cnt = tcs_cnt * atomic_read(&delay) / dtime;
+		tcs_thr = HSCD_TCS_TIME / dtime;
+	}
+	if ((!flg) && atomic_read(&flgEna)) {
+		hscd_soft_reset();
+	} else if (!flg) {
+		buf[0] = HSCD_CTRL1;
+		buf[1] = 0x0A;
+		hscd_i2c_writem(buf, 2);
+	} else if ((flg) && !atomic_read(&flgEna)) {
+		buf[0] = HSCD_CTRL1;
+		buf[1] = 0x8A;
+		hscd_i2c_writem(buf, 2);
+		mdelay(1);
+		hscd_tcs_setup();
+		hscd_force_setup();
+	}
 
         if (flgatm) {
             atomic_set(&flgEna, flg);
@@ -288,18 +344,17 @@ EXPORT_SYMBOL(hscd_activate);
 static void hscd_register_init(void)
 {
         int v[3];
-        u8  buf[2];
 
         printk(KERN_INFO "[HSCD] register_init\n");
 
-        buf[0] = HSCD_CTRL3;
-        buf[1] = 0x80;
-        hscd_i2c_writem(buf, 2);
-        mdelay(5);
+	hscd_soft_reset();
 
-        atomic_set(&delay, 100);
-        hscd_activate(0, 1, atomic_read(&delay));
-        hscd_get_magnetic_field_data(v);
+	atomic_set(&delay, 100);
+	tcs_cnt = 0;
+	tcs_thr = HSCD_TCS_TIME / atomic_read(&delay);
+	hscd_activate(0, 1, atomic_read(&delay));
+	mdelay(5);
+	hscd_get_magnetic_field_data(v);
         printk(KERN_INFO "[HSCD] %d %d %d\n", v[0], v[1], v[2]);
         hscd_activate(0, 0, atomic_read(&delay));
 }

@@ -591,13 +591,14 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 					__func__, host->cmd->opcode);
 			host->cmd->error = -ETIMEDOUT;
 		} else if (status & SDHI_INFO_CRCERR) {
-			dev_dbg(&host->pdev->dev, "%s: cmd=%d CRC error\n",
-					__func__, host->cmd->opcode);
+			dev_err(&host->pdev->dev, "%s: cmd=%d st %x ag %x fg %x %x)\n",
+				__func__, host->cmd->opcode, status, host->cmd->arg,
+				host->cmd->flags, sdhi_read16(host, SDHI_CMD));
 			host->cmd->error = -EILSEQ;
 		} else {
-			dev_dbg(&host->pdev->dev,
-					"%s: cmd=%d Other error.(0x%x)\n",
-					__func__, host->cmd->opcode, status);
+			dev_err(&host->pdev->dev, "%s: cmd=%d st %x ag %x fg %x %x)\n",
+				__func__, host->cmd->opcode, status, host->cmd->arg,
+				host->cmd->flags, sdhi_read16(host, SDHI_CMD));
 			host->cmd->error = -EILSEQ;
 		}
 		if (host->data) {
@@ -607,9 +608,9 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 					__func__, host->cmd->opcode);
 				host->data->error = -ETIMEDOUT;
 			} else {
-				dev_dbg(&host->pdev->dev,
-					"%s: cmd=%d Other err.(0x%x)\n",
-					__func__, host->cmd->opcode, status);
+				dev_err(&host->pdev->dev, "%s: cmd=%d st %x ag %x fg %x %x)\n",
+					__func__, host->cmd->opcode, status, host->cmd->arg,
+					host->cmd->flags, sdhi_read16(host, SDHI_CMD));
 				host->data->error = -EILSEQ;
 			}
 		}
