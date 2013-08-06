@@ -39,7 +39,9 @@ ENTRY(memory_log_pm)
 	MRC		p15, 0, r1, c1, c0, 0	/* System Control Register */
 	TST		r1, #0x1
 	LDRNE	r1, =ram0MemlogPmAddressVA
+	LDRNE	r3, =CMCNT0
 	LDREQ	r1, =ram0MemlogPmAddressPAPhys
+	LDREQ	r3, =CMCNT0_PHYS
 	LDR		r1, [r1]
 
 	MRC	p15, 0, r2, c0, c0, 5 /* Read MPIDR, MP affinty register */
@@ -48,8 +50,7 @@ ENTRY(memory_log_pm)
 	ADDNE	r1, r1, #CPU0_PM_SIZE
 
 	/* store time stamp */
-	LDR		r2, =CMCNT0
-	LDR		r2, [r2]
+	LDR		r2, [r3]
 	STR		r2, [r1]
 
 	/* store identifier */
@@ -399,11 +400,10 @@ WAKEUP_EXCEPTLOOP:
 WAKEUP_ENTRY:		/* Entry point for wake up core	*/
 
 	LDR		r0, =PM_PM_ID_ARMVECTOR
-	LDR		r4, =ram0MemoryLogPm
+	LDR		r4, =ram0MemoryLogPmPhys
 	LDR		r4, [r4]
 	MOV		lr, pc /* lr: Return address */
-	MOV		pc, r4 /* Call memory_log_pm */
-	NOP
+	ADD		pc, r4, #ram0BasePhys - ram0Base
 
 	/* Enable the I-Cache and branch prediction */
 	MCR		p15, 0, r0, c7, c5, 0 /* Invalidate I-Cache to PoC */
@@ -509,12 +509,13 @@ ENTRY(corestandby)
 	LDR		r3, [r5, #ICC_HPIR]
 	AND		r3, r3, r6
 	CMP		r3, r6
-	BNE		CORESTANDBY_WAKEUP
+	BNE		CORESTANDBY_RESTORE
 
 	/*-----------------------------------*/
 	/* CPU power down preparation for wakeup code MMU off */
 	/*----------------------------------*/
 	ADR		r5, CORESTANDBY_WAKEUP
+	ADD		r5, r5, #ram0BasePhys - ram0Base
 	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
 	UBFX	r4, r4, #0x0, #0x2 /* Extract the CPUID Field */
 	CMP		r4, #0x0
@@ -524,7 +525,7 @@ ENTRY(corestandby)
 	DSB
 
 	LDR		r0, =COMA_MODE_CORE_STANDBY /* mode */
-	LDR		r1, =WAKEUP_ADDRESS_CORESTANDBY
+	LDR		r1, =ram0ArmVector
 	LDR		r1, [r1]
 	LDR		r2, =0x0
 	LDR		r3, =0x0
@@ -543,35 +544,10 @@ ENTRY(corestandby)
 	LDRNE	r5, =ram0SecHalReturnCpu1
 	STR		r0, [r5] /* Save return value */
 	DSB
+	B		CORESTANDBY_RESTORE
 
 CORESTANDBY_WAKEUP:
 	NOP
-
-#ifdef CONFIG_PM_SMP
-	/* Get PM SpinLock				*/
-	LDR		r4, =ram0PM_Spin_LockPhys
-	LDR		r4, [r4]
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call PM_Spin_Lock() */
-	NOP
-
-	/* Update current cpu status			*/
-	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
-	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
-	CMP		r4, #0x0
-	LDREQ	r5, =ram0Cpu0StatusPhys
-	LDRNE	r5, =ram0Cpu1StatusPhys
-	LDR		r6, =CPUSTATUS_RUN
-	STR		r6, [r5]
-	DSB
-
-	/* Release PM SpinLock				*/
-	LDR		r4, =ram0PM_Spin_UnlockPhys
-	LDR		r4, [r4]
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc,r4 /* Call PM_Spin_UnLock() */
-	NOP
-#endif
 
 	/*------------------------------------------*/
 	/* Restore ARM registers					*/
@@ -588,12 +564,34 @@ CORESTANDBY_WAKEUP:
 
 	LDR		r4, =ram0RestoreArmRegisterPAPhys
 	LDR		r4, [r4]
-	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call restore_arm_register_pa() */
-	NOP
 
 CORESTANDBY_RESTORE:
+
+#ifdef CONFIG_PM_SMP
+	/* Get PM SpinLock				*/
+	LDR		r4, =ram0PM_Spin_Lock
+	LDR		r4, [r4]
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc,r4 /* Call PM_Spin_Lock() */
+
+	/* Update current cpu status			*/
+	MRC	p15, 0, r4, c0, c0, 5 /* Read MPIDR, MP affinty register */
+	UBFX	r4, r4, #0, #2 /* Extract the CPUID Field */
+	CMP		r4, #0x0
+	LDREQ	r5, =ram0Cpu0Status
+	LDRNE	r5, =ram0Cpu1Status
+	LDR		r6, =CPUSTATUS_RUN
+	STR		r6, [r5]
+	DSB
+
+	/* Release PM SpinLock				*/
+	LDR		r4, =ram0PM_Spin_Unlock
+	LDR		r4, [r4]
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc,r4 /* Call PM_Spin_UnLock() */
 	NOP
+#endif
 
 	/*-----------------------------------*/
 	/* Restore ARM registers 			*/
@@ -666,7 +664,6 @@ CPU0_SYSTEMSUSPEND:
 	LDR		r4, [r4]
 	MOV		lr, pc
 	MOV		pc, r4	/* Call save_arm_common_register()	*/
-	NOP
 
 	/*--------------------------------------*/
 	/* Save ARM registers					*/
@@ -677,7 +674,6 @@ CPU0_SYSTEMSUSPEND:
 	LDR		r4, [r4]
 	MOV		lr, pc
 	MOV		pc, r4	/* Call save_arm_register()	*/
-	NOP
 
 	ADR		r4, SYSTEMSUSPEND_RESTORE_CPU0
 	LDR		r0, =ram0SystemSuspendRestoreCPU0
@@ -688,9 +684,10 @@ CPU0_SYSTEMSUSPEND:
 	/*------------------*/
 	LDR		r4, =ram0SysPowerDown
 	LDR		r4, [r4]
+	/* NB sys_powerdown returns to LR with MMU off if successful, or */
+	/* to ram0SystemSuspendRestoreCPU0 with MMU on if unsuccessful */
 	MOV		lr, pc
 	MOV		pc, r4		/* Call sys_powerdown	*/
-	NOP
 
 	/*------------------*/
 	/* Sys power up		*/
@@ -699,7 +696,6 @@ CPU0_SYSTEMSUSPEND:
 	LDR		r4, [r4]
 	MOV		lr, pc
 	MOV		pc, r4		/* Call sys_powerup		*/
-	NOP
 
 	/*--------------------------------------------------------------*/
 	/* Restore ARM registers */
@@ -711,12 +707,9 @@ CPU0_SYSTEMSUSPEND:
 	LDR		r0, =ram0MmuSetting0Phys
 	LDR		r4, =ram0RestoreArmRegisterPAPhys
 	LDR		r4, [r4]
-	MOV		lr, pc	/* lr: Return address */
 	MOV		pc, r4	/* Call restore_arm_register_pa()	*/
-	NOP
 
 SYSTEMSUSPEND_RESTORE_CPU0:
-	NOP
 	/* Deal with error case
 	 * SEC_HAL_RES_FAIL (0x10)
 	 */
@@ -811,7 +804,7 @@ CPU1_SYSTEMSUSPEND:
 	CMP		r5, #0x1
 	LDREQ	r0, =COMA_MODE_SUSPEND
 	LDRNE	r0, =COMA_MODE_HOTPLUG
-	LDR		r1, =WAKEUP_ADDRESS_HOTPLUG
+	LDR		r1, =ram0ArmVector
 	LDR		r1, [r1]
 	LDR 	r2, =0x0
 	LDR 	r3, =0x0
@@ -820,38 +813,20 @@ CPU1_SYSTEMSUSPEND:
 	LDR		r4, [r5]
 
 	ADR		r5, SECURE_SUSPEND_WAKEUP_CPU1
-	LDR		r7, =ram0WakeupCodeAddr1Phys
+	ADD		r5, r5, #ram0BasePhys - ram0Base
+	LDR		r7, =ram0WakeupCodeAddr1
 	STR 	r5, [r7]
+	MOV		lr, pc
 	MOV		pc, r4		/* CPU1 down */
-	NOP
 
 	/* Deal with error case
 	 * SEC_HAL_RES_FAIL (0x10)
 	 */
 	LDR		r9, =ram0SecHalReturnCpu1
 	STR		r0, [r9]
+	B		SYSTEMSUSPEND_RESTORE_CPU1
 
 SECURE_SUSPEND_WAKEUP_CPU1:
-
-	/* Get PM SpinLock				*/
-	LDR		r4, =ram0PM_Spin_LockPhys
-	LDR		r4, [r4]
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc, r4 /* Call PM_Spin_Lock() */
-	NOP
-
-	/* Update current cpu status			*/
-	LDR		r5, =ram0Cpu1StatusPhys
-	LDR		r6, =CPUSTATUS_RUN
-	STR		r6, [r5]
-	DSB
-
-/* Release PM SpinLock				*/
-	LDR		r4, =ram0PM_Spin_UnlockPhys
-	LDR		r4, [r4]
-	MOV		lr, pc /* lr: Return address */
-	MOV		pc, r4 /* Call PM_Spin_UnLock() */
-	NOP
 
 	/*--------------------------------------------------------------*/
 	/* Restore ARM registers (enable MMU) */
@@ -863,12 +838,27 @@ SECURE_SUSPEND_WAKEUP_CPU1:
 	LDR		r0, =ram0MmuSetting1Phys
 	LDR		r4, =ram0RestoreArmRegisterPAPhys
 	LDR		r4, [r4]
-	MOV		lr, pc
 	MOV		pc, r4	/* Call restore_arm_register_pa()	*/
-	NOP
 
 SYSTEMSUSPEND_RESTORE_CPU1:
-	NOP
+
+	/* Get PM SpinLock				*/
+	LDR		r4, =ram0PM_Spin_Lock
+	LDR		r4, [r4]
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call PM_Spin_Lock() */
+
+	/* Update current cpu status			*/
+	LDR		r5, =ram0Cpu1Status
+	LDR		r6, =CPUSTATUS_RUN
+	STR		r6, [r5]
+	DSB
+
+/* Release PM SpinLock				*/
+	LDR		r4, =ram0PM_Spin_Unlock
+	LDR		r4, [r4]
+	MOV		lr, pc /* lr: Return address */
+	MOV		pc, r4 /* Call PM_Spin_UnLock() */
 
 	/*------------------------------------------*/
 	/* Restore ARM registers */
@@ -1042,6 +1032,8 @@ ENTRY(restore_arm_register_pa)
 	/*----------------------------------------------*/
 	/* System(MMU) */
 	/*----------------------------------------------*/
+	LDR	lr, =ram0MmuTablePhys
+	LDR	lr, [lr]
 	LDMIA	r0!, {r3-r10}
 	MCR		p15, 0, r9, c13, c0, 1 /* Context ID Register */
 	ISB
@@ -1049,7 +1041,8 @@ ENTRY(restore_arm_register_pa)
 	/* Translation Table Base Control Register */
 	MCR	p15, 0, r7, c2, c0, 2
 	MCR	p15, 0, r6, c2, c0, 1 /* Translation Table Base 1 Register */
-	MCR	p15, 0, r5, c2, c0, 0 /* Translation Table Base 0 Register */
+	BFI	lr, r5, #0, #7		/* Copy flags from normal TTBR0 */
+	MCR	p15, 0, lr, c2, c0, 0	/* Translation Table Base 0 (idmap) */
 	MCR	p15, 0, r4, c10, c2, 1 /* Normal Memory Remap Register */
 	MCR	p15, 0, r3, c10, c2, 0 /* Primary Region Remap Register */
 	DSB
@@ -1063,6 +1056,19 @@ ENTRY(restore_arm_register_pa)
     ISB
     MCR     p15,0,r0,c8,c7,0        /* invalidate all TLB entries on this cpu */
     ISB
+
+	/* Jump to from physical identity mapping to normal virtual address */
+	ADD	pc, pc, #ram0Base - ram0BasePhys
+	NOP
+
+	/* Switch back to standard MMU table */
+	ISB
+	MCR	p15, 0, r5, c2, c0, 0	/* Translation Table Base 0 Register */
+	ISB
+	MCR	p15, 0, r0, c7, c5, 6	/* invalidate branch predictor */
+	MCR	p15, 0, r0, c8, c7,0	/* invalidate whole TLB on this cpu */
+	DSB
+	ISB
 
 	/* Enable D-Cache */
 	MCR	p15, 0, r10, c1, c0, 0
@@ -1275,31 +1281,32 @@ ENTRY(sys_powerdown)
 	/* Save wakeup code address		*/
 	/*------------------------------*/
 	LDR		r4, =ram0WakeupCodeAddr0
+	ADD		lr, lr, #ram0BasePhys - ram0Base
 	STR		lr, [r4]	/* Save wakeup code address	*/
 
 #ifdef CONFIG_SHMOBILE_PASR_SUPPORT
 /* PASR Setting */
 	/* PASR setting for DRAM area 0*/
-	LDR	r4, =ram0DramPasrSettingArea0Phys
+	LDR	r4, =ram0DramPasrSettingArea0
 	LDR	r5, [r4]	/* r5 = PASR setting area 0*/
 	CMP	r5, #0x0	/* if there is no self block bit then*/
 	BEQ	SKIP_PASR_DRAM_AREA0	/* skip*/
-	LDR	r6, =SDMRACR0A
+	LDR	r6, =SDMRACR0A 		/* XXX physical address! */
 	LDR	r7, [r6]				/* r7 = SDMRACR0A*/
 	LDR	r8, =OPMA_MASK
 	AND	r9, r7, r8		/* r9 = SDMRACR0A.OP[15:8], MA[7:0]*/
-	LDR	r4, =ram0SaveSdmracr0aPhys
+	LDR	r4, =ram0SaveSdmracr0a
 	STR	r9, [r4]		/* Save SDMRACR0A.OP[15:8], MA[7:0]*/
 	BIC	r7, r7, r8		/* Clear SDMRACR0A.OP[15:8], MA[7:0]*/
 	ORR	r7, r7, r5		/* Set SDMRACR0A.OP[15:8], MA[7:0]*/
 	STR	r7, [r6]		/* Write SDMRACR0A*/
-	LDR	r4, =SdramMrwCmd0Phys /* Load address of MRW area 0*/
+	LDR	r4, =SdramMrwCmd0	/* Load address of MRW area 0*/
 	MOV	r6, #0x0
 	STR	r6, [r4]		/* MRW(PASR) for area 0*/
 SKIP_PASR_DRAM_AREA0:
 
 	/* PASR setting for DRAM area 1*/
-	LDR	r4, =ram0DramPasrSettingArea1Phys
+	LDR	r4, =ram0DramPasrSettingArea1
 	LDR	r5, [r4]		/* r5 = PASR setting area 1*/
 	CMP	r5, #0x0		/* if there is no self block bit then*/
 	BEQ	SKIP_PASR_DRAM_AREA1	/* skip*/
@@ -1307,12 +1314,12 @@ SKIP_PASR_DRAM_AREA0:
 	LDR	r7, [r6]		/* r7 = SDMRACR1A*/
 	LDR	r8, =OPMA_MASK
 	AND	r9, r7, r8		/* r9 = SDMRACR1A.OP[15:8], MA[7:0]*/
-	LDR	r4, =ram0SaveSdmracr1aPhys
+	LDR	r4, =ram0SaveSdmracr1a
 	STR	r9, [r4]		/* Save SDMRACR1A.OP[15:8], MA[7:0]*/
 	BIC	r7, r7, r8		/* Clear SDMRACR1A.OP[15:8], MA[7:0]*/
 	ORR	r7, r7, r5		/* Set SDMRACR1A.OP[15:8], MA[7:0]*/
 	STR	r7, [r6]		/* Write SDMRACR1A*/
-	LDR	r4, =SdramMrwCmd1Phys /* Load address of MRW area 1*/
+	LDR	r4, =SdramMrwCmd1	/* Load address of MRW area 1*/
 	MOV	r6, #0x0
 	STR	r6, [r4]		/* MRW(PASR) for area 1*/
 SKIP_PASR_DRAM_AREA1:
@@ -1404,7 +1411,7 @@ SKIP_TURN_OFF_RWDT:
 	/* Call sec_hal_pm_coma_entry				*/
 	/*------------------------------------------*/
 	LDR		r0, =COMA_MODE_SUSPEND
-	LDR		r1, =WAKEUP_ADDRESS_SYSTEMSUSPEND
+	LDR		r1, =ram0ArmVector
 	LDR		r1, [r1]
 	LDR 	r2, =0x0
 	LDR 	r3, =0x0
@@ -1503,13 +1510,13 @@ ENTRY(sys_powerup)
 	STR		r5, [r6]
 
 	/* Read	C4 Area Power Control Register2 (PDNSEL)*/
-	LDR 	r4, =PDNSEL
+	LDR 	r4, =PDNSELPhys
 	LDR		r5, [r4]
 	LDR		r6, =ram0SavePDNSELPhys_resume
 	STR		r5, [r6]
 
 	/* Read	Power Status Register (PSTR)*/
-	LDR 	r4, =SYSC_PSTR
+	LDR 	r4, =SYSC_PSTR_PHYS
 	LDR		r5, [r4]
 	LDR		r6, =ram0SavePSTRPhys_resume
 	STR		r5, [r6]
@@ -1753,18 +1760,19 @@ ENTRY(corestandby_2)
 	LDR		r3, [r5, #ICC_HPIR]
 	AND		r3, r3, r6
 	CMP		r3, r6
-	BNE		CORESTANDBY2_WAKEUP
+	BNE		CORESTANDBY2_RESTORE
 
 	/*-----------------------------------*/
 	/* CPU power down preparation for wakeup code MMU off */
 	/*----------------------------------*/
 	ADR		r5, CORESTANDBY2_WAKEUP
+	ADD		r5, r5, #ram0BasePhys - ram0Base
 	LDR	r6, =ram0WakeupCodeAddr0
 	STR		r5, [r6] /* Set the CPU wakeup code address	*/
 	DSB
 
 	LDR		r0, =COMA_MODE_CORE_STANDBY_2 /* mode */
-	LDR		r1, =WAKEUP_ADDRESS_CORESTANDBY
+	LDR		r1, =ram0ArmVector
 	LDR		r1, [r1]
 	LDR		r2, =0x0
 	LDR		r3, =0x0
@@ -1779,17 +1787,10 @@ ENTRY(corestandby_2)
 	LDR	r5, =ram0SecHalReturnCpu0
 	STR		r0, [r5] /* Save return value */
 	DSB
+	B		CORESTANDBY2_RESTORE
 
 CORESTANDBY2_WAKEUP:
 	NOP
-
-#ifdef CONFIG_PM_SMP
-	/* Update current cpu status			*/
-	LDR	r5, =ram0Cpu0StatusPhys
-	LDR		r6, =CPUSTATUS_RUN
-	STR		r6, [r5]
-	DSB
-#endif
 
 	/*------------------------------------------*/
 	/* Restore ARM registers					*/
@@ -1801,12 +1802,17 @@ CORESTANDBY2_WAKEUP:
 
 	LDR		r4, =ram0RestoreArmRegisterPAPhys
 	LDR		r4, [r4]
-	MOV		lr, pc /* lr: Return address */
 	MOV		pc,r4 /* Call restore_arm_register_pa() */
-	NOP
 
 CORESTANDBY2_RESTORE:
-	NOP
+
+#ifdef CONFIG_PM_SMP
+	/* Update current cpu status			*/
+	LDR		r5, =ram0Cpu0Status
+	LDR		r6, =CPUSTATUS_RUN
+	STR		r6, [r5]
+	DSB
+#endif
 
 	/*-----------------------------------*/
 	/* Restore ARM registers 			*/
@@ -1844,7 +1850,8 @@ ENTRY(copy_functions)
 
 	LDR		r4, =ram0StartAddressOfFunctionArea
 	LDR		r1, =ram0ArmVector
-	STR		r4, [r1]
+	ADD		r0, r4, #ram0BasePhys - ram0Base /* store PA, not VA */
+	STR		r0, [r1]
 	MOV		r0, r4
 	LDR		r1, =ArmVector
 	LDR		r5, =ARM_VECTOR_END
@@ -1894,7 +1901,8 @@ ENTRY(copy_functions)
 
 	ADD		r4, r4, r5
 	LDR		r1, =ram0RestoreArmRegisterPA
-	STR		r4, [r1]
+	ADD		r0, r4, #ram0BasePhys - ram0Base /* store PA, not VA */
+	STR		r0, [r1]
 	MOV		r0, r4
 	LDR		r1, =restore_arm_register_pa
 	LDR		r5, =RESTORE_ARM_REGISTER_PA_END
@@ -1964,7 +1972,8 @@ ENTRY(copy_functions)
 
 	ADD		r4, r4, r5
 	LDR		r1, =ram0SysPowerUp
-	STR		r4, [r1]
+	ADD		r0, r4, #ram0BasePhys - ram0Base /* store PA, not VA */
+	STR		r0, [r1]
 	MOV		r0, r4
 	LDR		r1, =sys_powerup
 	LDR		r5, =SYS_POWERUP_END

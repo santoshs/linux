@@ -146,9 +146,11 @@
 #define	ram0FRQCRBDown			\
 (ram0FRQCRADown + 0x4)
 
+#define ram0MmuTable	\
+(ram0FRQCRBDown + 0x4)
 /* Watchdog status in suspend */
 #define ram0RwdtStatus	\
-(ram0FRQCRBDown + 0x4)
+(ram0MmuTable + 0x4)
 #define	ram0SaveEXMSKCNT1_suspend 	\
 (ram0RwdtStatus + 0x4)
 #define ram0SaveAPSCSTP_suspend		\
@@ -317,9 +319,11 @@
 #define	ram0FRQCRBDownPhys			\
 (ram0FRQCRADownPhys + 0x4)
 
+#define ram0MmuTablePhys	\
+(ram0FRQCRBDownPhys + 0x4)
 /* Watchdog status in suspend */
 #define ram0RwdtStatusPhys	\
-(ram0FRQCRBDownPhys + 0x4)
+(ram0MmuTablePhys + 0x4)
 #define ram0SaveEXMSKCNT1Phys_suspend	\
 (ram0RwdtStatusPhys + 0x4)
 #define ram0SaveAPSCSTPPhys_suspend		\

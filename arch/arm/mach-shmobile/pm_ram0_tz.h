@@ -132,6 +132,7 @@
 (ram0ZClockFlag + 0x4)
 #define ram0CPU0SpinLock					\
 (ram0ES_2_2_AndAfter + 0x4)
+
 #define ram0CPU1SpinLock					\
 (ram0CPU0SpinLock + 0x4)
 #define	ram0DramPasrSettingArea0			\
@@ -199,10 +200,11 @@
 #define ram0SBSC_SDWCRC2AIOremap	\
 (ram0SBSC_SDWCR11AIOremap + 0x4)
 
-
+#define ram0MmuTable	\
+(ram0SBSC_SDWCRC2AIOremap + 0x4)
 /* Watchdog status in suspend */
 #define	ram0RwdtStatus	\
-(ram0SBSC_SDWCRC2AIOremap + 0x4)
+(ram0MmuTable + 0x4)
 #define	ram0SaveEXMSKCNT1_suspend	\
 (ram0RwdtStatus + 0x4)
 #define	ram0SaveAPSCSTP_suspend		\
@@ -321,7 +323,6 @@
 #define ram0ZClockFlagPhys						\
 (ram0SecHalReturnCpu1Phys						+ 0x4)
 
-
 /* Errata(ECR0285) */
 #define ram0ES_2_2_AndAfterPhys				\
 (ram0ZClockFlagPhys + 0x4)
@@ -395,11 +396,13 @@
 #define ram0SBSC_SDWCRC2AIOremapPhys	\
 (ram0SBSC_SDWCR11AIOremapPhys + 0x4)
 
-#define ram0RwdtStatusPhys	\
+#define ram0MmuTablePhys	\
 (ram0SBSC_SDWCRC2AIOremapPhys + 0x4)
+
+#define ram0RwdtStatusPhys	\
+(ram0MmuTablePhys + 0x4)
 #define	ram0SaveEXMSKCNT1Phys_suspend	\
 (ram0RwdtStatusPhys + 0x4)
-
 #define	ram0SaveAPSCSTPPhys_suspend	\
 (ram0SaveEXMSKCNT1Phys_suspend + 0x4)
 #define	ram0SaveSYCKENMSKPhys_suspend	\
@@ -438,7 +441,7 @@
 (ram0ArmVectorPhys + 0x4)
 /* Address of Core Standby2 function */
 #define	ram0CoreStandby_2Phys				\
-(ram0CoreStandby + 0x4)
+(ram0CoreStandbyPhys + 0x4)
 /* Address of System Suspend function */
 #define	ram0SystemSuspendPhys				\
 (ram0CoreStandby_2Phys + 0x4)
@@ -465,16 +468,13 @@
 (ram0PM_Spin_LockPhys + 0x4)
 /* Address of System power down function */
 #define	ram0SysPowerDownPhys				\
-(ram0PM_Spin_Unlock + 0x4)
+(ram0PM_Spin_UnlockPhys + 0x4)
 /* Address of System power up function */
 #define	ram0SysPowerUpPhys					\
 (ram0SysPowerDownPhys + 0x4)
-/* Address of Set clock function */
-#define	ram0SetClockSystemSuspendPhys		\
-(ram0SysPowerUpPhys + 0x4)
 /* Address of memory log pm function */
 #define	 ram0MemoryLogPmPhys				\
-(ram0SetClockSystemSuspendPhys + 0x4)
+(ram0SysPowerUpPhys + 0x4)
 
 /*------------------------------------------------*/
 /* Offset of CPU register buckup area */
@@ -542,17 +542,6 @@ ZG_CLK_CHANGED | ZTR_CLK_CHANGED | ZT_CLK_CHANGED | ZX_CLK_CHANGED | \
 ZS_CLK_CHANGED | HP_CLK_CHANGED | I_CLK_CHANGED | B_CLK_CHANGED | \
 M1_CLK_CHANGED | M3_CLK_CHANGED | M5_CLK_CHANGED | ZB3_CLK_CHANGED)
 /*#define SUSPEND_CLK_CHANGED					0x03FFB */
-
-/* wake-up address */
-#define WAKEUP_ADDRESS					ram0ArmVectorPhys
-#define WAKEUP_ADDRESS_DUMMY			0x00000000
-#define WAKEUP_ADDRESS_CORESTANDBY		ram0ArmVector
-#define WAKEUP_ADDRESS_HOTPLUG			ram0ArmVector
-#define WAKEUP_ADDRESS_SYSTEMSUSPEND	ram0ArmVector
-
-/* Context save address */
-#define CONTEXT_SAVE_ADDRESS		0x00000000
-#define CONTEXT_SAVE_ADDRESS_DUMMY	0x00000000
 
 /* Return value */
 #define SEC_HAL_RES_OK				0x00000000

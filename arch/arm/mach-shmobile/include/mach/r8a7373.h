@@ -1532,8 +1532,9 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /*
  * Inter connect RAM0
  */
-#define RAM0_BASE_PHYS	0xE63A2000
+#define RAM0_BASE_PHYS		0xE63A2000
 #define RAM0_BASE		IO_ADDRESS(RAM0_BASE_PHYS)
+#define RAM0_SIZE		0x12000
 
 /********************************************/
 /* Bus State Controller for SDRAM (SBSC) */

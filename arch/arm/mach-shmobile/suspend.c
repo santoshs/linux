@@ -1165,42 +1165,42 @@ static void shmobile_suspend_wake(void)
 		pr_debug(PMDBG_PRFX "EXTAL1: Log information\n");
 		pr_debug(PMDBG_PRFX "---[Before suspend]---\n");
 
-		reg_val = pm_readl(ram0SaveEXMSKCNT1Phys_suspend);
+		reg_val = pm_readl(ram0SaveEXMSKCNT1_suspend);
 		pr_debug(PMDBG_PRFX "EXMSKCNT1: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveAPSCSTPPhys_suspend);
+		reg_val = pm_readl(ram0SaveAPSCSTP_suspend);
 		pr_debug(PMDBG_PRFX "APSCSTP: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveSYCKENMSKPhys_suspend);
+		reg_val = pm_readl(ram0SaveSYCKENMSK_suspend);
 		pr_debug(PMDBG_PRFX "SYCKENMSK: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveC4POWCRPhys_suspend);
+		reg_val = pm_readl(ram0SaveC4POWCR_suspend);
 		pr_debug(PMDBG_PRFX "C4POWCR: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SavePDNSELPhys_suspend);
+		reg_val = pm_readl(ram0SavePDNSEL_suspend);
 		pr_debug(PMDBG_PRFX "PDNSEL: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SavePSTRPhys_suspend);
+		reg_val = pm_readl(ram0SavePSTR_suspend);
 		pr_debug(PMDBG_PRFX "PSTR: 0x%08x\n", reg_val);
 
 		pr_debug(PMDBG_PRFX "---[After suspend]---\n");
 
-		reg_val = pm_readl(ram0SaveEXMSKCNT1Phys_resume);
+		reg_val = pm_readl(ram0SaveEXMSKCNT1_resume);
 		pr_debug(PMDBG_PRFX "EXMSKCNT1: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveAPSCSTPPhys_resume);
+		reg_val = pm_readl(ram0SaveAPSCSTP_resume);
 		pr_debug(PMDBG_PRFX "APSCSTP: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveSYCKENMSKPhys_resume);
+		reg_val = pm_readl(ram0SaveSYCKENMSK_resume);
 		pr_debug(PMDBG_PRFX "SYCKENMSK: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveC4POWCRPhys_resume);
+		reg_val = pm_readl(ram0SaveC4POWCR_resume);
 		pr_debug(PMDBG_PRFX "C4POWCR: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SavePDNSELPhys_resume);
+		reg_val = pm_readl(ram0SavePDNSEL_resume);
 		pr_debug(PMDBG_PRFX "PDNSEL: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SavePSTRPhys_resume);
+		reg_val = pm_readl(ram0SavePSTR_resume);
 		pr_debug(PMDBG_PRFX "PSTR: 0x%08x\n", reg_val);
 
 		xtal1_log_out = 0;

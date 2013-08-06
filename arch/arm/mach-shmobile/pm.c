@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/cpuidle.h>
 #include <asm/proc-fns.h>
+#include <asm/idmap.h>
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <mach/system.h>
@@ -279,6 +280,9 @@ int shmobile_init_pm(void)
 	/* Initialize internal setting */
 	__raw_writel((unsigned long)CPUSTATUS_RUN, IOMEM(ram0Cpu0Status));
 	__raw_writel((unsigned long)CPUSTATUS_RUN, IOMEM(ram0Cpu1Status));
+
+	/* Identity MMU table */
+	__raw_writel((unsigned long)virt_to_phys(idmap_pgd), IOMEM(ram0MmuTable));
 
 #ifdef CONFIG_MEMLOG
 	/* Initialize memlog pm setting (ioremap 2k)*/
