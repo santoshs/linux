@@ -606,9 +606,9 @@ static void sec_debug_set_upload_cause(enum sec_debug_upload_cause_t type)
 	per_cpu(sec_debug_upload_cause, smp_processor_id()) = type;
 
 	/* to check VDD_ALIVE / XnRESET issue */
-	__raw_writel(type, S5P_INFORM3);
-	__raw_writel(type, S5P_INFORM4);
-	__raw_writel(type, S5P_INFORM6);
+	__raw_writel(type, IOMEM(S5P_INFORM3));
+	__raw_writel(type, IOMEM(S5P_INFORM4));
+	__raw_writel(type, IOMEM(S5P_INFORM6));
 
 	pr_emerg("(%s) %x\n", __func__, type);
 }
@@ -641,7 +641,7 @@ static inline void sec_debug_hw_reset(void)
 
 	outer_flush_all();
 
-	arch_reset(0, 0);
+	arch_reset(0, NULL);
 
 	while (1) {
 		pr_err("should not be happend\n");
@@ -1629,7 +1629,7 @@ static __init int sec_debug_cp_crash_reason_init(void)
 {
 
 	sec_cp_crash_reason_inform.virt = ioremap_nocache(sec_cp_crash_reason_inform.phys, sec_cp_crash_reason_inform.size);
-	printk(KERN_INFO"%s VIRT[0x%08x] PHYS[0x%08x]",__func__,(u32)sec_cp_crash_reason_inform.virt,(u32)sec_cp_crash_reason_inform.phys);
+	printk(KERN_INFO"%s VIRT[0x%p] PHYS[0x%08x]",__func__,sec_cp_crash_reason_inform.virt,(u32)sec_cp_crash_reason_inform.phys);
 
 	sec_cp_crash_proc = create_proc_entry("sec_cp_crash",S_IFREG|S_IRUGO,NULL);
 	if(!sec_cp_crash_proc)

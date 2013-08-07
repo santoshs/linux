@@ -13,7 +13,8 @@
  * ioremap. Note also that since Linux 3.3, ioremap will return pointers to the
  * fixed mappings where possible.
  */
-#define IO_ADDRESS(x)		(((x) | 0x1C000000) ^ 0x02000000)
+#define __IO_ADDRESS(x)		(((x) | 0x1C000000) ^ 0x02000000)
+#define IO_ADDRESS(x)		IOMEM(__IO_ADDRESS(x))
 
 /* for STBCHR2 */
 #define APE_RESETLOG_PANIC_START         (0x01)

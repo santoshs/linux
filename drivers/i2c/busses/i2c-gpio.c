@@ -30,9 +30,9 @@ struct i2c_gpio_private_data {
 #include <linux/io.h>
 
 struct i2c_gpio_port2addr_tbl {
-	unsigned int PORTnCtrlRegAddr;		// ControlRegiterAddress
-	unsigned int PORTnDataRegAddr;		// DataRegisterAddress
-	unsigned int PORTnDataClearRegAddr;	// DataClearRegisterAddress
+	void __iomem *PORTnCtrlRegAddr;		// ControlRegiterAddress
+	void __iomem *PORTnDataRegAddr;		// DataRegisterAddress
+	void __iomem *PORTnDataClearRegAddr;	// DataClearRegisterAddress
 };
 
 #define GPIO_BASE_ADDR		GPIO_BASE							// BaseAddress for GPIO

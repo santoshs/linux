@@ -42,6 +42,7 @@
 
 /* code area */
 #define RAM0_VECTOR_ADDR	(RAM0_BASE + 0x00)
+#define RAM0_VECTOR_ADDR_PHYS	(RAM0_BASE_PHYS + 0x00)
 
 /* save area */
 #define RAM0_SAVE_BASE		(RAM0_BASE + RAM0_SAVE_OFFSET)

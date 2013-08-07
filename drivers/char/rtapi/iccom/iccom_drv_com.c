@@ -377,7 +377,7 @@ static void iccom_log_request(void *user_data, int result, int func_id,
 
 	switch (func_id) {
 	case EVENT_DEBUG_STARTOUTPUTLOG:
-		if ((0 < length) && (0 != addr)) {
+		if ((0 < length) && (NULL != addr)) {
 			printk(KERN_ALERT "[RTDomain]%s", addr);
 		}
 		break;
@@ -418,7 +418,7 @@ void iccom_log_start(void)
 	iccom_send_cmd.function_id = EVENT_DEBUG_STARTOUTPUTLOG;
 	iccom_send_cmd.send_mode   = ICCOM_DRV_ASYNC;
 	iccom_send_cmd.send_size   = 0;
-	iccom_send_cmd.send_data   = 0;
+	iccom_send_cmd.send_data   = NULL;
 	iccom_send_cmd.recv_size   = 0;
 	iccom_send_cmd.recv_data   = NULL;
 

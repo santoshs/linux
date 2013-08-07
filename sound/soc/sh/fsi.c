@@ -181,7 +181,7 @@ struct fsi_priv {
 	struct fsi_stream playback;
 	struct fsi_stream capture;
 #ifdef USE_DMA
-	void __iomem *phys_base;
+	phys_addr_t phys_base;
 	unsigned int out_dma;
 	unsigned int in_dma;
 #endif
@@ -281,7 +281,7 @@ EXPORT_SYMBOL(fsi_set_slave);
 
 
 ************************************************************************/
-static void __fsi_reg_write(u32 reg, u32 data)
+static void __fsi_reg_write(void __iomem *reg, u32 data)
 {
 	/* valid data area is 24bit */
 	data &= 0x00ffffff;
@@ -289,12 +289,12 @@ static void __fsi_reg_write(u32 reg, u32 data)
 	__raw_writel(data, reg);
 }
 
-static u32 __fsi_reg_read(u32 reg)
+static u32 __fsi_reg_read(void __iomem *reg)
 {
 	return __raw_readl(reg);
 }
 
-static void __fsi_reg_mask_set(u32 reg, u32 mask, u32 data)
+static void __fsi_reg_mask_set(void __iomem *reg, u32 mask, u32 data)
 {
 	/* valid data area is 24bit */
 	u32 clear = (mask & 0x00ffffff) | 0xff000000;
@@ -308,7 +308,7 @@ static void fsi_reg_write(struct fsi_priv *fsi, u32 reg, u32 data)
 	if (reg > REG_END)
 		return;
 
-	__fsi_reg_write((u32)(fsi->base + reg), data);
+	__fsi_reg_write(fsi->base + reg, data);
 }
 
 #ifndef USE_DMA
@@ -317,7 +317,7 @@ static u32 fsi_reg_read(struct fsi_priv *fsi, u32 reg)
 	if (reg > REG_END)
 		return 0;
 
-	return __fsi_reg_read((u32)(fsi->base + reg));
+	return __fsi_reg_read(fsi->base + reg);
 }
 #endif
 
@@ -326,7 +326,7 @@ static void fsi_reg_mask_set(struct fsi_priv *fsi, u32 reg, u32 mask, u32 data)
 	if (reg > REG_END)
 		return;
 
-	__fsi_reg_mask_set((u32)(fsi->base + reg), mask, data);
+	__fsi_reg_mask_set(fsi->base + reg, mask, data);
 }
 
 static void fsi_master_write(struct fsi_master *master, u32 reg, u32 data)
@@ -338,7 +338,7 @@ static void fsi_master_write(struct fsi_master *master, u32 reg, u32 data)
 		return;
 
 	spin_lock_irqsave(&master->lock, flags);
-	__fsi_reg_write((u32)(master->base + reg), data);
+	__fsi_reg_write(master->base + reg, data);
 	spin_unlock_irqrestore(&master->lock, flags);
 }
 
@@ -352,7 +352,7 @@ static u32 fsi_master_read(struct fsi_master *master, u32 reg)
 		return 0;
 
 	spin_lock_irqsave(&master->lock, flags);
-	ret = __fsi_reg_read((u32)(master->base + reg));
+	ret = __fsi_reg_read(master->base + reg);
 	spin_unlock_irqrestore(&master->lock, flags);
 
 	return ret;
@@ -368,7 +368,7 @@ static void fsi_master_mask_set(struct fsi_master *master,
 		return;
 
 	spin_lock_irqsave(&master->lock, flags);
-	__fsi_reg_mask_set((u32)(master->base + reg), mask, data);
+	__fsi_reg_mask_set(master->base + reg, mask, data);
 	spin_unlock_irqrestore(&master->lock, flags);
 }
 
@@ -2037,8 +2037,8 @@ static int fsi_probe(struct platform_device *pdev)
 	master->fsib.master	= master;
 	master->regs		= (struct fsi_regs *)id_entry->driver_data;
 #ifdef USE_DMA
-	master->fsia.phys_base	= (void *)res->start;
-	master->fsib.phys_base	= (void *)res->start + 0x40;
+	master->fsia.phys_base	= res->start;
+	master->fsib.phys_base	= res->start + 0x40;
 #endif
 	spin_lock_init(&master->lock);
 

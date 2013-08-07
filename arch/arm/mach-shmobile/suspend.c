@@ -46,12 +46,12 @@
 #endif /* CONFIG_SHMOBILE_RAM_DEFRAG */
 #include <memlog/memlog.h>
 
-#define pm_writeb(v, a)			__raw_writeb(v, (void *__iomem)a)
-#define pm_writew(v, a)			__raw_writew(v, (void *__iomem)a)
-#define pm_writel(v, a)			__raw_writel(v, (void *__iomem)a)
-#define pm_readb(a)				__raw_readb((void *__iomem)a)
-#define pm_readw(a)				__raw_readw((void *__iomem)a)
-#define pm_readl(a)				__raw_readl((void *__iomem)a)
+#define pm_writeb(v, a)			__raw_writeb(v, a)
+#define pm_writew(v, a)			__raw_writew(v, a)
+#define pm_writel(v, a)			__raw_writel(v, a)
+#define pm_readb(a)				__raw_readb(a)
+#define pm_readw(a)				__raw_readw(a)
+#define pm_readl(a)				__raw_readl(a)
 #define DO_SAVE_REGS(array)		do_save_regs(array, ARRAY_SIZE(array))
 #define DO_RESTORE_REGS(array)	do_restore_regs(array, ARRAY_SIZE(array))
 
@@ -125,11 +125,11 @@ static DEFINE_SPINLOCK(systemsuspend_lock);
 struct base_map {
 	unsigned long phys;	/* phys base  */
 	int size;			/* remap size */
-	unsigned long base;	/* virt base  */
+	void __iomem *base;	/* virt base  */
 };
 
 struct reg_info {
-	unsigned long *vbase;
+	void __iomem **vbase;
 	unsigned long offset;
 	int size;
 	int esrev;
@@ -168,12 +168,10 @@ static struct base_map map[] = {
 	[HSGPR] = {
 		.phys = HSGPR_BASE_PHYS,
 		.size = SZ_4K,
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SYSGPR] = {
 		.phys = SYSGPR_BASE_PHYS,
 		.size = SZ_4K,
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[HPB] = {
 		.size = SZ_8K,
@@ -188,9 +186,8 @@ static struct base_map map[] = {
 		.base = SHWYSTATSY_BASE,
 	},
 	[SHWYSTATDM] = {
-		.phys = SHWYSTATDM_BASE,
+		.phys = SHWYSTATDM_BASE_PHYS,
 		.size = SZ_4K,
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SHBUF] = {
 		.size = SZ_4K,
@@ -200,43 +197,35 @@ static struct base_map map[] = {
 	[SBSC_SDCR0A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDCR0APhys,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 
 	[SBSC_SDWCRC0A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCRC0APhys,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCRC1A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCRC1APhys,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCR00A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCR00APhys,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCR01A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCR01APhys,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCR10A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCR10APhys,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCR11A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCR11APhys,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCRC2A_TZ] = {	/* for setclock */
 		.phys = SBSC_SDWCRC2APhys,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 #endif
 };
@@ -1278,9 +1267,9 @@ static int __init shmobile_suspend_init(void)
 			tbl++;
 			continue;
 		}
-		tbl->base = (unsigned long)virt;
+		tbl->base = virt;
 		pr_debug(PMDBG_PRFX \
-			"%s: ioremap phys 0x%lx, virt 0x%lx, size %d\n", \
+			"%s: ioremap phys 0x%lx, virt 0x%p, size %d\n", \
 			__func__, tbl->phys, tbl->base, tbl->size);
 		tbl++;
 	}

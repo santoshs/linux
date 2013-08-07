@@ -538,7 +538,7 @@
 			unsigned long flags; \
 			flags = pm_get_spinlock(); \
 			if (g_spuv_func_is_spuv_clk) \
-				ret = ioread32(reg); \
+				ret = ioread32(IOMEM(reg)); \
 			pm_release_spinlock(flags); \
 		}
 #define vcd_spuv_func_set_register(set_bit, reg) \
@@ -546,7 +546,7 @@
 			unsigned long flags; \
 			flags = pm_get_spinlock(); \
 			if (g_spuv_func_is_spuv_clk) \
-				iowrite32(set_bit, reg); \
+				iowrite32(set_bit, IOMEM(reg)); \
 			pm_release_spinlock(flags); \
 		}
 #include <mach/common.h>
@@ -556,7 +556,7 @@
 			flags = pm_get_spinlock(); \
 			if (g_spuv_func_is_spuv_clk) \
 				sh_modify_register32( \
-					reg, clear_bit, set_bit); \
+					IOMEM(reg), clear_bit, set_bit); \
 			pm_release_spinlock(flags); \
 		}
 

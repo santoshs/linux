@@ -1211,7 +1211,7 @@ int rtds_memory_init_module(
 out:
 	g_rtds_memory_section_info.var_address = 0;
 	g_rtds_memory_section_info.var_length  = 0;
-	g_rtds_memory_section_info.kernel_var_addr = 0;
+	g_rtds_memory_section_info.kernel_var_addr = NULL;
 	iccom_cleanup.handle = g_rtds_memory_iccom_handle;
 	iccom_drv_cleanup(&iccom_cleanup);
 	ret = misc_deregister(&g_rtds_memory_device);

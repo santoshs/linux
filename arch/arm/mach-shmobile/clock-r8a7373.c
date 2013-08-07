@@ -488,7 +488,7 @@ static struct clk dsi0p0_cksel_clk = SH_CLK_CKSEL(CPG_DSI0PCKCR,
 static struct clk dsi0p0_clk = {
 	.parent = &dsi0p0_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)CPG_DSI0PCKCR,
+	.enable_reg = CPG_DSI0PCKCR,
 	.src_shift = 16,
 	.src_width = 6,
 };
@@ -502,7 +502,7 @@ static struct clk dsi0p1_cksel_clk = SH_CLK_CKSEL(CPG_DSI0PCKCR,
 static struct clk dsi0p1_clk = {
 	.parent = &dsi0p1_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)CPG_DSI0PCKCR,
+	.enable_reg = CPG_DSI0PCKCR,
 	.src_shift = 0,
 	.src_width = 6,
 };
@@ -524,7 +524,7 @@ static struct clk dsi1p0_cksel_clk = SH_CLK_CKSEL(CPG_DSI1PCKCR,
 static struct clk dsi1p0_clk = {
 	.parent = &dsi1p0_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)CPG_DSI1PCKCR,
+	.enable_reg = CPG_DSI1PCKCR,
 	.src_shift = 16,
 	.src_width = 6,
 };
@@ -538,7 +538,7 @@ static struct clk dsi1p1_cksel_clk = SH_CLK_CKSEL(CPG_DSI1PCKCR,
 static struct clk dsi1p1_clk = {
 	.parent = &dsi1p1_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)CPG_DSI1PCKCR,
+	.enable_reg = CPG_DSI1PCKCR,
 	.src_shift = 0,
 	.src_width = 6,
 };
@@ -582,7 +582,7 @@ static struct clk *selmon1_parent[2] = {
 
 static struct clk dsi0p_clk = {
 	.ops = &selmon_clk_ops,
-	.enable_reg = (void *__iomem)CPG_DSI0PCKCR,
+	.enable_reg = CPG_DSI0PCKCR,
 	.enable_bit = 8,
 	.parent_table = selmon0_parent,
 	.src_shift = 27,
@@ -590,7 +590,7 @@ static struct clk dsi0p_clk = {
 };
 
 static struct clk dsi1p_clk = {
-	.enable_reg = (void *__iomem)CPG_DSI1PCKCR,
+	.enable_reg = CPG_DSI1PCKCR,
 	.enable_bit = 8,
 	.parent_table = selmon1_parent,
 	.src_shift = 27,

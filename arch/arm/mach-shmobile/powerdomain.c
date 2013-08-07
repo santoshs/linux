@@ -389,7 +389,7 @@ struct power_domain_info *__to_pdi(const struct device *dev)
 static void power_status_set(unsigned int area, bool on)
 {
 	int i = 0;
-	u32 reg = (on ? SWUCR : SPDCR);
+	void __iomem *reg = (on ? SWUCR : SPDCR);
 	int reg_val = 0;
 
 	if (0 != (area & ~POWER_ALL))

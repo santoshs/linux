@@ -179,7 +179,7 @@ EXPORT_SYMBOL(d2153_put_i2c_hwsem);
  */
 static void d2153_force_release_hwsem(u8 hwsem_id, unsigned int hwsem)
 {
-	void *ptr;
+	void __iomem *ptr;
 	u32 value = 0;
 	unsigned long expire = msecs_to_jiffies(5) + jiffies;
 

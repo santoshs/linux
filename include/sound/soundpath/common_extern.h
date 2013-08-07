@@ -37,15 +37,15 @@ struct common_reg_table {
 };
 
 /* FSI base address (PortA) */
-COMMON_CTRL_NO_EXTERN u_long g_fsi_Base;
+COMMON_CTRL_NO_EXTERN u_char __iomem *g_fsi_Base;
 /* SCUW base address */
-COMMON_CTRL_NO_EXTERN u_long g_scuw_Base;
+COMMON_CTRL_NO_EXTERN u_char __iomem *g_scuw_Base;
 /* SCUW base address to FFD */
-COMMON_CTRL_NO_EXTERN u_long g_scuw_Base_FFD;
+COMMON_CTRL_NO_EXTERN u_char __iomem *g_scuw_Base_FFD;
 /* CLKGEN base address */
-COMMON_CTRL_NO_EXTERN u_long g_clkgen_Base;
+COMMON_CTRL_NO_EXTERN u_char __iomem *g_clkgen_Base;
 /* SCUW base address to CPUFIFO2 */
-COMMON_CTRL_NO_EXTERN u_long g_scuw_Base_CPUFIFO2;
+COMMON_CTRL_NO_EXTERN u_char __iomem *g_scuw_Base_CPUFIFO2;
 
 COMMON_CTRL_NO_EXTERN void iomodify32(u_int uiClr, u_int uiSet, u_int uiReg);
 COMMON_CTRL_NO_EXTERN int common_ioremap(void);

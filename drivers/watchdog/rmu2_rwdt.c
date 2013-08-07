@@ -86,7 +86,7 @@ static void __iomem *sbsc_sdmra_38200;
  */
 static DEFINE_SPINLOCK(io_lock);
 
-void rmu2_modify_register32(unsigned int addr, u32 clear, u32 set)
+static void rmu2_modify_register32(void __iomem *addr, u32 clear, u32 set)
 {
 	unsigned long flags;
 	u32 val;
@@ -178,7 +178,7 @@ static struct miscdevice rwdt_mdev = {
 int rmu2_rwdt_cntclear(void)
 {
 	static DEFINE_SPINLOCK(clear_lock);
-	unsigned int base;
+	void __iomem *base;
 	unsigned long flags;
 	int ret;
 	struct resource *r;
@@ -226,7 +226,7 @@ int rmu2_rwdt_cntclear(void)
 int rmu2_rwdt_stop(void)
 {
 	int ret = 0;
-	unsigned int base;
+	void __iomem *base;
 	struct resource *r;
 	u8 reg8;
 	u32 reg32;
@@ -422,7 +422,7 @@ static int rmu2_rwdt_init_irq(void)
  */
 static int rmu2_rwdt_start(void)
 {
-	unsigned int base;
+	void __iomem *base;
 	struct resource *r;
 	int ret = 0;
 	u8 reg8;
@@ -539,11 +539,11 @@ static int rmu2_rwdt_start(void)
 static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	unsigned int base;
+	void __iomem *base;
 	u8 reg8;
 	u32 reg32;
 	struct resource *r;
-	void __iomem *sbsc_sdmracr1a = 0;
+	void __iomem *sbsc_sdmracr1a = NULL;
 
 	RWDT_DEBUG("START < %s >\n", __func__);
 
@@ -596,7 +596,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 
 			if (sbsc_sdmracr1a) {
 				iounmap(sbsc_sdmracr1a);
-				sbsc_sdmracr1a = 0;
+				sbsc_sdmracr1a = NULL;
 			}
 
 			cntclear_time_wa_zq =
@@ -686,11 +686,11 @@ clk_get_err:
 ioremap_err:
 	if (sbsc_sdmra_28200) {
 		iounmap(sbsc_sdmra_28200);
-		sbsc_sdmra_28200 = 0;
+		sbsc_sdmra_28200 = NULL;
 	}
 	if (sbsc_sdmra_38200) {
 		iounmap(sbsc_sdmra_38200);
-		sbsc_sdmra_38200 = 0;
+		sbsc_sdmra_38200 = NULL;
 	}
 
 	return ret;
@@ -716,11 +716,11 @@ static int __devexit rmu2_rwdt_remove(struct platform_device *pdev)
 		destroy_workqueue(wq_wa_zq);
 		if (sbsc_sdmra_28200) {
 			iounmap(sbsc_sdmra_28200);
-			sbsc_sdmra_28200 = 0;
+			sbsc_sdmra_28200 = NULL;
 		}
 		if (sbsc_sdmra_38200) {
 			iounmap(sbsc_sdmra_38200);
-			sbsc_sdmra_38200 = 0;
+			sbsc_sdmra_38200 = NULL;
 		}
 	}
 

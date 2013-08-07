@@ -43,7 +43,7 @@ struct hw_register_range {
 	 * This is PTSR register bit mask */
 	unsigned int pa;
 	/* This one of the module stop registers */
-	unsigned int msr;
+	void __iomem *msr;
 	/* This is module stop register bit mask */
 	unsigned int msb;
 };

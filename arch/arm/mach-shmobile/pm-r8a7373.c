@@ -251,11 +251,11 @@ static void r8a7373_cpuidle_init(void) {}
 void __init r8a7373_pm_init(void)
 {
 #if defined(CONFIG_SUSPEND) || defined(CONFIG_CPU_IDLE)
-	memcpy(IOMEM(RAM0_VECTOR_ADDR),
+	memcpy(RAM0_VECTOR_ADDR,
 			r8a7373_common_vector, r8a7373_common_vector_size);
-	__raw_writel(0, IOMEM(SBAR2));
-	__raw_writel(0, IOMEM(APARMBAREA));
-	__raw_writel(RAM0_VECTOR_ADDR, IOMEM(SBAR));
+	__raw_writel(0, SBAR2);
+	__raw_writel(0, APARMBAREA);
+	__raw_writel(RAM0_VECTOR_ADDR_PHYS, SBAR);
 #endif
 
 	r8a7373_suspend_init();

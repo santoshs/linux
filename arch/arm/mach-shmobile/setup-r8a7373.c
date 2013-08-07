@@ -19,6 +19,7 @@
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <asm/delay.h>
+#include <asm/io.h>
 #include <asm/system_info.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach/map.h>
@@ -65,13 +66,13 @@ static struct map_desc r8a7373_io_desc[] __initdata = {
  *   we use KOTA K3.4.5 parameter.
  */
 	{
-		.virtual	= IO_ADDRESS(0xe6000000),
+		.virtual	= __IO_ADDRESS(0xe6000000),
 		.pfn		= __phys_to_pfn(0xe6000000),
 		.length		= SZ_16M,
 		.type		= MT_DEVICE
 	},
 	{
-		.virtual	= IO_ADDRESS(0xf0000000),
+		.virtual	= __IO_ADDRESS(0xf0000000),
 		.pfn		= __phys_to_pfn(0xf0000000),
 		.length		= SZ_2M,
 		.type		= MT_DEVICE
@@ -1494,41 +1495,41 @@ static void __init r8a7373_timer_init(void)
 /* Lock used while modifying register */
 static DEFINE_SPINLOCK(io_lock);
 
-void sh_modify_register8(unsigned int addr, u8 clear, u8 set)
+void sh_modify_register8(void __iomem *addr, u8 clear, u8 set)
 {
 	unsigned long flags;
 	u8 val;
 	spin_lock_irqsave(&io_lock, flags);
-	val = *(volatile u8 *)addr;
+	val = __raw_readb(addr);
 	val &= ~clear;
 	val |= set;
-	*(volatile u8 *)addr = val;
+	__raw_writeb(val, addr);
 	spin_unlock_irqrestore(&io_lock, flags);
 }
 EXPORT_SYMBOL_GPL(sh_modify_register8);
 
-void sh_modify_register16(unsigned int addr, u16 clear, u16 set)
+void sh_modify_register16(void __iomem *addr, u16 clear, u16 set)
 {
 	unsigned long flags;
 	u16 val;
 	spin_lock_irqsave(&io_lock, flags);
-	val = *(volatile u16 *)addr;
+	val = __raw_readw(addr);
 	val &= ~clear;
 	val |= set;
-	*(volatile u16 *)addr = val;
+	__raw_writew(val, addr);
 	spin_unlock_irqrestore(&io_lock, flags);
 }
 EXPORT_SYMBOL_GPL(sh_modify_register16);
 
-void sh_modify_register32(unsigned int addr, u32 clear, u32 set)
+void sh_modify_register32(void __iomem *addr, u32 clear, u32 set)
 {
 	unsigned long flags;
 	u32 val;
 	spin_lock_irqsave(&io_lock, flags);
-	val = *(volatile u32 *)addr;
+	val = __raw_readl(addr);
 	val &= ~clear;
 	val |= set;
-	*(volatile u32 *)addr = val;
+	__raw_writel(val, addr);
 	spin_unlock_irqrestore(&io_lock, flags);
 }
 EXPORT_SYMBOL_GPL(sh_modify_register32);

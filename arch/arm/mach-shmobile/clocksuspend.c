@@ -873,7 +873,7 @@ int cpg_set_pll(int pll, unsigned int val)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
-	unsigned int addr = PLL0CR;
+	void __iomem *addr = PLL0CR;
 	int timeout = 500;
 
 	if (pll != PLL0) {
@@ -882,12 +882,12 @@ int cpg_set_pll(int pll, unsigned int val)
 		return -EINVAL;
 	}
 
-	pllcr = __raw_readl(IO_ADDRESS(addr));
+	pllcr = __raw_readl(addr);
 	stc_val = ((pllcr & PLLCR_STC_MASK) >> PLLCR_BIT24_SHIFT) + 1;
 	if (val != stc_val) {
 		pllcr &= ~PLLCR_STC_MASK;
 		pllcr |= ((val - 1) << PLLCR_BIT24_SHIFT);
-		__raw_writel(pllcr, IO_ADDRESS(addr));
+		__raw_writel(pllcr, addr);
 		/* wait for status bit set */
 		while (--timeout) {
 			if (__raw_readl(PLLECR) & (1 << 8))
@@ -917,26 +917,26 @@ int cpg_get_pll(int pll)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
-	unsigned int addr = (unsigned int)PLL0CR;
+	void __iomem *addr = PLL0CR;
 
 	switch (pll) {
 	case PLL0:
-		addr = (unsigned int)PLL0CR;
+		addr = PLL0CR;
 		break;
 	case PLL1:
-		addr = (unsigned int)PLL1CR;
+		addr = PLL1CR;
 		break;
 	case PLL2:
-		addr = (unsigned int)CPG_PLL2CR;
+		addr = CPG_PLL2CR;
 		break;
 	case PLL3:
-		addr = (unsigned int)PLL3CR;
+		addr = PLL3CR;
 		break;
 	default:
 			return -EINVAL;
 		}
 
-	pllcr = __raw_readl(IO_ADDRESS(addr));
+	pllcr = __raw_readl(addr);
 	stc_val = ((pllcr & PLLCR_STC_MASK) >> PLLCR_BIT24_SHIFT) + 1;
 
 	return (int)stc_val;

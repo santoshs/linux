@@ -88,7 +88,7 @@ void iccom_read_command(
 	unsigned long	  data_posi
 ) {
 	int				  ret = SMAP_OK;
-	unsigned char	  *p_cmd_addr;
+	unsigned char __iomem		  *p_cmd_addr;
 	unsigned char	  *p_recv_data;
 	unsigned long	  data_size;
 	iccom_cmd_info	  cmd_info;
@@ -222,7 +222,7 @@ void iccom_read_fatal(
 )
 {
 	int				   ret;
-	unsigned char	   *p_cmd_addr;
+	unsigned char __iomem		   *p_cmd_addr;
 	unsigned long	   data_size;
 	iccom_fatal_info   *p_fatal_info;
 	iccom_recv_data	   *p_recv_head;

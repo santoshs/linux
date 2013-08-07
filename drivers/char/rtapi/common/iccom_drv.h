@@ -64,6 +64,11 @@ typedef struct {
 	unsigned int		*data;		/* data address */
 } iccom_drv_cmd_data;
 
+typedef struct {
+	unsigned int		size;		/* data size */
+	void __iomem		*data;		/* data address */
+} iccom_drv_cmd_io_data;
+
 /* iccom_drv_init() parameter */
 typedef struct {
 	void			   *user_data;	/* user data */

@@ -842,7 +842,7 @@ static int sh_mobile_ioctl(struct fb_info *info, unsigned int cmd,
 			retval = -EINVAL;
 			break;
 		}
-		if (get_user(vsyncval, (int *)arg)) {
+		if (get_user(vsyncval, (int __user *)arg)) {
 			printk(KERN_ALERT "get_user failed\n");
 			retval = -EFAULT;
 			break;
@@ -1193,7 +1193,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	struct resource *res;
 	int error = 0;
 	int i, j;
-	void *temp = NULL;
+	void __iomem *temp = NULL;
 	struct fb_panel_info panel_info;
 
 #ifndef CONFIG_FB_SH_MOBILE_DOUBLE_BUF

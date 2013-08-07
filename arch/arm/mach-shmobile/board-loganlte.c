@@ -334,8 +334,8 @@ void board_restart(char mode, const char *cmd)
 static void __init board_init(void)
 {
 	int stm_select = -1;    // Shall tell how to route STM traces. See setup-u2stm.c for details.
-	void __iomem *sbsc_sdmra_28200 = 0;
-	void __iomem *sbsc_sdmra_38200 = 0;
+	void __iomem *sbsc_sdmra_28200 = NULL;
+	void __iomem *sbsc_sdmra_38200 = NULL;
 	int inx = 0;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
