@@ -656,7 +656,6 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 
 	dwflag = true;
 
-	flush_delayed_work_sync(&host->mmc->detect);
 	/* Ignore the detect interrupt if previous detect state
 	 * is same as new */
 	if (pdata->detect_irq) {
@@ -687,19 +686,6 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 	printk(KERN_INFO "%s: %s: host->connect %d, get_cd %d\n",
 		__func__, mmc_hostname(host->mmc), host->connect,
 		pdata->get_cd(host->pdev));
-
-	/* PMIC Start: Will effect the PMIC power source on insertion /deletion
-		of Card after Boot-Up */
-	if (host->connect) {
-		renesas_sdhi_power(host, 1);
-		host->power_mode = MMC_POWER_UP;
-		sdhi_reset(host);
-	} else {
-		renesas_sdhi_power(host, 0);
-		host->power_mode = MMC_POWER_OFF;
-	}
-	/* PMIC End */
-
 
 	if (!IS_ERR_OR_NULL(host->mrq) || !IS_ERR_OR_NULL(host->cmd)) {
 		if (host->mrq->cmd)
