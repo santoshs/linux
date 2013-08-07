@@ -1,6 +1,8 @@
 #ifndef __ASM_R8A7373_H__
 #define __ASM_R8A7373_H__
 
+#include <mach/hardware.h>
+
 #ifndef __ASSEMBLY__
 
 #include <linux/platform_device.h>
@@ -500,10 +502,6 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #endif /* CONFIG_PM */
 
 #endif /* __ASSEMBLY__*/
-/* IO_ADDRESS */
-
-#define IO_OFFSET      0x18000000
-#define IO_ADDRESS(n) ((n) | (IO_OFFSET))
 
 #define SMGP000_PMIC	SMGP000 /* for PMIC GPADC access from APE/Modem */
 #define SMGP001_DFS		SMGP001

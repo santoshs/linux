@@ -24,7 +24,6 @@
 #include <linux/types.h>
 #include <linux/init.h>
 #include <mach/pm.h>
-#include <mach/r8a7373.h>
 #include "../../pmRegisterDef.h"
 
 enum hw_register_width {

@@ -28,6 +28,7 @@
 #include <linux/ioport.h>
 #include <linux/gpio.h>
 #include <linux/fs.h>
+#include <mach/hardware.h>
 #include <mach/r8a7373.h>
 #include <linux/sh_dma.h>
 #include <linux/dmaengine.h>
