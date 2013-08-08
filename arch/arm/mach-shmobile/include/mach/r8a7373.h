@@ -1556,12 +1556,9 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define SBSC_SDPDCR0APhys	0xFE400058
 /* SDRAM Mode Register Address/Command Register 1A */
 #define SBSC_SDMRACR1A_PHYS	0xFE400088U
-#define SBSC_SDMRACR1A		IO_ADDRESS(SBSC_SDMRACR1A_PHYS)
 /* SDRAM mode register A */
 #define SBSC_SDMRA_28200_PHYS	0xFE528200U
-#define SBSC_SDMRA_28200	IO_ADDRESS(SBSC_SDMRA_28200_PHYS)
 #define SBSC_SDMRA_38200_PHYS	0xFE538200U
-#define SBSC_SDMRA_38200	IO_ADDRESS(SBSC_SDMRA_38200_PHYS)
 
 /********************************************/
 /********************************************/
