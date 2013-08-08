@@ -199,6 +199,7 @@ int rmu2_rwdt_cntclear(void)
 
 	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
 	if (NULL == r) {
+		spin_unlock_irqrestore(&clear_lock, flags);
 		return -ENOMEM;
 	}
 	base = IO_ADDRESS(r->start);
