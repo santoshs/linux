@@ -253,8 +253,13 @@ static int __die(const char *str, int err, struct pt_regs *regs)
 		TASK_COMM_LEN, tsk->comm, task_pid_nr(tsk), end_of_stack(tsk));
 
 	if (!user_mode(regs) || in_interrupt()) {
-		dump_mem(KERN_EMERG, "Stack: ", regs->ARM_sp,
-			 THREAD_SIZE + (unsigned long)task_stack_page(tsk));
+		unsigned long stack_start = (unsigned long)task_stack_page(tsk);
+		unsigned long stack_end =  THREAD_SIZE + stack_start;
+		printk(KERN_EMERG "stack start 0x%lx, end 0x%lx, pointer 0x%lx\n",stack_start,stack_end,regs->ARM_sp);
+		if (regs->ARM_sp >= stack_start && regs->ARM_sp <= stack_end)
+			stack_start = regs->ARM_sp;
+
+		dump_mem(KERN_EMERG, "Stack: ", stack_start, stack_end);
 		dump_backtrace(regs, tsk);
 		dump_instr(KERN_EMERG, regs);
 	}
