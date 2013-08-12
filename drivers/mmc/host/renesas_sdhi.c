@@ -567,6 +567,11 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 	spin_lock(&host->lock);
 	clk_enable(host->clk);
 
+	if (host->cmd == NULL) {
+		sdhi_write32(host, SDHI_INFO, 0);
+		goto end;
+}
+
 	status = sdhi_read32(host, SDHI_INFO) & ~host->info_mask;
 
 	/* sdio */
@@ -653,9 +658,11 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	u32 status;
 	bool dwflag;
+	unsigned long flags;
 
 	dwflag = true;
 
+	flush_delayed_work_sync(&host->mmc->detect);
 	/* Ignore the detect interrupt if previous detect state
 	 * is same as new */
 	if (pdata->detect_irq) {
@@ -669,15 +676,17 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		}
 	}
 
-	clk_enable(host->clk);
 
 	if (pdata->detect_irq) {
 		host->connect = pdata->get_cd(host->pdev);
 		if (pdata->detect_msec)
 			enable_irq(pdata->detect_irq);
 	} else {
+		clk_enable(host->clk);
 		status = sdhi_read32(host, SDHI_INFO);
 		host->connect = status & SDHI_INFO_CD ? 1 : 0;
+		sdhi_read16(host, SDHI_CLK_CTRL);
+		clk_disable(host->clk);
 	}
 
 	/* updating the SD card presence*/
@@ -687,6 +696,7 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 		__func__, mmc_hostname(host->mmc), host->connect,
 		pdata->get_cd(host->pdev));
 
+	spin_lock_irqsave(&host->lock, flags);
 	if (!IS_ERR_OR_NULL(host->mrq) || !IS_ERR_OR_NULL(host->cmd)) {
 		if (host->mrq->cmd)
 			host->mrq->cmd->error = -ENOMEDIUM;
@@ -706,8 +716,7 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 			renesas_sdhi_data_done(host, host->cmd);
 	}
 
-	sdhi_read16(host, SDHI_CLK_CTRL);
-	clk_disable(host->clk);
+	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_detect_change(host->mmc, msecs_to_jiffies(200));
 }
@@ -1059,6 +1068,7 @@ static void renesas_sdhi_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	struct renesas_sdhi_host *host = mmc_priv(mmc);
 	u16 cmddat = 0;
 	u32 val;
+	unsigned long flags;
 
 	if (host->connect == 0) {
 		mrq->cmd->error = -ENOMEDIUM;
@@ -1066,6 +1076,7 @@ static void renesas_sdhi_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		return;
 	}
 
+	spin_lock_irqsave(&host->lock, flags);
 	host->mrq = mrq;
 
 	clk_enable(host->clk);
@@ -1093,6 +1104,7 @@ static void renesas_sdhi_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	renesas_sdhi_start_cmd(host, mrq->cmd, cmddat);
+	spin_unlock_irqrestore(&host->lock, flags);
 }
 
 static void renesas_sdhi_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
@@ -1287,7 +1299,7 @@ static ssize_t sd_detection_cmd_show(struct device *dev,
 		return sprintf(buf, "Remove\n");
 	}
 }
-	
+
 static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
 
 static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
