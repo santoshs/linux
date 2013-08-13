@@ -2,7 +2,7 @@
 #define __ASM_MACH_HARDWARE_H
 
 /*
- * Fixed physical->virtual IO address translations:
+ * Fixed physical->virtual IO address translations handled by IO_ADDRESS:
  *
  * E6000000..E6FFFFFF -> FC000000..FCFFFFFF (16MiB) - HPB
  * F0000000..F01FFFFF -> FE000000..FE1FFFFF  (2MiB) - SCU, GIC, L2C etc

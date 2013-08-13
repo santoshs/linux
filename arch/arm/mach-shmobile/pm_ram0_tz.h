@@ -47,8 +47,8 @@
 /****************************************************************************/
 /* RAM0 MAPPING */
 /****************************************************************************/
-#define ram0BasePhys	RAM0_BASE_PHYS	/* RAM0 Base physical address */
-#define ram0Base		IO_ADDRESS(ram0BasePhys)
+#define ram0BasePhys	(RAM0_BASE_PHYS+0x2000)
+#define ram0Base	IO_ADDRESS(ram0BasePhys)
 
 
 /* Size of backup area	*/
@@ -62,19 +62,23 @@
 
 /*--------------------------------------------------------------------------*/
 /* Address of RAM0 area */
-/* function area (RAM0  :0xE63A2000-0xE63A39FF) */
-/* backup area   (RAM0  :0xE63A3A00-0xE63A3FFF) */
+/* function area (RAM0  :0xE63A2000-0xE63A2FFF  MT_MEMORY_NONCACHED ) */
+/* backup area   (RAM0  :0xE63A3000-0xE63A3FFF  MT_DEVICE ) */
 /*--------------------------------------------------------------------------*/
 /* Address of function (Virt)	*/
-/* Start address of function area */
+/* Start/end address of function area (must be page-aligned) */
 #define	 ram0StartAddressOfFunctionArea	ram0Base
+#define	 ram0EndAddressOfFunctionArea	ram0Backup
 
 /* Address of function (Phys)	*/
-/* Start address of function area */
 #define	 ram0StartAddressOfFunctionAreaPhys	ram0BasePhys
+#define	 ram0EndAddressOfFunctionAreaPhys	ram0BackupPhys
+
+#define PM_FUNCTION_START	ram0StartAddressOfFunctionAreaPhys
+#define PM_FUNCTION_END		ram0EndAddressOfFunctionAreaPhys
 
 /* backup area */
-#define	hoBackup		0x1A00 /* Offset to the Area for backup */
+#define	hoBackup		0x1000 /* Offset to the Area for backup */
 
 /* Address of backup area top */
 /* Address of backup(L) */

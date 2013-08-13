@@ -277,16 +277,6 @@ ENTRY(start_corestandby)
 	LDR		r7, =hoBackupAddr
 	STR		r6, [r4, r7]
 
-	/*------------------------------------------*/
-	/* Change domain access settings			*/
-	/*------------------------------------------*/
-	MRC 	p15, 0, r4, c3, c0, 0
-	STMFD	sp!, {r4} /* Save original domain settings */
-	LDR 	r5, =0x00FC
-	ORR		r4, r4, r5
-	MCR 	p15, 0, r4, c3, c0, 0
-	ISB
-
 	/*--------------------------------------*/
 	/* Jump to CoreStandby() on RAM0		*/
 	/*--------------------------------------*/
@@ -294,14 +284,6 @@ ENTRY(start_corestandby)
 	LDR		r4, [r4]
 	MOV		lr, pc			/* lr: Return address */
 	MOV		pc, r4			/* Call corestandby() */
-	NOP
-
-	/*------------------------------------------*/
-	/* Restore domain access settings			*/
-	/*------------------------------------------*/
-	LDMFD	sp!, {r4} /* Load original domain access settings */
-	MCR		p15, 0, r4, c3, c0, 0
-	ISB
 
 	LDMFD	sp!, {r4-r11, pc}
 
@@ -350,15 +332,6 @@ ENTRY(jump_systemsuspend)
 	STR		r5, [r4]
 
 	/*------------------------------------------*/
-	/* Change domain access settings			*/
-	/*------------------------------------------*/
-	MRC 	p15, 0, r4, c3, c0, 0
-	STMFD	sp!, {r4} /* Save original domain settings */
-	LDR 	r5, =0x00FC
-	ORR		r4, r4, r5
-	MCR 	p15, 0, r4, c3, c0, 0
-
-	/*------------------------------------------*/
 	/* Jump to systemsuspend() on RAM0			*/
 	/* r4: systemsuspend() address on RAM0		*/
 	/*------------------------------------------*/
@@ -366,13 +339,6 @@ ENTRY(jump_systemsuspend)
 	LDR		r4, [r4]
 	MOV		lr, pc
 	MOV		pc, r4	/* Call systemsuspend()	*/
-	NOP
-
-	/*------------------------------------------*/
-	/* Restore domain access settings			*/
-	/*------------------------------------------*/
-	LDMFD	sp!, {r4} /* Load original domain access settings */
-	MCR		p15, 0, r4, c3, c0, 0
 
 	LDMFD	sp!, {r4-r11, pc}
 
@@ -1672,16 +1638,6 @@ ENTRY(start_corestandby_2)
 	LDR		r7, =hoBackupAddr
 	STR		r6, [r4, r7]
 
-	/*------------------------------------------*/
-	/* Change domain access settings			*/
-	/*------------------------------------------*/
-	MRC 	p15, 0, r4, c3, c0, 0
-	STMFD	sp!, {r4} /* Save original domain settings */
-	LDR 	r5, =0x00FC
-	ORR		r4, r4, r5
-	MCR 	p15, 0, r4, c3, c0, 0
-	ISB
-
 	/*--------------------------------------*/
 	/* Jump to CoreStandby_2() on SDRAM		*/
 	/*--------------------------------------*/
@@ -1690,14 +1646,6 @@ ENTRY(start_corestandby_2)
 	LDR		r4, [r4]
 	MOV		lr, pc			/* lr: Return address */
 	MOV		pc, r4			/* Call corestandby_2() */
-	NOP
-
-	/*------------------------------------------*/
-	/* Restore domain access settings			*/
-	/*------------------------------------------*/
-	LDMFD	sp!, {r4} /* Load original domain access settings */
-	MCR		p15, 0, r4, c3, c0, 0
-	ISB
 
 	LDMFD	sp!, {r4-r11, pc}
 
@@ -1990,6 +1938,12 @@ ENTRY(copy_functions)
 	SUB		r5, r5, r1
 	MOV		r2, r5
 	BL		memcpy
+
+	ADD		r4, r4, r5
+	LDR		r1, =ram0EndAddressOfFunctionArea
+	CMP		r4, r1
+	MOVLS		r0, #0
+	MOVHI		r0, #-1
 
 	LDMFD	sp!, {r4-r11, pc}
 

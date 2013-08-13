@@ -39,6 +39,13 @@
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
 #endif
+#if defined CONFIG_CPU_IDLE || defined CONFIG_SUSPEND
+#ifndef CONFIG_PM_HAS_SECURE
+#include "pm_ram0.h"
+#else /*CONFIG_PM_HAS_SECURE*/
+#include "pm_ram0_tz.h"
+#endif /*CONFIG_PM_HAS_SECURE*/
+#endif
 
 #ifdef CONFIG_RENESAS_BT
 #include <mach/dev-renesas-bt.h>
@@ -59,18 +66,40 @@
 #ifdef CONFIG_ARCH_SHMOBILE
 void __iomem *dummy_write_mem;
 #endif
+
 static struct map_desc r8a7373_io_desc[] __initdata = {
-/*
- * TODO: Porting  parameter.
- *   original parameter is error by vmalloc.
- *   we use KOTA K3.4.5 parameter.
+#ifdef PM_FUNCTION_START
+/* We arrange for some of ICRAM 0 to be MT_MEMORY_NONCACHED, so
+ * it can be executed from, for the PM code; it is then Normal Uncached memory,
+ * with the XN (eXecute Never) bit clear. However, the data area of the ICRAM
+ * has to be MT_DEVICE, to satisfy data access size requirements of the ICRAM.
  */
+	{
+		.virtual	= __IO_ADDRESS(0xe6000000),
+		.pfn		= __phys_to_pfn(0xe6000000),
+		.length		= PM_FUNCTION_START-0xe6000000,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= __IO_ADDRESS(PM_FUNCTION_START),
+		.pfn		= __phys_to_pfn(PM_FUNCTION_START),
+		.length		= PM_FUNCTION_END-PM_FUNCTION_START,
+		.type		= MT_MEMORY_NONCACHED
+	},
+	{
+		.virtual	= __IO_ADDRESS(PM_FUNCTION_END),
+		.pfn		= __phys_to_pfn(PM_FUNCTION_END),
+		.length		= 0xe7000000-PM_FUNCTION_END,
+		.type		= MT_DEVICE
+	},
+#else
 	{
 		.virtual	= __IO_ADDRESS(0xe6000000),
 		.pfn		= __phys_to_pfn(0xe6000000),
 		.length		= SZ_16M,
 		.type		= MT_DEVICE
 	},
+#endif
 	{
 		.virtual	= __IO_ADDRESS(0xf0000000),
 		.pfn		= __phys_to_pfn(0xf0000000),

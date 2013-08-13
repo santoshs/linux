@@ -326,7 +326,8 @@ int shmobile_init_pm(void)
 	/* - set PLL1 stop conditon to A2SL, A3R, A4MP, C4 state by CPG.PLL1STPCR */
 	__raw_writel(PLL1STPCR_DEFALT, PLL1STPCR);
 
-	copy_functions();
+	if (copy_functions())
+		pr_err("shmobile_init_pm: Failed copy_functions\n");
 
 	return 0;
 }
