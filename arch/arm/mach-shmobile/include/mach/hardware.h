@@ -8,6 +8,7 @@
  * F0000000..F01FFFFF -> FE000000..FE1FFFFF  (2MiB) - SCU, GIC, L2C etc
  *
  * (NB upcoming ARM Linux reserves FEE00000 for PCI I/O space; avoid this)
+ * (secdebug has a fixed 8K mapping at FE400000 - check whether this is needed)
  *
  * Any other registers do not have fixed mappings so should be accessed through
  * ioremap. Note also that since Linux 3.3, ioremap will return pointers to the
