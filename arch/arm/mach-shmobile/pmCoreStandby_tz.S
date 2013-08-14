@@ -41,7 +41,7 @@ ENTRY(memory_log_pm)
 	LDRNE	r1, =ram0MemlogPmAddressVA
 	LDRNE	r3, =CMCNT0
 	LDREQ	r1, =ram0MemlogPmAddressPAPhys
-	LDREQ	r3, =CMCNT0_PHYS
+	LDREQ	r3, =IO_TO_PHYS(CMCNT0)
 	LDR		r1, [r1]
 
 	MRC	p15, 0, r2, c0, c0, 5 /* Read MPIDR, MP affinty register */
@@ -1452,37 +1452,37 @@ ENTRY(sys_powerup)
 	/*------------------------------------------*/
 
 	/* Read EXTAL1 Mask Count Register (EXMSKCNT1)*/
-	LDR 	r4, =EXMSKCNT1Phys
+	LDR 	r4, =IO_TO_PHYS(EXMSKCNT1)
 	LDR		r5, [r4]
 	LDR		r6, =ram0SaveEXMSKCNT1Phys_resume
 	STR		r5, [r6]
 
 	/* Read EXTAL1 Clock Stop Control Register (APSCSTP)*/
-	LDR 	r4, =APSCSTPPhys
+	LDR 	r4, =IO_TO_PHYS(APSCSTP)
 	LDR		r5, [r4]
 	LDR		r6, =ram0SaveAPSCSTPPhys_resume
 	STR		r5, [r6]
 
 	/* Read EXTAL1 Control Register (SYCKENMSK)*/
-	LDR 	r4, =SYCKENMSKPhys
+	LDR 	r4, =IO_TO_PHYS(SYCKENMSK)
 	LDR		r5, [r4]
 	LDR		r6, =ram0SaveSYCKENMSKPhys_resume
 	STR		r5, [r6]
 
 	/* Read C4 Area Power Control Register (C4POWCR)*/
-	LDR 	r4, =C4POWCRPhys
+	LDR 	r4, =IO_TO_PHYS(C4POWCR)
 	LDR		r5, [r4]
 	LDR		r6, =ram0SaveC4POWCRPhys_resume
 	STR		r5, [r6]
 
 	/* Read	C4 Area Power Control Register2 (PDNSEL)*/
-	LDR 	r4, =PDNSELPhys
+	LDR 	r4, =IO_TO_PHYS(PDNSEL)
 	LDR		r5, [r4]
 	LDR		r6, =ram0SavePDNSELPhys_resume
 	STR		r5, [r6]
 
 	/* Read	Power Status Register (PSTR)*/
-	LDR 	r4, =SYSC_PSTR_PHYS
+	LDR 	r4, =IO_TO_PHYS(SYSC_PSTR)
 	LDR		r5, [r4]
 	LDR		r6, =ram0SavePSTRPhys_resume
 	STR		r5, [r6]
@@ -1496,8 +1496,8 @@ ENTRY(sys_powerup)
 	CMP		r7, #0x1		/* 0: enable RWDT, 1: skip */
 	BEQ		SKIP_TURN_ON_RWDT2
 
-	LDR		r6, =RMSTPCR4Phys
-	LDR		r7, =SMSTPCR4Phys
+	LDR		r6, =IO_TO_PHYS(RMSTPCR4)
+	LDR		r7, =IO_TO_PHYS(SMSTPCR4)
 	LDR		r4, [r6]
 	LDR		r5, [r7]
 	BIC		r4, r4, #MSTP402

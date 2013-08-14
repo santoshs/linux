@@ -14,8 +14,22 @@
  * ioremap. Note also that since Linux 3.3, ioremap will return pointers to the
  * fixed mappings where possible.
  */
-#define __IO_ADDRESS(x)		(((x) | 0x1C000000) ^ 0x02000000)
-#define IO_ADDRESS(x)		IOMEM(__IO_ADDRESS(x))
+#define IO_BASE 	0xFC000000
+#define __IO_ADDRESS(x)	((((x) & 0x10000000)>>3 | ((x) & 0x00ffffff)) + IO_BASE)
+#define IO_ADDRESS(x)	IOMEM(__IO_ADDRESS(x))
+
+/*
+ * Inverse of IO_ADDRESS, only valid for the same address range.
+ * (note that gas has different operator precedence to C, so lots of parentheses
+ * needed)
+ */
+#define __IO_TO_PHYS(x)	(((((x)-IO_BASE) & 0x02000000) * 5 + 0xE6000000) | \
+				((x) & 0x00ffffff))
+#ifndef __ASSEMBLER__
+#define IO_TO_PHYS(x)	__IO_TO_PHYS((unsigned __force)(x))
+#else
+#define IO_TO_PHYS(x)	__IO_TO_PHYS(x)
+#endif
 
 /* for STBCHR2 */
 #define APE_RESETLOG_PANIC_START         (0x01)
