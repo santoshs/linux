@@ -44,7 +44,7 @@ static void sh_clk_mstp32_disable(struct clk *clk)
 	value = __raw_readl(clk->enable_reg);	/* dummy read */
 	dsb();
 	/*Doing the MSTP status bit check only for SPU2A,SPU2V clocks*/
-	if (clk->enable_reg == (int *)SMSTPCR2Phys && ((clk->enable_bit == 20)
+	if (clk->enable_reg == SMSTPCR2 && ((clk->enable_bit == 20)
 			|| (clk->enable_bit == 23))) {
 		while (!(__raw_readl(clk->status_reg) & (1 << clk->enable_bit)))
 			cpu_relax();
