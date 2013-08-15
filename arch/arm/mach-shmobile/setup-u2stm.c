@@ -19,25 +19,18 @@
 /* Following should come from proper include file from drivers/sec_hal/exports/sec_hal_cmn.h */
 extern uint32_t sec_hal_dbg_reg_set(uint32_t *dbgreg1, uint32_t *dbgreg2, uint32_t *dbgreg3);
 
-
 #define DBGREG9_AID 		0xA5
 #define DBGREG9_AID_SHIFT	8
 #define DBGREG9_AID_MASK 	(0xFF << DBGREG9_AID_SHIFT)
 #define DBGREG9_KEY_SHIFT	0x0
 #define DBGREG9_KEY_MASK	0x1
 
-#define SYS_TPIU_BASE_PHYS         0xE6F83000
-#define SYS_TPIU_BASE              IO_ADDRESS(SYS_TPIU_BASE_PHYS)
-#define CPU_TPIU_BASE_PHYS         0xE6FA3000
-#define CPU_TPIU_BASE              IO_ADDRESS(CPU_TPIU_BASE_PHYS)
-#define CPU_ETR_BASE_PHYS          0xE6FA5000
-#define CPU_ETR_BASE               IO_ADDRESS(CPU_ETR_BASE_PHYS)
-#define CPU_ETF_BASE_PHYS          0xE6FA1000
-#define CPU_ETF_BASE               IO_ADDRESS(CPU_ETF_BASE_PHYS)
-#define CPU_TRACE_FUNNEL_BASE_PHYS 0xE6FA4000
-#define CPU_TRACE_FUNNEL_BASE      IO_ADDRESS(CPU_TRACE_FUNNEL_BASE_PHYS)
-#define SYS_TRACE_FUNNEL_BASE_PHYS 0xE6F84000
-#define SYS_TRACE_FUNNEL_BASE      IO_ADDRESS(SYS_TRACE_FUNNEL_BASE_PHYS)
+#define SYS_TPIU_BASE		IO_ADDRESS(0xE6F83000)
+#define CPU_TPIU_BASE		IO_ADDRESS(0xE6FA3000)
+#define CPU_ETR_BASE		IO_ADDRESS(0xE6FA5000)
+#define CPU_ETF_BASE		IO_ADDRESS(0xE6FA1000)
+#define CPU_TRACE_FUNNEL_BASE	IO_ADDRESS(0xE6FA4000)
+#define SYS_TRACE_FUNNEL_BASE	IO_ADDRESS(0xE6F84000)
 
 static int stm_select=-1;
 
