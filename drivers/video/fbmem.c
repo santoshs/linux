@@ -1379,8 +1379,9 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 		return res;
 	}
 
-	/* Ugh. This can be either the frame buffer mapping, or
-	 *  if pgoff points past it, the mmio mapping.
+	/*
+	 * Ugh. This can be either the frame buffer mapping, or
+	 * if pgoff points past it, the mmio mapping.
 	 */
 	start = info->fix.smem_start;
 	len = info->fix.smem_len;
@@ -1391,6 +1392,10 @@ fb_mmap(struct file *file, struct vm_area_struct * vma)
 		len = info->fix.mmio_len;
 	}
 	mutex_unlock(&info->mm_lock);
+
+	/* This is an IO map - tell maydump to skip this VMA */
+	vma->vm_flags |= VM_IO | VM_RESERVED;
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 	fb_pgprotect(file, vma, start);
 
 	return vm_iomap_memory(vma, start, len);
