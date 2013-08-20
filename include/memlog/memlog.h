@@ -30,44 +30,70 @@ extern void memory_log_worker(unsigned long func_addr, unsigned long pid
 extern void memory_log_irq(unsigned int irq, int in);
 extern void memory_log_func(unsigned long func_id, int in);
 extern void memory_log_dump_int(unsigned char dump_id, int dump_data);
+
+struct proc_log_entry {
+	unsigned long long time;
+	unsigned long pid;
+	unsigned long data[4];
+} __packed;
+
+struct irq_log_entry {
+	unsigned long long time;
+	unsigned long data;
+} __packed;
+
+struct func_log_entry {
+	unsigned long long time;
+	unsigned long data;
+} __packed;
+
+struct dump_log_entry {
+	unsigned long long time;
+	unsigned long id;
+	int data;
+} __packed;
 #endif /* __ASSEMBLY__ */
 
-/* Use SDRAM */
-#define MEMLOG_ADDRESS			SDRAM_MEMLOG_START_ADDRESS
-#define MEMLOG_SIZE				0x00001000
-#define CPU0_PROC_SIZE			0x00000200
-#define CPU1_PROC_SIZE			0x00000200
-#define CPU0_IRQ_SIZE			0x00000200
-#define CPU1_IRQ_SIZE			0x00000200
-#define CPU0_FUNC_SIZE			0x00000200
-#define CPU1_FUNC_SIZE			0x00000200
-#define CPU0_DUMP_SIZE			0x000001F8
-#define CPU1_DUMP_SIZE			0x000001F8
-#define CPU0_PM_SIZE			0x00000008
-#define CPU1_PM_SIZE			0x00000008
+#define MEMLOG_ADDRESS		SDRAM_MEMLOG_START_ADDRESS
+#define MEMLOG_SIZE		\
+	(SDRAM_MEMLOG_END_ADDRESS - SDRAM_MEMLOG_START_ADDRESS + 1)
 
-#define CPU0_PROC_START_INDEX			\
-0x00000000
-#define CPU1_PROC_START_INDEX			\
-(CPU0_PROC_START_INDEX + CPU0_PROC_SIZE)
-#define CPU0_IRQ_START_INDEX			\
-(CPU1_PROC_START_INDEX + CPU1_PROC_SIZE)
-#define CPU1_IRQ_START_INDEX			\
-(CPU0_IRQ_START_INDEX + CPU0_IRQ_SIZE)
-#define CPU0_FUNC_START_INDEX			\
-(CPU1_IRQ_START_INDEX + CPU1_IRQ_SIZE)
-#define CPU1_FUNC_START_INDEX			\
-(CPU0_FUNC_START_INDEX + CPU0_FUNC_SIZE)
-#define CPU0_DUMP_START_INDEX			\
-(CPU1_FUNC_START_INDEX + CPU1_FUNC_SIZE)
-#define CPU1_DUMP_START_INDEX			\
-(CPU0_DUMP_START_INDEX + CPU0_DUMP_SIZE)
-#define CPU0_PM_START_INDEX				\
-(CPU1_DUMP_START_INDEX + CPU1_DUMP_SIZE)
-#define CPU1_PM_START_INDEX				\
-(CPU0_PM_START_INDEX + CPU0_PM_SIZE)
-#define MEMLOG_END						\
-(CPU1_PM_START_INDEX + CPU1_PM_SIZE)
+#define PROC_ENTRY_SIZE		sizeof(struct proc_log_entry)
+#define IRQ_ENTRY_SIZE		sizeof(struct irq_log_entry)
+#define FUNC_ENTRY_SIZE		sizeof(struct func_log_entry)
+#define DUMP_ENTRY_SIZE		sizeof(struct dump_log_entry)
+#define PM_ENTRY_SIZE		8 /* 32bit timer & 32 bit id */
+#define CPU0_PM_SIZE		PM_ENTRY_SIZE
+#define CPU1_PM_SIZE		PM_ENTRY_SIZE
+
+#define PROC_COUNT		18
+#define IRQ_COUNT		42
+#define FUNC_COUNT		42
+#define DUMP_COUNT		32
+#define PM_COUNT		1
+
+#define CPU0_PROC_START_INDEX	0x00000000
+#define CPU1_PROC_START_INDEX	\
+	(CPU0_PROC_START_INDEX + (PROC_ENTRY_SIZE * PROC_COUNT))
+#define CPU0_IRQ_START_INDEX	\
+	(CPU1_PROC_START_INDEX + (PROC_ENTRY_SIZE * PROC_COUNT))
+#define CPU1_IRQ_START_INDEX	\
+	(CPU0_IRQ_START_INDEX + (IRQ_ENTRY_SIZE * IRQ_COUNT))
+#define CPU0_FUNC_START_INDEX	\
+	(CPU1_IRQ_START_INDEX + (IRQ_ENTRY_SIZE * IRQ_COUNT))
+#define CPU1_FUNC_START_INDEX	\
+	(CPU0_FUNC_START_INDEX + (FUNC_ENTRY_SIZE * FUNC_COUNT))
+#define CPU0_DUMP_START_INDEX	\
+	(CPU1_FUNC_START_INDEX + (FUNC_ENTRY_SIZE * FUNC_COUNT))
+#define CPU1_DUMP_START_INDEX	\
+	(CPU0_DUMP_START_INDEX + (DUMP_ENTRY_SIZE * DUMP_COUNT))
+#define CPU0_PM_START_INDEX	\
+	(CPU1_DUMP_START_INDEX + (DUMP_ENTRY_SIZE * DUMP_COUNT))
+#define CPU1_PM_START_INDEX	\
+	(CPU0_PM_START_INDEX + (PM_ENTRY_SIZE * PM_COUNT))
+#define MEMLOG_END		\
+	(CPU1_PM_START_INDEX + (PM_ENTRY_SIZE * PM_COUNT))
+
 
 #else
 #ifndef __ASSEMBLY__
