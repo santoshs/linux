@@ -30,7 +30,7 @@ extern void memory_log_worker(unsigned long func_addr, unsigned long pid
 extern void memory_log_irq(unsigned int irq, int in);
 extern void memory_log_func(unsigned long func_id, int in);
 extern void memory_log_dump_int(unsigned char dump_id, int dump_data);
-
+extern void memory_log_timestamp(unsigned int id);
 struct proc_log_entry {
 	unsigned long long time;
 	unsigned long pid;
@@ -52,6 +52,16 @@ struct dump_log_entry {
 	unsigned long id;
 	int data;
 } __packed;
+
+enum timestamps {
+	CMT15_TIMESTAMP = 0,
+	RWDT_TIMESTAMP,
+	FIQ_TIMESTAMP,
+	COUNT_TIMESTAMP,
+};
+struct timestamp_entries {
+	unsigned long long time[CONFIG_NR_CPUS][COUNT_TIMESTAMP];
+} __packed;
 #endif /* __ASSEMBLY__ */
 
 #define MEMLOG_ADDRESS		SDRAM_MEMLOG_START_ADDRESS
@@ -65,11 +75,12 @@ struct dump_log_entry {
 #define PM_ENTRY_SIZE		8 /* 32bit timer & 32 bit id */
 #define CPU0_PM_SIZE		PM_ENTRY_SIZE
 #define CPU1_PM_SIZE		PM_ENTRY_SIZE
+#define TIMESTAMPS_SIZE		sizeof(struct timestamp_entries)
 
 #define PROC_COUNT		18
 #define IRQ_COUNT		42
 #define FUNC_COUNT		42
-#define DUMP_COUNT		32
+#define DUMP_COUNT		31
 #define PM_COUNT		1
 
 #define CPU0_PROC_START_INDEX	0x00000000
@@ -91,9 +102,10 @@ struct dump_log_entry {
 	(CPU1_DUMP_START_INDEX + (DUMP_ENTRY_SIZE * DUMP_COUNT))
 #define CPU1_PM_START_INDEX	\
 	(CPU0_PM_START_INDEX + (PM_ENTRY_SIZE * PM_COUNT))
-#define MEMLOG_END		\
+#define TIMESTAMP_INDEX		\
 	(CPU1_PM_START_INDEX + (PM_ENTRY_SIZE * PM_COUNT))
-
+#define MEMLOG_END		\
+	(TIMESTAMP_INDEX + TIMESTAMPS_SIZE)
 
 #else
 #ifndef __ASSEMBLY__
@@ -111,6 +123,9 @@ static inline void memory_log_func(unsigned long func_id, int in)
 {
 }
 static inline void memory_log_dump_int(unsigned char dump_id, int dump_data)
+{
+}
+static inline void memory_log_timestamp(unsigned int id)
 {
 }
 #endif /* __ASSEMBLY__ */

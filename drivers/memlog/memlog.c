@@ -41,7 +41,6 @@ static DEFINE_PER_CPU(struct log_area, irq_log_area);
 static DEFINE_PER_CPU(struct log_area, func_log_area);
 static DEFINE_PER_CPU(struct log_area, dump_log_area);
 
-
 void memory_log_proc(const char *name, unsigned long pid)
 {
 	struct log_area *log;
@@ -168,6 +167,20 @@ void memory_log_dump_int(unsigned char dump_id, int dump_data)
 	memcpy(logdata + index, &dump_log, DUMP_ENTRY_SIZE);
 }
 EXPORT_SYMBOL_GPL(memory_log_dump_int);
+
+void memory_log_timestamp(unsigned int id)
+{
+	int cpu;
+	struct timestamp_entries *p =
+			(struct timestamp_entries *)(logdata + TIMESTAMP_INDEX);
+
+	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
+			return;
+	cpu = get_cpu();
+	p->time[cpu][id] = local_clock();
+	put_cpu();
+}
+EXPORT_SYMBOL_GPL(memory_log_timestamp);
 
 void memory_log_init(void)
 {
