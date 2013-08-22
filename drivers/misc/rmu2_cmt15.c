@@ -407,6 +407,7 @@ asmlinkage void rmu2_cmt_fiq(struct pt_regs *regs)
 	int err = 0;
 #endif
 	memory_log_timestamp(FIQ_TIMESTAMP);
+	memlog_capture = 0;
 
 	console_verbose();
 
