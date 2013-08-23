@@ -796,7 +796,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /***********************************/
 #define SCU_BASE_PHYS	0xF0000000
 #define SCU_BASE	IO_ADDRESS(SCU_BASE_PHYS)
-#define SCU_PWRST_PHYS	SCU_BASE_PHYS + 0x08
+#define SCU_PWRST_PHYS	(SCU_BASE_PHYS + 0x08)
 
 
 #define GIC_CPU_BASE		IO_ADDRESS(0xF0000100)
@@ -902,7 +902,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 
 #define RWDT_BASEPhys	0xE6020000
 /* RCLK watchdog timer counter	*/
-#define RWTCNT 		IO_ADDRESS(0xE6020000)
+#define RWTCNT		IO_ADDRESS(0xE6020000)
 /* RCLK watchdog timer control/status Register	*/
 #define RWDTCSRA	IO_ADDRESS(0xE6020004)
 

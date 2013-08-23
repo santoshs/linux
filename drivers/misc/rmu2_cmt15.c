@@ -204,11 +204,13 @@ void cpg_check_check(void)
 					__raw_readl(CPG_CHECK_STATUS));
 		printk(KERN_EMERG " %08x=%08x\n", CPG_CHECK_REG, val0);
 		printk(KERN_EMERG " %08x=%08x\n", CPG_CHECK_REG + 4, val1);
-		for (addr = ISREQ_TIMEOUT_MONITOR_S; addr <= PDACK_TIMEOUT_MONITOR_A; addr += 4U) {
+		for (addr = ISREQ_TIMEOUT_MONITOR_S;
+				addr <= PDACK_TIMEOUT_MONITOR_A; addr += 4U) {
 			printk(KERN_EMERG " %08x=%08x\n",
 					addr, __raw_readl(addr));
 		}
-		for (addr = ISREQ_TIMEOUT_MONITOR_F; addr <= PDACK_TIMEOUT_MONITOR_F; addr += 4U) {
+		for (addr = ISREQ_TIMEOUT_MONITOR_F;
+				addr <= PDACK_TIMEOUT_MONITOR_F; addr += 4U) {
 			printk(KERN_EMERG " %08x=%08x\n",
 					addr, __raw_readl(addr));
 		}

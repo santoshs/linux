@@ -30,7 +30,7 @@ struct sec_debug_inform {
 	unsigned int size;
 };
 
-void __iomem * sec_debug_inform_init(void);
+void __iomem *sec_debug_inform_init(void);
 
 void sec_debug_inform_write(unsigned magic, unsigned index);
 

@@ -476,7 +476,7 @@ asmlinkage void __init start_kernel(void)
 {
 	char * command_line;
 	extern const struct kernel_param __start___param[], __stop___param[];
-	if(isTrustZoneEnvironmentEnabled())
+	if (isTrustZoneEnvironmentEnabled())
 		printk(KERN_NOTICE "TRUST ZONE ENABLED");
 	else
 		printk(KERN_NOTICE "TRUST ZONE DISABLED");

@@ -518,7 +518,8 @@ int iccom_copy_to_command_area(void __iomem *cmd_area, void *from_addr, unsigned
 
 	if (ICCOM_TYPE_USER == type) {
 		/* copy from User to Kernel */
-		ret_code = copy_from_user(g_iccom_send_buf_addr, (void __force __user *) from_addr, size);
+		ret_code = copy_from_user(g_iccom_send_buf_addr,
+				(void __force __user *) from_addr, size);
 		if (0 != ret_code) {
 			return SMAP_NG;
 		}

@@ -325,10 +325,10 @@ void pmdbg_dump_suspend(void)
 }
 
 /* Why not print the name, rather than the phys addr, like this? */
-/*define sprint_regm(s,p,v,w) (s += sprintf(s, #v ": 0x%x\n", rreg##w(v)))*/
-#define sprint_regm(s,p,v,w) (s += sprintf(s, "0x%x: 0x%x\n", p, rreg##w(v)))
-#define sprint_reg(s,v) sprint_regm(s,IO_TO_PHYS(v),v,32)
-#define sprint_reg8(s,v) sprint_regm(s,IO_TO_PHYS(v),v,8)
+/*define sprint_regm(s, p, v, w) (s += sprintf(s, #v ": 0x%x\n", rreg##w(v)))*/
+#define sprint_regm(s, p, v, w) (s += sprintf(s, "0x%x: 0x%x\n", p, rreg##w(v)))
+#define sprint_reg(s, v) sprint_regm(s, IO_TO_PHYS(v), v, 32)
+#define sprint_reg8(s, v) sprint_regm(s, IO_TO_PHYS(v), v, 8)
 
 static void CPG_dump_suspend(void)
 {

@@ -1235,7 +1235,7 @@ static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
 	priv->irq = i;
 
 	/* irq base address */
-	irqc_baseaddr = ioremap(res->start,resource_size(res));
+	irqc_baseaddr = ioremap(res->start, resource_size(res));
 
 #if FB_SH_MOBILE_REFRESH
 	sh_mobile_wq = create_singlethread_workqueue("sh_mobile_lcd");
