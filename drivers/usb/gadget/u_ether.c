@@ -67,7 +67,7 @@ static	DEFINE_SPINLOCK(timer_lock);
 
 /*-------------------------------------------------------------------------*/
 
-#define RX_EXTRA	20	/* bytes guarding against rx overflows */
+#define RX_EXTRA	22	/* bytes guarding against rx overflows */
 
 #define DEFAULT_QLEN	2	/* double buffering by default */
 

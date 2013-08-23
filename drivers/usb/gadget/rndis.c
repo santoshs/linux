@@ -591,6 +591,7 @@ static int rndis_init_response(int configNr, rndis_init_msg_type *buf)
 		+ sizeof(struct ethhdr)
 		+ sizeof(struct rndis_packet_msg_type)
 		+ 22));
+	resp->PacketAlignmentFactor = cpu_to_le32(RNDIS_FRAME_BYTE_ALIGMENT);
 #else
 	resp->MaxPacketsPerTransfer = cpu_to_le32(1);
 	resp->MaxTransferSize = cpu_to_le32(
@@ -598,8 +599,8 @@ static int rndis_init_response(int configNr, rndis_init_msg_type *buf)
 		+ sizeof(struct ethhdr)
 		+ sizeof(struct rndis_packet_msg_type)
 		+ 22);
-#endif
 	resp->PacketAlignmentFactor = cpu_to_le32(0);
+#endif
 	resp->AFListOffset = cpu_to_le32(0);
 	resp->AFListSize = cpu_to_le32(0);
 
