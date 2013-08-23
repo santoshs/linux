@@ -48,9 +48,6 @@
 #define APE_RESETLOG_TMPLOG_END	(0x08)
 #define APE_RESETLOG_TRACELOG	(0x10)
 
-/* For enabling/disabling trace logs */
-/* Similar macro needs to be enabled/disabled in kernel/arch/arm/kernel/entry-header.S */
-/*#define CONFIG_IRQ_TRACE*/
 #ifdef CONFIG_IRQ_TRACE
 /* TMPLOG_SIZE_PERCPU = (TMPLOG_TOTAL_SIZE / 2) = 128kB per CPU */
 #define TMPLOG_SIZE_PERCPU	0x00020000

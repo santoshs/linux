@@ -149,7 +149,8 @@ void crashlog_init_tmplog(void)
 #ifndef CONFIG_IRQ_TRACE
 	if (request_mem_region(TMPLOG_ADDRESS, TMPLOG_TOTAL_SIZE,
 					"tmplog-nocache")) {
-		tmplog_nocache_address = (char *)ioremap_nocache(TMPLOG_ADDRESS,
+		tmplog_nocache_address = (char __force *)
+				ioremap_nocache(TMPLOG_ADDRESS,
 						TMPLOG_TOTAL_SIZE);
 		memcpy(tmplog_nocache_address, "CrashLog Temporary Area" , 24);
 	}
@@ -158,8 +159,8 @@ void crashlog_init_tmplog(void)
 	/*	reg = __raw_readb(STBCHR3);*/
 	/*	__raw_writeb((reg | APE_RESETLOG_TMPLOG_END), STBCHR3); */
 #else
-	void __iomem *adr = 0;
-	void __iomem *tmp = 0;
+	void __iomem *adr;
+	void __iomem *tmp;
 	u8 reg = 0;
 
 	if (tmplog_nocache_address == 0) {
@@ -168,8 +169,8 @@ void crashlog_init_tmplog(void)
 							 "tmplog-nocache");
 		tmp = ioremap_nocache(TMPLOG_ADDRESS, TMPLOG_TOTAL_SIZE);
 		for (adr = tmp; adr < (tmp+TMPLOG_TOTAL_SIZE); adr += 4)
-			__raw_writel((unsigned int)adr+0x10000000, adr);
-		tmplog_nocache_address = (char *)tmp;
+			__raw_writel((unsigned int __force)adr+0x10000000, adr);
+		tmplog_nocache_address = (char __force *)tmp;
 	}
 	reg = __raw_readb(STBCHR3);
 	/* Set bit APE_RESETLOG_TRACELOG of STBCHR3 for tracelog */
