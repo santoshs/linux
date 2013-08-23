@@ -323,7 +323,7 @@ static void __exit exit_memlog(void)
 	kobject_put(memlog_kobj);
 }
 
-module_init(init_memlog);
+pure_initcall(init_memlog);
 module_exit(exit_memlog);
 
 MODULE_DESCRIPTION("Memory Log");
