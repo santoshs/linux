@@ -723,7 +723,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define STBCHR2		IO_ADDRESS(0xE6180002)
 #define STBCHR3		IO_ADDRESS(0xE6180003)
 
-#define RBARPhys	0xE618001C
+#define RBAR		IO_ADDRESS(0xE618001C)
 /* WakeUp Factor Mask Register*/
 #define WUPRMSK		IO_ADDRESS(0xe6180028)
 #define WUPSMSK		IO_ADDRESS(0xe618002C)

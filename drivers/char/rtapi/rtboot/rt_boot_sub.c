@@ -29,23 +29,14 @@
 #include "log_kernel.h"
 #include <mach/r8a7373.h>
 
-#define SYSC_SIZE			(0x300)
-static void __iomem *sysc_base;
-#define RBAR				(sysc_base + 0x001C)
-#define SYSC_SIZE8			(0x100)
-static void __iomem *sysc_base8;
 #define RESCNT_RT			(1 << 9)
 
-#define CPGA_SIZE			(0x200)
-static void __iomem *cpga_base;
 #define RMSTPCR0_TLB		(1 << 31)
 #define RMSTPCR0_IC			(1 << 30)
 #define RMSTPCR0_OC			(1 << 29)
 #define RMSTPCR0_INTCRT		(1 << 22)
 #define RMSTPCR2_MFI		(1 << 13)
 
-#define CPGA_SIZE8			(0x200)
-static void __iomem *cpga_base8;
 #define SRCR0_RT			(1 << 30)
 #define SRCR2_MFI			(1 << 13)
 
@@ -89,10 +80,6 @@ static int set_screen_data(unsigned int disp_addr);
 
 void do_ioremap_register(void)
 {
-	sysc_base = ioremap(SYSC0_BASEPhys, SYSC_SIZE);
-	sysc_base8 = ioremap(SYSC_SEMCTRLPhys, SYSC_SIZE8);
-	cpga_base = ioremap(CPG_BASEPhys, CPGA_SIZE);
-	cpga_base8 = ioremap(CPG_SEMCTRLPhys, CPGA_SIZE8);
 	mfis_base = ioremap(MFIS_BASE_ADDR_PHYS, MFIS_SIZE);
 	intcrt_base2 = ioremap(INTCRT_BASE2, INTCRT_SIZE2);
 	intcrt_base5 = ioremap(INTCRT_BASE5, INTCRT_SIZE5);
@@ -100,10 +87,6 @@ void do_ioremap_register(void)
 
 void do_iounmap_register(void)
 {
-	iounmap(sysc_base);
-	iounmap(sysc_base8);
-	iounmap(cpga_base);
-	iounmap(cpga_base8);
 	iounmap(mfis_base);
 	iounmap(intcrt_base2);
 	iounmap(intcrt_base5);
