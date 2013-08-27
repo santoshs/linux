@@ -91,7 +91,7 @@ void memory_log_irq(unsigned int irq, int in)
 
 	memset(&irq_log, 0, IRQ_ENTRY_SIZE);
 	irq_log.time = local_clock();
-	irq_log.data = irq | (in ? 0x01000000 : 0);
+	irq_log.data = irq | (in ? IRQ_LOG_ENTRY_IN : 0);
 
 	log = &get_cpu_var(irq_log_area);
 
@@ -119,7 +119,7 @@ void memory_log_func(unsigned long func_id, int in)
 
 	memset(&func_log, 0, FUNC_ENTRY_SIZE);
 	func_log.time = local_clock();
-	func_log.data = func_id | (in ? 0x01000000 : 0);
+	func_log.data = func_id | (in ? FUNC_LOG_ENTRY_IN : 0);
 
 	local_irq_save(flags);
 
