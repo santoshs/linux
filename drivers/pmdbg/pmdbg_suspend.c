@@ -423,7 +423,7 @@ static void CPG_dump_suspend(void)
 	sprint_reg(s, MMSTPCR6);
 	sprint_reg(s, CKSCR);
 	sprint_reg(s, PCLKCR);
-	sprint_reg(s, ZDIVCR5); /* You may have to change this */
+	sprint_reg(s, SCGCR);
 	MSG_INFO("%s", suspend_buf);
 
 	iounmap(vir_addr);
@@ -742,12 +742,12 @@ static void GPIO_dump_suspend(void)
 	sprint_reg(s, GPIO_PORTL063_032DR);
 	sprint_reg(s, GPIO_PORTL095_064DR);
 	sprint_reg(s, GPIO_PORTL127_096DR);
-	sprint_reg(s, GPIO_PORTL159_128DR);
-	sprint_reg(s, GPIO_PORTL223_192DR);
-	sprint_reg(s, GPIO_PORTL255_224DR);
-	sprint_reg(s, GPIO_PORTL287_256DR);
-	sprint_reg(s, GPIO_PORTL319_288DR);
-	sprint_reg(s, GPIO_PORTL351_320DR);
+	sprint_reg(s, GPIO_PORTD159_128DR);
+	sprint_reg(s, GPIO_PORTR223_192DR);
+	sprint_reg(s, GPIO_PORTR255_224DR);
+	sprint_reg(s, GPIO_PORTR287_256DR);
+	sprint_reg(s, GPIO_PORTR319_288DR);
+	sprint_reg(s, GPIO_PORTR351_320DR);
 	MSG_INFO("%s", suspend_buf);
 
 	return;

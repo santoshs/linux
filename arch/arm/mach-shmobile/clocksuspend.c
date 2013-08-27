@@ -1713,14 +1713,14 @@ static int cpg_set_zdiv(int mode)
 				zdivcr &= ~BIT(18);
 
 			zdivcr |= waveform_map[i].waveform;
-			__raw_writel(zdivcr, ZDIVCR5);
+			__raw_writel(zdivcr, SCGCR);
 
 			/* BIT(29) should be clear when all done
 			 */
 			zdivcr &= ~BIT(29);
-			__raw_writel(zdivcr, ZDIVCR5);
+			__raw_writel(zdivcr, SCGCR);
 
-			pr_log("ZDIVCR[0x%08x]\n", __raw_readl(ZDIVCR5));
+			pr_log("ZDIVCR[0x%08x]\n", __raw_readl(SCGCR));
 			return 0;
 		}
 	}
