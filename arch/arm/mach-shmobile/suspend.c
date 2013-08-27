@@ -660,7 +660,7 @@ void shwystatdm_regs_restore(void)
  */
 static int core_shutdown_status(unsigned int cpu)
 {
-	return (__raw_readl(CPG_SCPUSTR) >> (4 * cpu)) & 3;
+	return (__raw_readl(SCPUSTR) >> (4 * cpu)) & 3;
 }
 
 /*
@@ -1128,10 +1128,10 @@ static int shmobile_suspend_prepare_late(void)
 	disable_hlt();
 
 	/* backup sys boot address */
-	save_sbar_val = __raw_readl(IOMEM(SBAR));
+	save_sbar_val = __raw_readl(SBAR);
 
 	/* set RAM1 vector */
-	__raw_writel(RAM_ARM_VECT, IOMEM(SBAR));
+	__raw_writel(RAM_ARM_VECT, SBAR);
 
 	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_PREPARE_LATE, 0);
 	return 0;
@@ -1146,7 +1146,7 @@ static void shmobile_suspend_wake(void)
 	enable_hlt();
 
 	/* restore sys boot address */
-	__raw_writel(save_sbar_val, IOMEM(SBAR));
+	__raw_writel(save_sbar_val, SBAR);
 
 	/* Log information for disabling EXTAL1 */
 #ifdef __EXTAL1_INFO__

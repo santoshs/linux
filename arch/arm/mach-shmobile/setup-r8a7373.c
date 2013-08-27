@@ -1388,7 +1388,7 @@ static void __init cmt_clocksource_init(void)
 	/* start */
 	__raw_writel(1, CMSTR0);
 
-	clocksource_mmio_init(IOMEM(CMCNT0), "cmt10", rate, 125, 32,
+	clocksource_mmio_init(CMCNT0, "cmt10", rate, 125, 32,
 				clocksource_mmio_readl_up);
 
 	clk_enable(clk_get_sys("sh_cmt.14", NULL));
@@ -1573,19 +1573,19 @@ void SBSC_Init_520Mhz(void)
 
 	/* Check PLL3 status */
 	work = __raw_readl(PLLECR);
-	if (!(work & CPG_PLLECR_PLL3ST)) {
-		printk(KERN_ALERT "CPG_PLLECR_PLL3ST is 0\n");
+	if (!(work & PLLECR_PLL3ST)) {
+		printk(KERN_ALERT "PLLECR_PLL3ST is 0\n");
 		return;
 	}
 
 	/* Set PLL3 = 1040 Mhz*/
-	__raw_writel(CPG_PLL3CR_1040MHZ, PLL3CR);
+	__raw_writel(PLL3CR_1040MHZ, PLL3CR);
 
 	/* Wait PLL3 status on */
 	while (1) {
 		work = __raw_readl(PLLECR);
-		work &= CPG_PLLECR_PLL3ST;
-		if (work == CPG_PLLECR_PLL3ST)
+		work &= PLLECR_PLL3ST;
+		if (work == PLLECR_PLL3ST)
 			break;
 	}
 
@@ -1693,7 +1693,7 @@ void r8a7373_l2cache_init(void)
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 		/*The L2Cache is resized to 512 KB*/
-		l2x0_init(IOMEM(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
+		l2x0_init(IO_ADDRESS(0xf0100000), 0x4c460000, 0x820f0fff);
 	}
 #endif
 }
@@ -1701,7 +1701,7 @@ void r8a7373_l2cache_init(void)
 
 void __init r8a7373_init_early(void)
 {
-	system_rev = __raw_readl(IOMEM(CCCR));
+	system_rev = __raw_readl(CCCR);
 
 #ifdef CONFIG_ARM_TZ
 	r8a7373_l2cache_init();

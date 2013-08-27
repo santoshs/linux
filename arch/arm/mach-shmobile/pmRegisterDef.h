@@ -152,9 +152,9 @@
 /******************************************/
 /* XTAL though mode				*/
 /*****************************************/
-#define CPG_LPCKCR_LEGACY	0x00000000
-#define CPG_LPCKCR_26MHz	0x00000002
-#define CPG_LPCKCR_PLLOFF	0x00000004
+#define LPCKCR_LEGACY		0x00000000
+#define LPCKCR_26MHz		0x00000002
+#define LPCKCR_PLLOFF		0x00000004
 
 
 #define A2SLSTP			(1 << 20)
@@ -225,11 +225,6 @@
 #define MSTP528 0x10000000 /* Module Stop bit 528(Internal RAM1)*/
 #define MSTP529 0x20000000 /* Module Stop bit 529(Secure RAM) */
 
-
-#define CPG_PLL0E	0x1	/* PLL0 Enable (0:off, 1:on) */
-#define CPG_PLL0ST	0x100	/* PLL0 status (0:off, 1:on)*/
-#define CPG_PLL1E	(1 << 1)	/* PLL0 Enable (0:off, 1:on) */
-#define CPG_PLL1ST	(1 << 9)	/* PLL0 status (0:off, 1:on)*/
 
 #define FRQCRA_ES2_MASK		0x00000F00 /* 0x00FFFFFF */
 #define FRQCRB_MASK			0x0000FFF0 /* 0x1FFFFFF0 */

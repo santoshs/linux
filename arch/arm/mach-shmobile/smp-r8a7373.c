@@ -40,7 +40,7 @@ static struct wake_lock smp_idle_wakelock;
 
 static void __iomem *scu_base_addr(void)
 {
-	return IOMEM(SCU_BASE);
+	return SCU_BASE;
 }
 
 static DEFINE_SPINLOCK(scu_lock);
@@ -91,9 +91,9 @@ int r8a7373_platform_cpu_kill(unsigned int cpu)
 
 	while (0 < timeout) {
 		timeout--;
-		status = __raw_readl(IOMEM(CPG_SCPUSTR));
+		status = __raw_readl(SCPUSTR);
 		if (((status >> (4 * cpu)) & 2) == 2) {
-			pr_debug("CPG_SCPUSTR:0x%08lx\n", status);
+			pr_debug("CPUSTR:0x%08lx\n", status);
 			return 1;
 		}
 		mdelay(1);
@@ -106,7 +106,7 @@ int r8a7373_platform_cpu_die(unsigned int cpu)
 {
 	pr_debug("smp-r8a7373: smp_cpu_die is called\n");
 	/* disable gic cpu_if */
-	__raw_writel(0, IOMEM(GIC_CPU_BASE + GIC_CPU_CTRL));
+	__raw_writel(0, GIC_CPU_BASE + GIC_CPU_CTRL);
 
 	return 1;
 }
@@ -136,18 +136,18 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
 		wake_lock(&smp_idle_wakelock);
 	}
 
-	status = ((__raw_readl(IOMEM(CPG_SCPUSTR)) >> (4 * cpu)) & 3);
+	status = (__raw_readl(SCPUSTR) >> (4 * cpu)) & 3;
 
-	if (status == 3)
-		__raw_writel(1 << cpu, IOMEM(WUPCR)); /* wake up */
-	else if (status == 0) {
+	if (status == 3) {
+		__raw_writel(1 << cpu, WUPCR); /* wake up */
+	} else if (status == 0) {
 		printk(KERN_NOTICE "CPU%d is SRESETed\n", cpu);
-		__raw_writel(1 << cpu, IOMEM(SRESCR)); /* reset */
+		__raw_writel(1 << cpu, SRESCR); /* reset */
 	} else {
 		printk(KERN_NOTICE "CPU%d has illegal status %08lx\n",\
 				cpu, status);
-		__raw_writel(1 << cpu, IOMEM(WUPCR)); /* wake up */
-		__raw_writel(1 << cpu, IOMEM(SRESCR)); /* reset */
+		__raw_writel(1 << cpu, WUPCR); /* wake up */
+		__raw_writel(1 << cpu, SRESCR); /* reset */
 	}
 
 	return 0;
@@ -159,11 +159,11 @@ void __init r8a7373_smp_prepare_cpus(unsigned int max_cpus)
 
 	scu_enable(scu_base_addr());
 
-	__raw_writel(0, IOMEM(SBAR2));
+	__raw_writel(0, SBAR2);
 
 	/* Map the reset vector (in headsmp.S) */
-	__raw_writel(0, IOMEM(APARMBAREA));      /* 4k */
-	__raw_writel(__pa(shmobile_secondary_vector), IOMEM(SBAR));
+	__raw_writel(0, APARMBAREA);      /* 4k */
+	__raw_writel(virt_to_phys(shmobile_secondary_vector), SBAR);
 
 	/* enable cache coherency on all CPU */
 	for (cpu = 0; cpu < max_cpus; cpu++)

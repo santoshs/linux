@@ -76,7 +76,7 @@ static void csi2_camera_voltage_log(void *data, int first, int main_cam)
 		log->cpg[3] = __raw_readl(VCLKCR2);
 		log->cpg[4] = __raw_readl(PLLECR);
 		log->cpg[5] = __raw_readl(PLL1CR);
-		log->cpg[6] = __raw_readl(CPG_PLL2CR);
+		log->cpg[6] = __raw_readl(PLL2CR);
 		log->cpg[7] = __raw_readl(MSTPSR0);
 		log->cpg[8] = __raw_readl(MSTPSR1);
 		log->cpg[9] = __raw_readl(MSTPSR2);
@@ -85,7 +85,7 @@ static void csi2_camera_voltage_log(void *data, int first, int main_cam)
 		log->cpg[12] = __raw_readl(SMSTPCR2);
 
 		/* SYSC */
-		log->sysc[0] = __raw_readl(SYSC_PSTR);
+		log->sysc[0] = __raw_readl(PSTR);
 
 		/* GPIO */
 		log->gpio_cr[0] = __raw_readb(GPIO_BASE + 3);

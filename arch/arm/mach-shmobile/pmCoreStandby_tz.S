@@ -1363,7 +1363,7 @@ SKIP_TURN_OFF_RWDT:
 	STR		r5, [r6]
 
 	/* Read	Power Status Register (PSTR)*/
-	LDR 	r4, =SYSC_PSTR
+	LDR 	r4, =PSTR
 	LDR		r5, [r4]
 	LDR		r6, =ram0SavePSTR_suspend
 	STR		r5, [r6]
@@ -1482,7 +1482,7 @@ ENTRY(sys_powerup)
 	STR		r5, [r6]
 
 	/* Read	Power Status Register (PSTR)*/
-	LDR 	r4, =IO_TO_PHYS(SYSC_PSTR)
+	LDR 	r4, =IO_TO_PHYS(PSTR)
 	LDR		r5, [r4]
 	LDR		r6, =ram0SavePSTRPhys_resume
 	STR		r5, [r6]

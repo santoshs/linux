@@ -28,7 +28,6 @@
 /* CPG */
 #define WUPCR		(CPG_BASE + 0x1010)
 #define SRESCR		(CPG_BASE + 0x1018)
-#define SCPUSTR		(CPG_BASE + 0x1040)
 #define CPU0RFR		(CPG_BASE + 0x1104)
 #define CPU1RFR		(CPG_BASE + 0x1114)
 #define SPCTR		(CPG_BASE + 0x01a4)

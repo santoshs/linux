@@ -41,7 +41,7 @@ static int pd_power_set(int shift, bool on)
 {
 	int i = 0;
 	unsigned int mask = 1 << shift;
-	void __iomem *reg = IOMEM(on ? SWUCR : SPDCR);
+	void __iomem *reg = on ? SWUCR : SPDCR;
 	unsigned long flags;
 
 	spin_lock_irqsave(&r8a7373_sysc_lock, flags);
@@ -59,7 +59,7 @@ static int pd_power_set(int shift, bool on)
 	spin_unlock_irqrestore(&r8a7373_sysc_lock, flags);
 
 	panic("power status error (bit:%d on:%d PSTR:0x%08x)",
-				shift, on, __raw_readl(IOMEM(PSTR)));
+				shift, on, __raw_readl(PSTR)));
 	return 0;
 }
 
@@ -215,8 +215,8 @@ void r8a7373_enter_core_standby(void)
 	void __iomem *addr;
 
 	cpu = cpu_logical_map(smp_processor_id());
-	addr = IOMEM(cpu ? RAM0_WAKEUP_ADDR1 : RAM0_WAKEUP_ADDR0);
-	__raw_writel(__pa(r8a7373_resume_core_standby), addr);
+	addr = cpu ? RAM0_WAKEUP_ADDR1 : RAM0_WAKEUP_ADDR0;
+	__raw_writel(virt_to_phys(r8a7373_resume_core_standby), addr);
 
 	cpu_suspend(0, r8a7373_do_idle_core_standby);
 }

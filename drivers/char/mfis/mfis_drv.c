@@ -165,7 +165,7 @@ static int mfis_suspend_noirq(struct device *dev)
 		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
 #if (EARLYSUSPEND_STANDBY == 1) && (RTPM_PF_CUSTOM == 1)
-	if (POWER_A3R & readl(SYSC_PSTR)) {
+	if (POWER_A3R & readl(PSTR)) {
 		dev_name = domain_name;
 
 		ret = power_domain_devices(dev_name, dev_img, &dev_cnt);
@@ -489,7 +489,7 @@ int mfis_drv_suspend(void)
 	if (0 != down_timeout(&mfis_sem, jiffies))
 		panic("[%s] : down_timeout TIMEOUT Error!\n", __func__);
 
-	if (POWER_A3R & readl(SYSC_PSTR)) {
+	if (POWER_A3R & readl(PSTR)) {
 		p_tbl = platform_get_drvdata(pdev_tbl);
 
 		early_suspend_phase_flag = 1;

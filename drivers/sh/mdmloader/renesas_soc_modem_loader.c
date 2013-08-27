@@ -21,7 +21,7 @@
 
 #define DBGREG4                         IO_ADDRESS(0xE610002C)
 #define DBGREG4_ALL_ON                  0x3F
-#define SYSC_PSTR_D4                    (1<<1)
+#define PSTR_D4				(1<<1)
 
 #define APE_BASE_MDM_L2_TCM             0xE1800000
 #define APE_SIZE_MDM_L2_TCM             0x00000100
@@ -569,9 +569,9 @@ static int rmc_loader_flush(struct file *file, fl_owner_t id)
                                      SCU_WGM_PSSClk_Req_Mask,
                                      remapped_mdm_scu_ad + APE_VIEW_MDM_SCU_AD_CCR_CLEAR);
 
-                        data_pstr = __raw_readl(SYSC_PSTR);
+                        data_pstr = __raw_readl(PSTR);
                         data_dbgreg4 = __raw_readl(DBGREG4);
-                        if ((SYSC_PSTR_D4 == (data_pstr & SYSC_PSTR_D4))
+                        if ((PSTR_D4 == (data_pstr & PSTR_D4))
 			    && (DBGREG4_ALL_ON == (data_dbgreg4 & DBGREG4_ALL_ON))) {
                                 /* Only if both D4 power domain is on, and also all coresight debug enables are on */
                                 /* enable modem ETF_STM and CXSTM */

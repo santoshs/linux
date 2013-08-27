@@ -31,7 +31,7 @@
 
 #include <linux/kmsg_dump.h>
 
-/* CPG_PLL2CR */
+/* PLL2CR */
 #define PLL2CE_XOE	0x1
 
 /* Power Off Mode Setting */
@@ -150,15 +150,15 @@ void shmobile_do_restart(char mode, const char *cmd, u32 debug_mode)
 #endif /* CONFIG_PM_HAS_SECURE */
 
 	/* W/A for RMU2-E059 start */
-	POWEROFF_PRINTK(" PSTR (A4SF) value 0x%x\n", __raw_readl(SYSC_PSTR));
+	POWEROFF_PRINTK(" PSTR (A4SF) value 0x%x\n", __raw_readl(PSTR));
 	/* If A4SF area is off now */
-	if (0x0 == (A4SFST & (__raw_readl(SYSC_PSTR)))) {
+	if (0x0 == (A4SFST & (__raw_readl(PSTR)))) {
 		POWEROFF_PRINTK("A4SF area is off, need Errata059 W/A\n");
 		/* A4SF area is controlled by SPDCR/SWUCR */
 		if (0x0 == (A4SFBL & (__raw_readl(SWBCR)))) {
 			/* Power On A4SF area */
 			__raw_writel(__raw_readl(SWUCR) | A4SFWU, SWUCR);
-			while (0x0 == (A4SFST & (__raw_readl(SYSC_PSTR))))
+			while (0x0 == (A4SFST & (__raw_readl(PSTR))))
 				;
 		} else
 			POWEROFF_PRINTK(
@@ -204,7 +204,7 @@ static void shmobile_pm_poweroff(void)
 	local_irq_disable();
 	local_fiq_disable();
 	/* Disable XTAL2 */
-	__raw_writel(__raw_readl(CPG_PLL2CR) | PLL2CE_XOE, CPG_PLL2CR);
+	__raw_writel(__raw_readl(PLL2CR) | PLL2CE_XOE, PLL2CR);
 	/* Set Power off flag */
 	__raw_writeb(__raw_readb(STBCHRB2) | POFFFLAG, STBCHRB2);
 	/* Clean and invalidate caches */

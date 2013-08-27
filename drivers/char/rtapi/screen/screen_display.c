@@ -443,7 +443,7 @@ int screen_display_set_lcd_refresh(screen_disp_set_lcd_refresh *set_lcd_refresh)
 		return SMAP_LIB_DISPLAY_PARAERR;
 	}
 
-	if (!(POWER_A3R & readl(SYSC_PSTR))) {
+	if (!(POWER_A3R & readl(PSTR))) {
 		result = mfis_drv_resume();
 		if (SMAP_OK != result) {
 			return result;
