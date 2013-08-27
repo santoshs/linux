@@ -35,6 +35,8 @@
 #include <mach/sec_debug.h>
 #endif
 
+#include <memlog/memlog.h>
+
 /*
    - No shared variables, all the data are CPU local.
    - If a softirq needs serialization, let it serialize itself
@@ -245,8 +247,9 @@ restart:
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 			sec_debug_softirq_log(9999, h->action, 4);
 #endif
+			memory_log_func((unsigned long)h->action, 1);
 			h->action(h);
-
+			memory_log_func((unsigned long)h->action, 0);
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 			sec_debug_softirq_log(9999, h->action, 5);
 #endif
@@ -475,7 +478,9 @@ static void tasklet_action(struct softirq_action *a)
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 				sec_debug_softirq_log(9997, t->func, 4);
 #endif
+				memory_log_func((unsigned long)t->func, 1);
 				t->func(t->data);
+				memory_log_func((unsigned long)t->func, 0);
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 				sec_debug_softirq_log(9997, t->func, 5);
 #endif
@@ -516,7 +521,9 @@ static void tasklet_hi_action(struct softirq_action *a)
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 				sec_debug_softirq_log(9998, t->func, 4);
 #endif
+				memory_log_func((unsigned long)t->func, 1);
 				t->func(t->data);
+				memory_log_func((unsigned long)t->func, 0);
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 				sec_debug_softirq_log(9998, t->func, 5);
 #endif
