@@ -26,7 +26,7 @@
 
 #define CPG_REG_MAX_SRST	(0x01CC)
 
-#define GPIO_PHY_BASE_AUDIO_STATUS		(0xE6058000)
+#define GPIO_PHY_BASE_AUDIO_STATUS_PHYS		(0xE6058000)
 #define GPIO_REG_MAX		(0x0150)
 
 #define CPG_SMSTPCR2		(g_common_ulClkRstRegBase + 0x00000138)

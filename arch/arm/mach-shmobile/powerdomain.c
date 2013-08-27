@@ -974,7 +974,7 @@ power_a4rm_mask = POWER_A4RM;
 	a2ri_status_old = 1;
 	a2ri_status_new = 1;
 	suspend_state	= 0;
-	sbsc_sdpdcr0a_reg = ioremap(SBSC_SDPDCR0APhys, PAGE_SIZE);
+	sbsc_sdpdcr0a_reg = ioremap(SBSC_SDPDCR0A_PHYS, PAGE_SIZE);
 	if (NULL == sbsc_sdpdcr0a_reg)
 		printk(KERN_INFO "[PDC] error can't map SBSC_SDPDCR0A\n");
 

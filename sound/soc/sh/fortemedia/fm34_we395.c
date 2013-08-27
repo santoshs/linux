@@ -35,6 +35,7 @@
 #include <linux/clk.h>
 #include <linux/proc_fs.h>
 #include <mach/common.h>
+#include <mach/r8a7373.h>
 #include "sound/soundpath/soundpath.h"
 #include <linux/platform_device.h>
 #include <linux/vcd/vcd.h>
@@ -985,7 +986,7 @@ static int fm34_probe(
 		goto err_init_gpio_failed;
 	}
 
-	g_fm34_vclk_adr = ioremap(VCLKCR4Phys, FM34_VCLKCR4_REGSIZE);
+	g_fm34_vclk_adr = ioremap(VCLKCR4_PHYS, FM34_VCLKCR4_REGSIZE);
 
 	if (!g_fm34_vclk_adr) {
 		ret = -EINVAL;

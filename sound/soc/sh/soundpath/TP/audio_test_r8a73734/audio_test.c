@@ -1138,7 +1138,7 @@ static int audio_test_get_logic_addr(void)
 	/* Get CPGA(soft reset) Logical Address */
 	/****************************************/
 	g_audio_test_ulSrstRegBase =
-		ioremap_nocache(CPG_SEMCTRLPhys,
+		ioremap_nocache(CPG_SEMCTRL_BASE_PHYS,
 					AUDIO_TEST_CPG_REG_MAX_SRST);
 	if (!g_audio_test_ulSrstRegBase) {
 		audio_test_log_err("Software Reset register ioremap failed");

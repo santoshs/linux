@@ -54,12 +54,16 @@ static char buf_reg[1024];
 
 LOCAL_DECLARE_MOD_SHOW(cpg, cpg_init, cpg_exit, cpg_show);
 
+#define sprint_reg(s, r) (s += sprintf(s, #r " (0x%x): 0x%x\n", \
+					CPG_BASE_PHYS + r##_OFFSET, \
+					rreg(vir_addr + r##_OFFSET)))
+
 void cpg_show(char **buf)
 {
 	void __iomem *vir_addr = NULL;
 	char *s = buf_reg;
 	FUNC_MSG_IN;
-	vir_addr = ioremap_nocache(CPG_BASEPhys, PAGE_SIZE);
+	vir_addr = ioremap_nocache(CPG_BASE_PHYS, PAGE_SIZE);
 
 	if (!vir_addr) {
 		s += sprintf(s, "Failed: No memory\n");
@@ -68,60 +72,24 @@ void cpg_show(char **buf)
 
 	memset(buf_reg, 0, sizeof(buf_reg));
 
-	s += sprintf(s, "FRQCRA (0x%x): 0x%x\n",
-				CPG_BASEPhys + FRQCRA_OFFSET,
-				rreg(vir_addr + FRQCRA_OFFSET));
-	s += sprintf(s, "FRQCRB (0x%x): 0x%x\n",
-				CPG_BASEPhys + FRQCRB_OFFSET,
-				rreg(vir_addr + FRQCRB_OFFSET));
-	s += sprintf(s, "FRQCRD (0x%x): 0x%x\n",
-				CPG_BASEPhys + FRQCRD_OFFSET,
-				rreg(vir_addr + FRQCRD_OFFSET));
-	s += sprintf(s, "PLLECR (0x%x): 0x%x\n",
-				CPG_BASEPhys + PLLECR_OFFSET,
-				rreg(vir_addr + PLLECR_OFFSET));
-	s += sprintf(s, "PLL0CR (0x%x): 0x%x\n",
-				CPG_BASEPhys + PLL0CR_OFFSET,
-				rreg(vir_addr + PLL0CR_OFFSET));
-	s += sprintf(s, "PLL1CR (0x%x): 0x%x\n",
-				CPG_BASEPhys + PLL1CR_OFFSET,
-				rreg(vir_addr + PLL1CR_OFFSET));
-	s += sprintf(s, "PLL2CR (0x%x): 0x%x\n",
-				CPG_BASEPhys + PLL2CR_OFFSET,
-				rreg(vir_addr + PLL2CR_OFFSET));
-	s += sprintf(s, "PLL3CR (0x%x): 0x%x\n",
-				CPG_BASEPhys + PLL3CR_OFFSET,
-				rreg(vir_addr + PLL3CR_OFFSET));
-	s += sprintf(s, "PLL0STPCR (0x%x): 0x%x\n",
-				CPG_BASEPhys + PLL0STPCR_OFFSET,
-				rreg(vir_addr + PLL0STPCR_OFFSET));
-	s += sprintf(s, "PLL1STPCR (0x%x): 0x%x\n",
-				CPG_BASEPhys + PLL1STPCR_OFFSET,
-				rreg(vir_addr + PLL1STPCR_OFFSET));
-	s += sprintf(s, "PLL2STPCR (0x%x): 0x%x\n",
-				CPG_BASEPhys + PLL2STPCR_OFFSET,
-				rreg(vir_addr + PLL2STPCR_OFFSET));
-	s += sprintf(s, "PLL3STPCR (0x%x): 0x%x\n",
-				CPG_BASEPhys + PLL3STPCR_OFFSET,
-				rreg(vir_addr + PLL3STPCR_OFFSET));
-	s += sprintf(s, "MSTPSR0 (0x%x): 0x%x\n",
-				CPG_BASEPhys + MSTPSR0_OFFSET,
-				rreg(vir_addr + MSTPSR0_OFFSET));
-	s += sprintf(s, "MSTPSR1 (0x%x): 0x%x\n",
-				CPG_BASEPhys + MSTPSR1_OFFSET,
-				rreg(vir_addr + MSTPSR1_OFFSET));
-	s += sprintf(s, "MSTPSR2 (0x%x): 0x%x\n",
-				CPG_BASEPhys + MSTPSR2_OFFSET,
-				rreg(vir_addr + MSTPSR2_OFFSET));
-	s += sprintf(s, "MSTPSR3 (0x%x): 0x%x\n",
-				CPG_BASEPhys + MSTPSR3_OFFSET,
-				rreg(vir_addr + MSTPSR3_OFFSET));
-	s += sprintf(s, "MSTPSR4 (0x%x): 0x%x\n",
-				CPG_BASEPhys + MSTPSR4_OFFSET,
-				rreg(vir_addr + MSTPSR4_OFFSET));
-	s += sprintf(s, "MSTPSR5 (0x%x): 0x%x\n",
-				CPG_BASEPhys + MSTPSR5_OFFSET,
-				rreg(vir_addr + MSTPSR5_OFFSET));
+	sprint_reg(s, FRQCRA);
+	sprint_reg(s, FRQCRB);
+	sprint_reg(s, FRQCRD);
+	sprint_reg(s, PLLECR);
+	sprint_reg(s, PLL0CR);
+	sprint_reg(s, PLL1CR);
+	sprint_reg(s, PLL2CR);
+	sprint_reg(s, PLL3CR);
+	sprint_reg(s, PLL0STPCR);
+	sprint_reg(s, PLL1STPCR);
+	sprint_reg(s, PLL2STPCR);
+	sprint_reg(s, PLL3STPCR);
+	sprint_reg(s, MSTPSR0);
+	sprint_reg(s, MSTPSR1);
+	sprint_reg(s, MSTPSR2);
+	sprint_reg(s, MSTPSR3);
+	sprint_reg(s, MSTPSR4);
+	sprint_reg(s, MSTPSR5);
 
 	iounmap(vir_addr);
 	vir_addr = NULL;

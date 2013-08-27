@@ -532,8 +532,10 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define CMCLKE_PHYS	0xe6131000
 #define CMCLKE		IO_ADDRESS(CMCLKE_PHYS)
 
-#define CPG_BASEPhys	0xE6150000
-#define CPG_BASE		IO_ADDRESS(CPG_BASEPhys)
+#define CPG_BASE_PHYS	0xE6150000
+#define CPG_BASE	IO_ADDRESS(CPG_BASE_PHYS)
+#define CPG_SEMCTRL_BASE_PHYS 0xE6158000
+
 #define FRQCRA		IO_ADDRESS(0xE6150000)
 #define FRQCRB		IO_ADDRESS(0xE6150004)
 #define VCLKCR1	IO_ADDRESS(0xE6150008)
@@ -541,18 +543,18 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define ZBCKCR		IO_ADDRESS(0xE6150010)
 #define VCLKCR3	IO_ADDRESS(0xE6150014)
 #define FSIACKCR	IO_ADDRESS(0xE6150018)
-#define VCLKCR4Phys	0xE615001C
-#define VCLKCR4		IO_ADDRESS(VCLKCR4Phys)
+#define VCLKCR4_PHYS	0xE615001C
+#define VCLKCR4		IO_ADDRESS(VCLKCR4_PHYS)
 #define RTSTBCR	IO_ADDRESS(0xE6150020)
 #define PLL1CR		IO_ADDRESS(0xE6150028)
 #define CPG_PLL2CR	IO_ADDRESS(0xE615002C)
-#define MSTPSR0Phys	0xE6150030
-#define MSTPSR0	IO_ADDRESS(MSTPSR0Phys)
+#define MSTPSR0_PHYS	0xE6150030
+#define MSTPSR0	IO_ADDRESS(MSTPSR0_PHYS)
 #define VCLKCR5	IO_ADDRESS(0xE6150034)
 #define MSTPSR1	IO_ADDRESS(0xE6150038)
 #define MSTPSR5	IO_ADDRESS(0xE615003C)
-#define MSTPSR2Phys	0xE6150040
-#define MSTPSR2	IO_ADDRESS(MSTPSR2Phys)
+#define MSTPSR2_PHYS	0xE6150040
+#define MSTPSR2	IO_ADDRESS(MSTPSR2_PHYS)
 #define MSTPSR3	IO_ADDRESS(0xE6150048)
 #define MSTPSR4	IO_ADDRESS(0xE615004C)
 #define ASTAT		IO_ADDRESS(0xE6150054)
@@ -628,12 +630,10 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define PLL22STPCR	IO_ADDRESS(0xE61501F8)
 #define RMSTPCR6	IO_ADDRESS(0xE6150128)
 
-#define CPG_SEMCTRLPhys 0xE6158000
 /******************************************/
 /* XTAL though mode				*/
 /*****************************************/
-#define CPG_LPCKCRPhys	0xE6151024
-#define CPG_LPCKCR		IO_ADDRESS(CPG_LPCKCRPhys)
+#define CPG_LPCKCR		IO_ADDRESS(0xE6151024)
 
 #define LPMR			IO_ADDRESS(0xE6150200)
 
@@ -699,7 +699,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define IRQC_EVENTDETECTOR_BLK11_BASE	IO_ADDRESS(0xE61C1600)
 #define IRQC_EVENTDETECTOR_BLK12_BASE	IO_ADDRESS(0xE61C1800)
 
-#define HSUSB_BASEPhys	0xE6890000
+#define HSUSB_BASE_PHYS	0xE6890000
 #define HSUSB_INTSTS0			IO_ADDRESS(0xE6890040)
 #define PHYFUNCTR	IO_ADDRESS(0xE6890104) /* 16-bit */
 #define PHYOTGCTR	IO_ADDRESS(0xE689010A) /* 16-bit */
@@ -709,7 +709,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /*
  * SYSC
 */
-#define SYSC0_BASEPhys	0xE6180000
+#define SYSC_BASE_PHYS	0xE6180000
 #define SBAR		IO_ADDRESS(0xe6180020)
 #define SBAR2		IO_ADDRESS(0xe6180060)
 #define RESCNT		IO_ADDRESS(0xE618801C)
@@ -735,7 +735,6 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 
 #define SWUCR		IO_ADDRESS(0xE6180014)
 #define SWBCR		IO_ADDRESS(0xE6180204)
-#define SYSC_SEMCTRLPhys	0xE6188000
 /* C4 Area Power Control Register (C4POWCR) */
 /*Power Status Register (PSTR)*/
 #define SYSC_PSTR	IO_ADDRESS(0xE6180080)
@@ -789,7 +788,8 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /********************************************/
 /* PL310 Register							*/
 /********************************************/
-#define BasePl310Phys		0xF0100000
+#define PL310_BASE_PHYS	0xF0100000
+#define PL310_BASE	IO_ADDRESS(PL310_BASE)
 
 /************************************/
 /* SCU Register						*/
@@ -831,9 +831,9 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define HPB_BASE_PHYS		0xE6000000
 #define HPB_BASE		IO_ADDRESS(HPB_BASE_PHYS)
 #define HPB_HPBCTRL2		IO_ADDRESS(0xE6001018)
-#define HPB_SEM_MPACCTLPhys	0xE6001604
-#define HPB_SEM_PMICPhys	0xE6001830
-#define HPB_SEM_SMGP1SRCPhys	0xE6001840
+#define HPB_SEM_MPACCTL_PHYS	0xE6001604
+#define HPB_SEM_PMIC_PHYS	0xE6001830
+#define HPB_SEM_SMGP1SRC_PHYS	0xE6001840
 #define HPB_OCPBRGWIN1_MDM2MEM	IO_ADDRESS(0xE6001200)
 #define HPB_OCPBRGWIN2_MDM2APE	IO_ADDRESS(0xE6001204)
 #define HPB_OCPBRGWIN3_APE2MDM	IO_ADDRESS(0xE6001208)
@@ -858,23 +858,23 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /* Bus State Controller for SDRAM (SBSC) */
 /********************************************/
 /* SDRAM Control Register 0A */
-#define SBSC_SDCR0APhys		0xFE400008
+#define SBSC_SDCR0A_PHYS		0xFE400008
 /* SDRAM Common Wait Control Register 0A*/
-#define SBSC_SDWCRC0APhys	0xFE400040
+#define SBSC_SDWCRC0A_PHYS	0xFE400040
 /* SDRAM Common Wait Control Register 1A*/
-#define SBSC_SDWCRC1APhys	0xFE400044
+#define SBSC_SDWCRC1A_PHYS	0xFE400044
 /* SDRAM Common wait control register 2A*/
-#define SBSC_SDWCRC2APhys	0xFE400064
+#define SBSC_SDWCRC2A_PHYS	0xFE400064
 /* SDRAM Wait Control Register 00A */
-#define SBSC_SDWCR00APhys	0xFE400048
+#define SBSC_SDWCR00A_PHYS	0xFE400048
 /* SDRAM Wait Control Register 01A */
-#define SBSC_SDWCR01APhys	0xFE40004C
+#define SBSC_SDWCR01A_PHYS	0xFE40004C
 /* SDRAM Wait Control Register 10A */
-#define SBSC_SDWCR10APhys	0xFE400050
+#define SBSC_SDWCR10A_PHYS	0xFE400050
 /* SDRAM Wait Control Register 11A */
-#define SBSC_SDWCR11APhys	0xFE400054
+#define SBSC_SDWCR11A_PHYS	0xFE400054
 /* Power-down control register 0A */
-#define SBSC_SDPDCR0APhys	0xFE400058
+#define SBSC_SDPDCR0A_PHYS	0xFE400058
 /* SDRAM Mode Register Address/Command Register 1A */
 #define SBSC_SDMRACR1A_PHYS	0xFE400088
 /* SDRAM mode register A */
@@ -900,7 +900,7 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 /* RWDT Register			*/
 /********************************************/
 
-#define RWDT_BASEPhys	0xE6020000
+#define RWDT_BASE_PHYS	0xE6020000
 /* RCLK watchdog timer counter	*/
 #define RWTCNT		IO_ADDRESS(0xE6020000)
 /* RCLK watchdog timer control/status Register	*/

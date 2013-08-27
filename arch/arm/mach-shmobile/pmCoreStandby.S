@@ -1364,7 +1364,7 @@ ENTRY(save_common_register)
 	/*----------------------------------------------*/
 	/* Save PL310 registers	*/
 	/*----------------------------------------------*/
-	LDR		r1, =BasePl310
+	LDR		r1, =PL310_BASE
 
 	/* Interrupt/Counter Control Registers	*/
 	LDR		r4, [r1, #L2_EV_CNT_CONTROL]
@@ -1474,7 +1474,7 @@ ENTRY(restore_common_register)
 	/*----------------------------------*/
 	/* Disable L2 cache	*/
 	MOV		r4, #0x0
-	LDR		r1, =BasePl310Phys
+	LDR		r1, =PL310_BASE_PHYS
 
 RESTORE_COMMON_L2DISABLE_LOOP:
 	LDR		r5, [r1, #L2_CONTROL]
@@ -1570,7 +1570,7 @@ ENTRY(sys_powerdown)
 	/*------------------------------------------*/
 	/* L2 Cache sync */
 	/*------------------------------------------*/
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	MOV 	r5, #0x0
 	DSB
 	STR 	r5, [r4, #L2_CHACH_SYNC]
@@ -1583,7 +1583,7 @@ SYSPD_CACHESYNC_LOOP:
 	/*------------------------------*/
 	/* Disable L2 cache				*/
 	/*------------------------------*/
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	MOV		r5, #0x0
 
 SYSPD_L2DISABLE_LOOP:
@@ -1890,7 +1890,7 @@ SKIP_RELEASE_PASR_DRAM_AREA1:
 	/* Invalidate L2 cache				*/
 	/* Disable L2 cache					*/
 	/*----------------------------------*/
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	MOV		r5, #0x0
 SYSPU_L2DISABLE_LOOP:
 	LDR		r6, [r4, #L2_CONTROL]
@@ -1908,7 +1908,7 @@ SYSPU_L2DISABLE_SKIP:
 	/* Restore L2 global setting		*/
 	/*----------------------------------*/
 	LDR		r0, =ram0Pl310GlobalSettingPhys
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	LDMIA	r0!, {r5-r9}
 	/* Write PL310 Auxiliary Control Register 	*/
 	STR		r5, [r4, #L2_AUX_CONTROL]
@@ -2497,7 +2497,7 @@ ENTRY(corestandby_pa_2)
 	NOP
 
 	/* Set L2 standby mode enable */
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	LDR		r5, [r4, #L2_POWER_CONTROL]
 	ORR		r5, r5, #0x1
 	STR 	r5, [r4, #L2_POWER_CONTROL]
@@ -2514,7 +2514,7 @@ CPUPD_CACHESYNC_LOOP:
 	/*------------------------------------------*/
 	/* Disable L2 cache */
 	/*------------------------------------------*/
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	MOV		r5, #0x0
 
 CSTBY_L2DISABLE_LOOP:

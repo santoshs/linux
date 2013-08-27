@@ -195,36 +195,36 @@ static struct base_map map[] = {
 	},
 #ifdef CONFIG_PM_HAS_SECURE
 	[SBSC_SDCR0A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDCR0APhys,
+		.phys = SBSC_SDCR0A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
 	},
 
 	[SBSC_SDWCRC0A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCRC0APhys,
+		.phys = SBSC_SDWCRC0A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
 	},
 	[SBSC_SDWCRC1A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCRC1APhys,
+		.phys = SBSC_SDWCRC1A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
 	},
 	[SBSC_SDWCR00A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCR00APhys,
+		.phys = SBSC_SDWCR00A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
 	},
 	[SBSC_SDWCR01A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCR01APhys,
+		.phys = SBSC_SDWCR01A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
 	},
 	[SBSC_SDWCR10A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCR10APhys,
+		.phys = SBSC_SDWCR10A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
 	},
 	[SBSC_SDWCR11A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCR11APhys,
+		.phys = SBSC_SDWCR11A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
 	},
 	[SBSC_SDWCRC2A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCRC2APhys,
+		.phys = SBSC_SDWCRC2A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
 	},
 #endif

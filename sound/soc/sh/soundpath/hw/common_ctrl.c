@@ -232,33 +232,39 @@ int clkgen_ioremap(void)
 static int common_audio_status_ioremap(void)
 {
 	/* Get CPGA Logical Address */
-	g_common_ulClkRstRegBase = ioremap_nocache(CPG_BASEPhys, CPG_REG_MAX);
+	g_common_ulClkRstRegBase = ioremap_nocache(CPG_BASE_PHYS, CPG_REG_MAX);
 	if (!g_common_ulClkRstRegBase) {
 		sndp_log_err("error CPGA register ioremap failed\n");
-		return -ENOMEM;
+		goto error;
 	}
 
 	/* Get CPGA(soft reset) Logical Address */
 	g_common_ulSrstRegBase =
-		ioremap_nocache(CPG_SEMCTRLPhys, CPG_REG_MAX_SRST);
+		ioremap_nocache(CPG_SEMCTRL_BASE_PHYS, CPG_REG_MAX_SRST);
 	if (!g_common_ulSrstRegBase) {
 		sndp_log_err("error Software Reset register ioremap failed\n");
-		/* Release CPGA Logical Address */
-		iounmap(g_common_ulClkRstRegBase);
-		g_common_ulClkRstRegBase = NULL;
-		return -ENOMEM;
+		goto error2;
 	}
 
 	/* Get GPIO Logical Address */
 	g_common_ulClkGpioRegBase =
-		ioremap_nocache(GPIO_PHY_BASE_AUDIO_STATUS, GPIO_REG_MAX);
-	if (!g_common_ulClkRstRegBase) {
+		ioremap_nocache(GPIO_PHY_BASE_AUDIO_STATUS_PHYS, GPIO_REG_MAX);
+	if (!g_common_ulClkGpioRegBase) {
 		sndp_log_err("error GPIO register ioremap failed\n");
-		return -ENOMEM;
+		goto error3;
 	}
 
 	/* Successfull all */
 	return ERROR_NONE;
+
+error3:
+	iounmap(g_common_ulSrstRegBase);
+	g_common_ulSrstRegBase = NULL;
+error2:
+	iounmap(g_common_ulClkRstRegBase);
+	g_common_ulClkRstRegBase = NULL;
+error:
+	return -ENOMEM;
 }
 
 

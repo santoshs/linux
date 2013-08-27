@@ -776,12 +776,12 @@ static void Other_dump_suspend(void)
 	sprint_reg(s, THERMAL_THSCR0);
 	sprint_reg(s, THERMAL_THSCR1);
 
-	vir_addr = ioremap_nocache(SBSC_SDPDCR0APhys, 0x4);
+	vir_addr = ioremap_nocache(SBSC_SDPDCR0A_PHYS, 0x4);
 	if (vir_addr) {
-		sprint_regm(s, SBSC_SDPDCR0APhys, vir_addr, 32);
+		sprint_regm(s, SBSC_SDPDCR0A_PHYS, vir_addr, 32);
 		iounmap(vir_addr);
 	} else {
-		sprintf(s, "Read 0x%x FAILED\n", SBSC_SDPDCR0APhys);
+		sprintf(s, "Read 0x%x FAILED\n", SBSC_SDPDCR0A_PHYS);
 	}
 
 	MSG_INFO("%s", suspend_buf);

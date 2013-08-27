@@ -173,8 +173,8 @@ EXPORT_SYMBOL(d2153_put_i2c_hwsem);
  *		0x40: AP System side
  *		0x93: Baseband side
  * @hwsem: Hardware semaphore address
- *	        HPB_SEM_PMICPhys
- *		HPB_SEM_SMGP1SRCPhys
+ *	        HPB_SEM_PMIC_PHYS
+ *		HPB_SEM_SMGP1SRC_PHYS
  * return: void
  */
 static void d2153_force_release_hwsem(u8 hwsem_id, unsigned int hwsem)
@@ -209,10 +209,10 @@ static void d2153_force_release_hwsem(u8 hwsem_id, unsigned int hwsem)
 		return;
 
 	/*enable master access*/
-	ptr = ioremap(HPB_SEM_MPACCTLPhys, EOS2_HWSEM_LEN);
+	ptr = ioremap(HPB_SEM_MPACCTL_PHYS, EOS2_HWSEM_LEN);
 	if (ptr == NULL) {
 		dlg_err("%s: can not release hwsem 0x%x ioremap failed",
-			 __func__, HPB_SEM_MPACCTLPhys);
+			 __func__, HPB_SEM_MPACCTL_PHYS);
 		return;
 	}
 	for (;;) {
@@ -277,10 +277,10 @@ static void d2153_force_release_hwsem(u8 hwsem_id, unsigned int hwsem)
 
 	/*Disable master access*/
 	expire = msecs_to_jiffies(5) + jiffies;
-	ptr = ioremap(HPB_SEM_MPACCTLPhys, EOS2_HWSEM_LEN);
+	ptr = ioremap(HPB_SEM_MPACCTL_PHYS, EOS2_HWSEM_LEN);
 	if (ptr == NULL) {
 		dlg_err("%s: can not release hwsem 0x%x ioremap failed",
-			 __func__, HPB_SEM_MPACCTLPhys);
+			 __func__, HPB_SEM_MPACCTL_PHYS);
 		return;
 	}
 	for (;;) {
@@ -390,13 +390,13 @@ static int d2153_modem_thread(void *ptr)
 		wait_event_interruptible(d2153_modem_reset_event,
 					atomic_read(&modem_reset_handing));
 
-		d2153_force_release_hwsem(BB_CPU_SIDE, HPB_SEM_PMICPhys);
+		d2153_force_release_hwsem(BB_CPU_SIDE, HPB_SEM_PMIC_PHYS);
 		if (hwlock_adc)
 			d2153_force_release_swsem(hwlock_adc, BB_CPU_SIDE);
 		if (hwlock_i2c_hw0)
 			d2153_force_release_swsem(hwlock_i2c_hw0, BB_CPU_SIDE);
 
-		d2153_force_release_hwsem(BB_CPU_SIDE, HPB_SEM_SMGP1SRCPhys);
+		d2153_force_release_hwsem(BB_CPU_SIDE, HPB_SEM_SMGP1SRC_PHYS);
 		if (hwlock_i2c_hw1)
 			d2153_force_release_swsem(hwlock_i2c_hw1, BB_CPU_SIDE);
 

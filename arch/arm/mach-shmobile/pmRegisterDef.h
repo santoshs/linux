@@ -121,7 +121,6 @@
 /********************************************/
 /* PL310 Register							*/
 /********************************************/
-#define BasePl310			IO_ADDRESS(BasePl310Phys)
 #define L2_CONTROL			0x100	/* Control Register*/
 #define L2_AUX_CONTROL		0x104	/* Auxiliary Control Register*/
 #define L2_LATENCY_CONTROL	0x108	/* Tag RAM Latency Control Register*/
@@ -146,8 +145,8 @@
 #define L2_PREFETCH_CONTROL	0xF60	/* Prefetch Control Register*/
 #define L2_POWER_CONTROL	0xF80	/* Power Control Register*/
 
-#define L2_LOCKDOWNBase				(BasePl310 + 0x900)
-#define L2_LOCKDOWNBasePhys			(BasePl310Phys + 0x900)
+#define L2_LOCKDOWN_BASE	(PL310_BASE + 0x900)
+#define L2_LOCKDOWN_BASE_PHYS	(PL310_BASE_PHYS + 0x900)
 
 
 /******************************************/

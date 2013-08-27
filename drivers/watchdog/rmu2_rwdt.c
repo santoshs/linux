@@ -100,7 +100,7 @@ static void rmu2_modify_register32(void __iomem *addr, u32 clear, u32 set)
 }
 
 static struct resource rmu2_rwdt_resources[] = {
-	[0] = DEFINE_RES_MEM(RWDT_BASEPhys, REG_SIZE),
+	[0] = DEFINE_RES_MEM(RWDT_BASE_PHYS, REG_SIZE),
 	[1] = DEFINE_RES_IRQ(gic_spi(RWDT_SPI))
 };
 
@@ -858,7 +858,7 @@ void rmu2_rwdt_software_reset(void)
 	int hwlock;
 	unsigned long flags;
 	/* set 0x22 to STBCHRB1(0xE6180041) */
-	/* __raw_writeb(0x22, (unsigned long)STBCHRB1Phys); */
+	/* __raw_writeb(0x22, STBCHRB1); */
 
 	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
 	__raw_writeb((reg | APE_RESETLOG_RWDT_SOFTWARE_RESET),
