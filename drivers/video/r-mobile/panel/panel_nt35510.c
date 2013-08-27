@@ -159,30 +159,30 @@ static struct fb_panel_info r_mobile_info = {
 };
 
 static screen_disp_lcd_if r_mobile_lcd_if_param = {
-	.DSITCKCR    = LCD_DSITCKCR,
-	.DSI0PCKCR   = LCD_DSI0PCKCR,
-	.DSI0PHYCR   = LCD_DSI0PHYCR,
-	.SYSCONF     = LCD_SYSCONF,
-	.TIMSET0     = LCD_TIMSET0,
-	.TIMSET1     = LCD_TIMSET1,
-	.DSICTRL     = LCD_DSICTRL,
-	.VMCTR1      = LCD_VMCTR1,
-	.VMCTR2      = LCD_VMCTR2,
-	.VMLEN1      = LCD_VMLEN1,
-	.VMLEN2      = LCD_VMLEN2,
-	.VMLEN3      = LCD_VMLEN3,
-	.VMLEN4      = LCD_VMLEN4,
-	.DTCTR       = LCD_DTCTR,
-	.MLDHCNR     = LCD_MLDHCNR,
-	.MLDHSYNR    = LCD_MLDHSYNR,
-	.MLDHAJR     = LCD_MLDHAJR,
-	.MLDVLNR     = LCD_MLDVLNR,
-	.MLDVSYNR    = LCD_MLDVSYNR,
-	.MLDMT1R     = LCD_MLDMT1R,
-	.LDDCKR      = LCD_LDDCKR,
-	.MLDDCKPAT1R = LCD_MLDDCKPAT1R,
-	.MLDDCKPAT2R = LCD_MLDDCKPAT2R,
-	.PHYTEST     = LCD_PHYTEST,
+	.dsitckcr    = LCD_DSITCKCR,
+	.dsi0pckcr   = LCD_DSI0PCKCR,
+	.dsi0phycr   = LCD_DSI0PHYCR,
+	.sysconf     = LCD_SYSCONF,
+	.timset0     = LCD_TIMSET0,
+	.timset1     = LCD_TIMSET1,
+	.dsictrl     = LCD_DSICTRL,
+	.vmctr1      = LCD_VMCTR1,
+	.vmctr2      = LCD_VMCTR2,
+	.vmlen1      = LCD_VMLEN1,
+	.vmlen2      = LCD_VMLEN2,
+	.vmlen3      = LCD_VMLEN3,
+	.vmlen4      = LCD_VMLEN4,
+	.dtctr       = LCD_DTCTR,
+	.mldhcnr     = LCD_MLDHCNR,
+	.mldhsynr    = LCD_MLDHSYNR,
+	.mldhajr     = LCD_MLDHAJR,
+	.mldvlnr     = LCD_MLDVLNR,
+	.mldvsynr    = LCD_MLDVSYNR,
+	.mldmt1r     = LCD_MLDMT1R,
+	.lddckr      = LCD_LDDCKR,
+	.mlddckpat1r = LCD_MLDDCKPAT1R,
+	.mlddckpat2r = LCD_MLDDCKPAT2R,
+	.phytest     = LCD_PHYTEST,
 };
 
 static screen_disp_lcd_if r_mobile_lcd_if_param_mask = {
@@ -783,16 +783,16 @@ static ssize_t level_store(struct device *dev,
 		/* set freq 40Hz */
 		printk(KERN_ALERT "set low freq(40Hz)\n");
 
-		r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR_40HZ;
-		r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR_40HZ;
+		r_mobile_lcd_if_param.dsi0pckcr = LCD_DSI0PCKCR_40HZ;
+		r_mobile_lcd_if_param.dsi0phycr = LCD_DSI0PHYCR_40HZ;
 
 		lcdfreq_cmd[0].data = dpfrctr1_40hz;
 #else
 		/* set freq 30Hz */
 		printk(KERN_ALERT "set low freq(30Hz)\n");
 
-		r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR_30HZ;
-		r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR_30HZ;
+		r_mobile_lcd_if_param.dsi0pckcr = LCD_DSI0PCKCR_30HZ;
+		r_mobile_lcd_if_param.dsi0phycr = LCD_DSI0PHYCR_30HZ;
 
 		lcdfreq_cmd[0].data = dpfrctr1_30hz;
 #endif
@@ -800,8 +800,8 @@ static ssize_t level_store(struct device *dev,
 		/* set freq 60Hz */
 		printk(KERN_ALERT "set normal freq(60Hz)\n");
 
-		r_mobile_lcd_if_param.DSI0PCKCR = LCD_DSI0PCKCR;
-		r_mobile_lcd_if_param.DSI0PHYCR = LCD_DSI0PHYCR;
+		r_mobile_lcd_if_param.dsi0pckcr = LCD_DSI0PCKCR;
+		r_mobile_lcd_if_param.dsi0phycr = LCD_DSI0PHYCR;
 
 		lcdfreq_cmd[0].data = dpfrctr1;
 	}
