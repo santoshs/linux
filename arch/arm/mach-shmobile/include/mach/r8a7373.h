@@ -703,8 +703,6 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define PHYFUNCTR	IO_ADDRESS(0xE6890104) /* 16-bit */
 #define PHYOTGCTR	IO_ADDRESS(0xE689010A) /* 16-bit */
 
-#define PORT47CR	IO_ADDRESS(0xE605002F)
-
 /*
  * SYSC
 */
@@ -727,8 +725,6 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define WUPRMSK		IO_ADDRESS(0xe6180028)
 #define WUPSMSK		IO_ADDRESS(0xe618002C)
 #define WUPMMSK		IO_ADDRESS(0xe6180030)
-/* WakeUpS Factor Register	*/
-#define WUPSFAC		IO_ADDRESS(0xE6180098)
 /* SYS Power Down Control Register */
 #define SPDCR		IO_ADDRESS(0xE6180008)
 
