@@ -1222,7 +1222,7 @@ void gether_disconnect(struct gether *link)
 	struct eth_dev		*dev = link->ioport;
 	struct usb_request	*req;
 	struct rndis_multiframe *multiframe = &multiframe_struct;
-
+	int i;
 	if (!dev)
 		return;
 
@@ -1250,6 +1250,18 @@ void gether_disconnect(struct gether *link)
 		usb_ep_free_request(link->in_ep, req);
 		spin_lock(&dev->req_lock);
 	}
+        if (multiframe->skb) {
+                for (i = 0; i < skb_shinfo(multiframe->skb)->nr_frags; i++) {
+                           if (multiframe->rndis_frame[i])
+                                    dev_kfree_skb_any(multiframe->rndis_frame[i]);
+                           else
+                                    ERROR(dev, "error no skb to free\n");
+                }
+                dev_kfree_skb_any(multiframe->skb);
+                multiframe->skb = NULL;
+                }
+
+
 	spin_unlock(&dev->req_lock);
 	link->in_ep->driver_data = NULL;
 	link->in_ep->desc = NULL;

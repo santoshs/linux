@@ -2170,11 +2170,12 @@ static void dma_read_complete(struct r8a66597 *r8a66597,
 static irqreturn_t r8a66597_dma_irq(int irq, void *_r8a66597)
 {
 	struct r8a66597 *r8a66597 = _r8a66597;
+	unsigned long flags;
 	u32 dmicrsts;
 	int ch;
 	irqreturn_t ret = IRQ_NONE;
 
-	spin_lock(&r8a66597->lock);
+        spin_lock_irqsave(&r8a66597->lock, flags);
 
 	dmicrsts = r8a66597_dma_read(r8a66597, DMICR);
 
@@ -2189,7 +2190,7 @@ static irqreturn_t r8a66597_dma_irq(int irq, void *_r8a66597)
 			dma_read_complete(r8a66597, &r8a66597->dma[ch]);
 	}
 
-	spin_unlock(&r8a66597->lock);
+	spin_unlock_irqrestore(&r8a66597->lock, flags);
 	return ret;
 }
 
@@ -2576,9 +2577,6 @@ void usb_reinitialize(struct r8a66597 *r8a66597)
 	if (r8a66597->pdata->module_stop)
 		r8a66597->pdata->module_stop();
 	udelay(10);
-	usb_core_clk_ctrl(r8a66597, 0);
-
-        usb_core_clk_ctrl(r8a66597, 1);
         if (r8a66597->pdata->module_start)
                 r8a66597->pdata->module_start();
         /* start clock */
@@ -2595,15 +2593,16 @@ static int r8a66597_pullup(struct usb_gadget *gadget, int is_on)
 	unsigned long flags;
 
 	udc_log("%s: \n", __func__);
-	spin_lock_irqsave(&r8a66597->lock, flags);
 	r8a66597->softconnect = (is_on != 0);
 	if (r8a66597->vbus_active) {
 		if(r8a66597->softconnect == 0)
 			usb_reinitialize(r8a66597);
-		else
+		else {
+			spin_lock_irqsave(&r8a66597->lock, flags);
 			r8a66597_usb_connect(r8a66597);
+			spin_unlock_irqrestore(&r8a66597->lock, flags);
+		}
 	}
-	spin_unlock_irqrestore(&r8a66597->lock, flags);
 	return 0;
 }
 
