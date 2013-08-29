@@ -175,10 +175,10 @@ static bool running;
  */
 static void cpg_check_init(void)
 {
-#ifdef SHBUS_TIMEOUT_CHECK_ENABLE
+#ifdef CONFIG_SHBUS_TIMEOUT_CHECK_ENABLE
 	__raw_writel(0x3fff3fffU, CPG_CHECK_REG);
 	__raw_writel(0x3fff3fffU, CPG_CHECK_REG + 4);
-#endif /* SHBUS_TIMEOUT_CHECK_ENABLE */
+#endif /* CONFIG_SHBUS_TIMEOUT_CHECK_ENABLE */
 }
 
 /*
@@ -189,7 +189,7 @@ static void cpg_check_init(void)
  */
 void cpg_check_check(void)
 {
-#ifdef SHBUS_TIMEOUT_CHECK_ENABLE
+#ifdef CONFIG_SHBUS_TIMEOUT_CHECK_ENABLE
 	unsigned int val0;
 	unsigned int val1;
 	unsigned int addr;
@@ -226,7 +226,7 @@ void cpg_check_check(void)
 	} else {
 		/* Do nothing */
 	}
-#endif /* SHBUS_TIMEOUT_CHECK_ENABLE */
+#endif /* CONFIG_SHBUS_TIMEOUT_CHECK_ENABLE */
 }
 
 #ifdef CONFIG_GIC_NS_CMT
