@@ -1356,6 +1356,34 @@ static u32 notrace cmt_read_sched_clock(void)
         return __raw_readl(CMCNT0);
 }
 
+/**
+ * read_persistent_clock -  Return time from a persistent clock.
+ *
+ * Reads the time from a source which isn't disabled during PM,
+ * CMCNT4.  Convert the cycles elapsed since last read into
+ * nsecs and adds to a monotonically increasing timespec.
+ *
+ * Copied from plat-omap. overrides weak definition in timekeeping.c
+ */
+static struct timespec persistent_ts;
+static cycles_t cycles, last_cycles;
+static unsigned int persistent_mult, persistent_shift;
+void read_persistent_clock(struct timespec *ts)
+{
+	unsigned long long nsecs;
+	cycles_t delta;
+	struct timespec *tsp = &persistent_ts;
+
+	last_cycles = cycles;
+	cycles = __raw_readl(CMCNT4);
+	delta = cycles - last_cycles;
+
+	nsecs = clocksource_cyc2ns(delta, persistent_mult, persistent_shift);
+
+	timespec_add_ns(tsp, nsecs);
+	*ts = *tsp;
+}
+
 static void __init cmt_clocksource_init(void)
 {
 	struct clk *cp_clk, *r_clk;
@@ -1396,6 +1424,12 @@ static void __init cmt_clocksource_init(void)
 	/* start */
 	__raw_writel(1, CMSTR4);
 
+	/*
+	 * 120000 rough estimate from the calculations in
+	 * __clocksource_updatefreq_scale.
+	 */
+	clocks_calc_mult_shift(&persistent_mult, &persistent_shift,
+			32768, NSEC_PER_SEC, 120000);
 }
 
 #if defined(CONFIG_MFD_D2153)
