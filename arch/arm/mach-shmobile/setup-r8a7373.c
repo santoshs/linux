@@ -1353,7 +1353,7 @@ void __init __weak r8a7373_register_twd(void) { }
 
 static u32 notrace cmt_read_sched_clock(void)
 {
-        return __raw_readl(CMCNT4);
+        return __raw_readl(CMCNT0);
 }
 
 static void __init cmt_clocksource_init(void)
@@ -1371,6 +1371,8 @@ static void __init cmt_clocksource_init(void)
 
 	clocksource_mmio_init(CMCNT0, "cmt10", rate, 125, 32,
 				clocksource_mmio_readl_up);
+
+	setup_sched_clock_needs_suspend(cmt_read_sched_clock, 32, rate);
 
 	clk_enable(clk_get_sys("sh_cmt.14", NULL));
 	r_clk = clk_get(NULL, "r_clk");
@@ -1394,7 +1396,6 @@ static void __init cmt_clocksource_init(void)
 	/* start */
 	__raw_writel(1, CMSTR4);
 
-	setup_sched_clock(cmt_read_sched_clock, 32, rate);
 }
 
 #if defined(CONFIG_MFD_D2153)

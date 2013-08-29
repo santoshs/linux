@@ -515,7 +515,6 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define CMCSR3		IO_ADDRESS(0xe6130310)
 #define CMCNT3		IO_ADDRESS(0xe6130314)
 #define CMCOR3		IO_ADDRESS(0xe6130318)
-/* CMT14 sched_clock */
 #define CMSTR4		IO_ADDRESS(0xe6130400)
 #define CMCSR4		IO_ADDRESS(0xe6130410)
 #define CMCNT4		IO_ADDRESS(0xe6130414)
