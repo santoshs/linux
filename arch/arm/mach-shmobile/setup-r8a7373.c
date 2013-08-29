@@ -1273,7 +1273,7 @@ void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
 #endif
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
 
-static void cmt10_start(void)
+static void cmt10_start(bool clear)
 {
 	unsigned long flags;
 
@@ -1285,10 +1285,11 @@ static void cmt10_start(void)
 	__raw_writel(0, CMSTR0);
 
 	/* setup */
-	__raw_writel(0, CMCNT0);
+	if (clear)
+		__raw_writel(0, CMCNT0);
 	__raw_writel(0x103, CMCSR0); /* Free-running, DBGIVD, cp_clk/1 */
 	__raw_writel(0xffffffff, CMCOR0);
-	while (__raw_readl(CMCNT0) != 0)
+	while (__raw_readl(CMCSR0) & (1<<13))
 		cpu_relax();
 
 	/* start */
@@ -1313,7 +1314,7 @@ void clocksource_mmio_suspend(struct clocksource *cs)
 
 void clocksource_mmio_resume(struct clocksource *cs)
 {
-	cmt10_start();
+	cmt10_start(false);
 }
 
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
@@ -1336,7 +1337,7 @@ static void __init cmt_clocksource_init(void)
 	rate = clk_get_rate(cp_clk);
 	clk_enable(cp_clk);
 
-	cmt10_start();
+	cmt10_start(true);
 
 	clocksource_mmio_init(IOMEM(CMCNT0), "cmt10", rate, 125, 32,
 				clocksource_mmio_readl_up);
