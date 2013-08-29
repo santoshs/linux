@@ -1336,22 +1336,7 @@ static void __init cmt_clocksource_init(void)
 	rate = clk_get_rate(cp_clk);
 	clk_enable(cp_clk);
 
-	spin_lock_irqsave(&cmt_lock, flags);
-	__raw_writel(__raw_readl(CMCLKE) | (1 << 0), CMCLKE);
-	spin_unlock_irqrestore(&cmt_lock, flags);
-
-	/* stop */
-	__raw_writel(0, CMSTR0);
-
-	/* setup */
-	__raw_writel(0, CMCNT0);
-	__raw_writel(0x103, CMCSR0); /* Free-running, debug, cp_clk/1 */
-	__raw_writel(0xffffffff, CMCOR0);
-	while (__raw_readl(CMCNT0) != 0)
-		;
-
-	/* start */
-	__raw_writel(1, CMSTR0);
+	cmt10_start();
 
 	clocksource_mmio_init(IOMEM(CMCNT0), "cmt10", rate, 125, 32,
 				clocksource_mmio_readl_up);
