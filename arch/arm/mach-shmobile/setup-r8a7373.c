@@ -1272,7 +1272,6 @@ void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
 }
 #endif
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
-static struct clk *cmt10_clk;
 
 static void cmt10_start(void)
 {
@@ -1310,12 +1309,10 @@ static void cmt10_stop(void)
 void clocksource_mmio_suspend(struct clocksource *cs)
 {
 	cmt10_stop();
-	clk_disable(cmt10_clk);
 }
 
 void clocksource_mmio_resume(struct clocksource *cs)
 {
-	clk_enable(cmt10_clk);
 	cmt10_start();
 }
 
