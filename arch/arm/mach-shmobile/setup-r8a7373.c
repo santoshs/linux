@@ -119,6 +119,7 @@ static struct map_desc r8a7373_io_desc[] __initdata = {
 
 void __init r8a7373_map_io(void)
 {
+	debug_ll_io_init();
 	iotable_init(r8a7373_io_desc, ARRAY_SIZE(r8a7373_io_desc));
 
 #if defined(CONFIG_SEC_DEBUG)
