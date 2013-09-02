@@ -76,7 +76,7 @@ static void csi2_camera_voltage_log(void *data, int first, int main_cam)
 		log->cpg[3] = __raw_readl(VCLKCR2);
 		log->cpg[4] = __raw_readl(PLLECR);
 		log->cpg[5] = __raw_readl(PLL1CR);
-		log->cpg[6] = __raw_readl(CPG_PLL2CR);
+		log->cpg[6] = __raw_readl(PLL2CR);
 		log->cpg[7] = __raw_readl(MSTPSR0);
 		log->cpg[8] = __raw_readl(MSTPSR1);
 		log->cpg[9] = __raw_readl(MSTPSR2);
@@ -93,9 +93,9 @@ static void csi2_camera_voltage_log(void *data, int first, int main_cam)
 		log->gpio_cr[2] = __raw_readb(GPIO_BASE + 20);
 		log->gpio_cr[3] = __raw_readb(GPIO_BASE + 45);
 		log->gpio_cr[4] = __raw_readb(GPIO_BASE + 91);
-		log->gpio_dr[0] = __raw_readl(IO_ADDRESS(0xE6054000));
-		log->gpio_dr[1] = __raw_readl(IO_ADDRESS(0xE6054004));
-		log->gpio_dr[2] = __raw_readl(IO_ADDRESS(0xE6054008));
+		log->gpio_dr[0] = __raw_readl(GPIO_PORTL031_000DR);
+		log->gpio_dr[1] = __raw_readl(GPIO_PORTL063_032DR);
+		log->gpio_dr[2] = __raw_readl(GPIO_PORTL095_064DR);
 	}
 
 	printk(KERN_ALERT "VLDO05=%d [vmipi]\n", log->voltage[0]);

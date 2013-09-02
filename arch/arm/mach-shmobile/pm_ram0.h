@@ -43,11 +43,11 @@
 /****************************************************************************/
 /* RAM0/RAM1/SECRAM MAPPING */
 /****************************************************************************/
-#define ram0BasePhys	0xE63A2000	/* RAM0 Base physical address */
-#define ram0Base		IO_ADDRESS(ram0BasePhys)
+#define ram0BasePhys	(RAM0_BASE_PHYS+0x2000)
+#define ram0Base	IO_ADDRESS(ram0BasePhys)
 
 #define secramBasePhys	0xE6300000	/* Secure RAM Base physical address */
-#define secramBase		IO_ADDRESS(secramBasePhys)
+#define secramBase	IO_ADDRESS(secramBasePhys)
 
 /* Size of backup area	*/
 #define saveCommonSettingSize		0x90
@@ -63,12 +63,16 @@
 /* backup area   (RAM0  :0xE63A2000-0xE63A3FFF) */
 /*--------------------------------------------------------------------------*/
 /* Address of function (Virt)	*/
-/* Start address of function area */
+/* Start/end address of function area (must be page-aligned) */
 #define	 secramStartAddressOfFunctionArea	secramBase
+#define	 secramEndAddressOfFunctionArea		(secramBase+0x2000)
 
 /* Address of function (Phys)	*/
-/* Start address of function area */
 #define	 secramStartAddressOfFunctionAreaPhys	secramBasePhys
+#define	 secramEndAddressOfFunctionArea		(secramBasePhys+0x2000)
+
+#define PM_FUNCTION_START	secramStartAddressOfFunctionAreaPhys
+#define PM_FUNCTION_END		secramEndAddressOfFunctionAreaPhys
 
 /* backup area */
 #define hoBackup	0x0000 /* Offset to the Area for backup */
@@ -146,9 +150,11 @@
 #define	ram0FRQCRBDown			\
 (ram0FRQCRADown + 0x4)
 
+#define ram0MmuTable	\
+(ram0FRQCRBDown + 0x4)
 /* Watchdog status in suspend */
 #define ram0RwdtStatus	\
-(ram0FRQCRBDown + 0x4)
+(ram0MmuTable + 0x4)
 #define	ram0SaveEXMSKCNT1_suspend 	\
 (ram0RwdtStatus + 0x4)
 #define ram0SaveAPSCSTP_suspend		\
@@ -317,9 +323,11 @@
 #define	ram0FRQCRBDownPhys			\
 (ram0FRQCRADownPhys + 0x4)
 
+#define ram0MmuTablePhys	\
+(ram0FRQCRBDownPhys + 0x4)
 /* Watchdog status in suspend */
 #define ram0RwdtStatusPhys	\
-(ram0FRQCRBDownPhys + 0x4)
+(ram0MmuTablePhys + 0x4)
 #define ram0SaveEXMSKCNT1Phys_suspend	\
 (ram0RwdtStatusPhys + 0x4)
 #define ram0SaveAPSCSTPPhys_suspend		\

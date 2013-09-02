@@ -54,7 +54,7 @@ struct hw_registers {
 	 * This is PTSR register bit mask */
 	unsigned int pa;
 	/* This one of the module stop registers */
-	unsigned int msr;
+	void __iomem *msr;
 	/* This is module stop register bit mask */
 	unsigned int msb;
 };
@@ -64,7 +64,7 @@ struct ramdump {
 	unsigned long reg_dump_base_phys;
 
 	/* base address & size for register dump area */
-	void *reg_dump_base;
+	void __iomem *reg_dump_base;
 	size_t reg_dump_size;
 
 	/* base address for core register dump */
@@ -219,7 +219,8 @@ static unsigned int *read_register_range(unsigned int *write_ptr,
 	/* todo: read address is increment by 4 byte steps.
 	 * if some range has width 8bit and the addresses needs to be
 	 * incremented by byte step then this needs to be fixes. */
-	unsigned int *start_addr = 0, *end_addr = 0, msr = 0;
+	unsigned int __iomem *start_addr = NULL, *end_addr = NULL;
+	unsigned int msr = 0;
 	start_addr = hwr->start;
 	end_addr = hwr->end;
 	if ((NULL != write_ptr) && (NULL != start_addr) && (NULL != end_addr)) {
@@ -243,7 +244,7 @@ static unsigned int *read_register_range(unsigned int *write_ptr,
 		if (hwr->msr && hwr->msb) {
 			msr = __raw_readl(hwr->msr);
 			if ((msr & hwr->msb) == hwr->msb) {
-				dprintk("msr 0x%08x:0x%08x -> msb %x stopped" \
+				dprintk("msr 0x%p:0x%08x -> msb %x stopped" \
 					"-> skip reading register range\n",
 					hwr->msr, msr, hwr->msb);
 				write_ptr = write_ptr + (end_addr - start_addr);
@@ -256,11 +257,11 @@ static unsigned int *read_register_range(unsigned int *write_ptr,
 			switch (hwr->width) {
 			case HW_REG_8BIT:
 				*write_ptr = (unsigned int)__raw_readb(
-						(unsigned char *)start_addr);
+					(unsigned char __iomem *)start_addr);
 				break;
 			case HW_REG_16BIT:
 				*write_ptr = (unsigned int)__raw_readw(
-						(unsigned short *)start_addr);
+					(unsigned short __iomem *)start_addr);
 				break;
 			case HW_REG_32BIT:
 				*write_ptr = __raw_readl(start_addr);
@@ -386,7 +387,7 @@ static int ramdump_panic_handler(struct notifier_block *this,
 	dprintk("%s event %lu\n", __func__, event);
 
 	/* save core registers to the beginning of the dump area */
-	p = (void *)ramdump->core_reg_dump_base +
+	p = ramdump->core_reg_dump_base +
 			ramdump->core_reg_dump_size*smp_processor_id();
 	dprintk("core reg dump start=%p\n", p);
 	save_core_registers(p);
@@ -410,37 +411,34 @@ static struct notifier_block rmc_panic_block = {
  * */
 static resource_size_t ramdump_remap_resources(struct ramdump_plat_data *pdata)
 {
-	int i = 0, j = 0;
-	struct hw_register_range *hwr = NULL;
-	struct map_desc *map = NULL;
+	resource_size_t total_size = 0;
+	int i;
 
-	phys_addr_t p_start = 0, p_end = 0, h_end = 0;
-	unsigned char *v_start = 0, *v_end = 0;
-	resource_size_t size = 0, total_size = 0;
 	dprintk("%s\n", __func__);
 
 	for (i = 0; i < pdata->num_resources; i++) {
-		v_start = NULL;
-		v_end = NULL;
-		hwr = &pdata->hw_register_range[i];
-		h_end = hwr->end + hwr->width - 1;
-		size = h_end - hwr->start + 1;
+		struct hw_register_range *hwr = &pdata->hw_register_range[i];
+		phys_addr_t h_end = hwr->end + hwr->width - 1;
+		resource_size_t size = h_end - hwr->start + 1;
+		unsigned char __iomem *v_start = NULL, *v_end = NULL;
+		int j;
+
 		/* registers are saved as unsigned int each */
 		total_size += hwr->end - hwr->start + sizeof(unsigned int);
 		/* if the addresses are already mapped, no need to map again */
 		for (j = 0; j < pdata->io_desc_size; j++) {
-			map = &pdata->io_desc[j];
+			struct map_desc *map = &pdata->io_desc[j];
 
-			p_start = __pfn_to_phys(map->pfn);
-			p_end = p_start + map->length - 1;
+			phys_addr_t p_start = __pfn_to_phys(map->pfn);
+			phys_addr_t p_end = p_start + map->length - 1;
 
 			if (hwr->start >= p_start && h_end <= p_end) {
 				/* physical address range found from permanent
 				 * mappings */
-				v_start = (unsigned char *)map->virtual +
-						(hwr->start - p_start);
-				v_end = (unsigned char *)map->virtual +
-						(h_end - p_start);
+				v_start = (unsigned char __iomem *)
+					(map->virtual + (hwr->start - p_start));
+				v_end = (unsigned char __iomem *)
+					(map->virtual + (h_end - p_start));
 				break;
 			}
 		}
@@ -475,7 +473,7 @@ static resource_size_t ramdump_remap_resources(struct ramdump_plat_data *pdata)
 static int __devinit ramdump_probe(struct platform_device *pd)
 {
 	int ret = 0;
-	char *mm = 0;
+	char *mm = NULL;
 	resource_size_t hw_reg_dump_size = 0;
 	struct ramdump_plat_data *pdata = pd->dev.platform_data;
 	pd->dev.platform_data = NULL;
@@ -499,33 +497,34 @@ static int __devinit ramdump_probe(struct platform_device *pd)
 		goto ioremap_regdump_failed;
 	}
 	ramdump->reg_dump_size = pdata->reg_dump_size;
-	memset(ramdump->reg_dump_base, 0, ramdump->reg_dump_size);
+	memset((void __force *) ramdump->reg_dump_base, 0,
+			ramdump->reg_dump_size);
 	dprintk("%s reg_dump_base virt 0x%p\n", __func__,
 			ramdump->reg_dump_base);
 
 	/* store kernel base address as a last address and store magic marker
 	 * before it so that trace32 scripts can find it */
-	mm = ramdump->reg_dump_base + ramdump->reg_dump_size -
+	mm = (void __force *) ramdump->reg_dump_base + ramdump->reg_dump_size -
 			sizeof(unsigned int);
 	*((unsigned int *)mm) = (unsigned int)CONFIG_MEMORY_START;
 	mm = mm - strlen(magic_marker);
 	strcpy(mm, magic_marker);
 
 	/* setup register dump area */
-	ramdump->core_reg_dump_base = ramdump->reg_dump_base;
+	ramdump->core_reg_dump_base = (void __force *) ramdump->reg_dump_base;
 	ramdump->core_reg_dump_size = pdata->core_reg_dump_size;
 	ramdump->excp_reg_offset =
 			ramdump->core_reg_dump_size - sizeof(struct pt_regs);
 
 	/* setup hw register dump area. it starts after core reg dump areas
 	 * and stops just before magic marker */
-	ramdump->lsi_reg_dump_base = ramdump->reg_dump_base +
+	ramdump->lsi_reg_dump_base = ramdump->core_reg_dump_base +
 			ramdump->core_reg_dump_size*CONFIG_NR_CPUS;
 	ramdump->lsi_reg_dump_size = pdata->reg_dump_size -
 			ramdump->core_reg_dump_size*CONFIG_NR_CPUS -
 			strlen(magic_marker) - sizeof(unsigned int);
 	dprintk("%s lsi_reg_dump_base virt 0x%p, size %d\n", __func__,
-			(unsigned long *)ramdump->lsi_reg_dump_base,
+			ramdump->lsi_reg_dump_base,
 			ramdump->lsi_reg_dump_size);
 
 	/* set the struct pointer to lsi reg dump base */
@@ -588,7 +587,7 @@ die_notifier_register_failed:
 reg_dump_too_big:
 	/*todo: unmap registers*/
 alloc_registers_failed:
-	iounmap(ramdump->core_reg_dump_base);
+	iounmap(ramdump->reg_dump_base);
 ioremap_regdump_failed:
 	kfree(ramdump);
 	return ret;

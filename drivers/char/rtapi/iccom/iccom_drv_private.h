@@ -176,12 +176,12 @@ int iccom_recv_complete(unsigned char *recv_data);
 int iccom_recv_cancel(void *handle);
 irqreturn_t iccom_iccomeicr_int(int irq_number, void *device_id);
 int iccom_write_command(void *handle, int type, iccom_cmd_send_param *send_param);
-unsigned long iccom_get_send_command_area(void);
-int iccom_write_command_data(iccom_drv_cmd_data *output_area,
+unsigned char __iomem *iccom_get_send_command_area(void);
+int iccom_write_command_data(iccom_drv_cmd_io_data *output_area,
 	iccom_write_data_info *write_data, unsigned long *out_size, int type);
 void iccom_iccomiicr_int(unsigned long buff_kind,
 	unsigned long buff_position);
-int iccom_copy_to_command_area(void *cmd_area, void *from_addr,
+int iccom_copy_to_command_area(void __iomem *cmd_area, void *from_addr,
 	unsigned long size, int type);
 void iccom_leak_check(iccom_drv_handle *handle);
 
@@ -197,7 +197,7 @@ extern spinlock_t           g_iccom_lock_handle_list;
 extern struct list_head     g_iccom_list_handle;
 
 extern iccom_recv_data_info g_iccom_recv_info;
-extern unsigned char        *g_iccom_command_area;
+extern unsigned char __iomem *g_iccom_command_area;
 extern spinlock_t           g_iccom_lock_iicr;
 
 #endif /* __ICCOM_DRV_PRIVATE_H__ */

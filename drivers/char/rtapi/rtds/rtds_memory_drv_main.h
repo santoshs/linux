@@ -141,7 +141,7 @@ typedef struct {
 typedef struct {
 	unsigned long		var_address;		/* Variable address */
 	unsigned long		var_length;		/* Variable length */
-	void			*kernel_var_addr;	/* Variable memory address(kernel) */
+	void __iomem		*kernel_var_addr;	/* Variable memory address(kernel) */
 	unsigned long		sh_pmb_offset;
 	unsigned long		sh_pmb_nc_offset;
 	unsigned long		mfi_pmb_offset;

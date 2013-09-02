@@ -23,10 +23,9 @@
 #include <linux/time.h>
 #include <memlog/memlog.h>
 #include <mach/sec_debug.h>
+#include <mach/r8a7373.h>
 
 static struct kobject *memlog_kobj;
-
-#define CMCNT0					0xE6130014
 
 static char *logdata;
 static unsigned long capture;

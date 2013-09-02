@@ -243,19 +243,19 @@ static u_int g_audio_test_clock_flag;
 /*!
   @brief	CPGA register(soft reset) base address.
 */
-static u_long g_audio_test_ulSrstRegBase;
+static u_char __iomem *g_audio_test_ulSrstRegBase;
 /*!
   @brief	FSI base address (PortA).
 */
-static u_long g_audio_test_fsi_Base;
+static u_char __iomem *g_audio_test_fsi_Base;
 /*!
   @brief	SCUW base address.
 */
-static u_long g_audio_test_scuw_Base;
+static u_char __iomem *g_audio_test_scuw_Base;
 /*!
   @brief	CLKGEN base address.
 */
-static u_long g_audio_test_clkgen_Base;
+static u_char __iomem *g_audio_test_clkgen_Base;
 /***********************************/
 /* Wait queue                      */
 /***********************************/
@@ -1138,9 +1138,9 @@ static int audio_test_get_logic_addr(void)
 	/* Get CPGA(soft reset) Logical Address */
 	/****************************************/
 	g_audio_test_ulSrstRegBase =
-		(u_long)ioremap_nocache(CPG_SEMCTRLPhys,
+		ioremap_nocache(CPG_SEMCTRL_BASE_PHYS,
 					AUDIO_TEST_CPG_REG_MAX_SRST);
-	if (0 >= g_audio_test_ulSrstRegBase) {
+	if (!g_audio_test_ulSrstRegBase) {
 		audio_test_log_err("Software Reset register ioremap failed");
 		ret = -ENOMEM;
 		goto error;
@@ -1150,9 +1150,9 @@ static int audio_test_get_logic_addr(void)
 	/* Get FSI Logical Address         */
 	/***********************************/
 	g_audio_test_fsi_Base =
-		(u_long)ioremap_nocache(AUDIO_TEST_FSI_PHY_BASE,
+		ioremap_nocache(FSI_BASE_PHYS,
 					AUDIO_TEST_FSI_MAP_LEN);
-	if (0 >= g_audio_test_fsi_Base) {
+	if (!g_audio_test_fsi_Base) {
 		audio_test_log_err("fsi ioremap failed");
 		ret = -ENOMEM;
 		goto error;
@@ -1162,9 +1162,9 @@ static int audio_test_get_logic_addr(void)
 	/* Get SCUW Logical Address        */
 	/***********************************/
 	g_audio_test_scuw_Base =
-		(u_long)ioremap_nocache(AUDIO_TEST_SCUW_PHY_BASE,
+		ioremap_nocache(SCUW_BASE_PHYS,
 					AUDIO_TEST_SUCW_MAP_LEN);
-	if (0 >= g_audio_test_scuw_Base) {
+	if (!g_audio_test_scuw_Base) {
 		audio_test_log_err("scuw ioremap failed");
 		ret = -ENOMEM;
 		goto error;
@@ -1174,9 +1174,9 @@ static int audio_test_get_logic_addr(void)
 	/* Get CLKGEN Logical Address      */
 	/***********************************/
 	g_audio_test_clkgen_Base =
-		(u_long)ioremap_nocache(AUDIO_TEST_CLKGEN_PHY_BASE,
+		ioremap_nocache(CLKGEN_BASE_PHYS,
 					AUDIO_TEST_CLKGEN_MAP_LEN);
-	if (0 >= g_audio_test_clkgen_Base) {
+	if (!g_audio_test_clkgen_Base) {
 		audio_test_log_err("clkgen ioremap failed");
 		ret = -ENOMEM;
 		goto error;
@@ -1210,33 +1210,33 @@ static void audio_test_rel_logic_addr(void)
 	/***********************************/
 	/* Release FSI Logical Address     */
 	/***********************************/
-	if (0 < g_audio_test_fsi_Base) {
-		iounmap((void *)g_audio_test_fsi_Base);
-		g_audio_test_fsi_Base = 0;
+	if (g_audio_test_fsi_Base) {
+		iounmap(g_audio_test_fsi_Base);
+		g_audio_test_fsi_Base = NULL;
 	}
 
 	/***********************************/
 	/* Release SCUW Logical Address    */
 	/***********************************/
-	if (0 < g_audio_test_scuw_Base) {
-		iounmap((void *)g_audio_test_scuw_Base);
-		g_audio_test_scuw_Base = 0;
+	if (g_audio_test_scuw_Base) {
+		iounmap(g_audio_test_scuw_Base);
+		g_audio_test_scuw_Base = NULL;
 	}
 
 	/***********************************/
 	/* Release CLKGEN Logical Address  */
 	/***********************************/
 	if (g_audio_test_clkgen_Base) {
-		iounmap((void *)g_audio_test_clkgen_Base);
-		g_audio_test_clkgen_Base = 0;
+		iounmap(g_audio_test_clkgen_Base);
+		g_audio_test_clkgen_Base = NULL;
 	}
 
 	/*********************************************/
 	/* Release CPGA(soft reset) Logical Address  */
 	/*********************************************/
-	if (0 < g_audio_test_ulSrstRegBase) {
-		iounmap((void *)g_audio_test_ulSrstRegBase);
-		g_audio_test_ulSrstRegBase = 0;
+	if (g_audio_test_ulSrstRegBase) {
+		iounmap(g_audio_test_ulSrstRegBase);
+		g_audio_test_ulSrstRegBase = NULL;
 	}
 
 	audio_test_log_rfunc("");

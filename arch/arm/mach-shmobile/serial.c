@@ -33,16 +33,16 @@ static void shmobile_sci_init_pins(struct uart_port *port, unsigned int cflag)
 {
 	unsigned short scpcr, scpdr;
 
-	scpcr = ioread16(port->mapbase + SCPCR);
+	scpcr = ioread16(port->membase + SCPCR);
 
 	if (cflag & CRTSCTS) {
 		/* SCFCR.MCE should be set to 1, too */
-		iowrite16(scpcr & ~(RTSC | CTSC), port->mapbase + SCPCR);
+		iowrite16(scpcr & ~(RTSC | CTSC), port->membase + SCPCR);
 	} else {
 		/* make RTS low (otherwize it will be Hi-Z) */
-		scpdr = ioread16(port->mapbase + SCPDR);
-		iowrite16(scpdr & ~RTSD, port->mapbase + SCPDR);
-		iowrite16(scpcr | (RTSC | CTSC), port->mapbase + SCPCR);
+		scpdr = ioread16(port->membase + SCPDR);
+		iowrite16(scpdr & ~RTSD, port->membase + SCPDR);
+		iowrite16(scpcr | (RTSC | CTSC), port->membase + SCPCR);
 	}
 }
 

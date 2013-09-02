@@ -36,7 +36,7 @@
 #endif
 
 iccom_recv_data_info	g_iccom_recv_info;			/* receive data information */
-unsigned char			*g_iccom_command_area;		/* command transfer area address */
+unsigned char __iomem		*g_iccom_command_area;		/* command transfer area address */
 static unsigned long	g_iccom_send_command_area;	/* command transfer area offset */
 static unsigned char	*g_iccom_send_buf_addr;		/* send buffer */
 struct semaphore		g_iccom_send_sem;			/* send semaphore */
@@ -185,12 +185,12 @@ int iccom_write_command(void *handle, int type, iccom_cmd_send_param *send_param
 	unsigned long	data_size = 0;
 	unsigned long	out_size = 0;
 
-	unsigned long	output_addr = 0;
-	unsigned long	output_top_addr = 0;
+	void __iomem *output_addr = NULL;
+	void __iomem *output_top_addr = NULL;
 
 	unsigned long	dummy_read;
 
-	iccom_drv_cmd_data		output_area;
+	iccom_drv_cmd_io_data	output_area;
 	iccom_write_data_info	write_data;
 
 	memset(&cmd_info, 0x00, sizeof(iccom_cmd_info));
@@ -263,7 +263,7 @@ int iccom_write_command(void *handle, int type, iccom_cmd_send_param *send_param
 
 		if (0 == i) {
 			/* write message header */
-			ret_code = iccom_copy_to_command_area((unsigned int *)output_addr, &header_info, ICCOM_CMD_HEADER_SIZE, 0);
+			ret_code = iccom_copy_to_command_area(output_addr, &header_info, ICCOM_CMD_HEADER_SIZE, 0);
 			if (ret_code != SMAP_OK) {
 				MSG_ERROR("[ICCOMK]ERR|[%s] iccom_copy_to_command_area() Failed(header).cnt=%d\n", __func__, (unsigned int)i);
 				ret_code = SMAP_NG;
@@ -277,7 +277,7 @@ int iccom_write_command(void *handle, int type, iccom_cmd_send_param *send_param
 			output_area.size = ICCOM_CMD_BLOCK_SIZE;
 		}
 
-		output_area.data = (unsigned int *)output_addr;
+		output_area.data = output_addr;
 
 		/* write data */
 		ret_code = iccom_write_command_data(&output_area, &write_data, &out_size, type);
@@ -292,7 +292,7 @@ int iccom_write_command(void *handle, int type, iccom_cmd_send_param *send_param
 		MSG_MED("[ICCOMK]INF|[%s] Block Size     [%d]\n", __func__, (unsigned int)cmd_info.block_size);
 
 		/* write command information */
-		ret_code = iccom_copy_to_command_area((unsigned int *)output_top_addr, &cmd_info, ICCOM_CMD_INFO_SIZE, 0);
+		ret_code = iccom_copy_to_command_area(output_top_addr, &cmd_info, ICCOM_CMD_INFO_SIZE, 0);
 		if (ret_code != SMAP_OK) {
 			MSG_ERROR("[ICCOMK]ERR|[%s] iccom_copy_to_command_area() Failed(info).cnt=%d\n", __func__, (unsigned int)i);
 			ret_code = SMAP_NG;
@@ -302,7 +302,7 @@ int iccom_write_command(void *handle, int type, iccom_cmd_send_param *send_param
 		/* synchronize APP and RT */
 		asm("DMB");
 		outer_sync();
-		dummy_read = ioread32((void *)(output_top_addr+4));
+		dummy_read = ioread32(output_top_addr+4);
 
 		MSG_MED("[ICCOMK]INF|[%s] Command area address[0x%8X]=\n", __func__, (unsigned int)output_top_addr);
 		MSG_MED("[ICCOMK]INF|[%s] Dummy Read[0x%8X]=%d\n", __func__, (unsigned int)(output_top_addr+4), (unsigned int)dummy_read);
@@ -355,11 +355,11 @@ int iccom_write_command(void *handle, int type, iccom_cmd_send_param *send_param
 /* Function   : iccom_get_send_command_area                                   */
 /* Description: get address of command transfer area for send                 */
 /******************************************************************************/
-unsigned long iccom_get_send_command_area(void)
+unsigned char __iomem *iccom_get_send_command_area(void)
 {
 	unsigned long iicr;
 	unsigned long status;
-	unsigned long send_command_area = 0;
+	void __iomem *send_command_area = NULL;
 
 	MSG_MED("[ICCOMK]INF|[%s] RD_ICCOMIICR()\n", __func__);
 
@@ -394,7 +394,7 @@ unsigned long iccom_get_send_command_area(void)
 		g_iccom_send_command_area = (g_iccom_send_command_area == ICCOM_CMD_AREA_X1) ? ICCOM_CMD_AREA_X2 : ICCOM_CMD_AREA_X1;
 	}
 
-	send_command_area = (unsigned long)g_iccom_command_area + g_iccom_send_command_area;
+	send_command_area = g_iccom_command_area + g_iccom_send_command_area;
 
 	return send_command_area;
 }
@@ -403,19 +403,19 @@ unsigned long iccom_get_send_command_area(void)
 /* Function   : iccom_write_command_data                                      */
 /* Description: write data to command transfer area                           */
 /******************************************************************************/
-int iccom_write_command_data(iccom_drv_cmd_data *output_area, iccom_write_data_info *write_data, unsigned long *out_size, int type)
+int iccom_write_command_data(iccom_drv_cmd_io_data *output_area, iccom_write_data_info *write_data, unsigned long *out_size, int type)
 {
 	int ret_code = SMAP_OK;
 
 	unsigned int	cmd_area_rsize;
-	unsigned char	*cmd_area;
+	unsigned char __iomem *cmd_area;
 	unsigned int	send_rsize;
 	unsigned char	*send_data;
 	unsigned int	write_size;
 
 	/* initialize command area size and address */
 	cmd_area_rsize = output_area->size;
-	cmd_area       = (unsigned char *)output_area->data;
+	cmd_area       = output_area->data;
 
 	*out_size = 0;
 
@@ -512,13 +512,14 @@ void iccom_iccomiicr_int(unsigned long buff_kind, unsigned long buff_position)
 /* Function   : iccom_copy_to_command_area                                    */
 /* Description: copy data to command transfer area                            */
 /******************************************************************************/
-int iccom_copy_to_command_area(void *cmd_area, void *from_addr, unsigned long size, int type)
+int iccom_copy_to_command_area(void __iomem *cmd_area, void *from_addr, unsigned long size, int type)
 {
 	unsigned long ret_code;
 
 	if (ICCOM_TYPE_USER == type) {
 		/* copy from User to Kernel */
-		ret_code = copy_from_user(g_iccom_send_buf_addr, from_addr, size);
+		ret_code = copy_from_user(g_iccom_send_buf_addr,
+				(void __force __user *) from_addr, size);
 		if (0 != ret_code) {
 			return SMAP_NG;
 		}

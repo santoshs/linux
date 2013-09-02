@@ -93,7 +93,7 @@ void usb_drv_str_read(unsigned char *val)
 	__raw_writew(0x0020, USB_SPEXADDR);    /* set HSUSB.SPEXADDR */
 	__raw_writew(USB_SPRD, USB_SPCTRL);		/* set HSUSB.SPCTRL */
 	mdelay(1);
-	*val=__raw_readw(IO_ADDRESS(USB_SPRDAT));
+	*val = __raw_readw(USB_SPRDAT);
 }
 
 void usb_drv_str_write(unsigned char *val)

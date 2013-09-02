@@ -233,13 +233,13 @@
 
 /* HPB registers */
 #define SPUV_FUNC_HPB_REG_SIZE		0x8
-#define SPUV_FUNC_HPB_REG_TOP_PHY	(HPB_BASE + 0x1014)
+#define SPUV_FUNC_HPB_REG_TOP_PHY	(HPB_BASE_PHYS + 0x1014)
 #define SPUV_FUNC_HPB_REG_TOP		g_spuv_func_hpb_register_top
 #define SPUV_FUNC_RW_32_HPB_HPBCTRL2	(SPUV_FUNC_HPB_REG_TOP + 0x00000004)
 
 /* CPG registers */
 #define SPUV_FUNC_CPG_REG_SIZE		0x81CC
-#define SPUV_FUNC_CPG_REG_TOP_PHY	CPG_BASEPhys
+#define SPUV_FUNC_CPG_REG_TOP_PHY	CPG_BASE_PHYS
 #define SPUV_FUNC_CPG_REG_TOP		g_spuv_func_cpg_register_top
 #define SPUV_FUNC_RW_32_CPG_VCLKCR1	(SPUV_FUNC_CPG_REG_TOP + 0x00000008)
 #define SPUV_FUNC_RW_32_CPG_VCLKCR2	(SPUV_FUNC_CPG_REG_TOP + 0x0000000C)
@@ -538,7 +538,7 @@
 			unsigned long flags; \
 			flags = pm_get_spinlock(); \
 			if (g_spuv_func_is_spuv_clk) \
-				ret = ioread32(reg); \
+				ret = ioread32(IOMEM(reg)); \
 			pm_release_spinlock(flags); \
 		}
 #define vcd_spuv_func_set_register(set_bit, reg) \
@@ -546,7 +546,7 @@
 			unsigned long flags; \
 			flags = pm_get_spinlock(); \
 			if (g_spuv_func_is_spuv_clk) \
-				iowrite32(set_bit, reg); \
+				iowrite32(set_bit, IOMEM(reg)); \
 			pm_release_spinlock(flags); \
 		}
 #include <mach/common.h>
@@ -556,7 +556,7 @@
 			flags = pm_get_spinlock(); \
 			if (g_spuv_func_is_spuv_clk) \
 				sh_modify_register32( \
-					reg, clear_bit, set_bit); \
+					IOMEM(reg), clear_bit, set_bit); \
 			pm_release_spinlock(flags); \
 		}
 

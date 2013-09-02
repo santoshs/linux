@@ -730,7 +730,7 @@ static int shmobile_init_cpuidle(void)
 	}
 
 	/* - set the legacy mode to LPCKCR */
-	__raw_writel(CPG_LPCKCR_LEGACY, CPG_LPCKCR);
+	__raw_writel(LPCKCR_LEGACY, LPCKCR);
 	/* - set PLL0 stop conditon to A2SL state by CPG.PLL0STPCR */
 	__raw_writel(A2SLSTP, PLL0STPCR);
 

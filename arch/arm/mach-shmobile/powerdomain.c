@@ -269,7 +269,7 @@ static void power_areas_info(void)
 	u32 reg_val;
 	reg_val = __raw_readl(PSTR);
 	printk(KERN_INFO "[PDC] PSTR(0x%08x) = 0x%08x\n",
-			SYSC_PSTR, reg_val);
+			PSTR, reg_val);
 	printk(KERN_INFO "[PDC] A3SG = %s\n",
 			(POWER_A3SG & reg_val) ? "ON" : "OFF");
 	printk(KERN_INFO "[PDC] A3SP = %s\n",
@@ -389,7 +389,7 @@ struct power_domain_info *__to_pdi(const struct device *dev)
 static void power_status_set(unsigned int area, bool on)
 {
 	int i = 0;
-	u32 reg = (on ? SWUCR : SPDCR);
+	void __iomem *reg = (on ? SWUCR : SPDCR);
 	int reg_val = 0;
 
 	if (0 != (area & ~POWER_ALL))
@@ -974,7 +974,7 @@ power_a4rm_mask = POWER_A4RM;
 	a2ri_status_old = 1;
 	a2ri_status_new = 1;
 	suspend_state	= 0;
-	sbsc_sdpdcr0a_reg = ioremap(SBSC_SDPDCR0APhys, PAGE_SIZE);
+	sbsc_sdpdcr0a_reg = ioremap(SBSC_SDPDCR0A_PHYS, PAGE_SIZE);
 	if (NULL == sbsc_sdpdcr0a_reg)
 		printk(KERN_INFO "[PDC] error can't map SBSC_SDPDCR0A\n");
 

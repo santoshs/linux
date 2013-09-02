@@ -22,13 +22,13 @@
 #define __ASM_ARCH_U2USB_H __FILE__
 
 
-#define USB_SPWDAT		((volatile ushort *)(HSUSB_BASEPhys + 0x013A)) /*H'E689 013A*/
-#define USB_SPCTRL              ((volatile ushort *)(HSUSB_BASEPhys + 0x013C)) /*H'E689 013C*/
-#define USB_SPRDAT              ((volatile ushort *)(HSUSB_BASEPhys + 0x013E)) /*H'E689 013E*/
-#define USB_SPEXADDR            ((volatile ushort *)(HSUSB_BASEPhys + 0x0140)) /*H'E689 0140*/
-#define USB_SPWR                0x0001
-#define USB_SPRD                0x0002
-#define USB_SPADDR              ((volatile ushort *)(HSUSB_BASEPhys + 0x0138)) /*H'E689 0138*/
+#define USB_SPWDAT		IO_ADDRESS(HSUSB_BASE_PHYS + 0x013A)
+#define USB_SPCTRL		IO_ADDRESS(HSUSB_BASE_PHYS + 0x013C)
+#define USB_SPRDAT		IO_ADDRESS(HSUSB_BASE_PHYS + 0x013E)
+#define USB_SPEXADDR		IO_ADDRESS(HSUSB_BASE_PHYS + 0x0140)
+#define USB_SPWR		0x0001
+#define USB_SPRD		0x0002
+#define USB_SPADDR		IO_ADDRESS(HSUSB_BASE_PHYS + 0x0138)
 
 extern struct platform_device tusb1211_device;
 extern struct platform_device usb_host_device;

@@ -19,9 +19,9 @@
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 
-#define DBGREG4                         0xE610002C
+#define DBGREG4                         IO_ADDRESS(0xE610002C)
 #define DBGREG4_ALL_ON                  0x3F
-#define SYSC_PSTR_D4                    (1<<1)
+#define PSTR_D4				(1<<1)
 
 #define APE_BASE_MDM_L2_TCM             0xE1800000
 #define APE_SIZE_MDM_L2_TCM             0x00000100
@@ -93,6 +93,8 @@ static int all_toc_entries_loaded = 0;
 #define WPMCIF_EPMU_RFCLK_CR		(WPMCIF_EPMU_BASE + 0x0024)
 #define WPMCIF_EPMU_HPSSCLK_CR		(WPMCIF_EPMU_BASE + 0x0028)
 
+#define EPMU_DBGMD_CR1			IO_ADDRESS(0xE61900C0)
+					
 /* HostCPU CoreSight ETR for modem STM traces to SDRAM */
 #define CPU_ETR_BASE			IO_ADDRESS(0xE6FA5000)
 #define CPU_ETR_RSZ			(CPU_ETR_BASE + 0x004)
@@ -151,7 +153,7 @@ static uint32_t stm_sdram_read_ptr;
 static uint32_t stm_sdram_write_ptr;
 static uint32_t stm_sdram_size;
 
-static void ape5r_modify_register32(unsigned long addr, unsigned long set, unsigned long clear)
+static void ape5r_modify_register32(void __iomem *addr, unsigned long set, unsigned long clear)
 {
   unsigned long data = 0;
   data = __raw_readl(addr);
@@ -329,7 +331,7 @@ static ssize_t rmc_loader_write(struct file *file, const char __user *buf,
 			align = ((uint32_t)load_ptr) & 3;
 			i=0;
 			if (!align) {
-				al_data = (__raw_readl((void __iomem *)((uint32_t)remapped_phys_addr & ~3)));
+				al_data = __raw_readl(PTR_ALIGN(remapped_phys_addr, 4));
 				al_data <<= ((4-align)*8); /* Assume little endian, 4-byte alignment */
 
 				for (; i<len && i<(4-align); i++) {
@@ -337,7 +339,7 @@ static ssize_t rmc_loader_write(struct file *file, const char __user *buf,
 				}
 				al_data >>= 8*(i - (4-align)); /* Shift empty bytes in if len is too small */
 
-				__raw_writel(al_data, ((void __iomem *)((uint32_t)remapped_phys_addr & ~3)));
+				__raw_writel(al_data, PTR_ALIGN(remapped_phys_addr, 4));
 				remapped_phys_addr += (4-align);
 			}
 	                for(; i < (len&~3); i += 4) {
@@ -421,13 +423,13 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 				/* if ((data & (1 << 29))) */
 				{
 					printk("EPMU DBGMD_CR 1\n");
-					__raw_writel(0x00008001, 0xE61900C0);
+					__raw_writel(0x00008001, EPMU_DBGMD_CR1);
 				}
 
 			} else {
 				/* printk("ES2.01 on earlier\n"); */
 				printk("EPMU DBGMD_CR B\n");
-				__raw_writel(0x0000800B, 0xE61900C0);
+				__raw_writel(0x0000800B, EPMU_DBGMD_CR1);
 			}
 
 		}
@@ -567,9 +569,9 @@ static int rmc_loader_flush(struct file *file, fl_owner_t id)
                                      SCU_WGM_PSSClk_Req_Mask,
                                      remapped_mdm_scu_ad + APE_VIEW_MDM_SCU_AD_CCR_CLEAR);
 
-                        data_pstr = __raw_readl(SYSC_PSTR);
+                        data_pstr = __raw_readl(PSTR);
                         data_dbgreg4 = __raw_readl(DBGREG4);
-                        if ((SYSC_PSTR_D4 == (data_pstr & SYSC_PSTR_D4))
+                        if ((PSTR_D4 == (data_pstr & PSTR_D4))
 			    && (DBGREG4_ALL_ON == (data_dbgreg4 & DBGREG4_ALL_ON))) {
                                 /* Only if both D4 power domain is on, and also all coresight debug enables are on */
                                 /* enable modem ETF_STM and CXSTM */

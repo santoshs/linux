@@ -24,7 +24,6 @@
 #include <linux/types.h>
 #include <linux/init.h>
 #include <mach/pm.h>
-#include <mach/r8a7373.h>
 #include "../../pmRegisterDef.h"
 
 enum hw_register_width {
@@ -44,7 +43,7 @@ struct hw_register_range {
 	 * This is PTSR register bit mask */
 	unsigned int pa;
 	/* This one of the module stop registers */
-	unsigned int msr;
+	void __iomem *msr;
 	/* This is module stop register bit mask */
 	unsigned int msb;
 };

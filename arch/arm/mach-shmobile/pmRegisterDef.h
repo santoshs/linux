@@ -121,7 +121,6 @@
 /********************************************/
 /* PL310 Register							*/
 /********************************************/
-#define BasePl310			IO_ADDRESS(BasePl310Phys)
 #define L2_CONTROL			0x100	/* Control Register*/
 #define L2_AUX_CONTROL		0x104	/* Auxiliary Control Register*/
 #define L2_LATENCY_CONTROL	0x108	/* Tag RAM Latency Control Register*/
@@ -146,16 +145,16 @@
 #define L2_PREFETCH_CONTROL	0xF60	/* Prefetch Control Register*/
 #define L2_POWER_CONTROL	0xF80	/* Power Control Register*/
 
-#define L2_LOCKDOWNBase				(BasePl310 + 0x900)
-#define L2_LOCKDOWNBasePhys			(BasePl310Phys + 0x900)
+#define L2_LOCKDOWN_BASE	(PL310_BASE + 0x900)
+#define L2_LOCKDOWN_BASE_PHYS	(PL310_BASE_PHYS + 0x900)
 
 
 /******************************************/
 /* XTAL though mode				*/
 /*****************************************/
-#define CPG_LPCKCR_LEGACY	0x00000000
-#define CPG_LPCKCR_26MHz	0x00000002
-#define CPG_LPCKCR_PLLOFF	0x00000004
+#define LPCKCR_LEGACY		0x00000000
+#define LPCKCR_26MHz		0x00000002
+#define LPCKCR_PLLOFF		0x00000004
 
 
 #define A2SLSTP			(1 << 20)
@@ -226,11 +225,6 @@
 #define MSTP528 0x10000000 /* Module Stop bit 528(Internal RAM1)*/
 #define MSTP529 0x20000000 /* Module Stop bit 529(Secure RAM) */
 
-
-#define CPG_PLL0E	0x1	/* PLL0 Enable (0:off, 1:on) */
-#define CPG_PLL0ST	0x100	/* PLL0 status (0:off, 1:on)*/
-#define CPG_PLL1E	(1 << 1)	/* PLL0 Enable (0:off, 1:on) */
-#define CPG_PLL1ST	(1 << 9)	/* PLL0 status (0:off, 1:on)*/
 
 #define FRQCRA_ES2_MASK		0x00000F00 /* 0x00FFFFFF */
 #define FRQCRB_MASK			0x0000FFF0 /* 0x1FFFFFF0 */

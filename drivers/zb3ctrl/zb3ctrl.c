@@ -76,7 +76,7 @@ struct file *file, unsigned int cmd, unsigned long arg)
 	int val = -1;
 	switch (cmd) {
 	case ZB3_CTRL_REQ:
-		get_user(val, (int *)arg);
+		get_user(val, (int __user *)arg);
 		/* Low */
 		if (val == 0) {
 			set_zb3ctrl_info_state(file, ZB3_STATE_LOW);

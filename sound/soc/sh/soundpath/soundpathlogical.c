@@ -830,7 +830,7 @@ static int sndp_proc_read(
  */
 static int sndp_proc_write(
 	struct file *filp,
-	const char *buffer,
+	const char __user *buffer,
 	unsigned long count,
 	void *data)
 {
@@ -902,7 +902,7 @@ static int sndp_proc_reg_dump_read(
  */
 static int sndp_proc_reg_dump_write(
 	struct file *filp,
-	const char *buffer,
+	const char __user *buffer,
 	unsigned long count,
 	void *data)
 {

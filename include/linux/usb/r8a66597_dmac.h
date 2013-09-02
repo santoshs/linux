@@ -23,9 +23,6 @@
 #ifndef __LINUX_USB_R8A66597_DMAC_H
 #define __LINUX_USB_R8A66597_DMAC_H
 
-#define USBDMA_BASE0	0xE68A0000
-#define USBDMA_BASE1	0xE68C0000
-
 #define VCR		0x00
 #define SWR		0x08
 #define DMICR		0x10

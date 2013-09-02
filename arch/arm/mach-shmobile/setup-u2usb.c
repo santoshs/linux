@@ -39,11 +39,11 @@ static int is_vbus_powered(void)
 	int count = 10;
 
 	/* Extract bit VBSTS in INTSTS0 register */
-	val = __raw_readw(IO_ADDRESS(0xE6890040)) & 0x80;
+	val = __raw_readw(HSUSB_INTSTS0) & 0x80;
 
 	while (--count) {
 		msleep(1);
-		val1 = __raw_readw(IO_ADDRESS(0xE6890040)) & 0x80;
+		val1 = __raw_readw(HSUSB_INTSTS0) & 0x80;
 		if (val != val1) {
 			count = 10;
 			val = val1;
@@ -51,7 +51,7 @@ static int is_vbus_powered(void)
 	}
 
 	printk(KERN_INFO "Value of Status register INTSTS0: %x\n",
-			__raw_readw(IO_ADDRESS(0xE6890040)));
+			__raw_readw(HSUSB_INTSTS0));
 	return val1>>7;
 }
 
@@ -108,7 +108,6 @@ static void usbhs_module_reset(void)
 
 
 #ifdef CONFIG_USB_OTG
-#define SYSSTS	IO_ADDRESS(0xe6890004) /* 16-bit */
 	__raw_writew(__raw_readw(PHYOTGCTR) |
 		(1 << 8), PHYOTGCTR); /* IDPULLUP */
 	msleep(50);

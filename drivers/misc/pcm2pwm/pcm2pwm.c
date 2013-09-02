@@ -28,6 +28,7 @@
 #include <linux/ioport.h>
 #include <linux/gpio.h>
 #include <linux/fs.h>
+#include <mach/hardware.h>
 #include <mach/r8a7373.h>
 #include <linux/sh_dma.h>
 #include <linux/dmaengine.h>
@@ -60,7 +61,7 @@ static ssize_t pcm2pwm_test_write(struct file *filp, const char __user *buf,
 						size_t count, loff_t *ppos);
 #endif	/* DEBUG_PCM2PWM */
 
-#define CLKGEN_PHY_BASE    (0xEC270000)
+#define CLKGEN_PHY_BASE_PHYS    (0xEC270000)
 #define CLKGEN_REG_MAX     (0x0098)
 #define CLKGEN_MAP_LEN     (CLKGEN_REG_MAX + 4)
 #define CLKGSYSCTL         0
@@ -356,7 +357,7 @@ extern int pcm2pwm_open(void)
 	}
 
 	/* map I/O memory clkgen*/
-		iomem_addr_clkgen = ioremap_nocache(CLKGEN_PHY_BASE,
+		iomem_addr_clkgen = ioremap_nocache(CLKGEN_PHY_BASE_PHYS,
 					CLKGEN_MAP_LEN);
 	if (iomem_addr_clkgen == NULL) {
 		printk(KERN_ERR "[ERR]%s[%d] CLKGEN IO memory map failed\n",

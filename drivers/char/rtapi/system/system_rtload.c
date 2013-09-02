@@ -140,8 +140,8 @@ EXPORT_SYMBOL(sys_get_section_header);
 int system_sub_load_rtimage(void)
 {
 	struct file *fp = NULL;
-	void *addr = NULL;
-	void *load_addr = NULL;
+	void __iomem *addr = NULL;
+	void __iomem *load_addr = NULL;
 	int data_size;
 	system_rt_section_header sc_header;
 

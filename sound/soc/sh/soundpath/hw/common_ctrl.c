@@ -32,12 +32,12 @@
  */
 
 /* CPGA register base address */
-static u_long g_common_ulClkRstRegBase;
+static u_char __iomem *g_common_ulClkRstRegBase;
 /* CPGA register(soft reset) base address */
-static u_long g_common_ulSrstRegBase;
+static u_char __iomem *g_common_ulSrstRegBase;
 
 /* GPIO register base address */
-static u_long g_common_ulClkGpioRegBase;
+static u_char __iomem *g_common_ulClkGpioRegBase;
 
 /* Clock status flag */
 static u_int g_clock_flag;
@@ -139,8 +139,8 @@ void common_iounmap(void)
 static int fsi_ioremap(void)
 {
 	/* Get FSI Logical Address */
-	g_fsi_Base = (u_long)ioremap_nocache(FSI_PHY_BASE, FSI_MAP_LEN);
-	if (0 >= g_fsi_Base) {
+	g_fsi_Base = ioremap_nocache(FSI_BASE_PHYS, FSI_MAP_LEN);
+	if (!g_fsi_Base) {
 		sndp_log_err("error fsi ioremap failed\n");
 		return -ENOMEM;
 	}
@@ -162,34 +162,34 @@ static int fsi_ioremap(void)
 static int scuw_ioremap(void)
 {
 	/* Get SCUW Logical Address */
-	g_scuw_Base = (u_long)ioremap_nocache(SCUW_PHY_BASE, SUCW_MAP_LEN);
-	if (0 >= g_scuw_Base) {
+	g_scuw_Base = ioremap_nocache(SCUW_BASE_PHYS, SUCW_MAP_LEN);
+	if (!g_scuw_Base) {
 		sndp_log_err("error scuw ioremap failed\n");
 		return -ENOMEM;
 	}
 
 	/* Get SCUW(FFD) Logical Address */
 	g_scuw_Base_FFD =
-		(u_long)ioremap_nocache(SCUW_PHY_BASE_FFD, SUCW_MAP_LEN_FFD);
-	if (0 >= g_scuw_Base_FFD) {
+		ioremap_nocache(SCUW_BASE_FFD_PHYS, SUCW_MAP_LEN_FFD);
+	if (!g_scuw_Base_FFD) {
 		sndp_log_err("error scuw(FFD) ioremap failed\n");
 		/* Release SCUW Logical Address */
-		iounmap((void *)g_scuw_Base);
-		g_scuw_Base = 0;
+		iounmap(g_scuw_Base);
+		g_scuw_Base = NULL;
 		return -ENOMEM;
 	}
 
 	/* Get SCUW(CPUFIFO2) Logical Address */
 	g_scuw_Base_CPUFIFO2 =
-		(u_long)ioremap_nocache(SCUW_PHY_BASE_CPUFIFO2,
-					SUCW_MAP_LEN_CPUFIFO2);
-	if (0 >= g_scuw_Base_CPUFIFO2) {
+		ioremap_nocache(SCUW_BASE_CPUFIFO2_PHYS,
+				SUCW_MAP_LEN_CPUFIFO2);
+	if (!g_scuw_Base_CPUFIFO2) {
 		sndp_log_err("error scuw(CPUFIFO2) ioremap failed\n");
 		/* Release SCUW Logical Address */
-		iounmap((void *)g_scuw_Base);
-		g_scuw_Base = 0;
-		iounmap((void *)g_scuw_Base_FFD);
-		g_scuw_Base_FFD = 0;
+		iounmap(g_scuw_Base);
+		g_scuw_Base = NULL;
+		iounmap(g_scuw_Base_FFD);
+		g_scuw_Base_FFD = NULL;
 		return -ENOMEM;
 	}
 
@@ -210,9 +210,8 @@ static int scuw_ioremap(void)
 int clkgen_ioremap(void)
 {
 	/* Get CLKGEN Logical Address */
-	g_clkgen_Base =
-		(u_long)ioremap_nocache(CLKGEN_PHY_BASE, CLKGEN_MAP_LEN);
-	if (0 >= g_clkgen_Base) {
+	g_clkgen_Base = ioremap_nocache(CLKGEN_BASE_PHYS, CLKGEN_MAP_LEN);
+	if (!g_clkgen_Base) {
 		sndp_log_err("error clkgen ioremap failed\n");
 		return -ENOMEM;
 	}
@@ -233,34 +232,39 @@ int clkgen_ioremap(void)
 static int common_audio_status_ioremap(void)
 {
 	/* Get CPGA Logical Address */
-	g_common_ulClkRstRegBase =
-		(u_long)ioremap_nocache(CPG_BASEPhys, CPG_REG_MAX);
-	if (0 >= g_common_ulClkRstRegBase) {
+	g_common_ulClkRstRegBase = ioremap_nocache(CPG_BASE_PHYS, CPG_REG_MAX);
+	if (!g_common_ulClkRstRegBase) {
 		sndp_log_err("error CPGA register ioremap failed\n");
-		return -ENOMEM;
+		goto error;
 	}
 
 	/* Get CPGA(soft reset) Logical Address */
 	g_common_ulSrstRegBase =
-		(u_long)ioremap_nocache(CPG_SEMCTRLPhys, CPG_REG_MAX_SRST);
-	if (0 >= g_common_ulSrstRegBase) {
+		ioremap_nocache(CPG_SEMCTRL_BASE_PHYS, CPG_REG_MAX_SRST);
+	if (!g_common_ulSrstRegBase) {
 		sndp_log_err("error Software Reset register ioremap failed\n");
-		/* Release CPGA Logical Address */
-		iounmap((void *)g_common_ulClkRstRegBase);
-		g_common_ulClkRstRegBase = 0;
-		return -ENOMEM;
+		goto error2;
 	}
 
 	/* Get GPIO Logical Address */
 	g_common_ulClkGpioRegBase =
-		(u_long)ioremap_nocache(GPIO_PHY_BASE, GPIO_REG_MAX);
-	if (0 >= g_common_ulClkRstRegBase) {
+		ioremap_nocache(GPIO_PHY_BASE_AUDIO_STATUS_PHYS, GPIO_REG_MAX);
+	if (!g_common_ulClkGpioRegBase) {
 		sndp_log_err("error GPIO register ioremap failed\n");
-		return -ENOMEM;
+		goto error3;
 	}
 
 	/* Successfull all */
 	return ERROR_NONE;
+
+error3:
+	iounmap(g_common_ulSrstRegBase);
+	g_common_ulSrstRegBase = NULL;
+error2:
+	iounmap(g_common_ulClkRstRegBase);
+	g_common_ulClkRstRegBase = NULL;
+error:
+	return -ENOMEM;
 }
 
 
@@ -275,9 +279,9 @@ static int common_audio_status_ioremap(void)
 static void fsi_iounmap(void)
 {
 	/* Release FSI Logical Address */
-	if (0 < g_fsi_Base) {
-		iounmap((void *)g_fsi_Base);
-		g_fsi_Base = 0;
+	if (g_fsi_Base) {
+		iounmap(g_fsi_Base);
+		g_fsi_Base = NULL;
 	}
 }
 
@@ -292,19 +296,19 @@ static void fsi_iounmap(void)
 static void scuw_iounmap(void)
 {
 	/* Release SCUW Logical Address */
-	if (0 < g_scuw_Base) {
-		iounmap((void *)g_scuw_Base);
-		g_scuw_Base = 0;
+	if (g_scuw_Base) {
+		iounmap(g_scuw_Base);
+		g_scuw_Base = NULL;
 	}
 	/* Release SCUW Logical Address to FFD */
-	if (0 < g_scuw_Base_FFD) {
-		iounmap((void *)g_scuw_Base_FFD);
-		g_scuw_Base_FFD = 0;
+	if (g_scuw_Base_FFD) {
+		iounmap(g_scuw_Base_FFD);
+		g_scuw_Base_FFD = NULL;
 	}
 	/* Release SCUW Logical Address to CPUFIFO2 */
-	if (0 < g_scuw_Base_CPUFIFO2) {
-		iounmap((void *)g_scuw_Base_CPUFIFO2);
-		g_scuw_Base_CPUFIFO2 = 0;
+	if (g_scuw_Base_CPUFIFO2) {
+		iounmap(g_scuw_Base_CPUFIFO2);
+		g_scuw_Base_CPUFIFO2 = NULL;
 	}
 }
 
@@ -320,9 +324,9 @@ static void scuw_iounmap(void)
 void clkgen_iounmap(void)
 {
 	/* Release CLKGEN Logical Address */
-	if (0 < g_clkgen_Base) {
-		iounmap((void *)g_clkgen_Base);
-		g_clkgen_Base = 0;
+	if (g_clkgen_Base) {
+		iounmap(g_clkgen_Base);
+		g_clkgen_Base = NULL;
 	}
 }
 
@@ -338,21 +342,21 @@ void clkgen_iounmap(void)
 static void common_audio_status_iounmap(void)
 {
 	/* Release CPGA Logical Address */
-	if (0 < g_common_ulClkRstRegBase) {
-		iounmap((void *)g_common_ulClkRstRegBase);
-		g_common_ulClkRstRegBase = 0;
+	if (g_common_ulClkRstRegBase) {
+		iounmap(g_common_ulClkRstRegBase);
+		g_common_ulClkRstRegBase = NULL;
 	}
 
 	/* Release CPGA(soft reset) Logical Address */
-	if (0 < g_common_ulSrstRegBase) {
-		iounmap((void *)g_common_ulSrstRegBase);
-		g_common_ulSrstRegBase = 0;
+	if (g_common_ulSrstRegBase) {
+		iounmap(g_common_ulSrstRegBase);
+		g_common_ulSrstRegBase = NULL;
 	}
 
 	/* Release GPIO Logical Address */
-	if (0 < g_common_ulClkGpioRegBase) {
-		iounmap((void *)g_common_ulClkGpioRegBase);
-		g_common_ulClkGpioRegBase = 0;
+	if (g_common_ulClkGpioRegBase) {
+		iounmap(g_common_ulClkGpioRegBase);
+		g_common_ulClkGpioRegBase = NULL;
 	}
 }
 
@@ -395,7 +399,7 @@ void audio_ctrl_func(enum sndp_hw_audio drv, int stat, const u_int regclr)
 						sndp_log_err("Can't lock cpg\n");
 
 					/* Soft Reset */
-					sh_modify_register32((u_int)CPG_SRCR2, (u32)0, (u32)0x01000000);
+					sh_modify_register32(CPG_SRCR2, 0, 0x01000000);
 					udelay(62);
 					/* CLKGEN operates */
 					sh_modify_register32(CPG_SRCR2, 0x01000000, 0);
@@ -585,13 +589,13 @@ void common_set_register(
 				if ((SCUW_FFDIR_FFD <= reg_tbl[i].uiReg) &&
 				    (reg_tbl[i].uiReg <= SCUW_DEVCR_FFD)) {
 					addr = reg_tbl[i].uiReg -
-							SCUW_PHY_BASE_FFD;
+							SCUW_BASE_FFD_PHYS;
 					iowrite32(reg_tbl[i].uiValue,
 						  (g_scuw_Base_FFD + addr));
 				} else if ((SCUW_CF2IR <= reg_tbl[i].uiReg) &&
 					   (reg_tbl[i].uiReg <= SCUW_CF2EVCR)) {
 					addr = reg_tbl[i].uiReg -
-							SCUW_PHY_BASE_CPUFIFO2;
+							SCUW_BASE_CPUFIFO2_PHYS;
 					iowrite32(reg_tbl[i].uiValue,
 						(g_scuw_Base_CPUFIFO2 + addr));
 				} else {
@@ -619,7 +623,8 @@ void common_set_register(
 void common_set_pll22(const u_int uiValue, int stat, u_int rate)
 {
 	/* Local variable declaration */
-	u_int dev, fsickcr;
+	u_int dev;
+	void __iomem *fsickcr;
 	int cnt, pll22val, fsival, ret;
 	unsigned long flags;
 

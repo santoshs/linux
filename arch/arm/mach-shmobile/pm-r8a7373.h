@@ -22,27 +22,17 @@
 
 #include <mach/r8a7373.h>
 /* SCU */
-#define SCU_BASE	0xF0000000
-#define SCU_PWRST	(SCU_BASE + 0x08)
-#define SCU_INVALL	(SCU_BASE + 0x0c)
+#define SCU_PWRST      (SCU_BASE + 0x08)
+#define SCU_INVALL     (SCU_BASE + 0x0c)
 
 /* CPG */
-#define WUPCR		(CPG_BASEPhys + 0x1010)
-#define SRESCR		(CPG_BASEPhys + 0x1018)
-#define SCPUSTR		(CPG_BASEPhys + 0x1040)
-#define CPU0RFR		(CPG_BASEPhys + 0x1104)
-#define CPU1RFR		(CPG_BASEPhys + 0x1114)
-#define SPCTR		(CPG_BASEPhys + 0x01a4)
-#define SPCMMR		(CPG_BASEPhys + 0x01ac)
-#define SPCDMR		(CPG_BASEPhys + 0x01b0)
-
-/* SYSC */
-#define APARMBAREA	0xe6f10020
-
-/*
- * Inter connect RAM0
- */
-#define RAM0_BASE	0xe63a2000
+#define WUPCR		(CPG_BASE + 0x1010)
+#define SRESCR		(CPG_BASE + 0x1018)
+#define CPU0RFR		(CPG_BASE + 0x1104)
+#define CPU1RFR		(CPG_BASE + 0x1114)
+#define SPCTR		(CPG_BASE + 0x01a4)
+#define SPCMMR		(CPG_BASE + 0x01ac)
+#define SPCDMR		(CPG_BASE + 0x01b0)
 
 /* size */
 #define RAM0_VECTOR_SIZE	0x80
@@ -51,6 +41,7 @@
 
 /* code area */
 #define RAM0_VECTOR_ADDR	(RAM0_BASE + 0x00)
+#define RAM0_VECTOR_ADDR_PHYS	(RAM0_BASE_PHYS + 0x00)
 
 /* save area */
 #define RAM0_SAVE_BASE		(RAM0_BASE + RAM0_SAVE_OFFSET)

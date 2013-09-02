@@ -16,6 +16,7 @@
 #include <linux/sh_intc.h>
 #include <asm/hardware/gic.h>
 #include <asm/mach/irq.h>
+#include <mach/common.h>
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 #include <linux/sh_intc.h>
@@ -38,7 +39,7 @@
 static void irqc_irq_mask(struct irq_data *d)
 {
 	u32 irqpin = d->irq - R8A7373_IRQC_BASE;
-	u32 reg;
+	void __iomem *reg;
 
 	reg = (irqpin >= 32) ? IRQC1_INTEN_STS0 : IRQC0_INTEN_STS0;
 	__raw_writel(1 << (irqpin & 0x1f), reg);
@@ -47,7 +48,7 @@ static void irqc_irq_mask(struct irq_data *d)
 static void irqc_irq_unmask(struct irq_data *d)
 {
 	u32 irqpin = d->irq - R8A7373_IRQC_BASE;
-	u32 reg;
+	void __iomem *reg;
 
 	reg = (irqpin >= 32) ? IRQC1_INTEN_SET0 : IRQC0_INTEN_SET0;
 	__raw_writel(1 << (irqpin & 0x1f), reg);
@@ -56,7 +57,7 @@ static void irqc_irq_unmask(struct irq_data *d)
 static void irqc_irq_ack(struct irq_data *d)
 {
 	u32 irqpin = d->irq - R8A7373_IRQC_BASE;
-	u32 reg;
+	void __iomem *reg;
 
 	reg = (irqpin >= 32) ? IRQC1_DETECT_STATUS : IRQC0_DETECT_STATUS;
 	__raw_writel(1 << (irqpin & 0x1f), reg);
@@ -65,7 +66,7 @@ static void irqc_irq_ack(struct irq_data *d)
 static int irqc_set_irq_type(struct irq_data *d, unsigned int type)
 {
 	u32 irqpin = d->irq - R8A7373_IRQC_BASE;
-	u32 *reg;
+	u32 __iomem *reg;
 	struct irq_chip *chip = irq_get_chip(d->irq);
 
 	switch (type) {
@@ -93,7 +94,7 @@ static int irqc_set_irq_type(struct irq_data *d, unsigned int type)
 		return -EINVAL;
 	}
 
-	reg = (irqpin >= 32) ? (u32 *)IRQC1_CONFIG_00 : (u32 *)IRQC0_CONFIG_00;
+	reg = (irqpin >= 32) ? IRQC1_CONFIG_00 : IRQC0_CONFIG_00;
 
 	reg += (irqpin & 0x1f);
 	__raw_writel((__raw_readl(reg) & ~0x3f) | type, reg);
@@ -104,7 +105,7 @@ static int irqc_set_irq_type(struct irq_data *d, unsigned int type)
 static int irqc_set_irq_wake(struct irq_data *d, unsigned int on)
 {
 	u32 irqpin = d->irq - R8A7373_IRQC_BASE;
-	u32 reg;
+	void __iomem *reg;
 
 	if (on)
 		reg = (irqpin >= 32) ? IRQC1_WAKEN_SET0 : IRQC0_WAKEN_SET0;
@@ -136,8 +137,8 @@ static void irqc_demux(unsigned int irq, struct irq_desc *desc)
 
 static void setup_irqc_irq(void)
 {
-	u32 *irqc0 = (u32 *)IRQC0_CONFIG_00;
-	u32 *irqc1 = (u32 *)IRQC1_CONFIG_00;
+	u32 __iomem *irqc0 = IRQC0_CONFIG_00;
+	u32 __iomem *irqc1 = IRQC1_CONFIG_00;
 	int i, ret;
 
 	/* mask interrupts */
@@ -179,7 +180,7 @@ enum {
 int r8a7373_irqc_set_debounce(int irq, unsigned debounce)
 {
 	u32 val, interval, count;
-	u32 *reg;
+	u32 __iomem *reg;
 
 	irq -= R8A7373_IRQC_BASE;
 	if (irq > 63)
@@ -203,7 +204,7 @@ int r8a7373_irqc_set_debounce(int irq, unsigned debounce)
 		count = 0x3f;
 	}
 
-	reg = (irq >= 32) ? (u32 *)IRQC1_CONFIG_00 : (u32 *)IRQC0_CONFIG_00;
+	reg = (irq >= 32) ? IRQC1_CONFIG_00 : IRQC0_CONFIG_00;
 	reg += (irq & 0x1f);
 
 	val = __raw_readl(reg) & ~0x80ff0000;
@@ -313,13 +314,12 @@ static struct intc_desc intcs_desc __initdata = {
 	.num_resources = ARRAY_SIZE(intcs_resources),
 	.hw = INTC_HW_DESC(intcs_vectors, intcs_groups, intcs_mask_registers,
 			   intcs_prio_registers, NULL, NULL),
-	.skip_syscore_suspend = true,
 };
 
 static void intcs_demux(unsigned int irq, struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_get_chip(irq);
-	void __iomem *reg = (void *)irq_get_handler_data(irq);
+	void __iomem *reg = (void __iomem *)irq_get_handler_data(irq);
 	unsigned int evtcodeas = __raw_readl(reg);
 
 	chained_irq_enter(chip, desc);
@@ -334,8 +334,8 @@ static int r8a7373_irq_set_wake(struct irq_data *d, unsigned int on)
 
 void __init r8a7373_init_irq(void)
 {
-	void __iomem *gic_dist_base = IOMEM(0xf0001000);
-	void __iomem *gic_cpu_base = IOMEM(0xf0000100);
+	void __iomem *gic_dist_base = GIC_DIST_BASE;
+	void __iomem *gic_cpu_base = GIC_CPU_BASE;
 	void __iomem *intevtsa = ioremap_nocache(0xffd20100, PAGE_SIZE);
 	int i;
 	BUG_ON(!intevtsa);
@@ -350,7 +350,7 @@ void __init r8a7373_init_irq(void)
 
 	/* Setup INTCS cascade_irq */
 	register_intc_controller(&intcs_desc);
-	irq_set_handler_data(gic_spi(223), (void *)intevtsa);
+	irq_set_handler_data(gic_spi(223), (void __force *)intevtsa);
 	irq_set_chained_handler(gic_spi(223), intcs_demux);
 
 #ifdef CONFIG_FIQ

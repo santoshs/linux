@@ -24,9 +24,9 @@
 ((n) < 96) ? (GPIO_BASE + 0x0000 + (n)) : \
 ((n) < 128) ? (GPIO_BASE + 0x0000 + (n)) :  \
 ((n) < 144) ? (GPIO_BASE + 0x1000 + (n)) : \
-((n) < 192) ? 0 : \
+((n) < 192) ? NULL : \
 ((n) < 320) ? (GPIO_BASE + 0x2000 + (n)) : \
-((n) < 328) ? (GPIO_BASE + 0x2000 + (n)) : 0; })
+((n) < 328) ? (GPIO_BASE + 0x2000 + (n)) : NULL; })
 
 /* GPIO Settings - PULMD (Pull OFF/Pull DOWN/Pull UP) */
 #define PORTn_CR_PULL_NOT_SET	-1

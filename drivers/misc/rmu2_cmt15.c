@@ -32,6 +32,11 @@
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 
+#define ISREQ_TIMEOUT_MONITOR_S		IO_ADDRESS(0xE6150440)
+#define PDACK_TIMEOUT_MONITOR_A		IO_ADDRESS(0xE615047C)
+#define ISREQ_TIMEOUT_MONITOR_F		IO_ADDRESS(0xE6150490)
+#define PDACK_TIMEOUT_MONITOR_F		IO_ADDRESS(0xE615049C)
+
 /* Android provides the fiq_glue API, which hasn't yet made it into core
  * Linux. This works better if the glue is available, but it can still work
  * with the basic fiq API, if we need to run on non-Android Linux.
@@ -48,21 +53,12 @@
 
 #define CONFIG_GIC_NS_CMT
 
-/* Macro definition */
-#define CPG_CHECK_REG		IO_ADDRESS(0xE61503D0U)
-#define CPG_CHECK_STATUS	IO_ADDRESS(0xE61503DCU)
-#define CPG_CHECK_MODULES	IO_ADDRESS(0xE6150440U)
-
 #ifdef CONFIG_GIC_NS_CMT
-#define CMSTR15			IO_ADDRESS(0xE6130500U)
-#define CMCSR15			IO_ADDRESS(0xE6130510U)
-#define CMCNT15			IO_ADDRESS(0xE6130514U)
-#define CMCOR15			IO_ADDRESS(0xE6130518U)
 #define CMT15_SPI		98U
 
-#define ICD_ISR0 0xF0001080
-#define ICD_IPR0 0xF0001400
-#define ICD_IPTR0 0xf0001800
+#define ICD_ISR0	(GIC_DIST_BASE + 0x80)
+#define ICD_IPR0	(GIC_DIST_BASE + 0x400)
+#define ICD_IPTR0	(GIC_DIST_BASE + 0x800)
 
 /* FIQ handle excecute panic before RWDT request CPU reset system */
 #define CMT_OVF			((256*CONFIG_RMU2_RWDT_CMT_OVF)/1000 - 2)
@@ -208,11 +204,13 @@ void cpg_check_check(void)
 					__raw_readl(CPG_CHECK_STATUS));
 		printk(KERN_EMERG " %08x=%08x\n", CPG_CHECK_REG, val0);
 		printk(KERN_EMERG " %08x=%08x\n", CPG_CHECK_REG + 4, val1);
-		for (addr = 0xE6150440U; addr <= 0xE615047CU; addr += 4U) {
+		for (addr = ISREQ_TIMEOUT_MONITOR_S;
+				addr <= PDACK_TIMEOUT_MONITOR_A; addr += 4U) {
 			printk(KERN_EMERG " %08x=%08x\n",
 					addr, __raw_readl(addr));
 		}
-		for (addr = 0xE6150490U; addr <= 0xE615049CU; addr += 4U) {
+		for (addr = ISREQ_TIMEOUT_MONITOR_F;
+				addr <= PDACK_TIMEOUT_MONITOR_F; addr += 4U) {
 			printk(KERN_EMERG " %08x=%08x\n",
 					addr, __raw_readl(addr));
 		}

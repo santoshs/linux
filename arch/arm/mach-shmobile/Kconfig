@@ -506,6 +506,12 @@ config DEBUG_LL_SH_SCI_BASE
 
 endmenu
 
+config IRQ_TRACE
+	bool "Hardware vector tracing"
+	help
+	  This enables to-memory tracing of ARM vector entry and exit,
+	  for extraction by the crashlog tool.
+
 config SH_RAMDUMP
 	default y
 	bool "Support for Ramdump"

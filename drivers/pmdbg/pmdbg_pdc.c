@@ -44,8 +44,8 @@ static int power_areas_info(char *buf)
 
 	reg_val = __raw_readl(PSTR);
 	s += sprintf(s, "Power Areas Info:\n");
-	s += sprintf(s, "PSTR(0x%08x) = 0x%08x\n",
-		SYSC_PSTR, reg_val);
+	s += sprintf(s, "PSTR(0x%p) = 0x%08x\n",
+		PSTR, reg_val);
 	s += sprintf(s, "A3SG = %s\n",
 		(POWER_A3SG & reg_val) ? "ON" : "OFF");
 	s += sprintf(s, "A3SP = %s\n",

@@ -38,6 +38,7 @@
 
 #include "../../staging/android/logger.h"
 #include <sec_hal_cmn.h>
+#include <mach/r8a7373.h>
 
 #define BLOCK_SIZE_EMMC		512UL
 #define RECORD_SIZE		8
@@ -448,7 +449,6 @@ static void mmc_panic_write(struct mmcoops_context *cxt,
 		mmc_panic_mmc_reset(cxt);
 	}
 }
-#define SMSTPCR3        0xe615013c
 #define MMCREG		15
 
 static bool enable_clock_if_disabled(void)

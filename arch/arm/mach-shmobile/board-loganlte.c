@@ -334,13 +334,13 @@ void board_restart(char mode, const char *cmd)
 static void __init board_init(void)
 {
 	int stm_select = -1;    // Shall tell how to route STM traces. See setup-u2stm.c for details.
-	void __iomem *sbsc_sdmra_28200 = 0;
-	void __iomem *sbsc_sdmra_38200 = 0;
+	void __iomem *sbsc_sdmra_28200 = NULL;
+	void __iomem *sbsc_sdmra_38200 = NULL;
 	int inx = 0;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 	unsigned int u2_board_rev = 0;
-	u8 reg8 = __raw_readb(STBCHRB3Phys);
+	u8 reg8 = __raw_readb(STBCHRB3);
 
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
@@ -386,9 +386,9 @@ static void __init board_init(void)
 
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
-		*GPIO_DRVCR_SD0 = 0x0022;
-		*GPIO_DRVCR_SIM1 = 0x0022;
-		*GPIO_DRVCR_SIM2 = 0x0022;
+		__raw_writew(0x0022, GPIO_DRVCR_SD0);
+		__raw_writew(0x0022, GPIO_DRVCR_SIM1);
+		__raw_writew(0x0022, GPIO_DRVCR_SIM2);
 	}
 	shmobile_arch_reset = board_restart;
 

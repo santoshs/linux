@@ -354,47 +354,47 @@ int rtctl_change_rt_state_standby(void)
 	spin_lock_irqsave(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_lock_irqsave\n", __func__);
 
-	reg_modify32(0, RTCTL_RT_CLOCK_STOP, RESCNTPhys);
+	reg_modify32(0, RTCTL_RT_CLOCK_STOP, RESCNT);
 
-	MSG_MED("[ICCOMK]   |[%s] : SYSC_RESCNT = 0x%08x\n", __func__,
-					readl(RESCNTPhys));
+	MSG_MED("[ICCOMK]   |[%s] : RESCNT = 0x%08x\n", __func__,
+					readl(RESCNT));
 	spin_unlock_irqrestore(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_unlock_irqrestore\n", __func__);
 
 	disable_irq(INT_MFIS);
 	MSG_MED("[ICCOMK]   |[%s] : disable_irq\n", __func__);
 
-	reg_modify32(0, RTCTL_RT_MOD_STPSR0_SET , RMSTPCR0Phys);
-	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__ ,
-				readl(MSTPSR0Phys));
-	readl(RMSTPCR0Phys);
-	readl(RMSTPCR0Phys);
-	reg_mstpsr = readl(MSTPSR0Phys);
+	reg_modify32(0, RTCTL_RT_MOD_STPSR0_SET , RMSTPCR0);
+	MSG_MED("[ICCOMK]   |[%s] : MSTPSR0 = 0x%08x\n", __func__ ,
+				readl(MSTPSR0));
+	readl(RMSTPCR0);
+	readl(RMSTPCR0);
+	reg_mstpsr = readl(MSTPSR0);
 	reg_mstpsr = (reg_mstpsr & RTCTL_RT_MOD_STPSR0_SET);
-	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__,
-				readl(MSTPSR0Phys));
+	MSG_MED("[ICCOMK]   |[%s] : MSTPSR0 = 0x%08x\n", __func__,
+				readl(MSTPSR0));
 
 /*
 	if (RTCTL_RT_MOD_STPSR0_SET != reg_mstpsr) {
 		panic("rtctl_change_rt_state_standby error MSTPSR0 = 0x%08x\n",
-			readl(MSTPSR0Phys));
+			readl(MSTPSR0));
 	}
  */
 
-	reg_modify32(0, RTCTL_RT_MOD_STPSR2_SET , RMSTPCR2Phys);
-	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__ ,
-				readl(MSTPSR2Phys));
-	readl(RMSTPCR2Phys);
-	readl(RMSTPCR2Phys);
-	reg_mstpsr = readl(MSTPSR2Phys);
+	reg_modify32(0, RTCTL_RT_MOD_STPSR2_SET , RMSTPCR2);
+	MSG_MED("[ICCOMK]   |[%s] : MSTPSR2 = 0x%08x\n", __func__ ,
+				readl(MSTPSR2));
+	readl(RMSTPCR2);
+	readl(RMSTPCR2);
+	reg_mstpsr = readl(MSTPSR2);
 	reg_mstpsr = (reg_mstpsr & RTCTL_RT_MOD_STPSR2_SET);
-	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__,
-				readl(MSTPSR2Phys));
+	MSG_MED("[ICCOMK]   |[%s] : MSTPSR2 = 0x%08x\n", __func__,
+				readl(MSTPSR2));
 
 /*
 	if (RTCTL_RT_MOD_STPSR2_SET != reg_mstpsr) {
 		panic("rtctl_change_rt_state_standby error MSTPSR2 = 0x%08x\n",
-			readl(MSTPSR2Phys));
+			readl(MSTPSR2));
 	}
  */
 
@@ -438,8 +438,8 @@ static bool rtctl_check_rt_confirm_standby()
 
 	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
-	reg_pstr = readl(SYSC_PSTR);
-	MSG_MED("[ICCOMK]   |[%s] : SYSC_PSTR = 0x%08x\n", __func__, readl(SYSC_PSTR));
+	reg_pstr = readl(PSTR);
+	MSG_MED("[ICCOMK]   |[%s] : PSTR = 0x%08x\n", __func__, readl(PSTR));
 	reg_pstr = (reg_pstr & RTCTL_A3R_STATE);
 	if (0 == reg_pstr) {
 		MSG_MED("[ICCOMK]OUT|[%s] : (%d)\n", __func__, 1);
@@ -480,17 +480,17 @@ int rtctl_change_rt_state_active(void)
 	status_rt_now = RTCTL_STS_CHANGING_ACTIVE;
 	MSG_MED("[ICCOMK]   |[%s] : status_rt_now = %d\n", __func__, status_rt_now);
 
-	reg_modify32(RTCTL_RT_MOD_STPSR0_SET, 0, RMSTPCR0Phys);
-	readl(RMSTPCR0Phys);
-	readl(RMSTPCR0Phys);
+	reg_modify32(RTCTL_RT_MOD_STPSR0_SET, 0, RMSTPCR0);
+	readl(RMSTPCR0);
+	readl(RMSTPCR0);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR0 = 0x%08x\n", __func__,
-				readl(MSTPSR0Phys));
+				readl(MSTPSR0));
 
-	reg_modify32(RTCTL_RT_MOD_STPSR2_SET, 0, RMSTPCR2Phys);
-	readl(RMSTPCR2Phys);
-	readl(RMSTPCR2Phys);
+	reg_modify32(RTCTL_RT_MOD_STPSR2_SET, 0, RMSTPCR2);
+	readl(RMSTPCR2);
+	readl(RMSTPCR2);
 	MSG_MED("[ICCOMK]   |[%s] : CPGA_MSTPSR2 = 0x%08x\n", __func__,
-				readl(MSTPSR2Phys));
+				readl(MSTPSR2));
 
 	MSG_MED("[ICCOMK]   |[%s] : rtctl_intcs_mask_in_active()\n", __func__);
 	rtctl_intcs_mask_in_active();
@@ -505,9 +505,9 @@ int rtctl_change_rt_state_active(void)
 	spin_lock_irqsave(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_lock_irqsave\n", __func__);
 
-	reg_modify32(RTCTL_RT_CLOCK_STOP, 0 , RESCNTPhys);
-	MSG_MED("[ICCOMK]   |[%s] : SYSC_RESCNT = 0x%08x\n", __func__,
-			readl(RESCNTPhys));
+	reg_modify32(RTCTL_RT_CLOCK_STOP, 0 , RESCNT);
+	MSG_MED("[ICCOMK]   |[%s] : RESCNT = 0x%08x\n", __func__,
+			readl(RESCNT));
 	spin_unlock_irqrestore(&spin_lock_hpb, hpb_lock_flags);
 	MSG_LOW("[ICCOMK]   |[%s] : spin_unlock_irqrestore\n", __func__);
 

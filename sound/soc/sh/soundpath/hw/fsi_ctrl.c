@@ -405,7 +405,7 @@ static void fsi_playback(const u_int uiValue)
 	u_int			dev		= 0;
 	struct common_reg_table	*reg_tbl	= NULL;
 	u_int			tbl_size	= 0;
-	u_long	diff_st_reg	= g_fsi_Base + FSI_PORTB_OFFSET + FSI_DIFF_ST;
+	void __iomem *diff_st_reg = g_fsi_Base + FSI_PORTB_OFFSET + FSI_DIFF_ST;
 	u_int	wait_cnt = 0;
 
 	sndp_log_debug_func("start\n");
@@ -562,167 +562,167 @@ void fsi_dma_stop(void)
  */
 void fsi_reg_dump(const u_int uiValue)
 {
-	u_long portb_base;
+	u_char __iomem *portb_base;
 	sndp_log_reg_dump("===== FSI Registers Dump Start =====\n");
 
 	sndp_log_reg_dump("\n<PortA>\n");
-	sndp_log_reg_dump("DO_FMT     [%08X][%08lX]\n",
+	sndp_log_reg_dump("DO_FMT     [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DO_FMT),
 			(g_fsi_Base + FSI_DO_FMT));
-	sndp_log_reg_dump("DOFF_CTL   [%08X][%08lX]\n",
+	sndp_log_reg_dump("DOFF_CTL   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DOFF_CTL),
 			(g_fsi_Base + FSI_DOFF_CTL));
-	sndp_log_reg_dump("DOFF_ST    [%08X][%08lX]\n",
+	sndp_log_reg_dump("DOFF_ST    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DOFF_ST),
 			(g_fsi_Base + FSI_DOFF_ST));
-	sndp_log_reg_dump("DI_FMT     [%08X][%08lX]\n",
+	sndp_log_reg_dump("DI_FMT     [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DI_FMT),
 			(g_fsi_Base + FSI_DI_FMT));
-	sndp_log_reg_dump("DIFF_CTL   [%08X][%08lX]\n",
+	sndp_log_reg_dump("DIFF_CTL   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DIFF_CTL),
 			(g_fsi_Base + FSI_DIFF_CTL));
-	sndp_log_reg_dump("DIFF_ST    [%08X][%08lX]\n",
+	sndp_log_reg_dump("DIFF_ST    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DIFF_ST),
 			(g_fsi_Base + FSI_DIFF_ST));
-	sndp_log_reg_dump("ACK_MD     [%08X][%08lX]\n",
+	sndp_log_reg_dump("ACK_MD     [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_ACK_MD),
 			(g_fsi_Base + FSI_ACK_MD));
-	sndp_log_reg_dump("ACK_RV     [%08X][%08lX]\n",
+	sndp_log_reg_dump("ACK_RV     [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_ACK_RV),
 			(g_fsi_Base + FSI_ACK_RV));
-/*		sndp_log_reg_dump("DIDT       [%08X][%08lX]\n",
+/*		sndp_log_reg_dump("DIDT       [%08X][%p]\n",
 				ioread32(g_fsi_Base + FSI_DIDT),
 				(g_fsi_Base + FSI_DIDT)); */
-/*		sndp_log_reg_dump("DODT       [%08X][%08lX]\n",
+/*		sndp_log_reg_dump("DODT       [%08X][%p]\n",
 				ioread32(g_fsi_Base + FSI_DODT),
 				(g_fsi_Base + FSI_DODT)); */
-	sndp_log_reg_dump("MUTE_ST    [%08X][%08lX]\n",
+	sndp_log_reg_dump("MUTE_ST    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_MUTE_ST),
 			(g_fsi_Base + FSI_MUTE_ST));
-	sndp_log_reg_dump("OUT_DMAC   [%08X][%08lX]\n",
+	sndp_log_reg_dump("OUT_DMAC   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_OUT_DMAC),
 			(g_fsi_Base + FSI_OUT_DMAC));
-	sndp_log_reg_dump("OUT_SEL    [%08X][%08lX]\n",
+	sndp_log_reg_dump("OUT_SEL    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_OUT_SEL),
 			(g_fsi_Base + FSI_OUT_SEL));
-	sndp_log_reg_dump("OUT_SPST   [%08X][%08lX]\n",
+	sndp_log_reg_dump("OUT_SPST   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_OUT_SPST),
 			(g_fsi_Base + FSI_OUT_SPST));
-	sndp_log_reg_dump("IN_DMAC    [%08X][%08lX]\n",
+	sndp_log_reg_dump("IN_DMAC    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_IN_DMAC),
 			(g_fsi_Base + FSI_IN_DMAC));
-	sndp_log_reg_dump("IN_SEL     [%08X][%08lX]\n",
+	sndp_log_reg_dump("IN_SEL     [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_IN_SEL),
 			(g_fsi_Base + FSI_IN_SEL));
 
 	portb_base = g_fsi_Base + FSI_PORTB_OFFSET;
 
 	sndp_log_reg_dump("\n<PortB>\n");
-	sndp_log_reg_dump("DO_FMT     [%08X][%08lX]\n",
+	sndp_log_reg_dump("DO_FMT     [%08X][%p]\n",
 			ioread32(portb_base + FSI_DO_FMT),
 			(portb_base + FSI_DO_FMT));
-	sndp_log_reg_dump("DOFF_CTL   [%08X][%08lX]\n",
+	sndp_log_reg_dump("DOFF_CTL   [%08X][%p]\n",
 			ioread32(portb_base + FSI_DOFF_CTL),
 			(portb_base + FSI_DOFF_CTL));
-	sndp_log_reg_dump("DOFF_ST    [%08X][%08lX]\n",
+	sndp_log_reg_dump("DOFF_ST    [%08X][%p]\n",
 			ioread32(portb_base + FSI_DOFF_ST),
 			(portb_base + FSI_DOFF_ST));
-	sndp_log_reg_dump("DI_FMT     [%08X][%08lX]\n",
+	sndp_log_reg_dump("DI_FMT     [%08X][%p]\n",
 			ioread32(portb_base + FSI_DI_FMT),
 			(portb_base + FSI_DI_FMT));
-	sndp_log_reg_dump("DIFF_CTL   [%08X][%08lX]\n",
+	sndp_log_reg_dump("DIFF_CTL   [%08X][%p]\n",
 			ioread32(portb_base + FSI_DIFF_CTL),
 			(portb_base + FSI_DIFF_CTL));
-	sndp_log_reg_dump("DIFF_ST    [%08X][%08lX]\n",
+	sndp_log_reg_dump("DIFF_ST    [%08X][%p]\n",
 			ioread32(portb_base + FSI_DIFF_ST),
 			(portb_base + FSI_DIFF_ST));
-	sndp_log_reg_dump("ACK_MD     [%08X][%08lX]\n",
+	sndp_log_reg_dump("ACK_MD     [%08X][%p]\n",
 			ioread32(portb_base + FSI_ACK_MD),
 			(portb_base + FSI_ACK_MD));
-	sndp_log_reg_dump("ACK_RV     [%08X][%08lX]\n",
+	sndp_log_reg_dump("ACK_RV     [%08X][%p]\n",
 			ioread32(portb_base + FSI_ACK_RV),
 			(portb_base + FSI_ACK_RV));
-/*	sndp_log_reg_dump("DIDT       [%08X][%08lX]\n",
+/*	sndp_log_reg_dump("DIDT       [%08X][%p]\n",
 			ioread32(portb_base + FSI_DIDT),
 			(portb_base + FSI_DIDT)); */
-/*	sndp_log_reg_dump("DODT       [%08X][%08lX]\n",
+/*	sndp_log_reg_dump("DODT       [%08X][%p]\n",
 			ioread32(portb_base + FSI_DODT),
 			(portb_base + FSI_DODT)); */
-	sndp_log_reg_dump("MUTE_ST    [%08X][%08lX]\n",
+	sndp_log_reg_dump("MUTE_ST    [%08X][%p]\n",
 			ioread32(portb_base + FSI_MUTE_ST),
 			(portb_base + FSI_MUTE_ST));
-	sndp_log_reg_dump("OUT_DMAC   [%08X][%08lX]\n",
+	sndp_log_reg_dump("OUT_DMAC   [%08X][%p]\n",
 			ioread32(portb_base + FSI_OUT_DMAC),
 			(portb_base + FSI_OUT_DMAC));
-	sndp_log_reg_dump("OUT_SEL    [%08X][%08lX]\n",
+	sndp_log_reg_dump("OUT_SEL    [%08X][%p]\n",
 			ioread32(portb_base + FSI_OUT_SEL),
 			(portb_base + FSI_OUT_SEL));
-	sndp_log_reg_dump("OUT_SPST   [%08X][%08lX]\n",
+	sndp_log_reg_dump("OUT_SPST   [%08X][%p]\n",
 			ioread32(portb_base + FSI_OUT_SPST),
 			(portb_base + FSI_OUT_SPST));
-	sndp_log_reg_dump("IN_DMAC    [%08X][%08lX]\n",
+	sndp_log_reg_dump("IN_DMAC    [%08X][%p]\n",
 			ioread32(portb_base + FSI_IN_DMAC),
 			(portb_base + FSI_IN_DMAC));
-	sndp_log_reg_dump("IN_SEL     [%08X][%08lX]\n",
+	sndp_log_reg_dump("IN_SEL     [%08X][%p]\n",
 			ioread32(portb_base + FSI_IN_SEL),
 			(portb_base + FSI_IN_SEL));
 
 	sndp_log_reg_dump("\n<Common>\n");
-	sndp_log_reg_dump("TMR_CTL    [%08X][%08lX]\n",
+	sndp_log_reg_dump("TMR_CTL    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_TMR_CTL),
 			(g_fsi_Base + FSI_TMR_CTL));
-	sndp_log_reg_dump("TMR_CLR    [%08X][%08lX]\n",
+	sndp_log_reg_dump("TMR_CLR    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_TMR_CLR),
 			(g_fsi_Base + FSI_TMR_CLR));
-	sndp_log_reg_dump("INT_SEL    [%08X][%08lX]\n",
+	sndp_log_reg_dump("INT_SEL    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_INT_SEL),
 			(g_fsi_Base + FSI_INT_SEL));
-	sndp_log_reg_dump("INT_CLR    [%08X][%08lX]\n",
+	sndp_log_reg_dump("INT_CLR    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_INT_CLR),
 			(g_fsi_Base + FSI_INT_CLR));
-	sndp_log_reg_dump("CPU_INT_ST [%08X][%08lX]\n",
+	sndp_log_reg_dump("CPU_INT_ST [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_CPU_INT_ST),
 			(g_fsi_Base + FSI_CPU_INT_ST));
-	sndp_log_reg_dump("CPU_IEMSK  [%08X][%08lX]\n",
+	sndp_log_reg_dump("CPU_IEMSK  [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_CPU_IEMSK),
 			(g_fsi_Base + FSI_CPU_IEMSK));
-	sndp_log_reg_dump("CPU_IMSK   [%08X][%08lX]\n",
+	sndp_log_reg_dump("CPU_IMSK   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_CPU_IMSK),
 			(g_fsi_Base + FSI_CPU_IMSK));
-	sndp_log_reg_dump("DSP_INT_ST [%08X][%08lX]\n",
+	sndp_log_reg_dump("DSP_INT_ST [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DSP_INT_ST),
 			(g_fsi_Base + FSI_DSP_INT_ST));
-	sndp_log_reg_dump("DSP_IEMSK  [%08X][%08lX]\n",
+	sndp_log_reg_dump("DSP_IEMSK  [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DSP_IEMSK),
 			(g_fsi_Base + FSI_DSP_IEMSK));
-	sndp_log_reg_dump("DSP_IMSK   [%08X][%08lX]\n",
+	sndp_log_reg_dump("DSP_IMSK   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DSP_IMSK),
 			(g_fsi_Base + FSI_DSP_IMSK));
-	sndp_log_reg_dump("MUTE       [%08X][%08lX]\n",
+	sndp_log_reg_dump("MUTE       [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_MUTE),
 			(g_fsi_Base + FSI_MUTE));
-	sndp_log_reg_dump("ACK_RST    [%08X][%08lX]\n",
+	sndp_log_reg_dump("ACK_RST    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_ACK_RST),
 			(g_fsi_Base + FSI_ACK_RST));
-	sndp_log_reg_dump("SOFT_RST   [%08X][%08lX]\n",
+	sndp_log_reg_dump("SOFT_RST   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_SOFT_RST),
 			(g_fsi_Base + FSI_SOFT_RST));
-	sndp_log_reg_dump("FIFO_SZ    [%08X][%08lX]\n",
+	sndp_log_reg_dump("FIFO_SZ    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_FIFO_SZ),
 			(g_fsi_Base + FSI_FIFO_SZ));
-	sndp_log_reg_dump("CLK_SEL    [%08X][%08lX]\n",
+	sndp_log_reg_dump("CLK_SEL    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_CLK_SEL),
 			(g_fsi_Base + FSI_CLK_SEL));
-	sndp_log_reg_dump("SWAP_SEL   [%08X][%08lX]\n",
+	sndp_log_reg_dump("SWAP_SEL   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_SWAP_SEL),
 			(g_fsi_Base + FSI_SWAP_SEL));
-	sndp_log_reg_dump("HPB_SRST   [%08X][%08lX]\n",
+	sndp_log_reg_dump("HPB_SRST   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_HPB_SRST),
 			(g_fsi_Base + FSI_HPB_SRST));
-	sndp_log_reg_dump("FSIDIVA    [%08X][%08lX]\n",
+	sndp_log_reg_dump("FSIDIVA    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_FSIDIVA),
 			(g_fsi_Base + FSI_FSIDIVA));
-	sndp_log_reg_dump("FSIDIVB    [%08X][%08lX]\n",
+	sndp_log_reg_dump("FSIDIVB    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_FSIDIVB),
 			(g_fsi_Base + FSI_FSIDIVB));
 
@@ -784,8 +784,8 @@ void fsi_all_dl_mute_ctrl(bool mute)
 
 void fsi_fifo_reset(int port)
 {
-	u_long doff = 0x0;
-	u_long diff = 0x0;
+	void __iomem *doff = NULL;
+	void __iomem *diff = NULL;
 	u_long r_doff = 0x0;
 	u_long r_diff = 0x0;
 	int iCnt = 0;
@@ -1187,103 +1187,103 @@ void fsi_test_reg_dump(void)
 	printk(KERN_INFO "===== FSI Registers Dump Start =====\n");
 
 	printk(KERN_INFO "\n<PortA>\n");
-	printk(KERN_INFO "DO_FMT     [%08X][%08lX]\n",
+	printk(KERN_INFO "DO_FMT     [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DO_FMT),
 			(g_fsi_Base + FSI_DO_FMT));
-	printk(KERN_INFO "DOFF_CTL   [%08X][%08lX]\n",
+	printk(KERN_INFO "DOFF_CTL   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DOFF_CTL),
 			(g_fsi_Base + FSI_DOFF_CTL));
-	printk(KERN_INFO "DOFF_ST    [%08X][%08lX]\n",
+	printk(KERN_INFO "DOFF_ST    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DOFF_ST),
 			(g_fsi_Base + FSI_DOFF_ST));
-	printk(KERN_INFO "DI_FMT     [%08X][%08lX]\n",
+	printk(KERN_INFO "DI_FMT     [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DI_FMT),
 			(g_fsi_Base + FSI_DI_FMT));
-	printk(KERN_INFO "DIFF_CTL   [%08X][%08lX]\n",
+	printk(KERN_INFO "DIFF_CTL   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DIFF_CTL),
 			(g_fsi_Base + FSI_DIFF_CTL));
-	printk(KERN_INFO "DIFF_ST    [%08X][%08lX]\n",
+	printk(KERN_INFO "DIFF_ST    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DIFF_ST),
 			(g_fsi_Base + FSI_DIFF_ST));
-	printk(KERN_INFO "ACK_MD     [%08X][%08lX]\n",
+	printk(KERN_INFO "ACK_MD     [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_ACK_MD),
 			(g_fsi_Base + FSI_ACK_MD));
-	printk(KERN_INFO "ACK_RV     [%08X][%08lX]\n",
+	printk(KERN_INFO "ACK_RV     [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_ACK_RV),
 			(g_fsi_Base + FSI_ACK_RV));
-/*	printk(KERN_INFO "DIDT       [%08X][%08lX]\n",
+/*	printk(KERN_INFO "DIDT       [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DIDT),
 			(g_fsi_Base + FSI_DIDT)); */
-/*	printk(KERN_INFO "DODT       [%08X][%08lX]\n",
+/*	printk(KERN_INFO "DODT       [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DODT),
 			(g_fsi_Base + FSI_DODT)); */
-	printk(KERN_INFO "MUTE_ST    [%08X][%08lX]\n",
+	printk(KERN_INFO "MUTE_ST    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_MUTE_ST),
 			(g_fsi_Base + FSI_MUTE_ST));
-	printk(KERN_INFO "OUT_DMAC   [%08X][%08lX]\n",
+	printk(KERN_INFO "OUT_DMAC   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_OUT_DMAC),
 			(g_fsi_Base + FSI_OUT_DMAC));
-	printk(KERN_INFO "OUT_SEL    [%08X][%08lX]\n",
+	printk(KERN_INFO "OUT_SEL    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_OUT_SEL),
 			(g_fsi_Base + FSI_OUT_SEL));
-	printk(KERN_INFO "OUT_SPST   [%08X][%08lX]\n",
+	printk(KERN_INFO "OUT_SPST   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_OUT_SPST),
 			(g_fsi_Base + FSI_OUT_SPST));
-	printk(KERN_INFO "IN_DMAC    [%08X][%08lX]\n",
+	printk(KERN_INFO "IN_DMAC    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_IN_DMAC),
 			(g_fsi_Base + FSI_IN_DMAC));
-	printk(KERN_INFO "IN_SEL     [%08X][%08lX]\n",
+	printk(KERN_INFO "IN_SEL     [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_IN_SEL),
 			(g_fsi_Base + FSI_IN_SEL));
-	printk(KERN_INFO "TMR_CTL    [%08X][%08lX]\n",
+	printk(KERN_INFO "TMR_CTL    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_TMR_CTL),
 			(g_fsi_Base + FSI_TMR_CTL));
-	printk(KERN_INFO "TMR_CLR    [%08X][%08lX]\n",
+	printk(KERN_INFO "TMR_CLR    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_TMR_CLR),
 			(g_fsi_Base + FSI_TMR_CLR));
-	printk(KERN_INFO "INT_SEL    [%08X][%08lX]\n",
+	printk(KERN_INFO "INT_SEL    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_INT_SEL),
 			(g_fsi_Base + FSI_INT_SEL));
-	printk(KERN_INFO "INT_CLR    [%08X][%08lX]\n",
+	printk(KERN_INFO "INT_CLR    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_INT_CLR),
 			(g_fsi_Base + FSI_INT_CLR));
-	printk(KERN_INFO "CPU_INT_ST [%08X][%08lX]\n",
+	printk(KERN_INFO "CPU_INT_ST [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_CPU_INT_ST),
 			(g_fsi_Base + FSI_CPU_INT_ST));
-	printk(KERN_INFO "CPU_IEMSK  [%08X][%08lX]\n",
+	printk(KERN_INFO "CPU_IEMSK  [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_CPU_IEMSK),
 			(g_fsi_Base + FSI_CPU_IEMSK));
-	printk(KERN_INFO "CPU_IMSK   [%08X][%08lX]\n",
+	printk(KERN_INFO "CPU_IMSK   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_CPU_IMSK),
 			(g_fsi_Base + FSI_CPU_IMSK));
-	printk(KERN_INFO "DSP_INT_ST [%08X][%08lX]\n",
+	printk(KERN_INFO "DSP_INT_ST [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DSP_INT_ST),
 			(g_fsi_Base + FSI_DSP_INT_ST));
-	printk(KERN_INFO "DSP_IEMSK  [%08X][%08lX]\n",
+	printk(KERN_INFO "DSP_IEMSK  [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DSP_IEMSK),
 			(g_fsi_Base + FSI_DSP_IEMSK));
-	printk(KERN_INFO "DSP_IMSK   [%08X][%08lX]\n",
+	printk(KERN_INFO "DSP_IMSK   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_DSP_IMSK),
 			(g_fsi_Base + FSI_DSP_IMSK));
-	printk(KERN_INFO "MUTE       [%08X][%08lX]\n",
+	printk(KERN_INFO "MUTE       [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_MUTE),
 			(g_fsi_Base + FSI_MUTE));
-	printk(KERN_INFO "ACK_RST    [%08X][%08lX]\n",
+	printk(KERN_INFO "ACK_RST    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_ACK_RST),
 			(g_fsi_Base + FSI_ACK_RST));
-	printk(KERN_INFO "SOFT_RST   [%08X][%08lX]\n",
+	printk(KERN_INFO "SOFT_RST   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_SOFT_RST),
 			(g_fsi_Base + FSI_SOFT_RST));
-	printk(KERN_INFO "FIFO_SZ    [%08X][%08lX]\n",
+	printk(KERN_INFO "FIFO_SZ    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_FIFO_SZ),
 			(g_fsi_Base + FSI_FIFO_SZ));
-	printk(KERN_INFO "CLK_SEL    [%08X][%08lX]\n",
+	printk(KERN_INFO "CLK_SEL    [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_CLK_SEL),
 			(g_fsi_Base + FSI_CLK_SEL));
-	printk(KERN_INFO "SWAP_SEL   [%08X][%08lX]\n",
+	printk(KERN_INFO "SWAP_SEL   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_SWAP_SEL),
 			(g_fsi_Base + FSI_SWAP_SEL));
-	printk(KERN_INFO "HPB_SRST   [%08X][%08lX]\n",
+	printk(KERN_INFO "HPB_SRST   [%08X][%p]\n",
 			ioread32(g_fsi_Base + FSI_HPB_SRST),
 			(g_fsi_Base + FSI_HPB_SRST));
 

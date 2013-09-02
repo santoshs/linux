@@ -1364,7 +1364,7 @@ ENTRY(save_common_register)
 	/*----------------------------------------------*/
 	/* Save PL310 registers	*/
 	/*----------------------------------------------*/
-	LDR		r1, =BasePl310
+	LDR		r1, =PL310_BASE
 
 	/* Interrupt/Counter Control Registers	*/
 	LDR		r4, [r1, #L2_EV_CNT_CONTROL]
@@ -1474,7 +1474,7 @@ ENTRY(restore_common_register)
 	/*----------------------------------*/
 	/* Disable L2 cache	*/
 	MOV		r4, #0x0
-	LDR		r1, =BasePl310Phys
+	LDR		r1, =PL310_BASE_PHYS
 
 RESTORE_COMMON_L2DISABLE_LOOP:
 	LDR		r5, [r1, #L2_CONTROL]
@@ -1570,7 +1570,7 @@ ENTRY(sys_powerdown)
 	/*------------------------------------------*/
 	/* L2 Cache sync */
 	/*------------------------------------------*/
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	MOV 	r5, #0x0
 	DSB
 	STR 	r5, [r4, #L2_CHACH_SYNC]
@@ -1583,7 +1583,7 @@ SYSPD_CACHESYNC_LOOP:
 	/*------------------------------*/
 	/* Disable L2 cache				*/
 	/*------------------------------*/
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	MOV		r5, #0x0
 
 SYSPD_L2DISABLE_LOOP:
@@ -1725,7 +1725,7 @@ SKIP_TURN_OFF_RWDT:
 	STR		r5, [r6]
 
 	/* Read	Power Status Register (PSTR)*/
-	LDR 	r4, =SYSC_PSTR
+	LDR 	r4, =PSTR
 	LDR		r5, [r4]
 	LDR		r6, =ram0SavePSTRPhys_suspend
 	STR		r5, [r6]
@@ -1817,7 +1817,7 @@ ENTRY(sys_powerup)
 	STR		r5, [r6]
 
 	/* Read	Power Status Register (PSTR)*/
-	LDR 	r4, =SYSC_PSTR
+	LDR 	r4, =PSTR
 	LDR		r5, [r4]
 	LDR		r6, =ram0SavePSTRPhys_resume
 	STR		r5, [r6]
@@ -1890,7 +1890,7 @@ SKIP_RELEASE_PASR_DRAM_AREA1:
 	/* Invalidate L2 cache				*/
 	/* Disable L2 cache					*/
 	/*----------------------------------*/
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	MOV		r5, #0x0
 SYSPU_L2DISABLE_LOOP:
 	LDR		r6, [r4, #L2_CONTROL]
@@ -1908,7 +1908,7 @@ SYSPU_L2DISABLE_SKIP:
 	/* Restore L2 global setting		*/
 	/*----------------------------------*/
 	LDR		r0, =ram0Pl310GlobalSettingPhys
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	LDMIA	r0!, {r5-r9}
 	/* Write PL310 Auxiliary Control Register 	*/
 	STR		r5, [r4, #L2_AUX_CONTROL]
@@ -2273,7 +2273,7 @@ ENTRY(corestandby_down_status)
 	CMP		r4, #0x0
 	LDREQ	r5, =0x0003 /* CPU0 Powered-off mode */
 	LDRNE	r5, =0x0300 /* CPU1 Powered-off mode */
-	LDR		r6, =SCU_PWRST_ADDRPhys
+	LDR		r6, =SCU_PWRST_PHYS
 	LDR		r7, [r6]
 	ORR		r7, r7, r5
 	STR		r7, [r6] /* Set the CPU Powered-off mode */
@@ -2316,7 +2316,7 @@ ENTRY(corestandby_up_status)
 	CMP		r4, #0x0
 	LDREQ	r5, =0x0003 /* CPU0 status clear mask */
 	LDRNE	r5, =0x0300 /* CPU1 status clear mask */
-	LDR		r6, =SCU_PWRST_ADDRPhys
+	LDR		r6, =SCU_PWRST_PHYS
 	LDR		r7, [r6]
 	BIC		r7, r7, r5
 	STR		r7, [r6] /* Set the CPU Normal mode */
@@ -2497,7 +2497,7 @@ ENTRY(corestandby_pa_2)
 	NOP
 
 	/* Set L2 standby mode enable */
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	LDR		r5, [r4, #L2_POWER_CONTROL]
 	ORR		r5, r5, #0x1
 	STR 	r5, [r4, #L2_POWER_CONTROL]
@@ -2514,7 +2514,7 @@ CPUPD_CACHESYNC_LOOP:
 	/*------------------------------------------*/
 	/* Disable L2 cache */
 	/*------------------------------------------*/
-	LDR		r4, =BasePl310Phys
+	LDR		r4, =PL310_BASE_PHYS
 	MOV		r5, #0x0
 
 CSTBY_L2DISABLE_LOOP:

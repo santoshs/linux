@@ -124,11 +124,11 @@ static int rtboot_init(void)
 #endif
 	{
 		unsigned long long tim;
-		unsigned long *addr_status;
+		unsigned long __iomem *addr_status;
 		tim = local_clock();
-		addr_status = ioremap(g_rtboot_info.command_area_address, 4);
-		addr_status[1] = (unsigned long)(tim>>32);
-		addr_status[2] = (unsigned long)(tim & 0xFFFFFFFF);
+		addr_status = ioremap(g_rtboot_info.command_area_address, 12);
+		__raw_writel(upper_32_bits(tim), addr_status + 1);
+		__raw_writel(lower_32_bits(tim), addr_status + 2);
 		iounmap(addr_status);
 	}
 	MSG_LOW("[RTBOOTK]   |stop_rt_interrupt start\n");
@@ -145,10 +145,11 @@ static int rtboot_init(void)
 	if (0 != ret) {
 		MSG_ERROR("[RTBOOTK]   |RT boot error\n");
 		{
-			unsigned long *addr_status;
+			unsigned long __iomem *addr_status;
 			addr_status = ioremap(g_rtboot_info.command_area_address, 4);
 			if (addr_status) {
-				MSG_ERROR("[RTBOOTK]   |RT boot status [%ld]\n", *addr_status);
+				MSG_ERROR("[RTBOOTK]   |RT boot status [%d]\n",
+						__raw_readl(addr_status));
 				iounmap(addr_status);
 			}
 		}

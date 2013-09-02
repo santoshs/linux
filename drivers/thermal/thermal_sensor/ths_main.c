@@ -427,7 +427,7 @@ static void ths_early_suspend_wq(struct work_struct *work)
 	mutex_unlock(&ths->sensor_mutex);
 
 	/* Check power domain status SGX / RealTime */
-	reg = ioread32(SYSC_PSTR);
+	reg = ioread32(PSTR);
 	if (reg & (POWER_A3SG | POWER_A3R)) {
 		THS_DEBUG_MSG(
 					"%s: waiting for power domains (sysc_pstr=%u) to be turned off (%d)\n",

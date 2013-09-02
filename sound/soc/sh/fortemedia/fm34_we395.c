@@ -35,6 +35,7 @@
 #include <linux/clk.h>
 #include <linux/proc_fs.h>
 #include <mach/common.h>
+#include <mach/r8a7373.h>
 #include "sound/soundpath/soundpath.h"
 #include <linux/platform_device.h>
 #include <linux/vcd/vcd.h>
@@ -50,7 +51,7 @@ int g_fm34_curt_band;
 static struct proc_dir_entry *g_fm34_parent;
 unsigned int g_fm34_log_level = FM34_LOG_ALL;
 static bool g_fm34_is_vclk4_enable;
-static unsigned int g_fm34_vclk_adr;
+static void __iomem *g_fm34_vclk_adr;
 static struct sndp_extdev_callback_func g_fm34_callback_func;
 
 /* Function prototype */
@@ -692,7 +693,7 @@ static int fm34_read_proc(char *page, char **start, off_t offset,
 	return len;
 }
 
-static int fm34_write_proc(struct file *filp, const char *buffer,
+static int fm34_write_proc(struct file *filp, const char __user *buffer,
 					unsigned long len, void *data)
 {
 	int rc = 0;
@@ -704,7 +705,7 @@ static int fm34_write_proc(struct file *filp, const char *buffer,
 		return len;
 	}
 
-	if (copy_from_user((void *)buf, (void __user *)buffer, len)) {
+	if (copy_from_user(buf, buffer, len)) {
 		/* failed copy_from_user */
 		return len;
 	}
@@ -721,14 +722,13 @@ static int fm34_write_proc(struct file *filp, const char *buffer,
 
 	return len;
 }
-
 static int fm34_read_exec_proc(char *page, char **start, off_t offset,
 					int count, int *eof, void *data)
 {
 	return count;
 }
 
-static int fm34_write_exec_proc(struct file *filp, const char *buffer,
+static int fm34_write_exec_proc(struct file *filp, const char __user *buffer,
 					unsigned long len, void *data)
 {
 	int rc = 0;
@@ -740,7 +740,7 @@ static int fm34_write_exec_proc(struct file *filp, const char *buffer,
 		return len;
 	}
 
-	if (copy_from_user((void *)buf, (void __user *)buffer, len)) {
+	if (copy_from_user(buf, buffer, len)) {
 		/* failed copy_from_user */
 		return len;
 	}
@@ -986,12 +986,11 @@ static int fm34_probe(
 		goto err_init_gpio_failed;
 	}
 
-	g_fm34_vclk_adr = (unsigned int)ioremap(VCLKCR4Phys,
-						FM34_VCLKCR4_REGSIZE);
+	g_fm34_vclk_adr = ioremap(VCLKCR4_PHYS, FM34_VCLKCR4_REGSIZE);
 
-	if (0 >= g_fm34_vclk_adr) {
+	if (!g_fm34_vclk_adr) {
 		ret = -EINVAL;
-		fm34_pr_err("vclk4 ioremap error[%d]\n", g_fm34_vclk_adr);
+		fm34_pr_err("vclk4 ioremap error\n");
 		goto err_ioremap_vclk4_failed;
 	}
 
@@ -1090,7 +1089,7 @@ err_clk_set_parent:
 err_clk_get_main:
 	clk_put(g_fm34_vclk4_clk);
 err_clk_get_vclk4:
-	iounmap(&g_fm34_vclk_adr);
+	iounmap(g_fm34_vclk_adr);
 err_ioremap_vclk4_failed:
 	fm34_gpio_free();
 err_init_gpio_failed:
@@ -1112,7 +1111,7 @@ static int fm34_remove(struct i2c_client *client)
 	platform_device_unregister(&fm34_platform_device);
 	fm34_disable_vclk4();
 	clk_put(g_fm34_vclk4_clk);
-	iounmap(&g_fm34_vclk_adr);
+	iounmap(g_fm34_vclk_adr);
 	fm34_gpio_free();
 	mutex_destroy(&g_fm34_lock);
 	kfree(pfm34data);

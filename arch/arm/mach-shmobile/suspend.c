@@ -46,12 +46,12 @@
 #endif /* CONFIG_SHMOBILE_RAM_DEFRAG */
 #include <memlog/memlog.h>
 
-#define pm_writeb(v, a)			__raw_writeb(v, (void *__iomem)a)
-#define pm_writew(v, a)			__raw_writew(v, (void *__iomem)a)
-#define pm_writel(v, a)			__raw_writel(v, (void *__iomem)a)
-#define pm_readb(a)				__raw_readb((void *__iomem)a)
-#define pm_readw(a)				__raw_readw((void *__iomem)a)
-#define pm_readl(a)				__raw_readl((void *__iomem)a)
+#define pm_writeb(v, a)			__raw_writeb(v, a)
+#define pm_writew(v, a)			__raw_writew(v, a)
+#define pm_writel(v, a)			__raw_writel(v, a)
+#define pm_readb(a)				__raw_readb(a)
+#define pm_readw(a)				__raw_readw(a)
+#define pm_readl(a)				__raw_readl(a)
 #define DO_SAVE_REGS(array)		do_save_regs(array, ARRAY_SIZE(array))
 #define DO_RESTORE_REGS(array)	do_restore_regs(array, ARRAY_SIZE(array))
 
@@ -125,11 +125,11 @@ static DEFINE_SPINLOCK(systemsuspend_lock);
 struct base_map {
 	unsigned long phys;	/* phys base  */
 	int size;			/* remap size */
-	unsigned long base;	/* virt base  */
+	void __iomem *base;	/* virt base  */
 };
 
 struct reg_info {
-	unsigned long *vbase;
+	void __iomem **vbase;
 	unsigned long offset;
 	int size;
 	int esrev;
@@ -146,106 +146,86 @@ struct reg_info {
 
 static struct base_map map[] = {
 	[IRQC_EVENTDETECTOR_BLK0] = {
-		.phys = IRQC_EVENTDETECTOR_BLK0_BASE,
 		.size = SZ_4K,
 		.base = IRQC_EVENTDETECTOR_BLK0_BASE,
 	},
 	[IRQC_EVENTDETECTOR_BLK1] = {
-		.phys = IRQC_EVENTDETECTOR_BLK1_BASE,
 		.size = SZ_4K,
 		.base = IRQC_EVENTDETECTOR_BLK1_BASE,
 	},
 	[IRQC_EVENTDETECTOR_BLK10] = {
-		.phys = IRQC_EVENTDETECTOR_BLK10_BASE,
 		.size = SZ_4K,
 		.base = IRQC_EVENTDETECTOR_BLK10_BASE,
 	},
 	[IRQC_EVENTDETECTOR_BLK11] = {
-		.phys = IRQC_EVENTDETECTOR_BLK11_BASE,
 		.size = SZ_4K,
 		.base = IRQC_EVENTDETECTOR_BLK11_BASE,
 	},
 	[IRQC_EVENTDETECTOR_BLK12] = {
-		.phys = IRQC_EVENTDETECTOR_BLK12_BASE,
 		.size = SZ_4K,
 		.base = IRQC_EVENTDETECTOR_BLK12_BASE,
 	},
 	[HSGPR] = {
 		.phys = HSGPR_BASE_PHYS,
 		.size = SZ_4K,
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SYSGPR] = {
 		.phys = SYSGPR_BASE_PHYS,
 		.size = SZ_4K,
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[HPB] = {
-		.phys = HPB_BASE,
 		.size = SZ_8K,
 		.base = HPB_BASE,
 	},
 	[SHWYSTATHS] = {
-		.phys = SHWYSTATHS_BASE,
 		.size = SZ_4K,
 		.base = SHWYSTATHS_BASE,
 	},
 	[SHWYSTATSY] = {
-		.phys = SHWYSTATSY_BASE,
 		.size = SZ_4K,
 		.base = SHWYSTATSY_BASE,
 	},
 	[SHWYSTATDM] = {
-		.phys = SHWYSTATDM_BASE,
+		.phys = SHWYSTATDM_BASE_PHYS,
 		.size = SZ_4K,
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SHBUF] = {
-		.phys = SHBUF_BASE,
 		.size = SZ_4K,
 		.base = SHBUF_BASE,
 	},
 #ifdef CONFIG_PM_HAS_SECURE
 	[SBSC_SDCR0A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDCR0APhys,
+		.phys = SBSC_SDCR0A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 
 	[SBSC_SDWCRC0A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCRC0APhys,
+		.phys = SBSC_SDWCRC0A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCRC1A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCRC1APhys,
+		.phys = SBSC_SDWCRC1A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCR00A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCR00APhys,
+		.phys = SBSC_SDWCR00A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCR01A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCR01APhys,
+		.phys = SBSC_SDWCR01A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCR10A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCR10APhys,
+		.phys = SBSC_SDWCR10A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCR11A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCR11APhys,
+		.phys = SBSC_SDWCR11A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 	[SBSC_SDWCRC2A_TZ] = {	/* for setclock */
-		.phys = SBSC_SDWCRC2APhys,
+		.phys = SBSC_SDWCRC2A_PHYS,
 		.size = SZ_4,	/* 4 bytes */
-		.base = 0x0,	/* Allocate at boot time */
 	},
 #endif
 };
@@ -557,10 +537,10 @@ static void wakeups_factor(void)
 		/* For IRQ0,IRQ1 wakeup factors */
 		if ((dummy & 0x40) != 0)
 			pr_debug(PMDBG_PRFX " Wakeup by IRQ[31:0]: 0x%08x\n", \
-					__raw_readl(ram0_ICSPISR0Phys));
+					__raw_readl(ram0_ICSPISR0));
 		else if ((dummy & 0x80) != 0)
 			pr_debug(PMDBG_PRFX " Wakeup by IRQ[63:32]: 0x%08x\n",\
-					__raw_readl(ram0_ICSPISR1Phys));
+					__raw_readl(ram0_ICSPISR1));
 		else
 			pr_debug(PMDBG_PRFX "Not wakeup by IRQ wakeup factors.\n");
 	}
@@ -680,7 +660,7 @@ void shwystatdm_regs_restore(void)
  */
 static int core_shutdown_status(unsigned int cpu)
 {
-	return (__raw_readl(CPG_SCPUSTR) >> (4 * cpu)) & 3;
+	return (__raw_readl(SCPUSTR) >> (4 * cpu)) & 3;
 }
 
 /*
@@ -1148,10 +1128,10 @@ static int shmobile_suspend_prepare_late(void)
 	disable_hlt();
 
 	/* backup sys boot address */
-	save_sbar_val = __raw_readl(IOMEM(SBAR));
+	save_sbar_val = __raw_readl(SBAR);
 
 	/* set RAM1 vector */
-	__raw_writel(RAM_ARM_VECT, IOMEM(SBAR));
+	__raw_writel(RAM_ARM_VECT, SBAR);
 
 	memory_log_func(PM_FUNC_ID_SHMOBILE_SUSPEND_PREPARE_LATE, 0);
 	return 0;
@@ -1166,7 +1146,7 @@ static void shmobile_suspend_wake(void)
 	enable_hlt();
 
 	/* restore sys boot address */
-	__raw_writel(save_sbar_val, IOMEM(SBAR));
+	__raw_writel(save_sbar_val, SBAR);
 
 	/* Log information for disabling EXTAL1 */
 #ifdef __EXTAL1_INFO__
@@ -1174,42 +1154,42 @@ static void shmobile_suspend_wake(void)
 		pr_debug(PMDBG_PRFX "EXTAL1: Log information\n");
 		pr_debug(PMDBG_PRFX "---[Before suspend]---\n");
 
-		reg_val = pm_readl(ram0SaveEXMSKCNT1Phys_suspend);
+		reg_val = pm_readl(ram0SaveEXMSKCNT1_suspend);
 		pr_debug(PMDBG_PRFX "EXMSKCNT1: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveAPSCSTPPhys_suspend);
+		reg_val = pm_readl(ram0SaveAPSCSTP_suspend);
 		pr_debug(PMDBG_PRFX "APSCSTP: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveSYCKENMSKPhys_suspend);
+		reg_val = pm_readl(ram0SaveSYCKENMSK_suspend);
 		pr_debug(PMDBG_PRFX "SYCKENMSK: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveC4POWCRPhys_suspend);
+		reg_val = pm_readl(ram0SaveC4POWCR_suspend);
 		pr_debug(PMDBG_PRFX "C4POWCR: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SavePDNSELPhys_suspend);
+		reg_val = pm_readl(ram0SavePDNSEL_suspend);
 		pr_debug(PMDBG_PRFX "PDNSEL: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SavePSTRPhys_suspend);
+		reg_val = pm_readl(ram0SavePSTR_suspend);
 		pr_debug(PMDBG_PRFX "PSTR: 0x%08x\n", reg_val);
 
 		pr_debug(PMDBG_PRFX "---[After suspend]---\n");
 
-		reg_val = pm_readl(ram0SaveEXMSKCNT1Phys_resume);
+		reg_val = pm_readl(ram0SaveEXMSKCNT1_resume);
 		pr_debug(PMDBG_PRFX "EXMSKCNT1: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveAPSCSTPPhys_resume);
+		reg_val = pm_readl(ram0SaveAPSCSTP_resume);
 		pr_debug(PMDBG_PRFX "APSCSTP: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveSYCKENMSKPhys_resume);
+		reg_val = pm_readl(ram0SaveSYCKENMSK_resume);
 		pr_debug(PMDBG_PRFX "SYCKENMSK: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SaveC4POWCRPhys_resume);
+		reg_val = pm_readl(ram0SaveC4POWCR_resume);
 		pr_debug(PMDBG_PRFX "C4POWCR: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SavePDNSELPhys_resume);
+		reg_val = pm_readl(ram0SavePDNSEL_resume);
 		pr_debug(PMDBG_PRFX "PDNSEL: 0x%08x\n", reg_val);
 
-		reg_val = pm_readl(ram0SavePSTRPhys_resume);
+		reg_val = pm_readl(ram0SavePSTR_resume);
 		pr_debug(PMDBG_PRFX "PSTR: 0x%08x\n", reg_val);
 
 		xtal1_log_out = 0;
@@ -1287,9 +1267,9 @@ static int __init shmobile_suspend_init(void)
 			tbl++;
 			continue;
 		}
-		tbl->base = (unsigned long)virt;
+		tbl->base = virt;
 		pr_debug(PMDBG_PRFX \
-			"%s: ioremap phys 0x%lx, virt 0x%lx, size %d\n", \
+			"%s: ioremap phys 0x%lx, virt 0x%p, size %d\n", \
 			__func__, tbl->phys, tbl->base, tbl->size);
 		tbl++;
 	}

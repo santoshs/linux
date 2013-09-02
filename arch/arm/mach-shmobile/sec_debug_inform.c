@@ -37,7 +37,7 @@ void sec_debug_inform_magic_write(unsigned magic) {
 	iowrite32(magic, sec_debug_inform.virt);
 }
 
-void* sec_debug_inform_init(void) {
+void __iomem *sec_debug_inform_init(void) {
 #if defined(CONFIG_SEC_DEBUG_INFORM_IOREMAP)
 	sec_debug_inform.virt = ioremap_nocache(sec_debug_inform.phys, sec_debug_inform.size);
 #else

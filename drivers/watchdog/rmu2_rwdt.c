@@ -56,8 +56,8 @@ static bool running;
 /* register address define */
 #define REG_SIZE		0xCU
 #define RWTCNT_OFFSET           0x0U
-#define RWTCSRA			0x4U
-#define RWTCSRB			0x8U
+#define RWTCSRA_OFFSET		0x4U
+#define RWTCSRB_OFFSET		0x8U
 
 /* register mask define */
 #define RESCSR_HEADER		0xA5A5A500U
@@ -75,6 +75,7 @@ static bool running;
 /* wait time define */
 #define WRFLG_WAITTIME		214000	/* [nsec] 7RCLK */
 
+static void __iomem *rwdt_base;
 /* SBSC register address */
 static void __iomem *sbsc_sdmra_28200;
 static void __iomem *sbsc_sdmra_38200;
@@ -86,7 +87,7 @@ static void __iomem *sbsc_sdmra_38200;
  */
 static DEFINE_SPINLOCK(io_lock);
 
-void rmu2_modify_register32(unsigned int addr, u32 clear, u32 set)
+static void rmu2_modify_register32(void __iomem *addr, u32 clear, u32 set)
 {
 	unsigned long flags;
 	u32 val;
@@ -99,7 +100,7 @@ void rmu2_modify_register32(unsigned int addr, u32 clear, u32 set)
 }
 
 static struct resource rmu2_rwdt_resources[] = {
-	[0] = DEFINE_RES_MEM(RWDT_BASEPhys, REG_SIZE),
+	[0] = DEFINE_RES_MEM(RWDT_BASE_PHYS, REG_SIZE),
 	[1] = DEFINE_RES_IRQ(gic_spi(RWDT_SPI))
 };
 
@@ -178,10 +179,8 @@ static struct miscdevice rwdt_mdev = {
 int rmu2_rwdt_cntclear(void)
 {
 	static DEFINE_SPINLOCK(clear_lock);
-	unsigned int base;
 	unsigned long flags;
 	int ret;
-	struct resource *r;
 	u8 reg8;
 	u32 wrflg;
 
@@ -197,18 +196,12 @@ int rmu2_rwdt_cntclear(void)
 	if (!spin_trylock_irqsave(&clear_lock, flags))
 		return 0;
 
-	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
-	if (NULL == r) {
-		return -ENOMEM;
-	}
-	base = IO_ADDRESS(r->start);
-
 	/* check RWTCSRA wrflg */
-	reg8 = __raw_readb(base + RWTCSRA);
+	reg8 = __raw_readb(rwdt_base + RWTCSRA_OFFSET);
 	wrflg = ((u32)reg8 >> 5) & 0x01U;
 	if (0U == wrflg) {
 		/*RWDT_DEBUG(KERN_DEBUG "Clear the watchdog counter!!\n");*/
-		__raw_writel(RESCNT_CLEAR_DATA, base + RWTCNT_OFFSET);
+		__raw_writel(RESCNT_CLEAR_DATA, rwdt_base + RWTCNT_OFFSET);
 		ret = 0;
 	} else {
 		ret = -EAGAIN; /* try again */
@@ -226,24 +219,12 @@ int rmu2_rwdt_cntclear(void)
 int rmu2_rwdt_stop(void)
 {
 	int ret = 0;
-	unsigned int base;
-	struct resource *r;
 	u8 reg8;
 	u32 reg32;
 
 	RWDT_DEBUG("START < %s >\n", __func__);
 
 	stop_func_flg = 1;
-
-	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
-	if (NULL == r) {
-		ret = -ENOMEM;
-		printk(KERN_ERR
-		"%s:%d platform_get_resource failed err=%d\n",
-		__func__, __LINE__, ret);
-		return ret;
-	}
-	base = IO_ADDRESS(r->start);
 
 	running = false;
 
@@ -255,11 +236,11 @@ int rmu2_rwdt_stop(void)
 	}
 
 	/* set 0 to RWTCSRA TME for stopping timer */
-	reg8 = __raw_readb(base + RWTCSRA);
+	reg8 = __raw_readb(rwdt_base + RWTCSRA_OFFSET);
 	reg32 = (u32)reg8;
 	reg32 &= ~(RWTCSRA_TME_MASK);
 	reg32 |= RESCSR_HEADER;
-	__raw_writel(reg32, base + RWTCSRA);
+	__raw_writel(reg32, rwdt_base + RWTCSRA_OFFSET);
 
 	ndelay(WRFLG_WAITTIME); /* wait 7RCLK for module stop */
 
@@ -359,7 +340,7 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 static irqreturn_t rmu2_rwdt_irq(int irq, void *dev_id)
 {
 	printk(KERN_ERR "RWDT Counter Overflow Occur!! Start Crush Dump\n");
-	/* __raw_readl(IO_ADDRESS(0x00000000)); */
+	/* __raw_readl(IO_MEM(0x00000000)); */
 
 	return IRQ_HANDLED;
 }
@@ -422,8 +403,6 @@ static int rmu2_rwdt_init_irq(void)
  */
 static int rmu2_rwdt_start(void)
 {
-	unsigned int base;
-	struct resource *r;
 	int ret = 0;
 	u8 reg8;
 	u16 clockSelect;
@@ -431,16 +410,6 @@ static int rmu2_rwdt_start(void)
 	int hwlock;
 
 	RWDT_DEBUG("START < %s >\n", __func__);
-
-	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
-	if (NULL == r) {
-		ret = -ENOMEM;
-		printk(KERN_ERR
-		"%s:%d platform_get_resource failed err=%d\n",
-		__func__, __LINE__, ret);
-		return ret;
-	}
-	base = IO_ADDRESS(r->start);
 
 	for (;;) {
 		hwlock = hwspin_lock_timeout_irq(r8a7373_hwlock_sysc, 1);
@@ -459,35 +428,35 @@ static int rmu2_rwdt_start(void)
 	/* module stop release */
 	clk_enable(rmu2_rwdt_clk);
 
-	reg8 = __raw_readb(base + RWTCSRA);
+	reg8 = __raw_readb(rwdt_base + RWTCSRA_OFFSET);
 	reg8 &= ~(RWTCSRA_TME_MASK);
 	reg32 = RESCSR_HEADER + (u32)reg8;
-	__raw_writel(reg32, base + RWTCSRA);
+	__raw_writel(reg32, rwdt_base + RWTCSRA_OFFSET);
 
-	reg8 = __raw_readb(base + RWTCSRA);
+	reg8 = __raw_readb(rwdt_base + RWTCSRA_OFFSET);
 	reg8 &= ~(RWTCSRA_WOVF_MASK);
 	reg32 = RESCSR_HEADER + (u32)reg8;
-	__raw_writel(reg32, base + RWTCSRA);
+	__raw_writel(reg32, rwdt_base + RWTCSRA_OFFSET);
 
 #ifndef CONFIG_RMU2_RWDT_REBOOT_ENABLE
 	/* set 1 to WTCSRA WOVFE for overflow interrupt enable */
-	reg8 = __raw_readb(base + RWTCSRA);
+	reg8 = __raw_readb(rwdt_base + RWTCSRA_OFFSET);
 	reg8 |= RWTCSRA_WOVFE_MASK;
 	reg32 = RESCSR_HEADER + (u32)reg8;
-	__raw_writel(reg32, base + RWTCSRA);
+	__raw_writel(reg32, rwdt_base + RWTCSRA_OFFSET);
 #endif	/* CONFIG_RMU2_RWDT_REBOOT_ENABLE */
 
 	clockSelect = CONFIG_RMU2_RWDT_OVF;
 
-	reg8 = __raw_readb(base + RWTCSRA);
+	reg8 = __raw_readb(rwdt_base + RWTCSRA_OFFSET);
 	reg8 &= ~RWTCSRA_CSK0_MASK;
 	reg8 |= ((clockSelect >> 8) & 0x00FFU);
 	reg32 = RESCSR_HEADER + (u32)reg8;
-	__raw_writel(reg32, base + RWTCSRA);
+	__raw_writel(reg32, rwdt_base + RWTCSRA_OFFSET);
 
 	reg8 = (clockSelect & 0x00FFU);
 	reg32 = RESCSR_HEADER + (u32)reg8;
-	__raw_writel(reg32, base + RWTCSRB);
+	__raw_writel(reg32, rwdt_base + RWTCSRB_OFFSET);
 
 	running = true;
 
@@ -521,10 +490,10 @@ static int rmu2_rwdt_start(void)
 		queue_delayed_work(wq_wa_zq, dwork_wa_zq, cntclear_time_wa_zq);
 
 	/* set 1 to RWTCSRA TME for starting timer */
-	reg8 = __raw_readb(base + RWTCSRA);
+	reg8 = __raw_readb(rwdt_base + RWTCSRA_OFFSET);
 	reg8 |= RWTCSRA_TME_MASK;
 	reg32 = RESCSR_HEADER + (u32)reg8;
-	__raw_writel(reg32, base + RWTCSRA);
+	__raw_writel(reg32, rwdt_base + RWTCSRA_OFFSET);
 
 	return ret;
 }
@@ -539,15 +508,14 @@ static int rmu2_rwdt_start(void)
 static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	unsigned int base;
 	u8 reg8;
 	u32 reg32;
 	struct resource *r;
-	void __iomem *sbsc_sdmracr1a = 0;
+	void __iomem *sbsc_sdmracr1a = NULL;
 
 	RWDT_DEBUG("START < %s >\n", __func__);
 
-	r = platform_get_resource(&rmu2_rwdt_dev, IORESOURCE_MEM, 0);
+	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (NULL == r) {
 		ret = -ENOMEM;
 		printk(KERN_ERR
@@ -555,7 +523,14 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 		__func__, __LINE__, ret);
 		goto clk_get_err;
 	}
-	base = IO_ADDRESS(r->start);
+	rwdt_base = devm_request_and_ioremap(&pdev->dev, r);
+	if (NULL == rwdt_base) {
+		ret = -ENOMEM;
+		printk(KERN_ERR
+		"%s:%d devm_request_and_ioremap failed err=%d\n",
+		__func__, __LINE__, ret);
+		goto clk_get_err;
+	}
 
 	rmu2_rwdt_clk = clk_get(NULL, "rwdt0");
 	if (true == IS_ERR(rmu2_rwdt_clk)) {
@@ -568,11 +543,11 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	clk_enable(rmu2_rwdt_clk);
 
 	/* set 0 to WTCSRA WOVF for clearing WOVF */
-	reg8 = __raw_readb(base + RWTCSRA);
+	reg8 = __raw_readb(rwdt_base + RWTCSRA_OFFSET);
 	reg32 = (u32)reg8;
 	reg32 &= ~(RWTCSRA_WOVF_MASK);
 	reg32 |= RESCSR_HEADER;
-	__raw_writel(reg32, base + RWTCSRA);
+	__raw_writel(reg32, rwdt_base + RWTCSRA_OFFSET);
 
 	/* module stop */
 	clk_disable(rmu2_rwdt_clk);
@@ -581,7 +556,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 	wa_zq_flg = 0;
-	reg8 = __raw_readb(STBCHRB3Phys);
+	reg8 = __raw_readb(STBCHRB3);
 	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
 		RWDT_DEBUG("< %s > Apply for ZQ calibration\n", __func__);
 
@@ -596,7 +571,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 
 			if (sbsc_sdmracr1a) {
 				iounmap(sbsc_sdmracr1a);
-				sbsc_sdmracr1a = 0;
+				sbsc_sdmracr1a = NULL;
 			}
 
 			cntclear_time_wa_zq =
@@ -686,11 +661,11 @@ clk_get_err:
 ioremap_err:
 	if (sbsc_sdmra_28200) {
 		iounmap(sbsc_sdmra_28200);
-		sbsc_sdmra_28200 = 0;
+		sbsc_sdmra_28200 = NULL;
 	}
 	if (sbsc_sdmra_38200) {
 		iounmap(sbsc_sdmra_38200);
-		sbsc_sdmra_38200 = 0;
+		sbsc_sdmra_38200 = NULL;
 	}
 
 	return ret;
@@ -716,11 +691,11 @@ static int __devexit rmu2_rwdt_remove(struct platform_device *pdev)
 		destroy_workqueue(wq_wa_zq);
 		if (sbsc_sdmra_28200) {
 			iounmap(sbsc_sdmra_28200);
-			sbsc_sdmra_28200 = 0;
+			sbsc_sdmra_28200 = NULL;
 		}
 		if (sbsc_sdmra_38200) {
 			iounmap(sbsc_sdmra_38200);
-			sbsc_sdmra_38200 = 0;
+			sbsc_sdmra_38200 = NULL;
 		}
 	}
 
@@ -883,7 +858,7 @@ void rmu2_rwdt_software_reset(void)
 	int hwlock;
 	unsigned long flags;
 	/* set 0x22 to STBCHRB1(0xE6180041) */
-	/* __raw_writeb(0x22, (unsigned long)STBCHRB1Phys); */
+	/* __raw_writeb(0x22, STBCHRB1); */
 
 	reg = __raw_readb(STBCHR2); /* read STBCHR2 for debug */
 	__raw_writeb((reg | APE_RESETLOG_RWDT_SOFTWARE_RESET),

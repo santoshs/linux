@@ -25,8 +25,5 @@ struct ktd253ehd_led_platform_data {
 	int	gpio_port;
 };
 
-#define GPIO_PORTL063_032DSR	0xE6074104
-#define GPIO_PORTL063_032DCR	0xE6074204
-
 #endif /* _LEDS_KTD253EHD_H_ */
 

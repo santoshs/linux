@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/cpuidle.h>
 #include <asm/proc-fns.h>
+#include <asm/idmap.h>
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <mach/system.h>
@@ -41,11 +42,11 @@
 #include "pmRegisterDef.h"
 #include <mach/sbsc.h>
 
-DEFINE_SPINLOCK(clock_lock);
+static DEFINE_SPINLOCK(clock_lock);
 
-unsigned int *cpu0BackupArea;
-unsigned int *cpu1BackupArea;
-int chip_rev;
+static unsigned int *cpu0BackupArea;
+static unsigned int *cpu1BackupArea;
+static int chip_rev;
 unsigned int is_suspend_request;
 #define KICK_WAIT_INTERVAL_US	10
 #define ZSFC_MASK (0xF << 8)
@@ -257,43 +258,41 @@ int shmobile_init_pm(void)
 	map = ioremap_nocache(cpuidle_spinlock,
 							0x00000400/*1k*/);
 	if (map != NULL) {
-		__raw_writel((unsigned long)map, IOMEM(ram0SpinLockVA));
-		__raw_writel(cpuidle_spinlock,
-						IOMEM(ram0SpinLockPA));
-		__raw_writel((unsigned long)0x0, IOMEM(map));
+		__raw_writel((unsigned long)map, ram0SpinLockVA);
+		__raw_writel(cpuidle_spinlock, ram0SpinLockPA);
+		__raw_writel(0x0, map);
 	} else {
 		printk(KERN_ERR "shmobile_init_cpuidle: Failed ioremap\n");
 		return -EIO;
 	}
 
-	__raw_writel((unsigned long)0x0, IOMEM(ram0CPU0SpinLock));
-	__raw_writel((unsigned long)0x0, IOMEM(ram0CPU1SpinLock));
+	__raw_writel(0x0, ram0CPU0SpinLock);
+	__raw_writel(0x0, ram0CPU1SpinLock);
 	/* Errata(ECR0285) */
 	if (chip_rev <= ES_REV_2_1)
-		__raw_writel((unsigned long)0x0, IOMEM(ram0ES_2_2_AndAfter));
+		__raw_writel(0x0, ram0ES_2_2_AndAfter);
 	else if (chip_rev == ES_REV_2_2)
-		__raw_writel((unsigned long)0x1, IOMEM(ram0ES_2_2_AndAfter));
+		__raw_writel(0x1, ram0ES_2_2_AndAfter);
 	else
-		__raw_writel((unsigned long)0x2, IOMEM(ram0ES_2_2_AndAfter));
+		__raw_writel(0x2, ram0ES_2_2_AndAfter);
 
 	/* Initialize internal setting */
-	__raw_writel((unsigned long)CPUSTATUS_RUN, IOMEM(ram0Cpu0Status));
-	__raw_writel((unsigned long)CPUSTATUS_RUN, IOMEM(ram0Cpu1Status));
+	__raw_writel(CPUSTATUS_RUN, ram0Cpu0Status);
+	__raw_writel(CPUSTATUS_RUN, ram0Cpu1Status);
+
+	/* Identity MMU table */
+	__raw_writel(virt_to_phys(idmap_pgd), ram0MmuTable);
 
 #ifdef CONFIG_MEMLOG
 	/* Initialize memlog pm setting (ioremap 2k)*/
-	map = ioremap_nocache((unsigned long)(
-		MEMLOG_ADDRESS + CPU0_PM_START_INDEX),
-		CPU0_PM_SIZE + CPU1_PM_SIZE);
+	map = ioremap_nocache(MEMLOG_ADDRESS + CPU0_PM_START_INDEX,
+				CPU0_PM_SIZE + CPU1_PM_SIZE);
 	if (map != NULL) {
-		__raw_writel((unsigned long)map, IOMEM(ram0MemlogPmAddressVA));
-		__raw_writel((unsigned long)(
-			MEMLOG_ADDRESS + CPU0_PM_START_INDEX),
-			IOMEM(ram0MemlogPmAddressPAPhys));
-		for (i = 0 ; i <  ((CPU0_PM_SIZE + CPU1_PM_SIZE) >> 2); i++) {
-			__raw_writel((unsigned long)0x0, IOMEM(map));
-			map++;
-		}
+		__raw_writel((unsigned long)map, ram0MemlogPmAddressVA);
+		__raw_writel(MEMLOG_ADDRESS + CPU0_PM_START_INDEX,
+				ram0MemlogPmAddressPA);
+		for (i = 0 ; i < CPU0_PM_SIZE + CPU1_PM_SIZE; i += 4)
+			__raw_writel(0x0, map + i);
 	} else {
 		printk(KERN_ERR "shmobile_init_pm: Failed ioremap\n");
 		return -EIO;
@@ -305,24 +304,25 @@ int shmobile_init_pm(void)
 	sec_hal_pm_coma_entry_init();
 
 	/* Initialize internal setting */
-	__raw_writel((unsigned long)(&sec_hal_pm_coma_entry),
-					IOMEM(ram0SecHalCommaEntry));
-	__raw_writel((unsigned long)0x0, IOMEM(ram0ZClockFlag));
+	__raw_writel((unsigned long)&sec_hal_pm_coma_entry,
+					ram0SecHalCommaEntry);
+	__raw_writel(0x0, ram0ZClockFlag);
 #endif
 
 #ifndef CONFIG_PM_SMP
 	/* Temporary solution for Kernel in Secure */
 #ifndef CONFIG_PM_HAS_SECURE
-	__raw_writel(0, IOMEM(SBAR2));
+	__raw_writel(0, SBAR2);
 #endif
 
-	__raw_writel((unsigned long)0x0, IOMEM(APARMBAREA)); /* 4k */
+	__raw_writel(0x0, APARMBAREA); /* 4k */
 #endif
 
 	/* - set PLL1 stop conditon to A2SL, A3R, A4MP, C4 state by CPG.PLL1STPCR */
 	__raw_writel(PLL1STPCR_DEFALT, PLL1STPCR);
 
-	copy_functions();
+	if (copy_functions())
+		pr_err("shmobile_init_pm: Failed copy_functions\n");
 
 	return 0;
 }

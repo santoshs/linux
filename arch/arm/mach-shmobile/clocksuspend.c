@@ -92,7 +92,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRA)
+		.addr = FRQCRA
 	},
 	[ZG_CLK] = {
 		.mask_bit	= 0xf,
@@ -115,7 +115,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRA)
+		.addr = FRQCRA
 	},
 	[B_CLK] = {
 		.mask_bit	= 0xf,
@@ -138,7 +138,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRA)
+		.addr = FRQCRA
 	},
 	[M1_CLK] = {
 		.mask_bit	= 0xf,
@@ -161,7 +161,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRA)
+		.addr = FRQCRA
 	},
 	[M3_CLK] = {
 		.mask_bit	= 0xf,
@@ -184,7 +184,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRA)
+		.addr = FRQCRA
 	},
 	[M5_CLK] = {
 		.mask_bit	= 0xf,
@@ -207,7 +207,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRA)
+		.addr = FRQCRA
 	},
 	[Z_CLK] = {
 		.mask_bit	= 0x1f,
@@ -230,7 +230,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x1b,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRB)
+		.addr = FRQCRB
 	},
 	[ZTR_CLK] = {
 		.mask_bit	= 0xf,
@@ -253,7 +253,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRB)
+		.addr = FRQCRB
 	},
 	[ZT_CLK] = {
 		.mask_bit	= 0xf,
@@ -276,7 +276,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRB)
+		.addr = FRQCRB
 	},
 	[ZX_CLK] = {
 		.mask_bit	= 0xf,
@@ -299,7 +299,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRB)
+		.addr = FRQCRB
 	},
 	[HP_CLK] = {
 		.mask_bit	= 0xf,
@@ -322,7 +322,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRB)
+		.addr = FRQCRB
 	},
 	[ZS_CLK] = {
 		.mask_bit	= 0xf,
@@ -345,7 +345,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0xb,
 			[DIV1_96] = -1
 		},
-		.addr = IOMEM(FRQCRB)
+		.addr = FRQCRB
 	},
 	[ZB_CLK] = { /* 1/2*(setting + 1) ~ 1/2, 1/4, 1/6, 1/8 */
 		.mask_bit	= 0x3f,
@@ -368,7 +368,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x27,
 			[DIV1_96] = 0x2f
 		},
-		.addr = IOMEM(ZBCKCR)
+		.addr = ZBCKCR
 	},
 	[ZB3_CLK] = {
 		.mask_bit	= 0x1f,
@@ -391,7 +391,7 @@ static struct clk_hw_info __clk_hw_info_es2_x[] = {
 			[DIV1_48] = 0x18,
 			[DIV1_96] = 0x1b
 		},
-		.addr = IOMEM(FRQCRD)
+		.addr = FRQCRD
 	}
 };
 
@@ -740,7 +740,7 @@ struct sbsc_param zb3_lut[ZB3_FREQ_SIZE] = {
 
 void cpg_set_lpclkcr_mode(u32 mode)
 {
-	__raw_writel(mode, CPG_LPCKCR);
+	__raw_writel(mode, LPCKCR);
 }
 /*
  * __match_div_rate: get div-rate by hw setting value
@@ -873,7 +873,7 @@ int cpg_set_pll(int pll, unsigned int val)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
-	unsigned int addr = PLL0CR;
+	void __iomem *addr = PLL0CR;
 	int timeout = 500;
 
 	if (pll != PLL0) {
@@ -882,12 +882,12 @@ int cpg_set_pll(int pll, unsigned int val)
 		return -EINVAL;
 	}
 
-	pllcr = __raw_readl(IO_ADDRESS(addr));
+	pllcr = __raw_readl(addr);
 	stc_val = ((pllcr & PLLCR_STC_MASK) >> PLLCR_BIT24_SHIFT) + 1;
 	if (val != stc_val) {
 		pllcr &= ~PLLCR_STC_MASK;
 		pllcr |= ((val - 1) << PLLCR_BIT24_SHIFT);
-		__raw_writel(pllcr, IO_ADDRESS(addr));
+		__raw_writel(pllcr, addr);
 		/* wait for status bit set */
 		while (--timeout) {
 			if (__raw_readl(PLLECR) & (1 << 8))
@@ -917,26 +917,26 @@ int cpg_get_pll(int pll)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
-	unsigned int addr = (unsigned int)PLL0CR;
+	void __iomem *addr = PLL0CR;
 
 	switch (pll) {
 	case PLL0:
-		addr = (unsigned int)PLL0CR;
+		addr = PLL0CR;
 		break;
 	case PLL1:
-		addr = (unsigned int)PLL1CR;
+		addr = PLL1CR;
 		break;
 	case PLL2:
-		addr = (unsigned int)CPG_PLL2CR;
+		addr = PLL2CR;
 		break;
 	case PLL3:
-		addr = (unsigned int)PLL3CR;
+		addr = PLL3CR;
 		break;
 	default:
 			return -EINVAL;
 		}
 
-	pllcr = __raw_readl(IO_ADDRESS(addr));
+	pllcr = __raw_readl(addr);
 	stc_val = ((pllcr & PLLCR_STC_MASK) >> PLLCR_BIT24_SHIFT) + 1;
 
 	return (int)stc_val;
@@ -1144,20 +1144,20 @@ static void cpg_PLL3_change(unsigned int pll_multiplier)
 
 	/* Check PLL3 status */
 	work = __raw_readl(PLLECR);
-	if (!(work & CPG_PLLECR_PLL3ST))
+	if (!(work & PLLECR_PLL3ST))
 		return;
 
 	if (pll_multiplier == 40)
-		__raw_writel(CPG_PLL3CR_1040MHZ, PLL3CR);
+		__raw_writel(PLL3CR_1040MHZ, PLL3CR);
 	else if (pll_multiplier == 30)
-		__raw_writel(CPG_PLL3CR_X30, PLL3CR);
+		__raw_writel(PLL3CR_X30, PLL3CR);
 
 	/* Wait PLL3 status on */
 	while (0 < timeout) {
 		timeout--;
 		work = __raw_readl(PLLECR);
-		work &= CPG_PLLECR_PLL3ST;
-		if (work == CPG_PLLECR_PLL3ST)
+		work &= PLLECR_PLL3ST;
+		if (work == PLLECR_PLL3ST)
 			break;
 		udelay(1);
 	}
@@ -1713,14 +1713,14 @@ static int cpg_set_zdiv(int mode)
 				zdivcr &= ~BIT(18);
 
 			zdivcr |= waveform_map[i].waveform;
-			__raw_writel(zdivcr, ZDIVCR5);
+			__raw_writel(zdivcr, SCGCR);
 
 			/* BIT(29) should be clear when all done
 			 */
 			zdivcr &= ~BIT(29);
-			__raw_writel(zdivcr, ZDIVCR5);
+			__raw_writel(zdivcr, SCGCR);
 
-			pr_log("ZDIVCR[0x%08x]\n", __raw_readl(ZDIVCR5));
+			pr_log("ZDIVCR[0x%08x]\n", __raw_readl(SCGCR));
 			return 0;
 		}
 	}

@@ -53,7 +53,7 @@ Description :  File created
 #include <linux/random.h>
 #include <linux/wakelock.h>
 #include <asm/io.h>
-
+#include <mach/r8a7373.h>
 #ifdef SMC_DMA_ENABLED
   #include <linux/dma-mapping.h>
 #endif
@@ -268,19 +268,19 @@ void smc_register_wakeup_irq( smc_t* smc_instance, uint32_t signal_id, uint32_t 
 
 void smc_init_external_wakeup_irqc( smc_t* smc_instance )
 {
-    #define SMC_PRI_STS0         0xE61C2410     /* Status i Event Generator block 2 */
+    #define SMC_PRI_STS0         IO_ADDRESS(0xE61C2410)     /* Status i Event Generator block 2 */
 
-    #define SMC_PRI_SET0         0xE61C2414     /* Event Generator block 2 */
+    #define SMC_PRI_SET0         IO_ADDRESS(0xE61C2414)     /* Event Generator block 2 */
     #define SMC_PRI_SET0_VALUE   0x00000001
 
-    #define SMC_CONFIG0          0xE61C1980     /**/
+    #define SMC_CONFIG0          IO_ADDRESS(0xE61C1980)     /**/
     #define SMC_CONFIG0_VALUE    0x00000008     /* Rising edge*/
 
-    #define SMC_WAKEN_STS0       0xE61C1884
-    #define SMC_WAKEN_SET0       0xE61C1888
+    #define SMC_WAKEN_STS0       IO_ADDRESS(0xE61C1884)
+    #define SMC_WAKEN_SET0       IO_ADDRESS(0xE61C1888)
     #define SMC_WAKEN_SET0_VALUE 0x00000001
 
-    #define SMC_WUPMMSK          0xE6180030
+    #define SMC_WUPMMSK          IO_ADDRESS(0xE6180030)
 
     SMC_TRACE_PRINTF_SIGNAL("smc_init_external_wakeup_irqc: initialize...");
 
@@ -1704,7 +1704,7 @@ void smc_vprintk(const char *fmt, va_list args)
 
         *(volatile char *)(stm_channel + 0x00) = 0x00; /* timestamp and closure */
 
-        #define SYS_STM_TSFREQR    0xE6F89E8C
+        #define SYS_STM_TSFREQR    IO_ADDRESS(0xE6F89E8C)
 
         tsfreq = __raw_readl(SYS_STM_TSFREQR /* sys_stm_conf.TSFREQR */);
         __raw_writel(tsfreq, SYS_STM_TSFREQR /* sys_stm_conf.TSFREQR */);

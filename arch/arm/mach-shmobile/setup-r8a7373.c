@@ -19,6 +19,7 @@
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <asm/delay.h>
+#include <asm/io.h>
 #include <asm/system_info.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach/map.h>
@@ -37,6 +38,13 @@
 #include <mach/setup-u2current_timer.h>
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
+#endif
+#if defined CONFIG_CPU_IDLE || defined CONFIG_SUSPEND
+#ifndef CONFIG_PM_HAS_SECURE
+#include "pm_ram0.h"
+#else /*CONFIG_PM_HAS_SECURE*/
+#include "pm_ram0_tz.h"
+#endif /*CONFIG_PM_HAS_SECURE*/
 #endif
 
 #ifdef CONFIG_RENESAS_BT
@@ -58,20 +66,42 @@
 #ifdef CONFIG_ARCH_SHMOBILE
 void __iomem *dummy_write_mem;
 #endif
+
 static struct map_desc r8a7373_io_desc[] __initdata = {
-/*
- * TODO: Porting  parameter.
- *   original parameter is error by vmalloc.
- *   we use KOTA K3.4.5 parameter.
+#ifdef PM_FUNCTION_START
+/* We arrange for some of ICRAM 0 to be MT_MEMORY_NONCACHED, so
+ * it can be executed from, for the PM code; it is then Normal Uncached memory,
+ * with the XN (eXecute Never) bit clear. However, the data area of the ICRAM
+ * has to be MT_DEVICE, to satisfy data access size requirements of the ICRAM.
  */
 	{
-		.virtual	= 0xe6000000,
+		.virtual	= __IO_ADDRESS(0xe6000000),
+		.pfn		= __phys_to_pfn(0xe6000000),
+		.length		= PM_FUNCTION_START-0xe6000000,
+		.type		= MT_DEVICE
+	},
+	{
+		.virtual	= __IO_ADDRESS(PM_FUNCTION_START),
+		.pfn		= __phys_to_pfn(PM_FUNCTION_START),
+		.length		= PM_FUNCTION_END-PM_FUNCTION_START,
+		.type		= MT_MEMORY_NONCACHED
+	},
+	{
+		.virtual	= __IO_ADDRESS(PM_FUNCTION_END),
+		.pfn		= __phys_to_pfn(PM_FUNCTION_END),
+		.length		= 0xe7000000-PM_FUNCTION_END,
+		.type		= MT_DEVICE
+	},
+#else
+	{
+		.virtual	= __IO_ADDRESS(0xe6000000),
 		.pfn		= __phys_to_pfn(0xe6000000),
 		.length		= SZ_16M,
 		.type		= MT_DEVICE
 	},
+#endif
 	{
-		.virtual	= 0xf0000000,
+		.virtual	= __IO_ADDRESS(0xf0000000),
 		.pfn		= __phys_to_pfn(0xf0000000),
 		.length		= SZ_2M,
 		.type		= MT_DEVICE
@@ -1358,7 +1388,7 @@ static void __init cmt_clocksource_init(void)
 	/* start */
 	__raw_writel(1, CMSTR0);
 
-	clocksource_mmio_init(IOMEM(CMCNT0), "cmt10", rate, 125, 32,
+	clocksource_mmio_init(CMCNT0, "cmt10", rate, 125, 32,
 				clocksource_mmio_readl_up);
 
 	clk_enable(clk_get_sys("sh_cmt.14", NULL));
@@ -1487,48 +1517,48 @@ static void __init r8a7373_timer_init(void)
 	r8a7373_clock_init();
 	shmobile_calibrate_delay_early();
 	cmt_clocksource_init();
-	cmt_clockevent_init(cmt1_timers, 2, 0, CMCLKE);
+	cmt_clockevent_init(cmt1_timers, 2, 0, CMCLKE_PHYS);
 	setup_current_timer();
 }
 
 /* Lock used while modifying register */
 static DEFINE_SPINLOCK(io_lock);
 
-void sh_modify_register8(unsigned int addr, u8 clear, u8 set)
+void sh_modify_register8(void __iomem *addr, u8 clear, u8 set)
 {
 	unsigned long flags;
 	u8 val;
 	spin_lock_irqsave(&io_lock, flags);
-	val = *(volatile u8 *)addr;
+	val = __raw_readb(addr);
 	val &= ~clear;
 	val |= set;
-	*(volatile u8 *)addr = val;
+	__raw_writeb(val, addr);
 	spin_unlock_irqrestore(&io_lock, flags);
 }
 EXPORT_SYMBOL_GPL(sh_modify_register8);
 
-void sh_modify_register16(unsigned int addr, u16 clear, u16 set)
+void sh_modify_register16(void __iomem *addr, u16 clear, u16 set)
 {
 	unsigned long flags;
 	u16 val;
 	spin_lock_irqsave(&io_lock, flags);
-	val = *(volatile u16 *)addr;
+	val = __raw_readw(addr);
 	val &= ~clear;
 	val |= set;
-	*(volatile u16 *)addr = val;
+	__raw_writew(val, addr);
 	spin_unlock_irqrestore(&io_lock, flags);
 }
 EXPORT_SYMBOL_GPL(sh_modify_register16);
 
-void sh_modify_register32(unsigned int addr, u32 clear, u32 set)
+void sh_modify_register32(void __iomem *addr, u32 clear, u32 set)
 {
 	unsigned long flags;
 	u32 val;
 	spin_lock_irqsave(&io_lock, flags);
-	val = *(volatile u32 *)addr;
+	val = __raw_readl(addr);
 	val &= ~clear;
 	val |= set;
-	*(volatile u32 *)addr = val;
+	__raw_writel(val, addr);
 	spin_unlock_irqrestore(&io_lock, flags);
 }
 EXPORT_SYMBOL_GPL(sh_modify_register32);
@@ -1543,19 +1573,19 @@ void SBSC_Init_520Mhz(void)
 
 	/* Check PLL3 status */
 	work = __raw_readl(PLLECR);
-	if (!(work & CPG_PLLECR_PLL3ST)) {
-		printk(KERN_ALERT "CPG_PLLECR_PLL3ST is 0\n");
+	if (!(work & PLLECR_PLL3ST)) {
+		printk(KERN_ALERT "PLLECR_PLL3ST is 0\n");
 		return;
 	}
 
 	/* Set PLL3 = 1040 Mhz*/
-	__raw_writel(CPG_PLL3CR_1040MHZ, PLL3CR);
+	__raw_writel(PLL3CR_1040MHZ, PLL3CR);
 
 	/* Wait PLL3 status on */
 	while (1) {
 		work = __raw_readl(PLLECR);
-		work &= CPG_PLLECR_PLL3ST;
-		if (work == CPG_PLLECR_PLL3ST)
+		work &= PLLECR_PLL3ST;
+		if (work == PLLECR_PLL3ST)
 			break;
 	}
 
@@ -1663,7 +1693,7 @@ void r8a7373_l2cache_init(void)
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{
 		/*The L2Cache is resized to 512 KB*/
-		l2x0_init(IOMEM(IO_ADDRESS(0xf0100000)), 0x4c460000, 0x820f0fff);
+		l2x0_init(IO_ADDRESS(0xf0100000), 0x4c460000, 0x820f0fff);
 	}
 #endif
 }
@@ -1671,7 +1701,7 @@ void r8a7373_l2cache_init(void)
 
 void __init r8a7373_init_early(void)
 {
-	system_rev = __raw_readl(IOMEM(CCCR));
+	system_rev = __raw_readl(CCCR);
 
 #ifdef CONFIG_ARM_TZ
 	r8a7373_l2cache_init();

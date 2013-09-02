@@ -27,56 +27,36 @@
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
 #include "log_kernel.h"
+#include <mach/r8a7373.h>
 
-
-#define SYSC_BASE			(0xE6180000)
-#define SYSC_SIZE			(0x300)
-static unsigned long sysc_base;
-#define RBAR				(sysc_base + 0x001C)
-#define SYSC_BASE8			(0xE6188000)
-#define SYSC_SIZE8			(0x100)
-static unsigned long sysc_base8;
-#define RESCNT				(sysc_base8 + 0x001C)
 #define RESCNT_RT			(1 << 9)
 
-#define CPGA_BASE			(0xE6150000)
-#define CPGA_SIZE			(0x200)
-static unsigned long cpga_base;
-#define MSTPSR0				(cpga_base + 0x0030)
-#define MSTPSR2				(cpga_base + 0x0040)
-#define RMSTPCR0			(cpga_base + 0x0110)
 #define RMSTPCR0_TLB		(1 << 31)
 #define RMSTPCR0_IC			(1 << 30)
 #define RMSTPCR0_OC			(1 << 29)
 #define RMSTPCR0_INTCRT		(1 << 22)
-#define RMSTPCR2			(cpga_base + 0x0118)
 #define RMSTPCR2_MFI		(1 << 13)
 
-#define CPGA_BASE8			(0xE6158000)
-#define CPGA_SIZE8			(0x200)
-static unsigned long cpga_base8;
-#define SRCR0				(cpga_base8 + 0x00a0)
 #define SRCR0_RT			(1 << 30)
-#define SRCR2				(cpga_base8 + 0x00b0)
 #define SRCR2_MFI			(1 << 13)
 
-#define MFIS_BASE			(0xE6260000)
+#define MFIS_BASE_ADDR_PHYS     0xE6260000
 #define MFIS_SIZE			(0x100)
-static unsigned long mfis_base;
+static void __iomem *mfis_base;
 #define MFIS_GSR			(mfis_base + 0x0004)
 #define MFIS_IICR			(mfis_base + 0x0010)
 #define MFIS_EICR			(mfis_base + 0x0014)
 
 #define INTCRT_BASE2		(0xFFD20000)
 #define INTCRT_SIZE2		(0x300)
-static unsigned long intcrt_base2;
+static void __iomem *intcrt_base2;
 #define INTCRT_IMR0S		(intcrt_base2 + 0x0080)
 #define INTCRT_IMR12S		(intcrt_base2 + 0x00B0)
 #define INTCRT_IMR0SA		(intcrt_base2 + 0x0180)
 #define INTCRT_IMR12SA		(intcrt_base2 + 0x01B0)
 #define INTCRT_BASE5		(0xFFD50000)
 #define INTCRT_SIZE5		(0x200)
-static unsigned long intcrt_base5;
+static void __iomem *intcrt_base5;
 #define INTCRT_IMR0S3		(intcrt_base5 + 0x0080)
 #define INTCRT_IMR12S3		(intcrt_base5 + 0x00B0)
 #define INTCRT_IMR0SA3		(intcrt_base5 + 0x0180)
@@ -100,24 +80,16 @@ static int set_screen_data(unsigned int disp_addr);
 
 void do_ioremap_register(void)
 {
-	sysc_base = (unsigned long)ioremap(SYSC_BASE, SYSC_SIZE);
-	sysc_base8 = (unsigned long)ioremap(SYSC_BASE8, SYSC_SIZE8);
-	cpga_base = (unsigned long)ioremap(CPGA_BASE, CPGA_SIZE);
-	cpga_base8 = (unsigned long)ioremap(CPGA_BASE8, CPGA_SIZE8);
-	mfis_base = (unsigned long)ioremap(MFIS_BASE, MFIS_SIZE);
-	intcrt_base2 = (unsigned long)ioremap(INTCRT_BASE2, INTCRT_SIZE2);
-	intcrt_base5 = (unsigned long)ioremap(INTCRT_BASE5, INTCRT_SIZE5);
+	mfis_base = ioremap(MFIS_BASE_ADDR_PHYS, MFIS_SIZE);
+	intcrt_base2 = ioremap(INTCRT_BASE2, INTCRT_SIZE2);
+	intcrt_base5 = ioremap(INTCRT_BASE5, INTCRT_SIZE5);
 }
 
 void do_iounmap_register(void)
 {
-	iounmap((void *)sysc_base);
-	iounmap((void *)sysc_base8);
-	iounmap((void *)cpga_base);
-	iounmap((void *)cpga_base8);
-	iounmap((void *)mfis_base);
-	iounmap((void *)intcrt_base2);
-	iounmap((void *)intcrt_base5);
+	iounmap(mfis_base);
+	iounmap(intcrt_base2);
+	iounmap(intcrt_base5);
 }
 
 int read_rt_image(unsigned int *addr)
@@ -127,7 +99,7 @@ int read_rt_image(unsigned int *addr)
 	int ret = 0;
 	int retval;
 	unsigned int data_size;
-	unsigned char *data_addr = 0;
+	unsigned char __iomem *data_addr = NULL;
 	struct file *fp = NULL;
 
 	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
@@ -244,7 +216,7 @@ void write_rt_imageaddr(unsigned int addr)
 
 void stop_rt_interrupt(void)
 {
-	int reg;
+	void __iomem *reg;
 
 	for (reg = INTCRT_IMR0SA; reg <= INTCRT_IMR12SA; reg += 4) {
 		writeb(0xFF, reg);
@@ -332,7 +304,7 @@ void write_req_comp(void)
 
 static int set_screen_data(unsigned int disp_addr)
 {
-	void *addr = NULL;
+	void __iomem *addr = NULL;
 	struct screen_info screen[2];
 
 	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
@@ -382,7 +354,7 @@ static int set_screen_data(unsigned int disp_addr)
 
 int read_rt_cert(unsigned int addr)
 {
-	unsigned char *data_addr = 0;
+	unsigned char __iomem *data_addr = NULL;
 	struct file *fp = NULL;
 	struct kstat stbuf;
 	int ret;

@@ -108,30 +108,30 @@
 /* Structure				*/
 /****************************************/
 typedef struct {
-	unsigned int DSITCKCR;
-	unsigned int DSI0PCKCR;
-	unsigned int DSI0PHYCR;
-	unsigned int SYSCONF;
-	unsigned int TIMSET0;
-	unsigned int TIMSET1;
-	unsigned int DSICTRL;
-	unsigned int VMCTR1;
-	unsigned int VMCTR2;
-	unsigned int VMLEN1;
-	unsigned int VMLEN2;
-	unsigned int VMLEN3;
-	unsigned int VMLEN4;
-	unsigned int DTCTR;
-	unsigned int MLDHCNR;
-	unsigned int MLDHSYNR;
-	unsigned int MLDHAJR;
-	unsigned int MLDVLNR;
-	unsigned int MLDVSYNR;
-	unsigned int MLDMT1R;
-	unsigned int LDDCKR;
-	unsigned int MLDDCKPAT1R;
-	unsigned int MLDDCKPAT2R;
-	unsigned int PHYTEST;
+	unsigned int dsitckcr;
+	unsigned int dsi0pckcr;
+	unsigned int dsi0phycr;
+	unsigned int sysconf;
+	unsigned int timset0;
+	unsigned int timset1;
+	unsigned int dsictrl;
+	unsigned int vmctr1;
+	unsigned int vmctr2;
+	unsigned int vmlen1;
+	unsigned int vmlen2;
+	unsigned int vmlen3;
+	unsigned int vmlen4;
+	unsigned int dtctr;
+	unsigned int mldhcnr;
+	unsigned int mldhsynr;
+	unsigned int mldhajr;
+	unsigned int mldvlnr;
+	unsigned int mldvsynr;
+	unsigned int mldmt1r;
+	unsigned int lddckr;
+	unsigned int mlddckpat1r;
+	unsigned int mlddckpat2r;
+	unsigned int phytest;
 } screen_disp_lcd_if;
 
 #ifndef _SCREEN_RECT_TYPE_
@@ -235,34 +235,34 @@ typedef struct {
 } screen_disp_aspect;
 
 typedef struct {
-	unsigned int MLDHCNR;
-	unsigned int MLDHSYNR;
-	unsigned int MLDHAJR;
-	unsigned int MLDVLNR;
-	unsigned int MLDVSYNR;
-	unsigned int MLDVLNR_B;
-	unsigned int MLDVSYNR_B;
-	unsigned int MLDIVSNR;
-	unsigned int MLDMT1R;
-	unsigned int MLDMT1R_B;
-	unsigned int MLDDCKPAT1R;
-	unsigned int MLDDCKPAT2R;
-	unsigned int LDDCKR;
-	unsigned int SYSCONF;
-	unsigned int TIMSET0;
-	unsigned int TIMSET1;
-	unsigned int DSICTRL;
-	unsigned int VMCTR1;
-	unsigned int VMCTR2;
-	unsigned int VMLEN1;
-	unsigned int VMLEN2;
-	unsigned int VMLEN3;
-	unsigned int VMLEN4;
-	unsigned int DTCTR;
-	unsigned int PLL2CR;
-	unsigned int DSI1PCKCR;
-	unsigned int DSI1PHYCR;
-	unsigned int PHYTEST;
+	unsigned int mldhcnr;
+	unsigned int mldhsynr;
+	unsigned int mldhajr;
+	unsigned int mldvlnr;
+	unsigned int mldvsynr;
+	unsigned int mldvlnr_b;
+	unsigned int mldvsynr_b;
+	unsigned int mldivsnr;
+	unsigned int mldmt1r;
+	unsigned int mldmt1r_b;
+	unsigned int mlddckpat1r;
+	unsigned int mlddckpat2r;
+	unsigned int lddckr;
+	unsigned int sysconf;
+	unsigned int timset0;
+	unsigned int timset1;
+	unsigned int dsictrl;
+	unsigned int vmctr1;
+	unsigned int vmctr2;
+	unsigned int vmlen1;
+	unsigned int vmlen2;
+	unsigned int vmlen3;
+	unsigned int vmlen4;
+	unsigned int dtctr;
+	unsigned int pll2cr;
+	unsigned int dsi1pckcr;
+	unsigned int dsi1phycr;
+	unsigned int phytest;
 } screen_disp_hdmi_if;
 
 typedef struct {

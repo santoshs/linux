@@ -34,11 +34,6 @@ SCUW_NO_EXTERN void scuw_reg_dump(void);
 /* SCUW FSIIF_FSIIR Setting and dummy read */
 SCUW_NO_EXTERN void scuw_set_fsiir(void);
 
-/* SCUW FFD physical address top. */
-#define SCUW_PHY_BASE_FFD	(0xEC748000)
-/* SCUW FFD physical address top. */
-#define SCUW_PHY_BASE_CPUFIFO2	(0xEC768000)
-
 /* FFD Register */
 #define SCUW_FFDIR_FFD		(0xEC748004)
 #define SCUW_DEVCR_FFD		(0xEC748020)

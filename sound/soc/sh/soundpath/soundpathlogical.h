@@ -66,7 +66,7 @@ static int sndp_proc_read(
 /* Proc write for sndp (DEBUG LOG) */
 static int sndp_proc_write(
 	struct file *filp,
-	const char *buffer,
+	const char __user *buffer,
 	unsigned long count,
 	void *data);
 /* Proc read for Register dump (DEBUG LOG) */
@@ -80,7 +80,7 @@ static int sndp_proc_reg_dump_read(
 /* Proc write for Register dump (DEBUG LOG) */
 static int sndp_proc_reg_dump_write(
 	struct file *filp,
-	const char *buffer,
+	const char __user *buffer,
 	unsigned long count,
 	void *data);
 
