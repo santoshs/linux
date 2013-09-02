@@ -114,8 +114,6 @@ enum sh_mobile_i2c_op {
 	OP_RX,
 	OP_RX_STOP,
 	OP_RX_STOP_DATA,
-	OP_RX_STOP_ERR,
-	OP_TX_STOP_ERR,
 };
 
 struct sh_mobile_i2c_data {
@@ -377,9 +375,6 @@ static unsigned char i2c_op(struct sh_mobile_i2c_data *pd,
 		iic_wr(pd, ICDR, data);
 		iic_wr(pd, ICCR, 0x90);
 		break;
-	case OP_TX_STOP_ERR:
-		iic_wr(pd, ICCR, 0x90);
-		break;
 	case OP_TX_TO_RX: /* select read mode */
 		iic_wr(pd, ICCR, 0x81);
 		break;
@@ -387,7 +382,6 @@ static unsigned char i2c_op(struct sh_mobile_i2c_data *pd,
 		ret = iic_rd(pd, ICDR);
 		break;
 	case OP_RX_STOP: /* enable DTE interrupt, issue stop */
-	case OP_RX_STOP_ERR:
 		iic_wr(pd, ICIC,
 		       ICIC_DTEE | ICIC_WAITE | ICIC_ALE | ICIC_TACKE);
 		iic_wr(pd, ICCR, 0xc0);
@@ -517,10 +511,6 @@ static irqreturn_t sh_mobile_i2c_isr(int irq, void *dev_id)
 		/* don't interrupt transaction - continue to issue stop */
 		iic_wr(pd, ICSR, sr & ~(ICSR_AL | ICSR_TACK));
 		wakeup = 0;
-		if(pd->msg->flags & I2C_M_RD) 
-			i2c_op(pd, OP_RX_STOP_ERR, 0);
-		else 
-			i2c_op(pd, OP_TX_STOP_ERR, 0);
 	} else if (pd->msg->flags & I2C_M_RD)
 		wakeup = sh_mobile_i2c_isr_rx(pd);
 	else
@@ -584,7 +574,7 @@ static int sh_mobile_i2c_xfer(struct i2c_adapter *adapter,
 	struct sh_mobile_i2c_data *pd = i2c_get_adapdata(adapter);
 	int err = 0;
 	u_int8_t val;
-	int k, retry_count, ttimeout = 0;
+	int k, retry_count;
 
 	activate_ch(pd);
 
@@ -599,8 +589,8 @@ static int sh_mobile_i2c_xfer(struct i2c_adapter *adapter,
 			       pd->sr & (ICSR_TACK | SW_DONE),
 			       1 * HZ);
 	if (!k) {
-		ttimeout = 1;
 		err = -EAGAIN;
+		goto quit;
 	}
 	retry_count = 1000;
 again:
@@ -624,17 +614,14 @@ again:
 
 	/* handle missing acknowledge and arbitration lost */
 	if ((val | pd->sr) & (ICSR_TACK | ICSR_AL)) {
-		err = -EAGAIN;
+		err = -EIO;
 	}
 
  quit:
 	deactivate_ch(pd);
-	if ((-EAGAIN) == err){
-		if(ttimeout)
-			dev_err(pd->dev, "Transfer request timed out\n");
-		else
-			dev_err(pd->dev, "NACK or AL\n");
-	}
+	if ((-EAGAIN) == err)
+		dev_err(pd->dev, "Transfer request timed out\n");
+
 	if (!err)
 		err = num;
 	return err;
