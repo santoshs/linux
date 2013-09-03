@@ -184,6 +184,7 @@ EXPORT_SYMBOL_GPL(memory_log_timestamp);
 
 void memory_log_init(void)
 {
+	struct memlog_header mh;
 	BUILD_BUG_ON(MEMLOG_END > MEMLOG_SIZE);
 
 	 /* init the starts and indexes */
@@ -220,6 +221,20 @@ void memory_log_init(void)
 	per_cpu(dump_log_area, 1).limit = CPU0_PM_START_INDEX;
 
 	memset(logdata, 0, MEMLOG_SIZE);
+
+	mh.proc_size = PROC_ENTRY_SIZE;
+	mh.proc_count = PROC_COUNT;
+	mh.irq_size = IRQ_ENTRY_SIZE;
+	mh.irq_count = IRQ_COUNT;
+	mh.func_size = FUNC_ENTRY_SIZE;
+	mh.func_count = FUNC_COUNT;
+	mh.dump_size = DUMP_ENTRY_SIZE;
+	mh.dump_count = DUMP_COUNT;
+	mh.timestamp_size = sizeof(unsigned long long);
+	mh.timestamp_count = COUNT_TIMESTAMP;
+	mh.reserved1 = 0xFF;
+	mh.reserved2 = 0xFF;
+	memcpy(logdata, &mh, MEMLOG_HEADER_SIZE);
 
 	smp_mb();
 	memlog_capture = 1;

@@ -31,6 +31,22 @@ extern void memory_log_irq(unsigned int irq, int in);
 extern void memory_log_func(unsigned long func_id, int in);
 extern void memory_log_dump_int(unsigned char dump_id, int dump_data);
 extern void memory_log_timestamp(unsigned int id);
+
+struct memlog_header {
+	unsigned char proc_size;
+	unsigned char proc_count;
+	unsigned char irq_size;
+	unsigned char irq_count;
+	unsigned char func_size;
+	unsigned char func_count;
+	unsigned char dump_size;
+	unsigned char dump_count;
+	unsigned char timestamp_size;
+	unsigned char timestamp_count;
+	unsigned char reserved1;
+	unsigned char reserved2;
+} __packed;
+
 struct proc_log_entry {
 	unsigned long long time;
 	unsigned long pid;
@@ -68,6 +84,7 @@ struct timestamp_entries {
 #define MEMLOG_SIZE		\
 	(SDRAM_MEMLOG_END_ADDRESS - SDRAM_MEMLOG_START_ADDRESS + 1)
 
+#define MEMLOG_HEADER_SIZE	sizeof(struct memlog_header)
 #define PROC_ENTRY_SIZE		sizeof(struct proc_log_entry)
 #define IRQ_ENTRY_SIZE		sizeof(struct irq_log_entry)
 #define FUNC_ENTRY_SIZE		sizeof(struct func_log_entry)
@@ -83,7 +100,7 @@ struct timestamp_entries {
 #define DUMP_COUNT		31
 #define PM_COUNT		1
 
-#define CPU0_PROC_START_INDEX	0x00000000
+#define CPU0_PROC_START_INDEX	MEMLOG_HEADER_SIZE
 #define CPU1_PROC_START_INDEX	\
 	(CPU0_PROC_START_INDEX + (PROC_ENTRY_SIZE * PROC_COUNT))
 #define CPU0_IRQ_START_INDEX	\
