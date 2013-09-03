@@ -24,6 +24,7 @@
 #include <linux/nmi.h>
 #include <linux/dmi.h>
 #include <asm/io.h>
+#include <linux/rmu2_rwdt.h>
 #include <mach/r8a7373.h>
 
 #define PANIC_TIMER_STEP 100
@@ -37,8 +38,6 @@ static unsigned long tainted_mask;
 static int pause_on_oops;
 static int pause_on_oops_flag;
 static DEFINE_SPINLOCK(pause_on_oops_lock);
-
-extern int rmu2_rwdt_cntclear(void);
 
 extern void disable_hotplug_duringPanic(void);
 
