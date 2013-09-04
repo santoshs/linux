@@ -288,7 +288,11 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 		break;
 	}
 #endif
-	printk(KERN_INFO "START < %s >\n", __func__);
+	/* Printk() was removed from here intentionally - watchdog
+	*  timers have no business printing anything because the
+	*  printk() can take so long in high load cases that we
+	*  get a watchdog reset due to that!
+	*/
 
 #ifdef CONFIG_IRQ_TRACE
 	{
@@ -311,10 +315,7 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 #endif /* CONFIG_IRQ_TRACE */
 	cpg_check_check();
 
-#ifdef CONFIG_GIC_NS_CMT
-	rmu2_cmt_clear();
-#endif	/* CONFIG_GIC_NS_CMT */
-
+	preempt_disable();
 	ret = rmu2_rwdt_cntclear();
 	if (0 > ret) {
 		ret = -EBUSY;			/* cannot write RWTCNT  */
@@ -324,10 +325,13 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 	} else {
 		next_touch_at = jiffies + cntclear_time / 4;
 	}
+#ifdef CONFIG_GIC_NS_CMT
+	rmu2_cmt_clear();
+#endif	/* CONFIG_GIC_NS_CMT */
 
 	if (0 == stop_func_flg)	/* do not execute while stop() */
 		queue_delayed_work(wq, dwork, cntclear_time);
-
+	preempt_enable();
 }
 
 #ifndef CONFIG_RMU2_RWDT_REBOOT_ENABLE
@@ -342,7 +346,7 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
  */
 static irqreturn_t rmu2_rwdt_irq(int irq, void *dev_id)
 {
-	printk(KERN_ERR "RWDT Counter Overflow Occur!! Start Crush Dump\n");
+	printk(KERN_ERR "RWDT Counter Overflow Occur!! Start Crash Dump\n");
 	/* __raw_readl(IO_MEM(0x00000000)); */
 
 	return IRQ_HANDLED;
