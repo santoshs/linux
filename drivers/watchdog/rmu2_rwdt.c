@@ -35,6 +35,8 @@
 #include <mach/r8a7373.h>
 #include <mach/sbsc.h>
 
+#include <memlog/memlog.h>
+
 static struct delayed_work *dwork;
 static struct delayed_work *dwork_wa_zq;
 static struct workqueue_struct *wq;
@@ -202,6 +204,7 @@ int rmu2_rwdt_cntclear(void)
 	if (0U == wrflg) {
 		/*RWDT_DEBUG(KERN_DEBUG "Clear the watchdog counter!!\n");*/
 		__raw_writel(RESCNT_CLEAR_DATA, rwdt_base + RWTCNT_OFFSET);
+		memory_log_timestamp(RWDT_TIMESTAMP);
 		ret = 0;
 	} else {
 		ret = -EAGAIN; /* try again */

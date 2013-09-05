@@ -32,6 +32,7 @@
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 
+#include <memlog/memlog.h>
 #define ISREQ_TIMEOUT_MONITOR_S		IO_ADDRESS(0xE6150440)
 #define PDACK_TIMEOUT_MONITOR_A		IO_ADDRESS(0xE615047C)
 #define ISREQ_TIMEOUT_MONITOR_F		IO_ADDRESS(0xE6150490)
@@ -332,7 +333,7 @@ void rmu2_cmt_clear(void)
 		wrflg = ((__raw_readl(CMCSR15) >> 13) & 0x1);
 		i++;
 	} while (wrflg != 0x00 && i < 0xffffffff);
-
+	memory_log_timestamp(CMT15_TIMESTAMP);
 	__raw_writel(1, CMSTR15);       /* Enable counting again */
 	spin_unlock_irqrestore(&cmt_lock, flags);
 	/*printk(KERN_INFO "START < %s >\n", __func__);*/
@@ -405,6 +406,9 @@ asmlinkage void rmu2_cmt_fiq(struct pt_regs *regs)
 	 */
 	int err = 0;
 #endif
+	memory_log_timestamp(FIQ_TIMESTAMP);
+	memory_log_dump_int(PM_DUMP_ID_RWDT_COUNTER, __raw_readw(RWTCNT));
+	memlog_capture = 0;
 
 	console_verbose();
 
