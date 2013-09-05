@@ -49,6 +49,7 @@ config ARCH_R8A7373
 	select ARM_GIC
 	select CLKSRC_MMIO
 	select HAVE_SCHED_CLOCK
+	select ARM_ERRATA_775420
 
 comment "SH-Mobile Board Type"
 
