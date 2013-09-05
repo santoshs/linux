@@ -1,6 +1,4 @@
-#ifndef __ASM_ARCH_CURRENT_TIMER_H
-#define __ASM_ARCH_CURRENT_TIMER_H
-
-int __init setup_current_timer(void);
-int cmt_read_current_timer(unsigned long *timer_val);
-#endif /* __ASM_ARCH_CURRENT_TIMER_H */
+#ifndef __SETUP_U2TIMERS_H
+#define __SETUP_U2TIMERS_H
+extern void u2_timers_init(void);
+#endif /* __SETUP_U2TIMERS_H */
