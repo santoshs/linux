@@ -52,9 +52,6 @@
  * images, it's up to the secure code whether the CMT is a FIQ or not. */
 #define CONFIG_RMU2_CMT_FIQ
 
-#define CONFIG_GIC_NS_CMT
-
-#ifdef CONFIG_GIC_NS_CMT
 #define CMT15_SPI		98U
 
 #define ICD_ISR0	(GIC_DIST_BASE + 0x80)
@@ -63,8 +60,6 @@
 
 /* FIQ handle excecute panic before RWDT request CPU reset system */
 #define CMT_OVF			((256*CONFIG_RMU2_RWDT_CMT_OVF)/1000 - 2)
-
-#endif  /* CONFIG_GIC_NS_CMT */
 
 #ifdef CONFIG_RWDT_CMT15_TEST
 #include <linux/proc_fs.h>
@@ -152,9 +147,7 @@ static void loop_processor_vector(const char *name, unsigned long vector)
 }
 #endif
 
-#ifdef CONFIG_GIC_NS_CMT
 static DEFINE_SPINLOCK(cmt_lock);
-#endif  /* CONFIG_GIC_NS_CMT */
 
 #ifndef CONFIG_FIQ_GLUE
 static DEFINE_PER_CPU(struct pt_regs, rmu2_cmt_fiq_regs);
@@ -229,7 +222,6 @@ void cpg_check_check(void)
 #endif /* CONFIG_SHBUS_TIMEOUT_CHECK_ENABLE */
 }
 
-#ifdef CONFIG_GIC_NS_CMT
 /*
  * rmu2_cmt_start: start CMT
  * input: none
@@ -528,7 +520,6 @@ static void rmu2_cmt_init_irq(void)
 	/* And always set up in case it's an IRQ */
 	enable_irq(irq);
 }
-#endif	/* CONFIG_GIC_NS_CMT */
 
 /*
  * rmu2_cmt15_probe:
@@ -542,10 +533,8 @@ static int __devinit rmu2_cmt_probe(struct platform_device *pdev)
 	printk(KERN_ALERT "START < %s >\n", __func__);
 
 	cpg_check_init();
-#ifdef CONFIG_GIC_NS_CMT
 	rmu2_cmt_init_irq();
 	rmu2_cmt_start();
-#endif  /* CONFIG_GIC_NS_CMT */
 	return 0;
 }
 
@@ -561,10 +550,7 @@ static int __devexit rmu2_cmt_remove(struct platform_device *pdev)
 {
 	printk(KERN_ALERT "START < %s >\n", __func__);
 
-#ifdef CONFIG_GIC_NS_CMT
 	rmu2_cmt_stop();
-#endif  /* CONFIG_GIC_NS_CMT */
-
 	return 0;
 }
 
@@ -582,11 +568,8 @@ static int rmu2_cmt_suspend_noirq(struct device *dev)
 {
 	printk(KERN_ALERT "START < %s >\n", __func__);
 
-#ifdef CONFIG_GIC_NS_CMT
 	rmu2_cmt_clear();
 	rmu2_cmt_stop();
-#endif  /* CONFIG_GIC_NS_CMT */
-
 	return 0;
 }
 
@@ -603,11 +586,8 @@ static int rmu2_cmt_resume_noirq(struct device *dev)
 {
 	printk(KERN_ALERT "START < %s >\n", __func__);
 
-#ifdef CONFIG_GIC_NS_CMT
 	rmu2_cmt_start();
 	rmu2_cmt_clear();
-#endif  /* CONFIG_GIC_NS_CMT */
-
 	return 0;
 }
 

@@ -325,9 +325,7 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 	} else {
 		next_touch_at = jiffies + cntclear_time / 4;
 	}
-#ifdef CONFIG_GIC_NS_CMT
 	rmu2_cmt_clear();
-#endif	/* CONFIG_GIC_NS_CMT */
 
 	if (0 == stop_func_flg)	/* do not execute while stop() */
 		queue_delayed_work(wq, dwork, cntclear_time);
@@ -724,9 +722,7 @@ static int rmu2_rwdt_suspend(struct platform_device *pdev, pm_message_t state)
 	int ret;
 	RWDT_DEBUG("START < %s >\n", __func__);
 
-#ifdef CONFIG_GIC_NS_CMT
 	rmu2_cmt_clear();
-#endif	/* CONFIG_GIC_NS_CMT */
 
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();
@@ -772,9 +768,7 @@ static int rmu2_rwdt_resume(struct platform_device *pdev)
 	int ret;
 	RWDT_DEBUG("START < %s >\n", __func__);
 
-#ifdef CONFIG_GIC_NS_CMT
 	rmu2_cmt_clear();
-#endif	/* CONFIG_GIC_NS_CMT */
 
 	/* clear RWDT counter */
 	ret = rmu2_rwdt_cntclear();

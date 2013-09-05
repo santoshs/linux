@@ -47,7 +47,6 @@
 
 #ifndef CONFIG_ARM_TZ
 #define CONFIG_GIC_NS
-#define CONFIG_GIC_NS_CMT
 #endif /* CONFIG_ARM_TZ */
 
 union gic_base {
