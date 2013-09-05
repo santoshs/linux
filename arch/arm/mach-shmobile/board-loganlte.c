@@ -612,7 +612,9 @@ static void __init board_init(void)
 	vibrator_init(u2_board_rev);
 
 	printk(KERN_DEBUG "%s\n", __func__);
+#ifdef CONFIG_MMC_OOPS
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);
+#endif
 	crashlog_reset_log_write();
 	crashlog_init_tmplog();
 

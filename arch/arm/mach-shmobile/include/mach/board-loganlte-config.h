@@ -90,6 +90,7 @@ static struct platform_device mmcif_device = {
 	.num_resources	= ARRAY_SIZE(renesas_mmcif_resources),
 };
 
+#ifdef CONFIG_MMC_OOPS
 static struct mmcoops_platform_data mmcoops_info = {
 #ifdef CONFIG_CRASHLOG_EMMC
 	.pdev			= &mmcif_device,
@@ -112,6 +113,7 @@ static struct platform_device mmcoops_device = {
 		.platform_data  = &mmcoops_info,
 	},
 };
+#endif
 
 static struct resource fsi_resources[] = {
 	[0] = {
@@ -451,7 +453,9 @@ static struct platform_device *devices_stm_sdhi1[] __initdata = {
 	&tusb1211_device,
 #endif
 	&mmcif_device,
+#ifdef CONFIG_MMC_OOPS
 	&mmcoops_device,
+#endif
 	&sdhi0_device,
 #if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
@@ -507,7 +511,9 @@ static struct platform_device *devices_stm_sdhi0[] __initdata = {
 	&tusb1211_device,
 #endif
 	&mmcif_device,
+#ifdef CONFIG_MMC_OOPS
 	&mmcoops_device,
+#endif
 	&sdhi1_device,
 #if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
@@ -563,7 +569,9 @@ static struct platform_device *devices_stm_none[] __initdata = {
 	&tusb1211_device,
 #endif
 	&mmcif_device,
+#ifdef CONFIG_MMC_OOPS
 	&mmcoops_device,
+#endif
 	&sdhi0_device,
 	&sdhi1_device,
 #if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
