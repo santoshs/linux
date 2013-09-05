@@ -1339,12 +1339,14 @@ static void cmt10_stop(void)
 
 void clocksource_mmio_suspend(struct clocksource *cs)
 {
-	cmt10_stop();
+	if (strcmp("cmt10",cs->name) == 0)
+		cmt10_stop();
 }
 
 void clocksource_mmio_resume(struct clocksource *cs)
 {
-	cmt10_start(false);
+	if (strcmp("cmt10",cs->name) == 0)
+		cmt10_start(false);
 }
 
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
@@ -1430,6 +1432,8 @@ static void __init cmt_clocksource_init(void)
 	 */
 	clocks_calc_mult_shift(&persistent_mult, &persistent_shift,
 			32768, NSEC_PER_SEC, 120000);
+	clocksource_mmio_init(CMCNT4, "cmt14", rate, 50, 32,
+			clocksource_mmio_readl_up);
 }
 
 #if defined(CONFIG_MFD_D2153)
