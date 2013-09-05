@@ -136,11 +136,11 @@ config MACH_U2USB
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
 
-config U2_CURRENTTIMER
-	bool "U2 current timer setup implementation "
+config U2_TIMERS
+	bool "U2 timers setup"
 	default n
 	help
-	 selects the current timer setup implementation for u2 chipsets.
+	 sets up the current timer, sched clock setup, clock event timers and clocksources.
 
 config U2_SDHI
 	bool "U2 sdhi setup implementation "

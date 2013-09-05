@@ -61,9 +61,6 @@
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
-#ifdef ARCH_HAS_READ_CURRENT_TIMER
-#include <mach/setup-u2current_timer.h>
-#endif
 #if defined(CONFIG_GPS_BCM4752)
 #include <mach/dev-gps.h>
 #endif

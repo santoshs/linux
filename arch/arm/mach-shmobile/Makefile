@@ -119,8 +119,8 @@ obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte-spa.o
 obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte-spa.o
 endif
 
-# current timer
-obj-$(CONFIG_U2_CURRENTTIMER)	+= setup-u2current_timer.o
+# common timer setup
+obj-$(CONFIG_U2_TIMERS)	+= setup-u2timers.o
 # sdhi
 obj-$(CONFIG_U2_SDHI)	+= setup-u2sdhi.o
 

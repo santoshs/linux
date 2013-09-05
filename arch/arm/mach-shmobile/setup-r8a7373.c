@@ -35,7 +35,7 @@
 #include <linux/i2c-gpio.h>
 #include <linux/gpio.h>
 #include <linux/sched.h>
-#include <mach/setup-u2current_timer.h>
+#include <mach/setup-u2timers.h>
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
 #endif
