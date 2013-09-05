@@ -4,7 +4,7 @@
  */
 #include <linux/timex.h>
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
-#include <mach/sh_cmt.h>
+#include <mach/cmt.h>
 #include <mach/r8a7373.h>
 #include <linux/spinlock_types.h>
 #include <linux/clk.h>
@@ -43,9 +43,9 @@ int __init setup_current_timer(void)
 	do_div(lpj, HZ);
 	lpj_fine = lpj;
 
-	spin_lock_irqsave(&sh_cmt_lock, flags);
+	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(__raw_readl(CMCLKE) | (1 << 3), CMCLKE);
-	spin_unlock_irqrestore(&sh_cmt_lock, flags);
+	spin_unlock_irqrestore(&cmt_lock, flags);
 
 	__raw_writel(0, CMSTR3);
 	__raw_writel(0x103, CMCSR3); /* Free-running, DBGIVD, CKS=3 */

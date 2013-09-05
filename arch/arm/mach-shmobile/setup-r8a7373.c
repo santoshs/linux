@@ -1302,26 +1302,24 @@ void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
 }
 #endif
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
-extern spinlock_t sh_cmt_lock;
 
-static struct clk *cmt10_clk;
-
-static void cmt10_start(void)
+static void cmt10_start(bool clear)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&sh_cmt_lock, flags);
+	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(__raw_readl(CMCLKE) | (1 << 0), CMCLKE);
-	spin_unlock_irqrestore(&sh_cmt_lock, flags);
+	spin_unlock_irqrestore(&cmt_lock, flags);
 
 	/* stop */
 	__raw_writel(0, CMSTR0);
 
 	/* setup */
-	__raw_writel(0, CMCNT0);
+	if (clear)
+		__raw_writel(0, CMCNT0);
 	__raw_writel(0x103, CMCSR0); /* Free-running, DBGIVD, cp_clk/1 */
 	__raw_writel(0xffffffff, CMCOR0);
-	while (__raw_readl(CMCNT0) != 0)
+	while (__raw_readl(CMCSR0) & (1<<13))
 		cpu_relax();
 
 	/* start */
@@ -1334,21 +1332,19 @@ static void cmt10_stop(void)
 
 	__raw_writel(0, CMSTR0);
 
-	spin_lock_irqsave(&sh_cmt_lock, flags);
+	spin_lock_irqsave(&cmt_lock, flags);
 	__raw_writel(__raw_readl(CMCLKE) & ~(1 << 0), CMCLKE);
-	spin_unlock_irqrestore(&sh_cmt_lock, flags);
+	spin_unlock_irqrestore(&cmt_lock, flags);
 }
 
 void clocksource_mmio_suspend(struct clocksource *cs)
 {
 	cmt10_stop();
-	clk_disable(cmt10_clk);
 }
 
 void clocksource_mmio_resume(struct clocksource *cs)
 {
-	clk_enable(cmt10_clk);
-	cmt10_start();
+	cmt10_start(false);
 }
 
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
@@ -1371,22 +1367,7 @@ static void __init cmt_clocksource_init(void)
 	rate = clk_get_rate(cp_clk);
 	clk_enable(cp_clk);
 
-	spin_lock_irqsave(&cmt_lock, flags);
-	__raw_writel(__raw_readl(CMCLKE) | (1 << 0), CMCLKE);
-	spin_unlock_irqrestore(&cmt_lock, flags);
-
-	/* stop */
-	__raw_writel(0, CMSTR0);
-
-	/* setup */
-	__raw_writel(0, CMCNT0);
-	__raw_writel(0x103, CMCSR0); /* Free-running, debug, cp_clk/1 */
-	__raw_writel(0xffffffff, CMCOR0);
-	while (__raw_readl(CMCNT0) != 0)
-		;
-
-	/* start */
-	__raw_writel(1, CMSTR0);
+	cmt10_start(true);
 
 	clocksource_mmio_init(CMCNT0, "cmt10", rate, 125, 32,
 				clocksource_mmio_readl_up);
