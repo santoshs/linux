@@ -25,10 +25,6 @@
 
 #define RMC_LOCAL_VERSION "150612"              /* ddmmyy (release time)*/
 
-#define TMPLOG_ADDRESS	(SDRAM_CRASHLOG_START_ADDR + 0x200)
-#define TMPLOG_END_ADDRESS     (TMPLOG_ADDRESS + 0x40000)
-#define TMPLOG_TOTAL_SIZE      (TMPLOG_END_ADDRESS - TMPLOG_ADDRESS)
-
 
 #define CRASHLOG_R_LOCAL_VER_LOCATE             (SDRAM_CRASHLOG_START_ADDR + 0)
 #define CRASHLOG_R_LOCAL_VER_LENGTH             32
@@ -69,5 +65,4 @@ extern void crashlog_logcat_init(void);
 
 void crashlog_r_local_ver_write(char *soft_version);
 void crashlog_reset_log_write(void);
-void crashlog_init_tmplog(void);
 #endif /* __ARCH_SHMOBILE_CRASHLOG_H__ */

@@ -584,7 +584,6 @@ static void __init board_init(void)
 	crashlog_r_local_ver_write(mmcoops_info.soft_version);
 #endif
 	crashlog_reset_log_write();
-	crashlog_init_tmplog();
 
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 	pn547_device_i2c_register();
