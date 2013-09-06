@@ -316,9 +316,12 @@ static int __init init_memlog(void)
 		goto kset_exit;
 	}
 
-	logdata = (char *)ioremap_nocache(MEMLOG_ADDRESS, MEMLOG_SIZE);
+	if (MEMLOG_ADDRESS > SDRAM_KERNEL_END_ADDR)
+		logdata = (char *)ioremap_nocache(MEMLOG_ADDRESS, MEMLOG_SIZE);
+	else
+		logdata = (char *)ioremap_wc(MEMLOG_ADDRESS, MEMLOG_SIZE);
 	if (!logdata) {
-		printk(KERN_ERR "ioremap_nocache: failed");
+		printk(KERN_ERR "ioremap: failed");
 		ret = -ENOMEM;
 		goto exit;
 	}
