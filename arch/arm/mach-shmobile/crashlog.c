@@ -27,36 +27,6 @@
 #include <mach/crashlog.h>
 #include <mach/r8a7373.h>
 
-
-void crashlog_r_local_ver_write(char *soft_version)
-{
-	void __iomem *adr = 0;
-	void __iomem *adr_bak = 0;
-	char	version_name[CRASHLOG_R_LOCAL_VER_LENGTH];
-	int	revision_version_length;
-	unsigned char i;
-
-	adr = ioremap(CRASHLOG_R_LOCAL_VER_LOCATE,
-				CRASHLOG_R_LOCAL_VER_LENGTH);
-	adr_bak = adr;
-	if (adr) {
-		revision_version_length = strlen(linux_banner);
-		snprintf(soft_version, CRASHLOG_R_LOCAL_VER_LENGTH, "%s %s",
-				RMC_LOCAL_VERSION,
-				(linux_banner + revision_version_length - 25));
-
-		strncpy(version_name, RMC_LOCAL_VERSION,
-				CRASHLOG_R_LOCAL_VER_LENGTH);
-
-		for (i = 0 ; i < CRASHLOG_R_LOCAL_VER_LENGTH ; i++) {
-			__raw_writeb(version_name[i], adr);
-			adr++;
-		}
-
-		iounmap(adr_bak);
-	}
-}
-
 void crashlog_reset_log_write()
 {
 	void __iomem *adr = NULL;

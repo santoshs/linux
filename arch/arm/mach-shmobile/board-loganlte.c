@@ -605,9 +605,6 @@ static void __init board_init(void)
 	vibrator_init();
 
 	printk(KERN_DEBUG "%s\n", __func__);
-#ifdef CONFIG_MMC_OOPS
-	crashlog_r_local_ver_write(mmcoops_info.soft_version);
-#endif
 	crashlog_reset_log_write();
 
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
