@@ -18,7 +18,11 @@
  */
 
 #define SCFSR		0x14
+#ifdef CONFIG_DEBUG_LL_SH_SCIFA
 #define SCFTDR		0x20
+#elif defined CONFIG_DEBUG_LL_SH_SCIFB
+#define SCFTDR		0x40
+#endif
 #define FSR_TEND	(1 << 6)
 
 /*

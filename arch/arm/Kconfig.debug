@@ -624,6 +624,18 @@ config DEBUG_LL_SH_SCI_BASE
 	default 0xe6450000 if ARCH_R8A7373 # SCIFA0
 
 choice
+	prompt "Low-level debug SCI type"
+	depends on DEBUG_SH_SCI
+	default DEBUG_LL_SH_SCIFA
+
+	config DEBUG_LL_SH_SCIFA
+		bool "SCIFA"
+
+	config DEBUG_LL_SH_SCIFB
+		bool "SCIFB"
+endchoice
+
+choice
 	prompt "Low-level debug console UART"
 	depends on DEBUG_LL && DEBUG_TEGRA_UART
 
