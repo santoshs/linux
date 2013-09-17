@@ -574,7 +574,7 @@ static int sh_mobile_i2c_xfer(struct i2c_adapter *adapter,
 	struct sh_mobile_i2c_data *pd = i2c_get_adapdata(adapter);
 	int err = 0;
 	u_int8_t val;
-	int k, retry_count;
+	int k, retry_count, ttimeout = 0;
 
 	activate_ch(pd);
 
@@ -590,7 +590,7 @@ static int sh_mobile_i2c_xfer(struct i2c_adapter *adapter,
 			       1 * HZ);
 	if (!k) {
 		err = -EAGAIN;
-		goto quit;
+		ttimeout = 1;
 	}
 	retry_count = 1000;
 again:
@@ -614,14 +614,17 @@ again:
 
 	/* handle missing acknowledge and arbitration lost */
 	if ((val | pd->sr) & (ICSR_TACK | ICSR_AL)) {
-		err = -EIO;
+		err = -EAGAIN;
 	}
 
  quit:
 	deactivate_ch(pd);
-	if ((-EAGAIN) == err)
-		dev_err(pd->dev, "Transfer request timed out\n");
-
+	if ((-EAGAIN) == err) {
+		if (ttimeout)
+			dev_err(pd->dev, "Transfer request timed out\n");
+		else
+			dev_err(pd->dev, "NACK or AL\n");
+	}
 	if (!err)
 		err = num;
 	return err;
