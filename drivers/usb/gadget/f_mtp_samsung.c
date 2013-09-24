@@ -56,7 +56,8 @@
 #include "gadget_chips.h"
 
 #if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
+	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
+	defined(CONFIG_MACH_AMETHYST)
 /*#ifdef CONFIG_MACH_U2EVM*/
 #include <linux/clk.h>
 #include <linux/sh_clk.h>
@@ -502,7 +503,8 @@ static int mtpg_open(struct inode *ip, struct file *fp)
 	the_mtpg->error = 0;
 
 #if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
+	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
+	defined(CONFIG_MACH_AMETHYST)
 	{
 		int ret = stop_cpufreq();
 		DBG(the_mtpg->cdev, "%s(): stop_cpufreq\n", __func__);
@@ -1111,7 +1113,8 @@ static int mtpg_release_device(struct inode *ip, struct file *fp)
 		_unlock(&the_mtpg->open_excl);
 
 #if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
+	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
+	defined(CONFIG_MACH_AMETHYST)
 /*#ifdef CONFIG_MACH_U2EVM*/
 	if (!dfs_started) {
 		start_cpufreq();

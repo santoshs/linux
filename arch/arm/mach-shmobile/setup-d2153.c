@@ -289,7 +289,8 @@ __weak struct regulator_consumer_supply d2153_ldo11_supplies[] = {
 	REGULATOR_SUPPLY("key_led", NULL),	// key led
 #if defined(CONFIG_BOARD_VERSION_GARDA) || \
 	defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
-	defined(CONFIG_BOARD_VERSION_LT02LTE)
+	defined(CONFIG_BOARD_VERSION_LT02LTE) || \
+	defined(CONFIG_BOARD_VERSION_AMETHYST)
 	REGULATOR_SUPPLY("vled", "leds-regulator.0"),	// key led
 #endif /* CONFIG_BOARD_VERSION_GARDA || CONFIG_BOARD_VERSION_LOGANLTE || CONFIG_BOARD_VERSION_LT02LTE*/
 };
@@ -378,7 +379,8 @@ static struct regulator_init_data d2153_ldo15 = {
 // LDO16
 #if defined(CONFIG_BOARD_VERSION_GARDA) || \
 	defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
-	defined(CONFIG_BOARD_VERSION_LT02LTE)
+	defined(CONFIG_BOARD_VERSION_LT02LTE) || \
+	defined(CONFIG_BOARD_VERSION_AMETHYST)
 
 __weak struct regulator_consumer_supply d2153_ldo16_supplies[] = {
 	REGULATOR_SUPPLY("vdd_motor_pmic", NULL),	// Motor
@@ -545,7 +547,8 @@ static struct d2153_regl_init_data d2153_regulators_init_data[D2153_NUMBER_OF_RE
 };
 
 #if defined(CONFIG_BOARD_VERSION_GARDA) || \
-	defined(CONFIG_BOARD_VERSION_LOGANLTE)
+	defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
+	defined(CONFIG_BOARD_VERSION_AMETHYST)
 #define BATTERY_CAPACITY 1800
 #elif defined(CONFIG_BOARD_VERSION_LT02LTE)
 #define BATTERY_CAPACITY 4000

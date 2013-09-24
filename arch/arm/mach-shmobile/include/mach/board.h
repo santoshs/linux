@@ -7,3 +7,6 @@
 #ifdef CONFIG_MACH_LT02LTE
 #include "board-lt02lte.h"
 #endif
+#ifdef CONFIG_MACH_AMETHYST
+#include "board-amethyst.h"
+#endif

@@ -41,7 +41,7 @@ static ssize_t smb_charging_status_show(struct kobject *kobj,
 					struct kobj_attribute \
 					*attr, char *buf)
 {
-#ifdef CONFIG_MACH_LOGANLTE
+#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AMETHYST)
 	return sprintf(buf, "%d\n", smb328a_chip_status());
 #else
 	pm_charger_info("%s: Currently not supported\n", __func__);
@@ -61,7 +61,7 @@ static ssize_t smb_charging_status_store(struct kobject *kobj,
 	 if (client) {
 		switch (charging_enable) {
 		case 0:
-#ifdef CONFIG_MACH_LOGANLTE
+#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AMETHYST)
 			smb328a_disable_charging(client);
 			break;
 #else
@@ -70,7 +70,7 @@ static ssize_t smb_charging_status_store(struct kobject *kobj,
 			break;
 #endif
 		case 1:
-#ifdef CONFIG_MACH_LOGANLTE
+#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AMETHYST)
 			smb328a_enable_charging(client);
 			break;
 #else
