@@ -7,3 +7,7 @@
 #ifdef CONFIG_MACH_LT02LTE
 #include "board-lt02lte.h"
 #endif
+#ifdef CONFIG_MACH_WILCOXLTE
+#include "board-wilcoxlte.h"
+#endif
+#

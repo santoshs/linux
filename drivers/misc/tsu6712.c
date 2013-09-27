@@ -1496,7 +1496,8 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	int ret;
 	pr_info("%s\n", __func__);
 
-#if defined(CONFIG_BOARD_VERSION_LOGANLTE) //// mUSB_temp_20130308
+#if defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
+	defined(CONFIG_BOARD_VERSION_WILCOXLTE) /*  mUSB_temp_20130308 */
 	tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
 
 	ctrl = value & (~0x1);

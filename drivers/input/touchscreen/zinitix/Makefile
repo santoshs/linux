@@ -4,4 +4,4 @@
 
 obj-$(CONFIG_BOARD_VERSION_LOGANLTE)	+= loganlte/
 obj-$(CONFIG_BOARD_VERSION_LT02LTE)	+= lt02lte/
-
+obj-$(CONFIG_BOARD_VERSION_WILCOXLTE)	+= loganlte/
