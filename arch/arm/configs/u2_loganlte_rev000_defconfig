@@ -965,9 +965,6 @@ CONFIG_TUN=y
 # Renesas WiFi implementation
 # CONFIG_RENESAS_WIFI=y
 
-# BOARD_VERSION
-CONFIG_BOARD_VERSION_LOGANLTE=y
-
 #
 # Debugging Feature
 #

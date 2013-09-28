@@ -520,8 +520,7 @@ static struct d2153_regl_init_data d2153_regulators_init_data[D2153_NUMBER_OF_RE
 	[D2153_LDO_AUD2] = { D2153_LDO_AUD2, &d2153_ldoaud2 },
 };
 
-#if defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
-	defined(CONFIG_BOARD_VERSION_AMETHYST)
+#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AMETHYST)
 #define BATTERY_CAPACITY 1800
 #else
 #define BATTERY_CAPACITY 1300
