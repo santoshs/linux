@@ -1,5 +1,5 @@
-#ifndef __ASM_MACH_BOARD_GARDALTE_NFC_H
-#define __ASM_MACH_BOARD_GARDALTE_NFC_H
+#ifndef __DEV_NFC_H
+#define __DEV_NFC_H
 
 #if defined(CONFIG_PN547_NFC)
 extern struct i2c_board_info PN547_info[];
@@ -11,4 +11,4 @@ int pn547_info_size(void);
 void pn547_device_i2c_register(void);
 #endif
 
-#endif // __ASM_MACH_BOARD_GARDALTE_NFC_H
+#endif // __DEV_NFC_H
