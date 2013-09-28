@@ -145,8 +145,6 @@ extern void sh_modify_register8(void __iomem *, u8, u8);
 extern void sh_modify_register16(void __iomem *, u16, u16);
 extern void sh_modify_register32(void __iomem *, u32, u32);
 
-extern unsigned int u2_get_board_rev(void);
-
 extern unsigned int r8a7373_get_core_count(void);
 extern int r8a7373_platform_cpu_kill(unsigned int cpu);
 extern int r8a7373_platform_cpu_die(unsigned int cpu);
