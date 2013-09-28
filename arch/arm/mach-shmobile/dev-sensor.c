@@ -108,10 +108,6 @@ static struct k3dh_platform_data k3dh_platform_data = {
 	0, -1, 0,
 	1, 0, 0,
 	0, 0, 1
-#elif defined (CONFIG_MACH_LT02LTE)
-	0, -1, 0,
-	-1, 0, 0,
-	0, 0, -1
 #else
 	-1, 0, 0,
 	0, -1, 0,
@@ -128,10 +124,6 @@ static struct hscd_i2c_platform_data hscd_i2c_platform_data = {
 #if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AMETHYST)
 	-1, 0, 0,
 	0, 1, 0,
-	0, 0, -1
-#elif defined (CONFIG_MACH_LT02LTE)
-	1, 0, 0,
-	0, -1, 0,
 	0, 0, -1
 #else
 	1, 0, 0,

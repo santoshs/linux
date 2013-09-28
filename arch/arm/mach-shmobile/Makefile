@@ -69,10 +69,7 @@ obj-$(CONFIG_MACH_MACKEREL)	+= board-mackerel.o
 obj-$(CONFIG_MACH_KOTA2)	+= board-kota2.o
 obj-$(CONFIG_MACH_BONITO)	+= board-bonito.o
 obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
-obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
-obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
-obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte.o
 obj-$(CONFIG_MACH_AMETHYST)	+= board-amethyst.o
 
 obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
@@ -114,10 +111,7 @@ obj-y +=  setup-u2vibrator.o
 
 # charging
 ifeq ($(CONFIG_SEC_CHARGING_FEATURE),y)
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2spa.o
-obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte-spa.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte-spa.o
-obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte-spa.o
 obj-$(CONFIG_MACH_AMETHYST)	+= board-amethyst-spa.o
 endif
 
@@ -173,9 +167,6 @@ obj-$(CONFIG_ION) += setup-u2ion.o
 
 # camera
 obj-$(CONFIG_SOC_CAMERA) += setup-u2camera.o
-
-# setup-d2153
-obj-$(CONFIG_MACH_U2EVM)	+= setup-d2153.o
 
 # Ramdump
 obj-$(CONFIG_SH_RAMDUMP)	+= ramdump.o
