@@ -23,7 +23,6 @@
 #include <linux/percpu.h>
 #include <linux/sched.h>
 #include <memlog/memlog.h>
-#include <mach/sec_debug.h>
 
 static struct kobject *memlog_kobj;
 
@@ -47,8 +46,7 @@ void memory_log_proc(const char *name, unsigned long pid)
 	struct proc_log_entry proc_log;
 	unsigned long index = 0;
 
-	if (!logdata || !name || !memlog_capture
-			|| !sec_debug_level.en.kernel_fault)
+	if (!logdata || !name || !memlog_capture)
 		return;
 
 	memset(&proc_log, 0, PROC_ENTRY_SIZE);
@@ -86,7 +84,7 @@ void memory_log_irq(unsigned int irq, int in)
 	struct irq_log_entry irq_log;
 	unsigned long index = 0;
 
-	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture)
 		return;
 
 	memset(&irq_log, 0, IRQ_ENTRY_SIZE);
@@ -114,7 +112,7 @@ void memory_log_func(unsigned long func_id, int in)
 	unsigned long index = 0;
 	unsigned long flags = 0;
 
-	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture)
 		return;
 
 	memset(&func_log, 0, FUNC_ENTRY_SIZE);
@@ -144,7 +142,7 @@ void memory_log_dump_int(unsigned char dump_id, int dump_data)
 	unsigned long index = 0;
 	unsigned long flags = 0;
 
-	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture)
 		return;
 
 	memset(&dump_log, 0, DUMP_ENTRY_SIZE);
@@ -174,7 +172,7 @@ void memory_log_timestamp(unsigned int id)
 	struct timestamp_entries *p =
 			(struct timestamp_entries *)(logdata + TIMESTAMP_INDEX);
 
-	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture)
 			return;
 	cpu = get_cpu();
 	p->time[cpu][id] = local_clock();
