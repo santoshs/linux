@@ -383,6 +383,9 @@ static int ramdump_panic_handler(struct notifier_block *this,
 	void *p = NULL;
 	dprintk("%s event %lu\n", __func__, event);
 
+	/* tell bootloader to start ramdump mode after reset */
+	writeb((__raw_readb(STBCHR2) | APE_RESETLOG_PANIC_START), STBCHR2);
+
 	memlog_capture = 0;
 
 	/* save core registers to the beginning of the dump area */
