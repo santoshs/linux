@@ -542,7 +542,7 @@ static void __init board_init(void)
 
 	camera_init();
 
-	gpio_key_init(stm_select, system_rev,
+	gpio_key_init(stm_select,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
 			devices_stm_sdhi1,
@@ -602,7 +602,7 @@ static void __init board_init(void)
 
 	/* PA devices init */
 	spa_init();
-	vibrator_init(system_rev);
+	vibrator_init();
 
 	printk(KERN_DEBUG "%s\n", __func__);
 #ifdef CONFIG_MMC_OOPS
