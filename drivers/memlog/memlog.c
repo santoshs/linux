@@ -25,6 +25,7 @@
 #include <memlog/memlog.h>
 
 #include <trace/events/irq.h>
+#include <trace/events/sched.h>
 
 static struct kobject *memlog_kobj;
 
@@ -42,7 +43,7 @@ static DEFINE_PER_CPU(struct log_area, irq_log_area);
 static DEFINE_PER_CPU(struct log_area, func_log_area);
 static DEFINE_PER_CPU(struct log_area, dump_log_area);
 
-void memory_log_proc(const char *name, unsigned long pid)
+static inline void memory_log_proc(const char *name, unsigned long pid)
 {
 	struct log_area *log;
 	struct proc_log_entry proc_log;
@@ -305,6 +306,12 @@ probe_irq_handler_exit(void *ignore, int irq, struct irqaction *action, int ret)
 	memory_log_irq(irq, 0);
 }
 
+static void notrace
+probe_sched_switch(void *ignore,
+		struct task_struct *prev, struct task_struct *next)
+{
+	memory_log_proc(next->comm, next->pid);
+}
 
 static int __init init_memlog(void)
 {
@@ -355,6 +362,11 @@ static int __init init_memlog(void)
 				probe_irq_handler_exit);
 	}
 
+	ret = register_trace_sched_switch(probe_sched_switch, NULL);
+	if (ret) {
+		pr_err("Couldn't activate tracepoint probe to %pf\n",
+				probe_sched_switch);
+	}
 	return 0;
 
 kset_exit:
