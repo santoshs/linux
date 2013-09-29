@@ -182,7 +182,7 @@ void memory_log_timestamp(unsigned int id)
 }
 EXPORT_SYMBOL_GPL(memory_log_timestamp);
 
-void memory_log_init(void)
+static void memory_log_init(void)
 {
 	struct memlog_header mh;
 	BUILD_BUG_ON(MEMLOG_END > MEMLOG_SIZE);
@@ -312,29 +312,31 @@ static int __init init_memlog(void)
 
 	memlog_kobj = kobject_create_and_add("memlog", NULL);
 	if (!memlog_kobj) {
-		printk(KERN_ERR "kobject_create_and_add: failed\n");
+		pr_err("kobject_create_and_add: failed\n");
 		ret = -ENOMEM;
 		goto exit;
 	}
 
 	ret = sysfs_create_file(memlog_kobj, &capture_attribute.attr);
 	if (ret) {
-		printk(KERN_ERR "sysfs_create_file: failed (%d)", ret);
+		pr_err("sysfs_create_file: failed (%d)", ret);
 		goto kset_exit;
 	}
 
 	ret = sysfs_create_bin_file(memlog_kobj, &log_attr);
 	if (ret) {
-		printk(KERN_ERR "sysfs_create_bin_file: failed (%d)", ret);
+		pr_err("sysfs_create_bin_file: failed (%d)", ret);
 		goto kset_exit;
 	}
 
 	if (MEMLOG_ADDRESS > SDRAM_KERNEL_END_ADDR)
-		logdata = (char *)ioremap_nocache(MEMLOG_ADDRESS, MEMLOG_SIZE);
+		logdata = (char __force *)ioremap_nocache(MEMLOG_ADDRESS,
+				MEMLOG_SIZE);
 	else
-		logdata = (char *)ioremap_wc(MEMLOG_ADDRESS, MEMLOG_SIZE);
+		logdata = (char __force *)ioremap_wc(MEMLOG_ADDRESS,
+				MEMLOG_SIZE);
 	if (!logdata) {
-		printk(KERN_ERR "ioremap: failed");
+		pr_err("ioremap: failed");
 		ret = -ENOMEM;
 		goto exit;
 	}
