@@ -24,6 +24,8 @@
 #include <linux/sched.h>
 #include <memlog/memlog.h>
 
+#include <trace/events/irq.h>
+
 static struct kobject *memlog_kobj;
 
 static char *logdata;
@@ -291,6 +293,19 @@ static struct bin_attribute log_attr = {
 	.read = read_log,
 };
 
+/* ftrace probes */
+static void notrace
+probe_irq_handler_entry(void *ignore, int irq, struct irqaction *action)
+{
+	memory_log_irq(irq, 1);
+}
+static void notrace
+probe_irq_handler_exit(void *ignore, int irq, struct irqaction *action, int ret)
+{
+	memory_log_irq(irq, 0);
+}
+
+
 static int __init init_memlog(void)
 {
 	int ret = 0;
@@ -325,6 +340,19 @@ static int __init init_memlog(void)
 	}
 
 	memory_log_init();
+
+	ret = register_trace_irq_handler_entry(probe_irq_handler_entry, NULL);
+	if (ret) {
+		pr_err("Couldn't activate tracepoint probe to %pf\n",
+				probe_irq_handler_entry);
+	}
+
+	ret = register_trace_irq_handler_exit(probe_irq_handler_exit, NULL);
+	if (ret) {
+		pr_err("Couldn't activate tracepoint probe to %pf\n",
+				probe_irq_handler_exit);
+	}
+
 	return 0;
 
 kset_exit:
