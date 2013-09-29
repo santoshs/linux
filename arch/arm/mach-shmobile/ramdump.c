@@ -309,9 +309,7 @@ static void save_hw_registers_to_ram(void)
 
 
 static void ramdump_kmsg_dump_handler(struct kmsg_dumper *dumper,
-				      enum kmsg_dump_reason reason,
-				      const char *s1, unsigned long l1,
-				      const char *s2, unsigned long l2)
+				      enum kmsg_dump_reason reason)
 {
 	dprintk("%s reason = %d\n", __func__, reason);
 	switch (reason) {
@@ -474,7 +472,7 @@ static resource_size_t ramdump_remap_resources(struct ramdump_plat_data *pdata)
 	return total_size;
 }
 
-static int __devinit ramdump_probe(struct platform_device *pd)
+static int __init ramdump_probe(struct platform_device *pd)
 {
 	int ret = 0;
 	char *mm = NULL;
