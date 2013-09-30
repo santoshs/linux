@@ -26,6 +26,7 @@
 
 #include <trace/events/irq.h>
 #include <trace/events/sched.h>
+#include <trace/events/workqueue.h>
 
 static struct kobject *memlog_kobj;
 
@@ -70,13 +71,14 @@ static inline void memory_log_proc(const char *name, unsigned long pid)
 }
 EXPORT_SYMBOL_GPL(memory_log_proc);
 
-void memory_log_worker(unsigned long func_addr, unsigned long pid, int in)
+static inline void memory_log_worker(unsigned long func_addr,
+		unsigned long pid, int in)
 {
 	char str[16];
 	if (in)
-		sprintf(str, " IN 0x%lx", func_addr);
+		snprintf(str, 16, ">%pf", (void *)func_addr);
 	else
-		sprintf(str, "OUT 0x%lx", func_addr);
+		snprintf(str, 16, "<%pf", (void *)func_addr);
 	memory_log_proc(str, pid);
 }
 EXPORT_SYMBOL_GPL(memory_log_worker);
@@ -313,6 +315,19 @@ probe_sched_switch(void *ignore,
 	memory_log_proc(next->comm, next->pid);
 }
 
+static void notrace
+probe_workqueue_execute_start(void *ignore,
+			  struct work_struct *work)
+{
+	memory_log_worker((unsigned long)work->func, task_pid_nr(current), 1);
+}
+static void notrace
+probe_workqueue_execute_end(void *ignore,
+			  struct work_struct *work)
+{
+	memory_log_worker((unsigned long)work->func, task_pid_nr(current), 0);
+}
+
 static int __init init_memlog(void)
 {
 	int ret = 0;
@@ -367,6 +382,21 @@ static int __init init_memlog(void)
 		pr_err("Couldn't activate tracepoint probe to %pf\n",
 				probe_sched_switch);
 	}
+
+	ret = register_trace_workqueue_execute_start(
+			probe_workqueue_execute_start, NULL);
+	if (ret) {
+		pr_err("Couldn't activate tracepoint probe to %pf\n",
+				probe_workqueue_execute_start);
+	}
+
+	ret = register_trace_workqueue_execute_end(
+			probe_workqueue_execute_end, NULL);
+	if (ret) {
+		pr_err("Couldn't activate tracepoint probe to %pf\n",
+				probe_workqueue_execute_end);
+	}
+
 	return 0;
 
 kset_exit:
