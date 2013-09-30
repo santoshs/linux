@@ -467,7 +467,6 @@ static void key_led_set(struct led_classdev *led_cdev,
 			      enum led_brightness value)
 {
 	struct ist30xx_data *data = container_of(led_cdev, struct ist30xx_data, led);
-	struct i2c_client *client = data->client;
 
 
 	data->led_brightness = value;

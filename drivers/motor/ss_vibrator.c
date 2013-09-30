@@ -139,7 +139,8 @@ static int vibrator_probe(struct platform_device *pdev)
 
 #if defined(CONFIG_BOARD_VERSION_LT02LTE)
 	vib_voltage = 3300000;
-#elif defined(CONFIG_BOARD_VERSION_LOGANLTE)
+#elif (defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
+		defined(CONFIG_BOARD_VERSION_AMETHYST))
 	vib_voltage = 2800000;
 #else
 	vib_voltage = 3000000;

@@ -62,7 +62,9 @@
 #define WIFI_TURNOFF_DELAY	200
 #endif /* CONFIG_ARCH_MSM8960 */
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE)
+#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
+	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
+	defined(CONFIG_MACH_AMETHYST)
 #define READ_MACADDR
 #define HW_OOB
 #undef USE_CID_CHECK
