@@ -89,9 +89,9 @@
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 #include <linux/nfc/pn547.h>
 #endif
-#if defined(CONFIG_SAMSUNG_SENSOR)
+
 #include <mach/dev-sensor.h>
-#endif
+
 #if defined(CONFIG_BCMI2CNFC) || defined(CONFIG_PN547_NFC)  || defined(CONFIG_NFC_PN547)
 #include <mach/dev-nfc.h>
 #endif
@@ -574,6 +574,8 @@ static void __init board_init(void)
 #if defined(CONFIG_SAMSUNG_SENSOR)
 	board_sensor_init();
 #endif
+
+	amethyst_board_sensor_init();
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
