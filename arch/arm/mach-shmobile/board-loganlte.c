@@ -625,7 +625,7 @@ static void __init board_reserve(void)
 #endif
 }
 
-MACHINE_START(U2EVM, "u2evm")
+MACHINE_START(LOGANLTE, "loganlte")
 	.map_io         = r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,
 	.init_early     = r8a7373_init_early,
