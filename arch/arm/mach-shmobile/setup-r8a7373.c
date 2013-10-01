@@ -17,12 +17,14 @@
 #include <linux/i2c-gpio.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
+#include <linux/of_platform.h>
 #include <asm/delay.h>
 #include <asm/io.h>
 #include <asm/system_info.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach/map.h>
 #include <asm/mach/time.h>
+#include <asm/mach/arch.h>
 #include <mach/common.h>
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
@@ -1285,7 +1287,9 @@ void __init r8a7373_pinmux_init(void)
 
 void __init r8a7373_add_standard_devices(void)
 {
-
+#ifdef CONFIG_OF
+	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+#endif
 	platform_add_devices(r8a7373_early_devices,
 			ARRAY_SIZE(r8a7373_early_devices));
 
@@ -1551,3 +1555,14 @@ void __init r8a7373_init_early(void)
 	r8a7373_l2cache_init();
 #endif
 }
+
+#ifdef CONFIG_OF
+static const char *r8a7373_dt_compat[] __initdata = {
+	"renesas,r8a7373",
+	NULL,
+};
+
+DT_MACHINE_START(DT_R8A7373, "R8a7373 SOC DT Support")
+	.dt_compat	= r8a7373_dt_compat,
+MACHINE_END
+#endif

@@ -333,6 +333,7 @@ static int r8a7373_irq_set_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
+#ifndef CONFIG_OF
 void __init r8a7373_init_irq(void)
 {
 	void __iomem *gic_dist_base = GIC_DIST_BASE;
@@ -358,3 +359,4 @@ void __init r8a7373_init_irq(void)
 	init_FIQ(FIQ_START);
 #endif
 }
+#endif

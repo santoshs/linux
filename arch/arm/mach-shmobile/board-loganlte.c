@@ -639,8 +639,23 @@ static void __init board_reserve(void)
 #endif
 }
 
+#ifdef CONFIG_OF
+static const char *logan_compat_dt[] __initdata = {
+	"renesas,loganlte",
+	NULL,
+};
+
+DT_MACHINE_START(U2_LOGANLTE, "LoganLTE")
+	.map_io		= r8a7373_map_io,
+	.init_early     = r8a7373_init_early,
+	.init_machine   = board_init,
+	.init_time	= u2_timers_init,
+	.restart        = board_restart,
+	.dt_compat	= logan_compat_dt,
+MACHINE_END
+#else  /* CONFIG_OF */
 MACHINE_START(U2EVM, "u2evm")
-	.map_io         = r8a7373_map_io,
+	.map_io		= r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,
 	.init_early     = r8a7373_init_early,
 	.nr_irqs        = NR_IRQS_LEGACY,
@@ -649,3 +664,4 @@ MACHINE_START(U2EVM, "u2evm")
 	.restart        = board_restart,
 	.reserve        = board_reserve,
 MACHINE_END
+#endif

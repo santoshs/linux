@@ -1,0 +1,43 @@
+/*
+ * Device Tree Source for the r8a7373 based loganlte board
+ *
+ * Copyright (C) 2013 Renesas Mobile
+ *
+ * This file is licensed under the terms of the GNU General Public License
+ * version 2.  This program is licensed "as is" without any warranty of any
+ * kind, whether express or implied.
+ */
+
+/include/ "skeleton.dtsi"
+
+/{
+	compatible = "renesas,r8a7373";
+	interrupt-parent = <&gic>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a9";
+			reg = <0>;
+		};
+
+		cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a9";
+			reg = <1>;
+		};
+	};
+
+	gic: interrupt-controller@f0001000 {
+		compatible = "arm,cortex-a9-gic";
+		interrupt-controller;
+		reg = <0xf0001000 0x1000
+		       0xf0000100 0x100>;
+		#interrupt-cells = <3>;
+	};
+ };

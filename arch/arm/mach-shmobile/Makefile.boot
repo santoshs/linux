@@ -3,6 +3,8 @@ __ZRELADDR	:= $(shell /bin/bash -c 'printf "0x%08x" \
 
    zreladdr-y   += $(__ZRELADDR)
 
+dtb-$(CONFIG_MACH_LOGANLTE) += r8a7373-loganlte.dtb
+
 # Unsupported legacy stuff
 #
 #params_phys-y (Instead: Pass atags pointer in r2)
