@@ -97,6 +97,7 @@
 #endif
 
 #include <mach/dev-touchpanel.h>
+#include <mach/dev-touchpanel_cyttsp4.h>
 
 #ifdef CONFIG_ARCH_R8A7373
 #include <mach/setup-u2stm.h>
@@ -589,11 +590,7 @@ static void __init board_init(void)
 
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
-
-	/* Touch Panel auto detection */
-	i2c_add_driver(&tsp_detector_driver);
-	i2c_register_board_info(4, i2c4_devices_tsp_detector,
-					ARRAY_SIZE(i2c4_devices_tsp_detector));
+	board_tsp_init();
 
 	i2c_register_board_info(8, i2cm_devices_d2153,
 					ARRAY_SIZE(i2cm_devices_d2153));

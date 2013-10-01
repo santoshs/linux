@@ -108,7 +108,7 @@ obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
 obj-y += setup-u2touchkey.o dev-touchpanel.o
 # touchscreen
 obj-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += setup-u2mxt224.o
-
+obj-$(CONFIG_TOUCHSCREEN_CYTTSP4) += dev-touchpanel_cyttsp4.o
 # vibrator
 obj-y +=  setup-u2vibrator.o
 
