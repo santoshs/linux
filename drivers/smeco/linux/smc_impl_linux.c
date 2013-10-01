@@ -900,6 +900,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
             int     irq_spi = (int)signal->interrupt_id;
             int     res_id  = 0;
             uint8_t found   = FALSE;
+			unsigned long irqflags = 0;
 
             /* TODO Check if change to: platform_get_resource_byname(pdev, IORESOURCE_IRQ, "cmd_irq"); */
 
@@ -929,7 +930,7 @@ uint8_t smc_signal_handler_register( smc_t* smc_instance, smc_signal_t* signal, 
                 dev_id       = platform_device;
 
 #ifdef SMC_APE_USE_THREADED_IRQ
-                result = request_threaded_irq(res->start, smc_linux_interrupt_handler_int_resource, smc_linux_interrupt_handler_int_resource_threaded, NULL, device_name, dev_id);
+                result = request_threaded_irq(res->start, smc_linux_interrupt_handler_int_resource, smc_linux_interrupt_handler_int_resource_threaded, irqflags, device_name, dev_id);
 #else
                 result = request_irq( res->start, smc_linux_interrupt_handler_int_resource, flags, device_name, dev_id );
 #endif
@@ -1252,7 +1253,7 @@ uint8_t smc_timer_start( smc_timer_t* timer, smc_timer_callback* timer_cb, uint3
                 /* High rate timer */
             SMC_TRACE_PRINTF_TIMER("smc_timer_start: timer 0x%08X create HR timer, CB: 0x%08X...", (uint32_t)timer, (uint32_t)timer_cb);
 
-            timer->hr_timer = (struct timer_list*)SMC_MALLOC_IRQ( sizeof(struct timer_list) );
+            timer->hr_timer = (struct hrtimer *)SMC_MALLOC_IRQ( sizeof(struct hrtimer *) );
 
             hrtimer_init(timer->hr_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 

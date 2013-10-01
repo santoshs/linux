@@ -40,8 +40,6 @@
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2ion.h>
 
-#if defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_WILCOXLTE)
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
 	defined(CONFIG_SOC_CAMERA_SR030PC50) /* Select by board Rev */
 struct i2c_board_info i2c_cameras[] = {
@@ -108,75 +106,7 @@ struct soc_camera_link camera_links[] = {
 #endif
 };
 #endif	/* Select by board Rev */
-#endif	/* Gardalte, Logan */
 
-#if defined(CONFIG_MACH_LT02LTE) /* LT02LTE */
-#if defined(CONFIG_SOC_CAMERA_SR352) && \
-	defined(CONFIG_SOC_CAMERA_SR130PC20)	/* Select by board Rev */
-static struct i2c_board_info i2c_cameras[] = {
-	{
-		I2C_BOARD_INFO("SR352", 0x20),
-	},
-	{
-		I2C_BOARD_INFO("SR130PC20", 0x28), /* TODO::HYCHO (0x41>>1) */
-	},
-};
-static struct soc_camera_link camera_links[] = {
-	{
-		.bus_id			= 0,
-		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id		= 1,
-		.module_name		= "SR352",
-		.power			= SR352_power,
-	},
-	{
-		.bus_id			= 1,
-		.board_info		= &i2c_cameras[1],
-		.i2c_adapter_id	= 1,
-		.module_name		= "SR130PC20",
-		.power			= SR130PC20_power,
-	},
-};
-#else	/* Select by board Rev */
-struct i2c_board_info i2c_cameras[] = {
-	/* Rear Camera */
-#if defined(CONFIG_SOC_CAMERA_SR352)
-	{
-		I2C_BOARD_INFO("SR352", 0x20),
-	},
-#endif
-	/* Front Camera */
-#if defined(CONFIG_SOC_CAMERA_SR130PC20)
-	{
-		I2C_BOARD_INFO("SR130PC20", 0x28), /* TODO::HYCHO (0x41>>1) */
-	},
-#endif
-};
-
-struct soc_camera_link camera_links[] = {
-	/* Rear Camera */
-#if defined(CONFIG_SOC_CAMERA_SR352)
-	{
-		.bus_id			= 0,
-		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id		= 1,
-		.module_name		= "SR352",
-		.power			= SR352_power,
-	},
-#endif
-	/* Front Camera */
-#if defined(CONFIG_SOC_CAMERA_SR130PC20)
-	{
-		.bus_id			= 1,
-		.board_info		= &i2c_cameras[1],
-		.i2c_adapter_id	= 1,
-		.module_name	= "SR130PC20",
-		.power			= SR130PC20_power,
-	},
-#endif
-};
-#endif	/* Select by board Rev */
-#endif	/* LT02LTE */
 
 struct platform_device camera_devices[] = {
 	{
@@ -205,7 +135,6 @@ int camera_init(void)
 	gpio_direction_output(GPIO_PORT3, 0);	/* CAM_PWR_EN */
 	gpio_request(GPIO_PORT20, NULL);
 	gpio_direction_output(GPIO_PORT20, 0);	/* CAM0_RST_N */
-	/* Gardalte, Logan, lt02lte */
 	gpio_request(GPIO_PORT45, NULL);
 	gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
 
@@ -231,8 +160,6 @@ int camera_init(void)
 	camera_links[1].priv = &csi21_info;
 	printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 
-#if defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_WILCOXLTE)
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
 	defined(CONFIG_SOC_CAMERA_SR030PC50) /* Select by board Rev */
 	csi20_info.clients[0].lanes = 0x3;
@@ -241,44 +168,6 @@ int camera_init(void)
 	csi20_info.clients[0].lanes = 0x3;
 #endif
 #endif	/* Select by board Rev */
-#endif	/* Gardalte, Logan */
-
-#if defined(CONFIG_MACH_LT02LTE) /* lt02lte */
-#if defined(CONFIG_SOC_CAMERA_SR200PC20M) && \
-	defined(CONFIG_SOC_CAMERA_SR130PC20) /* Select by board Rev */
-	csi20_info.clients[0].lanes = 0x1;
-	camera_devices[0].dev.platform_data = &camera_links_rev7[0];
-	camera_devices[1].dev.platform_data = &camera_links_rev7[1];
-	camera_links_rev7[0].priv = &csi20_info;
-	camera_links_rev7[1].priv = &csi21_info;
-#else	/* Select by board Rev */
-#if defined(CONFIG_SOC_CAMERA_SR200PC20M)
-	csi20_info.clients[0].lanes = 0x1;
-#endif
-	camera_devices[0].dev.platform_data = &camera_links[0];
-	camera_devices[1].dev.platform_data = &camera_links[1];
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
-#endif	/* Select by board Rev */
-
-#if defined(CONFIG_SOC_CAMERA_SR352) && \
-	defined(CONFIG_SOC_CAMERA_SR130PC20) /* Select by board Rev */
-	csi20_info.clients[0].lanes = 0x1;
-	camera_devices[0].dev.platform_data = &camera_links[0];
-	camera_devices[1].dev.platform_data = &camera_links[1];
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
-#else	/* Select by board Rev */
-#if defined(CONFIG_SOC_CAMERA_SR352)
-	csi20_info.clients[0].lanes = 0x1;
-#endif
-	camera_devices[0].dev.platform_data = &camera_links[0];
-	camera_devices[1].dev.platform_data = &camera_links[1];
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
-#endif	/* Select by board Rev */
-#endif	/* lr02lte */
-
 	return 0;
 }
 
@@ -644,7 +533,6 @@ int SR030PC50_power(struct device *dev, int power_on)
 #endif
 		sh_csi2_power(dev, power_on);
 		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
-
 	}
 
 	clk_put(vclk1_clk);

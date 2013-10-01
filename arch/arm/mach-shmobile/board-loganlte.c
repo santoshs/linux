@@ -559,10 +559,6 @@ static void __init board_init(void)
 
 	platform_device_register(&led_backlight_device);
 
-#if defined(CONFIG_SAMSUNG_MHL)
-	board_mhl_init();
-	board_edid_init();
-#endif
 
 	i2c_register_board_info(0, i2c0_devices_d2153,
 					ARRAY_SIZE(i2c0_devices_d2153));

@@ -1,5 +1,5 @@
-#ifndef __ASM_MACH_BOARD_GARDALTE_RENESAS_NFC_H
-#define __ASM_MACH_BOARD_GARDALTE_RENESAS_NFC_H
+#ifndef __ASM_BOARD_RENESAS_NFC_H
+#define __ASM_BOARD_RENESAS_NFC_H
 
 /* Define GPIO aliases */
 
@@ -16,4 +16,4 @@ extern void pn544_i2c_register_board_info(void);
 
 extern void nfc_gpio_init(void);
 
-#endif /* __ASM_MACH_BOARD_GARDALTE_RENESAS_NFC_H */
+#endif 

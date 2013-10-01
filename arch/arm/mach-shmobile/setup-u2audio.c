@@ -36,21 +36,15 @@ struct proc_dir_entry *root_device;
 
 /* Proc sub entries */
 /* device entries */
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_WILCOXLTE)
 struct proc_dir_entry *fm34_entry;
-#elif defined(CONFIG_MACH_LT02LTE)
-struct proc_dir_entry *tpa2026_entry;
-#endif
 
 /* Proc read handler */
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_WILCOXLTE)
 static int proc_read_u2audio_device_none(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
 	count = snprintf(page, count, "%d", 0);
 	return count;
 }
-#endif
 static int proc_read_u2audio_device_exist(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
@@ -95,7 +89,6 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 	int res;
 	int debounce_ms;
 
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_WILCOXLTE)
 	if ((BOARD_REV_0_1 < u2_board_rev) &&
 		(BOARD_REV_0_4 > u2_board_rev)) {
 		d2153_pdata.audio.aad_codec_detect_enable = true;
@@ -105,18 +98,7 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 		d2153_pdata.audio.aad_codec_detect_enable = false;
 		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
 	}
-#elif defined(CONFIG_MACH_LT02LTE) || defined(CONFIG_MACH_WILCOXLTE)
-	if (BOARD_REV_0_1 < u2_board_rev) {
-		d2153_pdata.audio.aad_codec_detect_enable = true;
-		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
-		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
-	} else {
-		d2153_pdata.audio.aad_codec_detect_enable = false;
-		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
-	}
-#else
-	return;	/* not supported */
-#endif
+
 	d2153_pdata.audio.aad_jack_debounce_ms = debounce_ms;
 	d2153_pdata.audio.aad_jackout_debounce_ms =
 						D2153_AAD_JACKOUT_DEBOUNCE_MS;
@@ -160,26 +142,20 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 
 void u2audio_init(unsigned int u2_board_rev)
 {
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_WILCOXLTE)
 	u8 fm34_device;
-#endif /* CONFIG_MACH_LOGANLTE */
 
 	u2audio_gpio_init();
 
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_WILCOXLTE)
 	if (u2_board_rev < BOARD_REV_0_1)
 		fm34_device = DEVICE_EXIST;
 	else
 		fm34_device = DEVICE_NONE;
-
-#endif /* CONFIG_MACH_LOGANLTE */
 
 	root_audio = proc_mkdir("audio", NULL);
 	if (NULL != root_audio) {
 		/* Create device entries */
 		root_device = proc_mkdir("device", root_audio);
 		if (NULL != root_device) {
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_WILCOXLTE)
 			fm34_entry = create_proc_entry("fm34",
 				S_IRUGO, root_device);
 			if (NULL != fm34_entry) {
@@ -193,16 +169,6 @@ void u2audio_init(unsigned int u2_board_rev)
 				printk(KERN_ERR "%s Failed create_proc_entry fm34\n",
 					__func__);
 			}
-#elif defined(CONFIG_MACH_LT02LTE) || defined(CONFIG_MACH_WILCOXLTE)
-			tpa2026_entry = create_proc_entry("tpa2026",
-				S_IRUGO, root_device);
-			if (NULL != tpa2026_entry)
-				tpa2026_entry->read_proc =
-					proc_read_u2audio_device_exist;
-			else
-				printk(KERN_ERR "%s Failed create_proc_entry tpa2026\n",
-					__func__);
-#endif
 		}
 	} else {
 		printk(KERN_ERR "%s Failed proc_mkdir\n", __func__);

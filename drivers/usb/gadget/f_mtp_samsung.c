@@ -55,10 +55,6 @@
 #include "f_mtp.h"
 #include "gadget_chips.h"
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
-	defined(CONFIG_MACH_WILCOXLTE)
-/*#ifdef CONFIG_MACH_U2EVM*/
 #include <linux/clk.h>
 #include <linux/sh_clk.h>
 #include <mach/pm.h>
@@ -487,6 +483,7 @@ static int mtp_send_signal(int value)
 
 static int mtpg_open(struct inode *ip, struct file *fp)
 {
+	int ret = stop_cpufreq();
 	printk(KERN_DEBUG "[%s]\tline = [%d]\n", __func__, __LINE__);
         printk("USBD][%s] MTP node open \n",__func__);
 	if (_lock(&the_mtpg->open_excl)) {
@@ -502,20 +499,13 @@ static int mtpg_open(struct inode *ip, struct file *fp)
 
 	the_mtpg->error = 0;
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
-	defined(CONFIG_MACH_WILCOXLTE)
-	{
-		int ret = stop_cpufreq();
-		DBG(the_mtpg->cdev, "%s(): stop_cpufreq\n", __func__);
-		if (ret) {
+	DBG(the_mtpg->cdev, "%s(): stop_cpufreq\n", __func__);
+	if (ret) {
 			dfs_started = 1;
 			ERROR(the_mtpg->cdev, "%s(): error<%d>! stop_cpufreq\n",
-				__func__, ret);
-		} else
+							__func__, ret);
+	} else
 			dfs_started = 0;
-	}
-#endif
 
 	return 0;
 }
@@ -1112,16 +1102,11 @@ static int mtpg_release_device(struct inode *ip, struct file *fp)
 	if (the_mtpg != NULL)
 		_unlock(&the_mtpg->open_excl);
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
-	defined(CONFIG_MACH_WILCOXLTE)
-/*#ifdef CONFIG_MACH_U2EVM*/
 	if (!dfs_started) {
 		start_cpufreq();
 		DBG(the_mtpg->cdev, "%s(): start_cpufreq\n", __func__);
 		dfs_started = 1;
 	}
-#endif
 	return 0;
 }
 

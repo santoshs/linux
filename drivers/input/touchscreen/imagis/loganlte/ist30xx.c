@@ -467,7 +467,6 @@ static void key_led_set(struct led_classdev *led_cdev,
 			      enum led_brightness value)
 {
 	struct ist30xx_data *data = container_of(led_cdev, struct ist30xx_data, led);
-	struct i2c_client *client = data->client;
 
 
 	data->led_brightness = value;
@@ -488,7 +487,7 @@ static void key_led_set(struct led_classdev *led_cdev,
 }
 
 
-static ssize_t touchkey_led_control(struct device *dev,
+static ssize_t touchkey_led_store(struct device *dev,
 				 struct device_attribute *attr, const char *buf, size_t size)
 {
 	int data;
@@ -530,7 +529,8 @@ static ssize_t touchkey_led_control(struct device *dev,
 
 
 
-static DEVICE_ATTR(brightness, S_IRUGO | S_IWUSR | S_IWGRP, touchkey_led_control,  touchkey_led_control);
+
+static DEVICE_ATTR(brightness, S_IRUGO | S_IWUSR | S_IWGRP, NULL,  touchkey_led_store);
 
 
 static struct attribute *fac_attributes[] = {

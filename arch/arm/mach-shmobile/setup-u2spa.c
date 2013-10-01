@@ -153,50 +153,6 @@ static struct spa_temp_tb batt_temp_tb[] = {
 	{89,  650},			/* 65  */
 	{77,  700},			/* 70  */
 };
-#if CONFIG_BOARD_VERSION_GARDA
-struct spa_power_data spa_power_pdata = {
-	.charger_name = "spa_agent_chrg",
-	.eoc_current = 180,
-	.recharge_voltage = 4280,
-	.charging_cur_usb = 500,
-	.charging_cur_wall = 1200,
-
-	.suspend_temp_hot = 450,
-	.recovery_temp_hot = 400,
-	.suspend_temp_cold = -40,
-	.recovery_temp_cold = 0,
-
-	.event_suspend_temp_hot = 590,
-	.event_recovery_temp_hot = 400,
-	.event_suspend_temp_cold = -40,
-	.event_recovery_temp_cold = 0,
-
-	.lpm_suspend_temp_hot = 440,
-	.lpm_recovery_temp_hot = 410,
-	.lpm_suspend_temp_cold = -40,
-	.lpm_recovery_temp_cold = -10,
-
-	.charge_timer_limit = CHARGE_TIMER_6HOUR,
-	.regulated_vol = 4350,
-	.batt_temp_tb = &batt_temp_tb[0],
-	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb),
-};
-#elif CONFIG_MACH_LT02LTE
-struct spa_power_data spa_power_pdata = {
-	.charger_name = "spa_agent_chrg",
-	.eoc_current = 180,
-	.recharge_voltage = 4180,
-	.charging_cur_usb = 500,
-	.charging_cur_wall = 2000,
-	.suspend_temp_hot = 600,
-	.recovery_temp_hot = 400,
-	.suspend_temp_cold = -50,
-	.recovery_temp_cold = 0,
-	.charge_timer_limit = CHARGE_TIMER_6HOUR,
-	.regulated_vol = 4200,
-	.batt_temp_tb = &batt_temp_tb[0],
-	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb),
-};
 #else
 struct spa_power_data spa_power_pdata = {
 	.charger_name = "spa_agent_chrg",
@@ -213,7 +169,6 @@ struct spa_power_data spa_power_pdata = {
 	.batt_temp_tb = &batt_temp_tb[0],
 	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb),
 };
-#endif
 #endif
 
 

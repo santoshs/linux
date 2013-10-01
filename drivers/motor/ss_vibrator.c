@@ -137,14 +137,7 @@ static int vibrator_probe(struct platform_device *pdev)
 	vibrator_timed_dev.get_time = vibrator_get_remaining_time;
 	is_vibrating = 0;
 
-#if defined(CONFIG_BOARD_VERSION_LT02LTE)
-	vib_voltage = 3300000;
-#elif defined(CONFIG_BOARD_VERSION_LOGANLTE) || \
-	defined(CONFIG_BOARD_VERSION_WILCOXLTE)
 	vib_voltage = 2800000;
-#else
-	vib_voltage = 3000000;
-#endif
 
 #if defined(CONFIG_HAS_WAKELOCK)
 	wake_lock_init(&vib_wl, WAKE_LOCK_SUSPEND, __stringify(vib_wl));

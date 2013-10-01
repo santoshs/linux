@@ -22,9 +22,6 @@
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
-#if defined(CONFIG_MACH_GARDALTE)
-#include <mach/board-gardalte.h>
-#endif
 #include <mach/r8a7373.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
@@ -590,19 +587,6 @@ void __init USBGpio_init(void)
 	if (ret < 0)
 		error_log("ERROR : ULPI_NXT failed ! USB may not function\n");
 
-#if defined(CONFIG_MACH_GARDALTE)
-	ret = gpio_request(GPIO_PORT131, NULL);
-	if (ret < 0)
-		error_log("PORT131 failed!USB may not function\n");
-	ret = gpio_direction_output(GPIO_PORT131, 0);
-	if (ret < 0)
-		error_log("PORT131 direction output(0) failed!\n");
-	udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
-	ret = gpio_direction_output(GPIO_PORT131, 1);
-	if (ret < 0)
-		error_log("PORT131 direction output(1) failed!\n");
-#endif
-
 #if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_WILCOXLTE)
 	ret = gpio_request(GPIO_PORT131, NULL);
 	if (ret < 0)
@@ -615,19 +599,6 @@ void __init USBGpio_init(void)
 	if (ret < 0)
 		error_log("PORT131 direction output(1) failed!\n");
 #endif
-#if defined(CONFIG_MACH_LT02LTE)
-	ret = gpio_request(GPIO_PORT131, NULL);
-	if (ret < 0)
-		error_log("PORT131 failed!USB may not function\n");
-	ret = gpio_direction_output(GPIO_PORT131, 0);
-	if (ret < 0)
-		error_log("PORT131 direction output(0) failed!\n");
-	udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
-	ret = gpio_direction_output(GPIO_PORT131, 1);
-	if (ret < 0)
-		error_log("PORT131 direction output(1) failed!\n");
-#endif
-
 	ret = gpio_request(GPIO_PORT130, NULL);
 	if (ret < 0)
 		error_log("ERROR : PORT130 failed ! USB may not function\n");

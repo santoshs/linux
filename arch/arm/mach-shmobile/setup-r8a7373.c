@@ -446,35 +446,7 @@ static struct platform_device i2c8_device = {
 /* SYS-DMAC */
 /* GPIO Port number needs to be modified by the respective driver module
 Udealy=5 will set I2C bus speed to 100k HZ */
-#ifdef DISABLE_UNUSED_I2C_0_1_GPIO_DEVICE_FOR_GARDA
-static struct i2c_gpio_platform_data  i2c0gpio_platform_data = {
-      .sda_pin        = GPIO_PORT5,
-      .scl_pin        = GPIO_PORT4,
-      .udelay         = 5,
-};
 
-static struct platform_device i2c0gpio_device = {
-  .name          = "i2c-gpio",
-  .id    = 9,
-  .dev           = {
-         .platform_data  = &i2c0gpio_platform_data,
-  },
-};
-
-static struct i2c_gpio_platform_data  i2c1gpio_platform_data = {
-      .sda_pin        = GPIO_PORT27,
-      .scl_pin        = GPIO_PORT26,
-      .udelay         = 5,
-};
-
-static struct platform_device i2c1gpio_device = {
-  .name          = "i2c-gpio",
-  .id    = 10,
-  .dev           = {
-         .platform_data  = &i2c1gpio_platform_data,
-  },
-};
-#endif
 /* Transmit sizes and respective CHCR register values */
 enum {
 	XMIT_SZ_8BIT		= 0,

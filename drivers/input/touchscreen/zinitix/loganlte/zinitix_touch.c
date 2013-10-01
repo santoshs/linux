@@ -94,8 +94,8 @@ static struct workqueue_struct *zinitix_tmr_workqueue;
 
 static struct regulator *keyled_regulator;
 
-static touchkey_regulator_cnt;
-static touch_regulator_cnt;
+static int touchkey_regulator_cnt;
+static int touch_regulator_cnt;
 
 
 #define zinitix_debug_msg(fmt, args...)	\
@@ -438,8 +438,6 @@ static void set_dvfs_lock(struct zinitix_touch_dev *data, uint32_t on)
 }
 #endif
 
-static int tsp_check=0;
-static uint8_t buf_firmware[3];
 
 
 /*<= you must set key button mapping*/
@@ -810,7 +808,7 @@ continue_check_point_data:
 
 }
 
-
+#if 0 
 static irqreturn_t ts_int_handler(int irq, void *dev)
 {
 
@@ -830,7 +828,7 @@ static irqreturn_t ts_int_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 #endif
 }
-
+#endif
 
 static bool ts_power_sequence(struct zinitix_touch_dev *touch_dev)
 {
@@ -1289,7 +1287,6 @@ static bool ts_check_need_upgrade(struct zinitix_touch_dev *touch_dev,
 
 static void ts_check_hwid_in_fatal_state(struct zinitix_touch_dev *touch_dev)
 {
-		u16 flash_addr;
 		u8 check_data[80];
 		int i;
 		u16 chip_code;
@@ -2100,7 +2097,6 @@ static void zinitix_parsing_data(struct zinitix_touch_dev *touch_dev)
 	u8 prev_sub_status;
 	u32 x, y;
 	u32 w;
-	u32 tmp;
 #if (TOUCH_POINT_MODE == 2)
 	u8 palm = 0;
 #endif
@@ -3125,6 +3121,8 @@ static void run_reference_read(void *device_data) //SDND
 {
 	struct zinitix_touch_dev *info = (struct zinitix_touch_dev *)device_data;
 	char buff[16] = {0};
+	unsigned int min, max;
+	int i,j;
 
 	set_default_result(info);
 
@@ -3133,9 +3131,6 @@ static void run_reference_read(void *device_data) //SDND
 	ts_set_touchmode(TOUCH_POINT_MODE);
 
 	//////test////////////////////////////////////////////////////
-
-	unsigned int min, max;
-	int i,j;
 
 	min = info->dnd_data[0];
 	max = info->dnd_data[0];
@@ -3172,6 +3167,9 @@ static void run_reference_read_DND(void *device_data) //DND
 {
 	struct zinitix_touch_dev *info = (struct zinitix_touch_dev *)device_data;
 	char buff[16] = {0};
+	unsigned int min, max;
+	int i,j;
+
 
 	set_default_result(info);
 
@@ -3180,9 +3178,6 @@ static void run_reference_read_DND(void *device_data) //DND
 	ts_set_touchmode(TOUCH_POINT_MODE);
 
 	//////test////////////////////////////////////////////////////
-
-	unsigned int min, max;
-	int i,j;
 
 	min = info->dnd_data[0];
 	max = info->dnd_data[0];
@@ -3240,6 +3235,7 @@ static void run_delta_read(void *device_data)
 static void run_intensity_read(void *device_data)
 {
 	struct zinitix_touch_dev *info = (struct zinitix_touch_dev *)device_data;
+    int i,j;
 
 	set_default_result(info);
 
@@ -3248,7 +3244,6 @@ static void run_intensity_read(void *device_data)
 	ts_set_touchmode(TOUCH_POINT_MODE);
 
     //////test////////////////////////////////////////////////////
-    int i,j;
 
     for(i=0; i<info->cap_info.x_node_num; i++)
     {
@@ -3840,7 +3835,6 @@ static ssize_t phone_firmware_show(struct device *dev, struct device_attribute *
 {   
 	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
 	u32 version;
-	char buff[16] = {0};
 	u8 *firmware_data;
 
 	printk("[TSP] %s\n",__func__);
@@ -3865,7 +3859,6 @@ static ssize_t part_firmware_show(struct device *dev, struct device_attribute *a
 {   
 	u16 newVersion, newMinorVersion, newRegVersion, newHWID;
 	u32 version;
-	char buff[16] = {0};	
 
 	printk("[TSP] %s\n",__func__);
 
@@ -3882,7 +3875,6 @@ static ssize_t threshold_firmware_show(struct device *dev, struct device_attribu
 {  
 	int ret = 0;
 	u16 threshold;	
-	char buff[16] = {0};
 	
 	printk("[TSP] %s\n",__func__);
 	
@@ -3893,7 +3885,6 @@ static ssize_t threshold_firmware_show(struct device *dev, struct device_attribu
 
 static ssize_t menu_sensitivity_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	char buff[16] = {0};
 	u16 val;
 	int ret;
 
@@ -3930,7 +3921,6 @@ err_out:
 static ssize_t back_sensitivity_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	char buff[16] = {0};
 	u16 val;
 	int ret;
 
@@ -3969,7 +3959,6 @@ static ssize_t touchkey_threshold_show(struct device *dev,
 {
 	int ret = 0;
 	u16 threshold;
-	char buff[16] = {0};
 	ret = ts_read_data(misc_touch_dev->client, ZINITIX_BUTTON_SENSITIVITY, (u8*)&threshold, 2);
 
 	if (ret < 0)
@@ -4070,8 +4059,8 @@ static long ts_misc_fops_ioctl(struct file *filp,
 		break;
 
 	case TOUCH_IOCTL_VARIFY_UPGRADE_DATA:
-		if (copy_from_user(m_pFirmware[0],
-			argp, misc_touch_dev->cap_info.ic_fw_size))
+		if (copy_from_user((void*)m_pFirmware[0],
+			(const void __user *)argp, misc_touch_dev->cap_info.ic_fw_size))
 			return -1;
 
 		version = (u16) (m_pFirmware[0][52] | (m_pFirmware[0][53]<<8));		
@@ -4396,7 +4385,6 @@ static void key_led_set(struct led_classdev *led_cdev,
 			      enum led_brightness value)
 {
 	struct zinitix_touch_dev *data = container_of(led_cdev, struct zinitix_touch_dev, led);
-	struct i2c_client *client = data->client;
 
 	mutex_lock(&data->touchkey_led_lock);
 	
