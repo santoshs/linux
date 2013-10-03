@@ -423,7 +423,7 @@ static void sci_port_enable(struct sci_port *sci_port)
 	pm_runtime_get_sync(sci_port->port.dev);
 
 	clk_enable(sci_port->iclk);
-	/* sci_port->port.uartclk = clk_get_rate(sci_port->iclk); */
+	sci_port->port.uartclk = clk_get_rate(sci_port->iclk);
 	clk_enable(sci_port->fclk);
 }
 
