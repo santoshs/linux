@@ -21,6 +21,9 @@ config FB_R_MOBILE_NT35510
 config FB_R_MOBILE_VX5B3D
         boolean "VX5B3D PANEL(VIDEO MODE)"
 
+config FB_R_MOBILE_HX8389B
+	boolean "HX8389B PANEL(VIDEO MODE)"
+
 endchoice
 
 choice
