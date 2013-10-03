@@ -22,10 +22,9 @@
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 struct delay_timer cmt_delay_timer __read_mostly;
 
-int cmt_read_current_timer(unsigned long *timer_val)
+unsigned long cmt_read_current_timer(void)
 {
-	*timer_val = __raw_readl(CMCNT3);
-	return 0;
+	return __raw_readl(CMCNT3);
 }
 
 int __init setup_current_timer(void)
