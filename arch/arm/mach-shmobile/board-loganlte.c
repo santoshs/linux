@@ -709,6 +709,7 @@ static void __init board_init(void)
 static void __init board_reserve(void)
 {
 	u2evm_ion_adjust();
+	u2vcd_reserve();
 
 #if defined(CONFIG_SEC_DEBUG)
 	sec_debug_magic_init();

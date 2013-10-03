@@ -23,6 +23,12 @@
 #define	DEVICE_NONE		0
 #define	DEVICE_EXIST	1
 
+#if defined(CONFIG_SND_SOC_SH4_FSI)
 void u2audio_init(unsigned int u2_board_rev);
+void u2vcd_reserve(void);
+#else
+static void u2audio_init(unsigned int u2_board_rev) {}
+static void u2vcd_reserve(void) {}
+#endif
 
 #endif /* __ASM_ARCH_SETUP_U2AUDIO_H */

@@ -16,6 +16,8 @@
 
 #include <linux/proc_fs.h>
 #include <linux/gpio.h>
+#include <linux/memblock.h>
+#include <linux/bug.h>
 #if defined(CONFIG_ARCH_R8A7373)
 #include <mach/r8a7373.h>
 #endif
@@ -218,3 +220,23 @@ void u2audio_init(unsigned int u2_board_rev)
 
 	return;
 }
+
+
+/*
+ * u2vcd_reserve - allocate memory for vocoder (size & alignment come from the struct)
+ */
+void u2vcd_reserve(void)
+{
+	int ret;
+
+	/* At least in MP523x VOCODER has to be in the 1st 256 megabytes - it can' be beyond that */
+
+	ret = memblock_remove(SDRAM_VOCODER_START_ADDR, (SDRAM_VOCODER_END_ADDR-SDRAM_VOCODER_START_ADDR)+1);
+	pr_alert("u2vcd_reserve %d - VOCODER memblock allocation: 0x%x-0x%x\n", ret, 
+			SDRAM_VOCODER_START_ADDR,
+			SDRAM_VOCODER_END_ADDR);
+	BUG_ON(ret<0);
+}
+
+
+
