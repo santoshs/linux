@@ -39,9 +39,18 @@
 #define RT_BOOT_SIZE		(0xb00)
 
 /* Screen information */
+#ifdef CONFIG_FB_R_MOBILE_NT35510
 #define SCREEN0_HEIGHT		(800)
 #define SCREEN0_WIDTH		(480)
 #define SCREEN0_STRIDE		(480)
+#endif
+
+#ifdef CONFIG_FB_R_MOBILE_HX8389B
+#define SCREEN0_HEIGHT          (960)
+#define SCREEN0_WIDTH           (540)
+#define SCREEN0_STRIDE          (544)
+#endif
+
 #define SCREEN0_MODE		(0)
 #define SCREEN1_HEIGHT		(0)
 #define SCREEN1_WIDTH		(0)
