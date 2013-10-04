@@ -40,6 +40,7 @@
 #include <mach/setup-u2usb.h>
 #include <mach/common.h>
 
+#define BIT3		(ulong)(0x00000008)
 //#define D2153_REG_DEBUG
 /* #define D2153_SUPPORT_I2C_HIGH_SPEED */
 #define D2153_AUD_LDO_FOR_ESD
@@ -453,10 +454,19 @@ static irqreturn_t d2153_vbus_handler(int irq, void *data)
  *   */
 static void d2153_usb_event_init(struct d2153 *d2153)
 {
-	d2153_vbus_event_handler(); /* to handle bootup connectivity */
+	u8 reg;
+	u8 ret;
 
 	d2153_register_irq(d2153, D2153_IRQ_ETA,
-			       d2153_vbus_handler, 0, "usb vbus", d2153);
+		d2153_vbus_handler, 0, "usb vbus", d2153);
+
+	ret = d2153_reg_read(d2153, D2153_STATUS_C_REG, &reg);
+       	if ((reg & BIT3) == BIT3) {
+		/* Waiting for SPA event to be up during bootup with USB */
+		msleep(5000);
+		printk(KERN_INFO "SPA events triggered little late \n");
+		d2153_vbus_event_handler();
+	}
 }
 
 /*

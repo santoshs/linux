@@ -44,6 +44,9 @@
 #define USB_OTG_HOST_REQ_FLAG  0x0000
 #endif
 
+#include <linux/power_supply.h>
+#include <linux/spa_power.h>
+
 #define USB_DRVSTR_DBG 1
 
 #include "r8a66597-udc.h"
@@ -57,13 +60,22 @@
 
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 
-/* #define UDC_LOG */
+/* #define UDC_LOG  */
 #define RECOVER_RESUME
 #ifdef  UDC_LOG
 #define udc_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 #else
 #define udc_log(fmt, ...)
 #endif
+
+#define DATA_CONTACT_DET_EN 0x10
+#define CHGD_SERX_DP 0x2
+#define CHGD_SERX_DM 1
+#define DP_VSRC_EN 0x40
+#define VDAT_DET 0x20
+#define TUSB_SW_CONTROL			0x01
+#define CHGD_IDP_SRC_EN			0x40
+#define MAX_COUNT			270
 
 #define VBUS_HANDLE_IRQ_BASED
 
@@ -85,8 +97,6 @@ static const char *r8a66597_ep_name[] = {
 volatile static bool chirp_count=0;
 
 #if USB_DRVSTR_DBG
-#define TUSB_VENDOR_SPECIFIC1		0x80
-
 void usb_drv_str_read(unsigned char *val)
 {
 	__raw_writew(0x0000, USB_SPADDR);		/* set HSUSB.SPADDR */
@@ -147,6 +157,144 @@ static void disable_pipe_irq(struct r8a66597 *r8a66597, u16 pipenum,
 			INTENB0);
 	r8a66597_bclr(r8a66597, (1 << pipenum), reg);
 	r8a66597_write(r8a66597, tmp, INTENB0);
+}
+
+
+
+/**
+ *** usb_phy_read - Read data of TUSB1211 register via PHY
+ *** @return None
+ ***/
+static u8 usb_phy_read(u64 reg)
+{
+	u8 monreg;
+	__raw_writew((reg & 0x3F), USB_SPADDR);
+	__raw_writew(((reg >> 6) << 4), USB_SPEXADDR);
+	/* Issue read comand */
+	__raw_writew(__raw_readw(USB_SPCTRL) | USB_SPRD, USB_SPCTRL);
+	udc_log("%s: Waiting for read Permission\n", __func__);
+	do {
+		cpu_relax();
+		monreg = __raw_readw(USB_SPCTRL);
+	} while (monreg & USB_SPRD);
+	udc_log("%s: Read Permission granted\n", __func__);
+	monreg = __raw_readw(USB_SPRDAT);
+	printk(KERN_INFO "Value of PHY_READ is %x \n", monreg);
+	return monreg;
+}
+
+/**
+ *** usb_phy_write - Write data of TUSB1211 register via PHY
+ *** @return None
+ ***/
+void usb_phy_write(u64 reg, u8 val)
+{
+	u64 monreg;
+	__raw_writew((reg & 0x3F), USB_SPADDR);
+	__raw_writew(((reg >> 6) << 4), USB_SPEXADDR);
+
+	__raw_writew(val, USB_SPWDAT);
+
+    /* Issue write comand */
+	__raw_writew(__raw_readw(USB_SPCTRL) | USB_SPWR, USB_SPCTRL);
+	udc_log("%s: Waiting for write Permission\n", __func__);
+	do {
+		cpu_relax();
+		monreg = __raw_readw(USB_SPCTRL);
+	} while (monreg & USB_SPWR);
+	udc_log("%s: Write Permission granted\n", __func__);
+}
+
+static void get_charger_type(struct r8a66597 *r8a66597)
+{
+	u8 r_data = 0;
+	u16 bwait ;
+	int count = 0;
+	int i;
+	udc_log("%s:IN\n", __func__);
+	if (gIsConnected == 0) {
+		spa_event_handler(SPA_EVT_CHARGER,
+				 (void *)POWER_SUPPLY_TYPE_BATTERY);
+	} else {
+			/* SW_CONTROL = 1 */
+		r_data = usb_phy_read(TUSB1211_POWER_CONTROL_REG);
+		usb_phy_write(TUSB1211_POWER_CONTROL_REG,
+				r_data | (TUSB_SW_CONTROL));
+		msleep(5);
+		udc_log("%s:IN\ngoing for SW_USB_DET update\n", __func__);
+		r_data = usb_phy_read(TUSB1211_POWER_CONTROL_REG);
+		udc_log("%s:IN\nr_data:0x%x\n", __func__, r_data);
+		msleep(2);
+		/* SW_USB_DET = 0 */
+		r_data = usb_phy_read(TUSB_VENDOR_SPECIFIC3);
+		usb_phy_write(TUSB_VENDOR_SPECIFIC3,
+			 r_data & (~TUSB_VENDOR_SPECIFIC3_SWUSBDET));
+		msleep(5);
+		if (!r8a66597->charger_detected) {/* reverse of HW FSM */
+		/* DCD Timeout with idp_src enable */
+		r_data = usb_phy_read(TUSB_VENDOR_SPECIFIC3);
+		/* CHGD_IDP_SRC_EN for DCD timeout enable */
+		usb_phy_write(TUSB_VENDOR_SPECIFIC3,
+				r_data | (CHGD_IDP_SRC_EN));
+		msleep(5);
+		/* DCD Timeout max 2700 ms */
+		while (count++ < MAX_COUNT) {
+			msleep(10);
+			r_data = usb_phy_read(TUSB_VENDOR_SPECIFIC4);
+			if (!(r_data & CHGD_SERX_DP)) {
+				udc_log("%s:DCD pass D+ < VLGC, continue Primary detect...\n", __func__);
+				break;
+			}
+			udc_log("%d: count\n", count);
+		}
+		r_data = usb_phy_read(TUSB1211_POWER_CONTROL_REG);
+		usb_phy_write(TUSB1211_POWER_CONTROL_REG,
+					r_data | (DP_VSRC_EN));
+		msleep(1);/* delay 1 ms */
+		for (i = 0; i < 20; i++) {
+			r_data = usb_phy_read(TUSB1211_POWER_CONTROL_REG);
+			udc_log("%s: POWER_CTRL:0x%x\n", __func__, r_data);
+			udc_log("Count = %d \n", i);
+			msleep(1);
+		}
+		if (!(r_data & VDAT_DET)) {
+			udc_log("%s: Identified SDP\n", __func__);
+			r8a66597->charger_type = CHARGER_SDP;
+			spa_event_handler(SPA_EVT_CHARGER,
+					(void *)POWER_SUPPLY_TYPE_USB);
+			}
+		else {
+			udc_log("%s: Identified CDP/DCP\n", __func__);
+			bwait = r8a66597->pdata->buswait ? : 0xf;
+			r8a66597_write(r8a66597, bwait, SYSCFG1);
+			r8a66597_bset(r8a66597, SCKE, SYSCFG0);
+			r8a66597_bset(r8a66597, HSE, SYSCFG0);
+			r8a66597_bset(r8a66597, USBE, SYSCFG0);
+
+			msleep(1);
+			/* pull up high , BC 1.1 */
+			r8a66597_bset(r8a66597, DPRPU, SYSCFG0);
+			msleep(3);
+			r_data = usb_phy_read(TUSB_DEBUG_REG);
+			udc_log("%s: DEBUG:0x%x\n", __func__, r_data);
+			r8a66597_bclr(r8a66597, SCKE, SYSCFG0);
+			r8a66597_bclr(r8a66597, HSE, SYSCFG0);
+			r8a66597_bclr(r8a66597, USBE, SYSCFG0);
+
+			if (r_data & 0x3) {
+				udc_log("%s: Identified DCP\n", __func__);
+				r8a66597->charger_type = CHARGER_DCP;
+				spa_event_handler(SPA_EVT_CHARGER,
+					(void *)POWER_SUPPLY_TYPE_USB_DCP);
+			} else {
+				udc_log("%s: Identified CDP\n", __func__);
+				r8a66597->charger_type = CHARGER_CDP;
+				spa_event_handler(SPA_EVT_CHARGER,
+					(void *)POWER_SUPPLY_TYPE_USB_CDP);
+				}
+			}
+		}
+	}
 }
 
 static void r8a66597_inform_vbus_power(struct r8a66597 *r8a66597, int ma)
@@ -2630,6 +2778,14 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		if (r8a66597->pdata->module_start)
 			r8a66597->pdata->module_start();
 	}
+	if (!MUIC_IS_PRESENT) {
+		get_charger_type(r8a66597);
+		if (r8a66597->charger_type == CHARGER_DCP) {
+			udc_log("DCP Charger detected during disconnect/Connect, so returning from VBUS WORK \n");
+			return;
+		}
+	}
+
 #ifdef CONFIG_USB_OTG
 	udc_log("\n>>> HSUSB:UDC: %s(%d): INTSTS0:=%#x, Role:= %d<<<<<<\n",\
 					__func__, __LINE__, r8a66597_read(r8a66597, INTSTS0), r8a66597->role);
