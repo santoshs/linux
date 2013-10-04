@@ -64,9 +64,6 @@ struct platform_device keysc_device = {
 	 .debounce_interval = 20}
 
 static struct gpio_keys_button gpio_buttons[] = {
-#if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
-	GPIO_KEY(KEY_POWER,      GPIO_PORT24, "Power", 1),
-#endif
 #ifdef CONFIG_RENESAS
 	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT18, "Home",  1),
 #else
