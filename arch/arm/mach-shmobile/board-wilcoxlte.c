@@ -113,25 +113,7 @@
 
 #include <mach/sbsc.h>
 
-static int unused_gpios_wilcox_rev1[] = {
-				GPIO_PORT4, GPIO_PORT27, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
-				GPIO_PORT140, GPIO_PORT141, GPIO_PORT142, GPIO_PORT198,
-				GPIO_PORT200, GPIO_PORT201, GPIO_PORT219, GPIO_PORT224,
-				GPIO_PORT225, GPIO_PORT226, GPIO_PORT227, GPIO_PORT228,
-				GPIO_PORT229, GPIO_PORT230, GPIO_PORT231, GPIO_PORT232,
-				GPIO_PORT233, GPIO_PORT234, GPIO_PORT235, GPIO_PORT236,
-				GPIO_PORT237, GPIO_PORT238, GPIO_PORT239, GPIO_PORT240,
-				GPIO_PORT241, GPIO_PORT242, GPIO_PORT243, GPIO_PORT244,
-				GPIO_PORT245, GPIO_PORT246, GPIO_PORT247, GPIO_PORT248,
-				GPIO_PORT249, GPIO_PORT250, GPIO_PORT251, GPIO_PORT252,
-				GPIO_PORT253, GPIO_PORT254, GPIO_PORT255, GPIO_PORT256,
-				GPIO_PORT257, GPIO_PORT258, GPIO_PORT259, GPIO_PORT271,
-				GPIO_PORT275, GPIO_PORT276, GPIO_PORT277, GPIO_PORT294,
-				GPIO_PORT295, GPIO_PORT296, GPIO_PORT297, GPIO_PORT298,
-				GPIO_PORT299, GPIO_PORT311, GPIO_PORT312, GPIO_PORT325
-};
-
-static int unused_gpios_wilcox_rev2[] = {
+static int unused_gpios_wilcox_rev0[] = {
 				GPIO_PORT4, GPIO_PORT21, GPIO_PORT26, GPIO_PORT27, GPIO_PORT36,
 				GPIO_PORT44, GPIO_PORT46, GPIO_PORT86, GPIO_PORT87,
 				GPIO_PORT104, GPIO_PORT140, GPIO_PORT141, GPIO_PORT142,
@@ -393,13 +375,9 @@ static void __init board_init(void)
 	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 
 	/* Init unused GPIOs */
-	if (u2_board_rev <= BOARD_REV_0_1) {
-		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_wilcox_rev1); inx++)
-			unused_gpio_port_init(unused_gpios_wilcox_rev1[inx]);
-	} else {
-		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_wilcox_rev2); inx++)
-			unused_gpio_port_init(unused_gpios_wilcox_rev2[inx]);
-	}
+		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_wilcox_rev0); inx++)
+			unused_gpio_port_init(unused_gpios_wilcox_rev0[inx]);
+
 
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
