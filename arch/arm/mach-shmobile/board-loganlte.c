@@ -706,16 +706,6 @@ static void __init board_init(void)
 #endif
 }
 
-static void __init board_reserve(void)
-{
-	u2evm_ion_adjust();
-	u2vcd_reserve();
-
-#if defined(CONFIG_SEC_DEBUG)
-	sec_debug_magic_init();
-#endif
-}
-
 #ifdef CONFIG_OF
 static const char *logan_compat_dt[] __initdata = {
 	"renesas,loganlte",
@@ -730,7 +720,7 @@ DT_MACHINE_START(U2_LOGANLTE, "LoganLTE")
 	.init_machine   = board_init,
 	.init_time	= u2_timers_init,
 	.restart        = board_restart,
-	.reserve        = board_reserve,
+	.reserve        = r8a7373_reserve,
 	.dt_compat	= logan_compat_dt,
 MACHINE_END
 #else  /* CONFIG_OF */
@@ -743,6 +733,6 @@ MACHINE_START(U2EVM, "u2evm")
 	.init_machine   = board_init,
 	.init_time	= u2_timers_init,
 	.restart        = board_restart,
-	.reserve        = board_reserve,
+	.reserve        = r8a7373_reserve
 MACHINE_END
 #endif
