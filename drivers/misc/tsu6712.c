@@ -213,12 +213,6 @@ extern struct class *sec_class;
 
 static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw);
 
-int get_cable_type(void)
-{
-	return set_cable_status;
-}
-EXPORT_SYMBOL(get_cable_type);
-
 #if 1
 struct interrupt_element
 {
@@ -358,7 +352,7 @@ static int tsu6712_read_word_reg(struct i2c_client *client, u8 reg, int *data)
 #ifdef USE_USB_UART_SWITCH
 static int usb_uart_switch_state;
 char at_isi_switch_buf[1000] = {0};
-int KERNEL_LOG;
+int KERNEL_LOG = 1;
 
 static struct switch_dev switch_usb_uart = {
         .name = "tsu6712",
@@ -859,6 +853,7 @@ ssize_t ld_set_manualsw(struct device *dev,
 	}
 	return count;
 }
+EXPORT_SYMBOL(ld_set_manualsw);
 
 static ssize_t ld_show_switch_buf(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -940,7 +935,15 @@ ssize_t ld_set_switch_buf(struct device *dev,
 
 	return count;
 }
+EXPORT_SYMBOL(ld_set_switch_buf);
 #endif
+
+int get_kernel_log_status(void)
+{
+	return KERNEL_LOG;
+
+}
+EXPORT_SYMBOL(get_kernel_log_status);
 
 static ssize_t adc_show(struct device *dev,
         struct device_attribute *attr, char *buf)

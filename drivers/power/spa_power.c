@@ -32,7 +32,7 @@
 #define CONFIG_SEC_BATT_EXT_ATTRS
 #define SPA_FAKE_FULL_CAPACITY
 #include <linux/spa_power.h>
-
+#include <mach/setup-u2usb.h>
 #ifdef CONFIG_BATTERY_D2153
 #include <linux/d2153/d2153_battery.h>
 extern int d2153_battery_set_status(int type, int status);
@@ -76,6 +76,20 @@ static unsigned int spa_log_offset=0;
 #define SPA_PROBE_STATUS_BEGIN	0
 #define SPA_PROBE_STATUS_READY	1
 static unsigned char probe_status = SPA_PROBE_STATUS_BEGIN;
+
+typedef enum {
+	CABLE_TYPE_USB,
+	CABLE_TYPE_AC,
+	CABLE_TYPE_NONE
+} CABLE_TYPE;
+
+static CABLE_TYPE cable_status;
+
+int get_cable_type(void)
+{
+	return cable_status;
+}
+EXPORT_SYMBOL(get_cable_type);
 
 static void spa_log_internal(const char *log, ...)
 {
@@ -1649,6 +1663,19 @@ int spa_event_handler(int evt, void *data)
 
 	spa_evt_log[(spa_evt_idx++)%255].evt=evt;
 	spa_evt_log[(spa_evt_idx)%255].data = (int)data;
+
+	if(!MUIC_IS_PRESENT)
+		switch ((int)data) {
+		case POWER_SUPPLY_TYPE_BATTERY:
+			cable_status =  CABLE_TYPE_NONE;
+			break;
+		case POWER_SUPPLY_TYPE_USB:
+			cable_status =  CABLE_TYPE_USB;
+			break;
+		case POWER_SUPPLY_TYPE_USB_DCP:
+			cable_status =  CABLE_TYPE_AC;
+			break;
+	}
 
 	switch(evt)
 	{
