@@ -619,16 +619,6 @@ static void __init board_init(void)
 #endif
 }
 
-static void __init board_reserve(void)
-{
-	u2evm_ion_adjust();
-	u2vcd_reserve();
-
-#if defined(CONFIG_SEC_DEBUG)
-	sec_debug_magic_init();
-#endif
-}
-
 MACHINE_START(U2EVM, "u2evm")
 	.map_io         = r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,
@@ -638,5 +628,5 @@ MACHINE_START(U2EVM, "u2evm")
 	.init_machine   = board_init,
 	.timer          = &shmobile_timer,
 	.restart        = board_restart,
-	.reserve        = board_reserve,
+	.reserve        = r8a7373_reserve
 MACHINE_END

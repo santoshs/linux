@@ -99,6 +99,7 @@ extern void r8a7779_register_twd(void);
 extern void r8a7373_init_irq(void);
 extern void r8a7373_map_io(void);
 extern void r8a7373_init_early(void);
+extern void r8a7373_reserve(void);
 extern void r8a7373_add_standard_devices(void);
 extern void r8a7373_avoid_a2slpowerdown_afterL2sync(void);
 extern void r8a7373_clock_init(void);
