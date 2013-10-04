@@ -91,6 +91,7 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 	int res;
 	int debounce_ms;
 
+#ifdef CONFIG_MACH_LOGANLTE
 	if ((BOARD_REV_0_1 < u2_board_rev) &&
 		(BOARD_REV_0_4 > u2_board_rev)) {
 		d2153_pdata.audio.aad_codec_detect_enable = true;
@@ -100,6 +101,12 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 		d2153_pdata.audio.aad_codec_detect_enable = false;
 		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
 	}
+#endif
+
+#ifdef CONFIG_MACH_WILCOXLTE
+	d2153_pdata.audio.aad_codec_detect_enable = false;
+	debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+#endif
 
 	d2153_pdata.audio.aad_jack_debounce_ms = debounce_ms;
 	d2153_pdata.audio.aad_jackout_debounce_ms =
@@ -148,10 +155,16 @@ void u2audio_init(unsigned int u2_board_rev)
 
 	u2audio_gpio_init();
 
+#ifdef CONFIG_MACH_LOGANLTE
 	if (u2_board_rev < BOARD_REV_0_1)
 		fm34_device = DEVICE_EXIST;
 	else
 		fm34_device = DEVICE_NONE;
+#endif
+
+#ifdef CONFIG_MACH_WILCOXLTE
+	fm34_device = DEVICE_NONE;
+#endif
 
 	root_audio = proc_mkdir("audio", NULL);
 	if (NULL != root_audio) {
