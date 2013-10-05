@@ -709,6 +709,7 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	struct sh_mobile_i2c_data *pd;
 	struct i2c_adapter *adap;
 	struct resource *res;
+	struct device_node *np = dev->dev.of_node;
 	int size;
 	int ret;
 
@@ -754,6 +755,12 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	pd->bus_speed = STANDARD_MODE;
 	if (pdata && pdata->bus_speed)
 		pd->bus_speed = pdata->bus_speed;
+	else {
+		unsigned long bus_speed = 0;
+		if (!of_property_read_u32(np, "clock-frequency", &bus_speed))
+			pd->bus_speed = bus_speed;
+	}
+
 	pd->clks_per_count = 1;
 	if (pdata && pdata->clks_per_count)
 		pd->clks_per_count = pdata->clks_per_count;

@@ -40,4 +40,85 @@
 		       0xf0000100 0x100>;
 		#interrupt-cells = <3>;
 	};
+
+	i2c0: i2c0@e6820000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "renesas,rmobile-iic";
+		reg = <0xe6820000 0x425>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 184 0x4>;
+		clock-frequency = <400000>;
+	};
+
+	i2c1: i2c1@e6822000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "renesas,rmobile-iic";
+		reg = <0xe6822000 0x425>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 185 0x4>;
+		clock-frequency = <400000>;
+	};
+
+	i2c2: i2c2@e6824000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "renesas,rmobile-iic";
+		reg = <0xe6824000 0x425>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 186 0x4>;
+		clock-frequency = <400000>;
+	};
+
+	i2c3: i2c3@e6826000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "renesas,rmobile-iic";
+		reg = <0xe6826000 0x425>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 187 0x4>;
+		clock-frequency = <400000>;
+	};
+
+	i2c4: i2c4@e6828000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "renesas,rmobile-iic";
+		reg = <0xe6828000 0x425>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 188 0x4>;
+		clock-frequency = <400000>;
+	};
+
+
+	i2c5: i2c5@e682a000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "renesas,rmobile-iic";
+		reg = <0xe682a000 0x425>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 189 0x4>;
+		clock-frequency = <400000>;
+	};
+
+	i2c6: i2c6@e682c000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "renesas,rmobile-iic";
+		reg = <0xe682c000 0x425>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 128 0x4>;
+		clock-frequency = <400000>;
+	};
+
+	i2c7: i2c7@e682e000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "renesas,rmobile-iic";
+		reg = <0xe682e000 0x425>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 181 0x4>;
+		clock-frequency = <400000>;
+	};
  };

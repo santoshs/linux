@@ -125,6 +125,7 @@ void __init r8a7373_map_io(void)
 }
 
 
+#ifndef CONFIG_OF
 /* IIC0 */
 static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
 	.bus_speed	= 400000,
@@ -414,6 +415,7 @@ static struct platform_device i2c7_device = {
 		.platform_data	= &i2c7_platform_data,
 	},
 };
+#endif	/* CONFIG_OF */
 
 /* IICM */
 static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
@@ -1250,6 +1252,7 @@ static struct platform_device mtd_device = {
 
 /* HS-- ES20 Specific late devices for Dialog */
 static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
+#ifndef CONFIG_OF
 	&i2c0_device, /* IIC0  */
 	&i2c1_device, /* IIC1  */
 	&i2c2_device, /* IIC2  */
@@ -1262,6 +1265,7 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&i2c6_device, /* IIC2H */
 #endif
 	&i2c7_device, /* IIC3H */
+#endif
 	&i2c8_device, /* IICM  */
 	&dma0_device,
 #ifdef CONFIG_SMECO

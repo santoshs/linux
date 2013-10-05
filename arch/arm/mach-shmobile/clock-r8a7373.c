@@ -829,6 +829,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("Crypt1", &mstp_clks[MSTP229]),/* Crypt1 */
 
 	CLKDEV_DEV_ID("i2c-sh_mobile.2", &mstp_clks[MSTP001]), /* IIC2 */
+	CLKDEV_DEV_ID("e6824000.i2c2",   &mstp_clks[MSTP001]),
 	CLKDEV_DEV_ID("spi_sh_msiof.0", &mstp_clks[MSTP000]), /* MSIOF0 */
 	CLKDEV_DEV_ID("spi_sh_msiof.1", &mstp_clks[MSTP208]),   /* MSIOF1 */
 	CLKDEV_DEV_ID("spi_sh_msiof.2", &mstp_clks[MSTP205]),   /* MSIOF2 */
@@ -838,6 +839,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("sh-mobile-csi2.0", &mstp_clks[MSTP126]), /* CSI2-RX0 */
 	CLKDEV_DEV_ID("sh-mipi-dsi.0", &mstp_clks[MSTP118]), /* DSI-TX0 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.0", &mstp_clks[MSTP116]), /* IIC0 */
+	CLKDEV_DEV_ID("e6820000.i2c0", &mstp_clks[MSTP116]),
 	CLKDEV_DEV_ID("pvrsrvkm", &mstp_clks[MSTP112]), /* SGX544 */
 	CLKDEV_DEV_ID("sh_mobile_rcu.0", &mstp_clks[MSTP107]), /* RCUA0 */
 	CLKDEV_DEV_ID("sh_mobile_rcu.1", &mstp_clks[MSTP105]), /* RCUA1 */
@@ -863,6 +865,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("sh_fsi2.0", &mstp_clks[MSTP328]), /* FSI */
 	CLKDEV_DEV_ID("sh_fsi2.1", &mstp_clks[MSTP328]), /* FSI */
 	CLKDEV_DEV_ID("i2c-sh_mobile.1", &mstp_clks[MSTP323]), /* IIC1 */
+	CLKDEV_DEV_ID("e6822000.i2c1", &mstp_clks[MSTP323]),
 	CLKDEV_DEV_ID("r8a66597_udc.0", &mstp_clks[MSTP322]), /* USBHS */
 	CLKDEV_DEV_ID("renesas_mmcif.0", &mstp_clks[MSTP315]), /* MMCIF0 */
 	CLKDEV_DEV_ID("renesas_sdhi.0", &mstp_clks[MSTP314]), /* SDHI0 */
@@ -870,11 +873,16 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("renesas_sdhi.2", &mstp_clks[MSTP312]), /* SDHI2 */
 	CLKDEV_DEV_ID("tpu-renesas-sh_mobile.0", &mstp_clks[MSTP304]), /* TPU0 */
 	CLKDEV_DEV_ID("i2c-sh_mobile.7", &mstp_clks[MSTP427]), /* IIC3H */
+	CLKDEV_DEV_ID("e682e000.i2c7", &mstp_clks[MSTP427]), /* IIC3H */
 	CLKDEV_DEV_ID("i2c-sh_mobile.6", &mstp_clks[MSTP426]), /* IIC2H */
+	CLKDEV_DEV_ID("e682c000.i2c6", &mstp_clks[MSTP426]), /* IIC2H */
 	CLKDEV_DEV_ID("i2c-sh_mobile.5", &mstp_clks[MSTP425]), /* IIC1H */
+	CLKDEV_DEV_ID("e682a000.i2c5", &mstp_clks[MSTP425]), /* IIC1H */
 	CLKDEV_DEV_ID("i2c-sh_mobile.4", &mstp_clks[MSTP424]), /* IIC0H */
+	CLKDEV_DEV_ID("e6828000.i2c4", &mstp_clks[MSTP424]), /* IIC0H */
 	CLKDEV_DEV_ID("i2c-sh7730.8", &mstp_clks[MSTP412]), /* IICM */
 	CLKDEV_DEV_ID("i2c-sh_mobile.3", &mstp_clks[MSTP411]), /* IIC3 */
+	CLKDEV_DEV_ID("e6826000.i2c3", &mstp_clks[MSTP411]), /* IIC3 */
 	CLKDEV_DEV_ID("sh_keysc.0", &mstp_clks[MSTP403]), /* KEYSC */
 	CLKDEV_DEV_ID("pcm2pwm-renesas-sh_mobile.1", &mstp_clks[MSTP523]), /* PCM2PWM */
 	CLKDEV_DEV_ID("thermal_sensor.0", &mstp_clks[MSTP522]), /* Thermal Sensor */
