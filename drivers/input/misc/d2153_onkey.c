@@ -69,7 +69,7 @@ static irqreturn_t d2153_onkey_event_hi_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int __devinit d2153_onkey_probe(struct platform_device *pdev)
+static int __init d2153_onkey_probe(struct platform_device *pdev)
 {
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_onkey *dlg_onkey = &d2153->onkey;
@@ -106,7 +106,7 @@ static int __devinit d2153_onkey_probe(struct platform_device *pdev)
 
 }
 
-static int __devexit d2153_onkey_remove(struct platform_device *pdev)
+static int __exit d2153_onkey_remove(struct platform_device *pdev)
 {
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_onkey *dlg_onkey = &d2153->onkey;
@@ -121,7 +121,7 @@ static int __devexit d2153_onkey_remove(struct platform_device *pdev)
 
 static struct platform_driver d2153_onkey_driver = {
 	.probe		= d2153_onkey_probe,
-	.remove		= __devexit_p(d2153_onkey_remove),
+	.remove		= __exit_p(d2153_onkey_remove),
 	.driver		= {
 		.name	= DRIVER_NAME,
 		.owner	= THIS_MODULE,

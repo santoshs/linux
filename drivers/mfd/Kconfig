@@ -6,19 +6,16 @@ if HAS_IOMEM
 menu "Multifunction device drivers"
 
 config MFD_D2153
-	tristate "Dialog D2153 Multifunction DEvice"
+	bool "Dialog D2153 Multifunction Device"
 	select I2C
 	select MFD_CORE
 	select RTC_CLASS
-	select REGULATOR
 	select POWER_SUPPLY
 	select MISC_DEVICES
 	select INPUT_MISC
 	select INPUT_D2153_ONKEY
-	select REGULATOR_D2153
 	select RTC_DRV_D2153
 	select SENSORS_D2153
-	select MFD_D2153_BRINGUP_RECHECK
 	help
 	  This supports the Dialog D2153 Multifunction Device
 

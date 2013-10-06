@@ -416,7 +416,7 @@ static int d2153_rtc_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit d2153_rtc_remove(struct platform_device *pdev)
+static int __exit d2153_rtc_remove(struct platform_device *pdev)
 {
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_rtc *dlg_rtc = &d2153->rtc;
@@ -443,7 +443,7 @@ static struct dev_pm_ops d2153_rtc_pm_ops = {
 
 static struct platform_driver d2153_rtc_driver = {
 	.probe = d2153_rtc_probe,
-	.remove = __devexit_p(d2153_rtc_remove),
+	.remove = __exit_p(d2153_rtc_remove),
 	.shutdown = d2153_rtc_shutdown,
 	.driver = {
 		.name = DRIVER_NAME,

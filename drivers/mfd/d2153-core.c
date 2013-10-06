@@ -415,7 +415,7 @@ static void d2153_system_event_init(struct d2153 *d2153)
 static int d2153_ioctl_open(struct inode *inode, struct file *file)
 {
 	dlg_info("%s\n", __func__);
-	file->private_data = PDE(inode)->data;
+	file->private_data = PDE_DATA(inode);
 	return 0;
 }
 
@@ -661,7 +661,8 @@ void d2153_debug_proc_init(struct d2153 *d2153)
 	disable_irq(d2153->chip_irq);
 	entry = proc_create_data("pmu0", S_IRWXUGO, NULL, &d2153_pmu_ops, d2153);
 	enable_irq(d2153->chip_irq);
-	dlg_crit("\nD2153-core.c: proc_create_data() = %p; name=\"%s\"\n", entry, (entry?entry->name:""));
+	dlg_crit("\nD2153-core.c: proc_create_data() = %p; name=\"pmu0\"\n",
+		 entry);
 }
 
 /*
@@ -699,8 +700,10 @@ static void init_vdd_fault_work(struct work_struct *work)
 int d2153_device_init(struct d2153 *d2153, int irq,
 		       struct d2153_platform_data *pdata)
 {
+#ifdef CONFIG_BATTERY_D2153
 	u8 res_msb, res_lsb;
 	u16 read_adc;
+#endif
 	int ret = 0;
 #ifdef D2153_REG_DEBUG
 	int i;
@@ -793,12 +796,13 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	d2153_reg_write(d2153, D2153_ADC_CONT_REG, 0x0);
 #endif
 
-	/* Regulator Specific Init */
+#ifdef CONFIG_REGULATOR_D2153
 	ret = d2153_platform_regulator_init(d2153);
 	if (ret != 0) {
 		dev_err(d2153->dev, "Platform Regulator init() failed: %d\n", ret);
 		goto err_irq;
 	}
+#endif
 
 #ifdef CONFIG_BATTERY_D2153
 	d2153_reg_write(d2153, D2153_ADC_CONT_REG, (D2153_ADC_AUTO_EN_MASK
@@ -836,8 +840,10 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 	  }
 #endif
 
+#ifdef CONFIG_REGULATOR_D2153
 	/* set MCTRL_EN enabled */
 	d2153_set_mctl_enable();
+#endif
 
 	return 0;
 
