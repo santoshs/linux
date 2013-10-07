@@ -5,6 +5,7 @@
 #include <linux/pmic/pmic.h>
 #include <linux/regulator/consumer.h>
 
+#include <mach/setup-u2sdhi.h>
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 #include <mach/irqs.h>
