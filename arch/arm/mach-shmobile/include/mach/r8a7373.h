@@ -356,7 +356,6 @@ enum {
 	GPIO_FN_ASEBRK_PD,
 	GPIO_FN_ASEBRK_PU,
 #endif
-	/* Functions with pull-ups */
 };
 
 extern int r8a7373_irqc_set_debounce(int irq, unsigned debounce);
