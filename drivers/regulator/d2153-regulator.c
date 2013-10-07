@@ -895,6 +895,7 @@ static struct regulator_desc d2153_reg[D2153_NUMBER_OF_REGULATORS] = {
  */
 static int d2153_regulator_probe(struct platform_device *pdev)
 {
+	struct regulator_config config = { };
 	struct regulator_dev *rdev;
 	u32 min_uVolts,uVolt_step,max_uVolts;
 
@@ -920,11 +921,13 @@ static int d2153_regulator_probe(struct platform_device *pdev)
 		d2153_reg[pdev->id].n_voltages = num_voltages;
 	}
 
+	config.dev = &pdev->dev;
+	config.driver_data = dev_get_drvdata(&pdev->dev);
+	config.init_data = pdev->dev.platform_data;
+	config.of_node = NULL;
+
 	/* register regulator */
-	rdev = regulator_register(&d2153_reg[pdev->id], &pdev->dev,
-				pdev->dev.platform_data,
-				dev_get_drvdata(&pdev->dev),
-				NULL);
+	rdev = regulator_register(&d2153_reg[pdev->id], &config);
 
 	if (IS_ERR(rdev)) {
 		dev_err(&pdev->dev, "failed to register %s\n",
