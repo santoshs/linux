@@ -109,7 +109,8 @@ int rtds_memory_drv_init_mpro(
 	data_p->mpro_control->mpro_data.pgd_phy_addr =
 						virt_to_phys(current->mm->pgd);
 	/* Set context ID */
-	data_p->mpro_control->mpro_data.context_id = current->mm->context.id;
+	data_p->mpro_control->mpro_data.context_id =
+		current->mm->context.id.counter;
 
 	MSG_MED("[RTDSK]   |pgd_phy_addr [0x%08X]\n",
 		(u32)data_p->mpro_control->mpro_data.pgd_phy_addr);
@@ -3737,25 +3738,23 @@ int rtds_memory_do_map(
 	MSG_MED("[RTDSK]   |pgoff[0x%08X]\n", (u32)pgoff);
 
 	/* Mapping */
-	down_write(&current->mm->mmap_sem);
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 4, 0)
+	down_write(&current->mm->mmap_sem);
 	*addr =	 do_mmap_pgoff(fp,
 				0,
 				size,
 				PROT_READ|PROT_WRITE,
 				MAP_SHARED,
 				pgoff);
+	up_write(&current->mm->mmap_sem);
 #else
-	*addr =	 do_mmap(fp,
+	*addr =	 vm_mmap(fp,
 			0,
 			size,
 			PROT_READ|PROT_WRITE,
 			MAP_SHARED,
 			pgoff);
 #endif /* #if LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0) */
-
-	up_write(&current->mm->mmap_sem);
 
 	MSG_MED("[RTDSK]   |do_mmap_addr [0x%08X]\n", (u32)*addr);
 

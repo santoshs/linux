@@ -2,8 +2,8 @@
 # Makefile for the kernel character device drivers.
 #
 
-#obj-y				+= mfis/	# merge: TODO: uncomment and resolve
-#obj-y				+= rtapi/	# merge: TODO: uncomment and resolve
+obj-y				+= mfis/
+obj-y				+= rtapi/
 obj-y				+= composer/
 #obj-y				+= vcd/		# merge: TODO: uncomment and resolve
 

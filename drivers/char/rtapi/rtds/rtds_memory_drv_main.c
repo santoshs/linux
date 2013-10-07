@@ -93,8 +93,7 @@ spinlock_t			g_rtds_memory_lock_cma;
 struct list_head		g_rtds_memory_list_cma;
 #endif
 
-static int rtds_mem_procfile_read(char *page, char **start, off_t off,
-				int count, int *eof, void *data);
+static ssize_t rtds_mem_procfile_read(struct seq_file *, void *);
 static int rtds_get_cmdline(pid_t pid, char *buf, int len);
 /*****************************************************************************
  * Function   : rtds_memory_drv_open
@@ -703,8 +702,7 @@ int rtds_memory_thread_apmem_rttrig(
 	return ret;
 }
 
-static int rtds_mem_procfile_read(
-	char *page, char **start, off_t off, int count, int *eof, void *data)
+static int rtds_mem_procfile_read(struct seq_file *file, void *v)
 {
 	rtds_memory_app_memory_table *m_table = NULL;
 	struct list_head l_list;
@@ -754,9 +752,8 @@ static int rtds_mem_procfile_read(
 	up(&g_rtds_memory_shared_mem);
 
 	/* show dump info */
-	count = snprintf(page, PAGE_SIZE, "%-4s %7s %s\n",
-			"TGID", "SIZE", "NAME");
-	if (count < 0)
+	n = seq_printf(file, "%-4s %7s %s\n", "TGID", "SIZE", "NAME");
+	if (n < 0)
 		goto error;
 	list_for_each_entry_safe(dump_list, next, &l_list, list) {
 
@@ -765,39 +762,40 @@ static int rtds_mem_procfile_read(
 		else
 			cmdline = dump_list->task_info->comm;
 
-		n = snprintf(page + count,
-			     PAGE_SIZE - count,
-			     "%4d %6dK %s\n",
-			     (u32)dump_list->tgid,
-			     (dump_list->size / SZ_1K),
-			     cmdline);
+		n = seq_printf(file, "%4d %6dK %s\n", (u32)dump_list->tgid,
+			       (dump_list->size / SZ_1K), cmdline);
 		if (n < 0)
 			goto error;
-		count += n;
 		sum += dump_list->size;
 		list_del(&(dump_list->list));
 		kfree(dump_list);
 	}
-	n = snprintf(page + count, PAGE_SIZE - count, "%-4s-%-8s-%s\n",
-			"----", "--------", "----");
+	n = seq_printf(file, "%-4s-%-8s-%s\n", "----", "--------", "----");
 	if (n < 0)
 		goto error;
-	count += n;
-	n = snprintf(page + count, PAGE_SIZE - count, "%-4s %6dK %s\n",
-			"", (sum / SZ_1K), "TOTAL");
-	if (n < 0)
-		goto error;
-	count += n;
 
-	return count;
+	n = seq_printf(file, "%-4s %6dK %s\n", "", (sum / SZ_1K), "TOTAL");
+	if (n < 0)
+		goto error;
+
+	return 0;
 error:
 	list_for_each_entry_safe(dump_list, next, &l_list, list) {
 		list_del(&(dump_list->list));
 		kfree(dump_list);
 	}
-	return count;
+	return -1;
 }
 
+static int rtds_mem_procfile_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, rtds_mem_procfile_read, NULL);
+}
+
+static const struct file_operations proc_mem_info_fops = {
+	.open = rtds_mem_procfile_open,
+	.read = seq_read,
+};
 
 static int rtds_mem_procinfo_mpro_open(
 	struct inode *inode, struct file *file);
@@ -1181,29 +1179,24 @@ int rtds_memory_init_module(
 	}
 
 	g_rtds_memory_proc_mem_info =
-		create_proc_entry("mem_info",
-				  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
-				  g_rtds_memory_proc_entry);
+		proc_create("mem_info",
+			    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			    g_rtds_memory_proc_entry, &proc_mem_info_fops);
 	if (!g_rtds_memory_proc_mem_info) {
 		MSG_ERROR("[RTDSK]ERR|L.%d Error creating proc entry\n",
 			  __LINE__);
 		goto out;
 	}
 
-	g_rtds_memory_proc_mem_info->read_proc = rtds_mem_procfile_read;
-	g_rtds_memory_proc_mem_info->write_proc = NULL;
-
 	g_rtds_memory_proc_mpro =
-		create_proc_entry("maps",
-				  S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
-				  g_rtds_memory_proc_entry);
+		proc_create("maps",
+			    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+			    g_rtds_memory_proc_entry, &g_procinfo_mpro_op);
 	if (!g_rtds_memory_proc_mpro) {
 		MSG_ERROR("[RTDSK]ERR|L.%d Error creating proc entry\n",
 			  __LINE__);
 		goto out;
 	}
-
-	g_rtds_memory_proc_mpro->proc_fops = &g_procinfo_mpro_op;
 
 	MSG_HIGH("[RTDSK]OUT|[%s]ret = SMAP_OK\n", __func__);
 

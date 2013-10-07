@@ -574,19 +574,19 @@ void rtctl_intcs_mask_in_active(void)
 	MSG_MED("[ICCOMK]IN |[%s]\n", __func__);
 
 	for (reg = RTCTL_INTCRT_IMR0SA; reg <= RTCTL_INTCRT_IMR12SA; reg += 4) {
-		writeb(0xFF, reg);
+		writeb(0xFF, (void __iomem *)reg);
 	}
 
 	for (reg = RTCTL_INTCRT_IMR0SA3; reg <= RTCTL_INTCRT_IMR12SA3; reg += 4) {
-		writeb(0xFF, reg);
+		writeb(0xFF, (void __iomem *)reg);
 	}
 
 	for (reg = RTCTL_INTCRT_IMR0S; reg <= RTCTL_INTCRT_IMR12S; reg += 4) {
-		writeb(0xFF, reg);
+		writeb(0xFF, (void __iomem *)reg);
 	}
 
 	for (reg = RTCTL_INTCRT_IMR0S3; reg <= RTCTL_INTCRT_IMR12S3; reg += 4) {
-		writeb(0xFF, reg);
+		writeb(0xFF, (void __iomem *)reg);
 	}
 
 	MSG_MED("[ICCOMK]OUT|[%s]\n", __func__);

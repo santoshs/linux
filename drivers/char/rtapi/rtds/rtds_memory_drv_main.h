@@ -158,7 +158,7 @@ typedef struct {
 /* Mpro setting data info */
 typedef struct {
 	unsigned long	pgd_phy_addr;	/* Page gloval directry physical address */
-	unsigned long	context_id;		/* ContextID */
+	uint64_t	context_id;		/* ContextID */
 } rtds_memory_mpro_data;
 
 /* Mpro info */
