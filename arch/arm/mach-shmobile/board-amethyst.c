@@ -571,11 +571,9 @@ static void __init board_init(void)
 	gps_gpio_init();
 #endif
 
-#if defined(CONFIG_SAMSUNG_SENSOR)
+#if defined (CONFIG_AMETHYST_SENSOR)
 	board_sensor_init();
 #endif
-
-	amethyst_board_sensor_init();
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */

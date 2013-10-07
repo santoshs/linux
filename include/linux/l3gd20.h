@@ -16,9 +16,11 @@
 #ifndef ANDROID_GYROSCOPE_SENSOR_H
 #define ANDROID_GYROSCOPE_SENSOR_H
 
-#define L3GD20_NAME						"l3gd20"
-#define ENABLE						1
-#define DISABLE						0
+#define L3GD20_NAME			"l3gd20"
+#define ENABLE				1
+#define DISABLE				0
+#define GYRO_SLAVE_ADDRESS		0x6B
+
 
 /* IOCLT command for gyroscope sensor */
 #define RMC_IO   0xA2

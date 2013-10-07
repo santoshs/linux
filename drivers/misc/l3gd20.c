@@ -401,7 +401,7 @@ static int l3gd20_resume(struct device *dev)
 static int l3gd20_power_on_off(bool flag)
 {
 
-if (is_runtime_pm_up()) {
+#ifdef RUNTIME_PM
 
 	if (!gyro_regltr_3v) {
 		printk("Error: gyro_regltr_3v is unavailable\n");
@@ -415,8 +415,7 @@ if (is_runtime_pm_up()) {
 		l3gd20_log("\n LDO off %s ", __func__);
 		regulator_disable(gyro_regltr_3v);
 	}
-
-}
+#endif
 	return 0;
 }
 
@@ -430,7 +429,7 @@ if (is_runtime_pm_up()) {
 static int l3gd20_cs_power_on_off(bool flag)
 {
 
-if (is_runtime_pm_up()) {
+#ifdef RUNTIME_PM
 
 	if (!gyro_regltr_18v) {
 		printk("Error: gyro_regltr_18v is unavailable\n");
@@ -444,8 +443,7 @@ if (is_runtime_pm_up()) {
 		l3gd20_log("\n LDO off %s ", __func__);
 		regulator_disable(gyro_regltr_18v);
 	}
-
-}
+#endif
 	return 0;
 }
 
@@ -467,8 +465,7 @@ static int l3gd20_i2c_probe(struct i2c_client *client,
 
 	err = -1;
 
-if (is_runtime_pm_up()) {
-
+#ifdef RUNTIME_PM
 	printk("%s: Gyro - preparing regulators\n", __func__);
 	gyro_regltr_18v = regulator_get(NULL, "sensor_gyro_18v");
 	if (IS_ERR_OR_NULL(gyro_regltr_18v)) {
@@ -484,7 +481,7 @@ if (is_runtime_pm_up()) {
 	}
 	regulator_set_voltage(gyro_regltr_3v, 3000000, 3000000);
 	regulator_enable(gyro_regltr_3v);
-}
+#endif
 	/* Check I2C functionality */
 	err = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
 	if (err < 0) {
@@ -616,11 +613,10 @@ err_allocate_input_dev:
 err_check_i2c_func:
 	l3gd20_info = NULL;
 
-if (is_runtime_pm_up()) {
-
+#ifdef RUNTIME_PM
 	l3gd20_power_on_off(0);
 	l3gd20_cs_power_on_off(0);
-}
+#endif
 	return ret;
 }
 
@@ -655,8 +651,7 @@ static int l3gd20_i2c_remove(struct i2c_client *client)
 	/* Release global variable */
 	kfree(l3gd20_info);
 
-	if (is_runtime_pm_up()) {
-
+#ifdef RUNTIME_PM
 	if (gyro_regltr_18v) {
 		l3gd20_cs_power_on_off(0);
 		regulator_put(gyro_regltr_18v);
@@ -665,8 +660,7 @@ static int l3gd20_i2c_remove(struct i2c_client *client)
 		l3gd20_power_on_off(0);
 		regulator_put(gyro_regltr_3v);
 	}
-
-	}
+#endif
 
 	return 0;
 }
