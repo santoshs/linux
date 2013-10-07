@@ -1294,6 +1294,7 @@ static void setup_vmalloc_vm(struct vm_struct *vm, struct vmap_area *va,
 	va->vm = vm;
 	va->flags |= VM_VM_AREA;
 }
+
 static void insert_vmalloc_vmlist(struct vm_struct *vm)
 {
 	struct vm_struct *tmp, **p;
@@ -2214,14 +2215,6 @@ struct vm_struct *alloc_vm_area(size_t size, pte_t **ptes)
 		free_vm_area(area);
 		return NULL;
 	}
-
-	/*
-	 * If the allocated address space is passed to a hypercall
-	 * before being used then we cannot rely on a page fault to
-	 * trigger an update of the page tables.  So sync all the page
-	 * tables here.
-	 */
-	vmalloc_sync_all();
 
 	return area;
 }
