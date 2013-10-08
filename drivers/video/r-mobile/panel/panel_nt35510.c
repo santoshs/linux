@@ -1273,6 +1273,8 @@ static int panel_specific_cmdset(void *lcd_handle,
 
 static void mipi_display_reset(void)
 {
+	int ret;
+
 	printk(KERN_INFO "%s\n", __func__);
 
 	/* Already power supply */
@@ -1281,9 +1283,10 @@ static void mipi_display_reset(void)
 		goto out;
 	}
 
-	regulator_enable(power_ldo_1v8);
+	/* TODO Use the return value appropriately */
+	ret = regulator_enable(power_ldo_1v8);
 	usleep_range(1000, 1000);
-	regulator_enable(power_ldo_3v);
+	ret = regulator_enable(power_ldo_3v);
 
 	gpio_direction_output(reset_gpio, 0);
 
@@ -1361,9 +1364,10 @@ static int nt35510_panel_init(unsigned int mem_size)
 	 * enable calls only correct the initial enable reference count;
 	 * hence no need for delays.
 	 */
-	regulator_enable(power_ldo_1v8);
+	/* TODO Use the return value appropriatly */
+	ret = regulator_enable(power_ldo_1v8);
 	usleep_range(1000, 1000);
-	regulator_enable(power_ldo_3v);
+	ret = regulator_enable(power_ldo_3v);
 
 	power_supplied = true;
 	/* Setting peculiar to panel */

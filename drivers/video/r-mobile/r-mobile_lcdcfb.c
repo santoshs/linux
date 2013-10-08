@@ -884,7 +884,7 @@ static int sh_mobile_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 
 	/* To stop the swapper from even considering these pages */
-	vma->vm_flags |= (VM_IO | VM_RESERVED);
+	vma->vm_flags |= (VM_IO | VM_DONTEXPAND | VM_DONTDUMP);
 
 	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 			    vma->vm_end - vma->vm_start, vma->vm_page_prot))
@@ -1184,7 +1184,7 @@ static unsigned long LCM(unsigned long x, unsigned long y)
 	return (gcd == 0) ? 0 : ((x / gcd) * y);
 }
 
-static int __devinit sh_mobile_lcdc_probe(struct platform_device *pdev)
+static int __init sh_mobile_lcdc_probe(struct platform_device *pdev)
 {
 	struct fb_info *info = NULL;
 	struct sh_mobile_lcdc_priv *priv;
