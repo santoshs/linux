@@ -148,17 +148,17 @@ static int cyttsp4_hw_power(int en, int use_irq, int irq_gpio)
 		msleep(20);
 		/* Enable the IRQ */
 		if (use_irq) {
-			enable_irq(gpio_to_irq(irq_gpio));
+			enable_irq(irq_gpio);
 			printk(KERN_INFO "Enabled IRQ %d for TSP\n",
-				gpio_to_irq(irq_gpio));
+				irq_gpio);
 		}
 				
          } else {
 		 /* Disable the IRQ */
 			if (use_irq) {
 				printk(KERN_INFO "Disabling IRQ %d for TSP\n",
-					gpio_to_irq(irq_gpio));
-				disable_irq_nosync(gpio_to_irq(irq_gpio));
+					irq_gpio);
+				disable_irq_nosync(irq_gpio);
 			}
          
 		printk(KERN_INFO "%s, %d TOUCH Off\n", __func__, __LINE__);
