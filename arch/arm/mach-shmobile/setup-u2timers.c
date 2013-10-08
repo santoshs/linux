@@ -22,6 +22,19 @@
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 struct delay_timer cmt_delay_timer __read_mostly;
 
+/* CMT-1 Clock */
+#define CMCLKE_PHYS	0xe6131000
+#define CMCLKE		IO_ADDRESS(0xE6131000)
+#define CMSTR0		IO_ADDRESS(0xE6130000)
+#define CMCSR0		IO_ADDRESS(0xE6130010)
+#define CMCNT0		IO_ADDRESS(0xE6130014)
+#define CMCOR0		IO_ADDRESS(0xE6130018)
+#define CMSTR3		IO_ADDRESS(0xe6130300)
+#define CMSTR4		IO_ADDRESS(0xE6130400)
+#define CMCSR4		IO_ADDRESS(0xE6130410)
+#define CMCNT4		IO_ADDRESS(0xE6130414)
+#define CMCOR4		IO_ADDRESS(0xE6130418)
+
 unsigned long cmt_read_current_timer(void)
 {
 	return __raw_readl(CMCNT3);

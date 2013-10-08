@@ -23,7 +23,68 @@
 #include <asm/clkdev.h>
 #include <mach/common.h>
 #include <mach/r8a7373.h>
+#include <mach/clock.h>
 
+#define FRQCRA		IO_ADDRESS(0xE6150000)
+#define FRQCRB		IO_ADDRESS(0xE6150004)
+#define FRQCRD		IO_ADDRESS(0xE61500E4)
+#define BBFRQCRD	IO_ADDRESS(0xE61500E8)
+#define VCLKCR1		IO_ADDRESS(0xE6150008)
+#define VCLKCR2		IO_ADDRESS(0xE615000C)
+#define VCLKCR3		IO_ADDRESS(0xE6150014)
+#define VCLKCR4		IO_ADDRESS(0xE615001C)
+#define VCLKCR5		IO_ADDRESS(0xE6150034)
+#define ZBCKCR		IO_ADDRESS(0xE6150010)
+#define SD0CKCR		IO_ADDRESS(0xE6150074)
+#define SD1CKCR		IO_ADDRESS(0xE6150078)
+#define SD2CKCR		IO_ADDRESS(0xE615007C)
+#define FSIACKCR	IO_ADDRESS(0xE6150018)
+#define MPCKCR		IO_ADDRESS(0xE6150080)
+#define SPU2ACKCR	IO_ADDRESS(0xE6150084)
+#define SPU2VCKCR	IO_ADDRESS(0xE6150094)
+#define SLIMBCKCR	IO_ADDRESS(0xE6150088)
+#define HSICKCR		IO_ADDRESS(0xE615008C)
+#define M4CKCR		IO_ADDRESS(0xE6150098)
+#define UFCKCR		IO_ADDRESS(0xE615009C)
+#define DSITCKCR	IO_ADDRESS(0xE6150060)
+#define DSI0PCKCR	IO_ADDRESS(0xE6150064)
+#define DSI1PCKCR	IO_ADDRESS(0xE6150068)
+#define DSI0PHYCR	IO_ADDRESS(0xE615006C)
+#define DSI1PHYCR	IO_ADDRESS(0xE6150070)
+#define MPMODE		IO_ADDRESS(0xE61500CC)
+#define RTSTBCR		IO_ADDRESS(0xE6150020)
+#define PLLECR		IO_ADDRESS(0xE61500D0)
+#define PLL0CR		IO_ADDRESS(0xE61500D8)
+#define PLL1CR		IO_ADDRESS(0xE6150028)
+#define PLL2CR		IO_ADDRESS(0xE615002C)
+#define PLL22CR		IO_ADDRESS(0xE61501F4)
+#define PLL3CR		IO_ADDRESS(0xE61500DC)
+#define PLL0STPCR	IO_ADDRESS(0xE61500F0)
+#define PLL1STPCR	IO_ADDRESS(0xE61500C8)
+#define PLL2STPCR	IO_ADDRESS(0xE61500F8)
+#define PLL22STPCR	IO_ADDRESS(0xE61501F8)
+#define PLL3STPCR	IO_ADDRESS(0xE61500FC)
+#define MSTPSR0		IO_ADDRESS(0xE6150030)
+#define MSTPSR1		IO_ADDRESS(0xE6150038)
+#define MSTPSR2		IO_ADDRESS(0xE6150040)
+#define MSTPSR3		IO_ADDRESS(0xE6150048)
+#define MSTPSR4		IO_ADDRESS(0xE615004C)
+#define MSTPSR5		IO_ADDRESS(0xE615003C)
+#define MSTPSR6		IO_ADDRESS(0xE61501C0)
+#define SMSTPCR0	IO_ADDRESS(0xE6150130)
+#define SMSTPCR1	IO_ADDRESS(0xE6150134)
+#define SMSTPCR2	IO_ADDRESS(0xE6150138)
+#define SMSTPCR3	IO_ADDRESS(0xE615013C)
+#define SMSTPCR4	IO_ADDRESS(0xE6150140)
+#define SMSTPCR5	IO_ADDRESS(0xE6150144)
+#define SMSTPCR6	IO_ADDRESS(0xE6150148)
+#define CKSCR		IO_ADDRESS(0xE61500C0)
+#define SPUACKCR	IO_ADDRESS(0xE6150084)
+#define SPUVCKCR	IO_ADDRESS(0xE6150094)
+
+#define EXSTMON2	0xe6180088
+
+#define CLK_CKSEL_CKSTP         (1 << 0)
 
 /* 26 MHz default rate for the EXTAL1 root input clock */
 static struct clk extal1_clk = {
@@ -40,35 +101,17 @@ static struct clk extalr_clk = {
 	.rate	= 32768,
 };
 
-static unsigned long fixed_div_recalc(struct clk *clk)
-{
-	return clk->parent->rate / (int)(clk->priv);
-}
-
-static struct sh_clk_ops fixed_div_clk_ops = {
-	.recalc	= fixed_div_recalc,
-};
+SH_CLK_RATIO(div2, 1, 2);
+SH_CLK_RATIO(div4, 1, 4);
+SH_CLK_RATIO(div7, 1, 7);
+SH_CLK_RATIO(div13, 1, 13);
 
 /* EXTAL1 x1/2 */
-static struct clk extal1_div2_clk = {
-	.parent	= &extal1_clk,
-	.ops	= &fixed_div_clk_ops,
-	.priv	= (void *)2,
-};
-
+SH_FIXED_RATIO_CLK(extal1_div2_clk,	extal1_clk,	div2);
 /* EXTAL2 x1/2 */
-static struct clk extal2_div2_clk = {
-	.parent	= &extal2_clk,
-	.ops	= &fixed_div_clk_ops,
-	.priv	= (void *)2,
-};
-
+SH_FIXED_RATIO_CLK(extal2_div2_clk,	extal2_clk,	div2);
 /* EXTAL2 x1/4 */
-static struct clk extal2_div4_clk = {
-	.parent	= &extal2_clk,
-	.ops	= &fixed_div_clk_ops,
-	.priv	= (void *)4,
-};
+SH_FIXED_RATIO_CLK(extal2_div4_clk,	extal2_clk,	div4);
 
 static struct sh_clk_ops followparent_clk_ops = {
 	.recalc	= followparent_recalc,
@@ -80,11 +123,7 @@ static struct clk main_clk = {
 };
 
 /* Main clock x1/2 */
-static struct clk main_div2_clk = {
-	.parent	= &main_clk,
-	.ops	= &fixed_div_clk_ops,
-	.priv	= (void *)2,
-};
+SH_FIXED_RATIO_CLK(main_div2_clk,	main_clk,	div2);
 
 static struct clk cp_clk = {
 	.ops		= &followparent_clk_ops,
@@ -127,6 +166,124 @@ static struct sh_clk_ops pll_clk_ops = {
 	.recalc		= pll_recalc,
 };
 
+static int r8a7373_clk_cksel_set_parent(struct clk *clk, struct clk *parent)
+{
+	u32 value;
+	int ret, i;
+
+	if (!clk->parent_table || !clk->parent_num)
+		return -EINVAL;
+
+	/* Search the parent */
+	for (i = 0; i < clk->parent_num; i++)
+		if (clk->parent_table[i] == parent)
+			break;
+
+	if (i == clk->parent_num)
+		return -ENODEV;
+
+	ret = clk_reparent(clk, parent);
+	if (ret < 0)
+		return ret;
+
+	value = ioread32(clk->mapped_reg) &
+		~(((1 << clk->src_width) - 1) << clk->src_shift);
+
+	iowrite32(value | (i << clk->src_shift), clk->mapped_reg);
+
+	return 0;
+}
+
+static void r8a7373_clk_cksel_disable(struct clk *clk)
+{
+	u32 value;
+
+	if (clk->flags & CLK_CKSEL_CKSTP) {
+		value = __raw_readl(clk->enable_reg);
+		value |= 1 << clk->enable_bit; /* stop clock */
+		 __raw_writel(value, clk->enable_reg);
+	}
+}
+
+static int r8a7373_clk_cksel_enable(struct clk *clk)
+{
+	u32 value;
+
+	if (clk->flags & CLK_CKSEL_CKSTP) {
+		value = __raw_readl(clk->enable_reg);
+		value &= ~(1 << clk->enable_bit); /* clear stop bit */
+		__raw_writel(value, clk->enable_reg);
+	}
+	return 0;
+}
+
+static struct sh_clk_ops r8a7373_clk_cksel_clk_ops = {
+	.recalc		= followparent_recalc,
+	.set_parent	= r8a7373_clk_cksel_set_parent,
+	.enable		= r8a7373_clk_cksel_enable,
+	.disable	= r8a7373_clk_cksel_disable,
+};
+
+static int __init r8a7373_clk_init_parent(struct clk *clk)
+{
+	u32 val;
+
+	if (clk->parent)
+		return 0;
+
+	if (!clk->parent_table || !clk->parent_num)
+		return 0;
+
+	if (!clk->src_width) {
+		pr_err("sh_clk_init_parent: cannot select parent clock\n");
+		return -EINVAL;
+	}
+
+	val  = (__raw_readl(clk->enable_reg) >> clk->src_shift);
+	val &= (1 << clk->src_width) - 1;
+
+	if (val >= clk->parent_num) {
+		pr_err("sh_clk_init_parent: parent table size failed\n");
+		return -EINVAL;
+	}
+
+	clk_reparent(clk, clk->parent_table[val]);
+	if (!clk->parent) {
+		pr_err("sh_clk_init_parent: unable to set parent");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+
+static int __init r8a7373_clk_cksel_register_ops(struct clk *clks, int nr,
+						struct sh_clk_ops *ops)
+{
+	struct clk *clkp;
+	int ret = 0;
+	int k;
+
+	for (k = 0; !ret && (k < nr); k++) {
+		clkp = clks + k;
+
+		clkp->ops = ops;
+		ret = clk_register(clkp);
+		if (ret < 0)
+			break;
+
+		ret = r8a7373_clk_init_parent(clkp);
+	}
+
+	return ret;
+}
+
+static int __init r8a7373_clk_cksel_register(struct clk *clks, int nr)
+{
+	return r8a7373_clk_cksel_register_ops(clks, nr,
+					&r8a7373_clk_cksel_clk_ops);
+}
+
 /* PLL2, PLL22 clock source selection */
 static struct clk *pll2_parent[] = {
 	[0] = &main_div2_clk,
@@ -136,6 +293,19 @@ static struct clk *pll2_parent[] = {
 	[4] = &main_clk,
 	[5] = &extal2_clk,
 };
+
+#define SH_CLK_CKSEL(_reg, _bit, _flags, _parents,		\
+			_num_parents, _src_shift, _src_width)	\
+{								\
+	.enable_reg = (void __iomem *)_reg,			\
+	.mapped_reg = (void __iomem *)_reg,			\
+	.enable_bit = _bit,					\
+	.flags = _flags,					\
+	.parent_table = _parents,				\
+	.parent_num = _num_parents,				\
+	.src_shift = _src_shift,				\
+	.src_width = _src_width,				\
+}
 
 enum { CKSEL_PLL2, CKSEL_PLL22, CKSEL_PLL_NR };
 
@@ -150,7 +320,7 @@ static struct clk cksel_pll_clks[CKSEL_PLL_NR] = {
 static struct clk pll0_clk = {
 	.parent		= &main_clk,
 	.ops		= &pll_clk_ops,
-	.enable_reg	= PLL0CR,
+	.enable_reg	= (void __iomem *)PLL0CR,
 	.enable_bit	= 0,
 };
 
@@ -158,7 +328,7 @@ static struct clk pll0_clk = {
 static struct clk pll1_clk = {
 	.parent		= NULL, /* set up later */
 	.ops		= &pll_clk_ops,
-	.enable_reg	= PLL1CR,
+	.enable_reg	= (void __iomem *)PLL1CR,
 	.enable_bit	= 1,
 };
 
@@ -166,7 +336,7 @@ static struct clk pll1_clk = {
 static struct clk pll2_clk = {
 	.parent		= &cksel_pll_clks[CKSEL_PLL2],
 	.ops		= &pll_clk_ops,
-	.enable_reg	= PLL2CR,
+	.enable_reg	= (void __iomem *)PLL2CR,
 	.enable_bit	= 2,
 };
 
@@ -174,7 +344,7 @@ static struct clk pll2_clk = {
 static struct clk pll3_clk = {
 	.parent		= &main_clk,
 	.ops		= &pll_clk_ops,
-	.enable_reg	= PLL3CR,
+	.enable_reg	= (void __iomem *)PLL3CR,
 	.enable_bit	= 3,
 };
 
@@ -182,30 +352,16 @@ static struct clk pll3_clk = {
 static struct clk pll22_clk = {
 	.parent		= &cksel_pll_clks[CKSEL_PLL22],
 	.ops		= &pll_clk_ops,
-	.enable_reg	= PLL22CR,
+	.enable_reg	= (void __iomem *)PLL22CR,
 	.enable_bit	= 4,
 };
 
 /* PLL1 x1/2 */
-static struct clk pll1_div2_clk = {
-	.parent		= &pll1_clk,
-	.ops		= &fixed_div_clk_ops,
-	.priv		= (void *)2,
-};
-
+SH_FIXED_RATIO_CLK(pll1_div2_clk,	pll1_clk,	div2);
 /* PLL1 x1/7 */
-static struct clk pll1_div7_clk = {
-	.parent		= &pll1_clk,
-	.ops		= &fixed_div_clk_ops,
-	.priv		= (void *)7,
-};
-
+SH_FIXED_RATIO_CLK(pll1_div7_clk,	pll1_clk,	div7);
 /* PLL1 x1/13 */
-static struct clk pll1_div13_clk = {
-	.parent		= &pll1_clk,
-	.ops		= &fixed_div_clk_ops,
-	.priv		= (void *)13,
-};
+SH_FIXED_RATIO_CLK(pll1_div13_clk,	pll1_clk,	div13);
 
 /* External input clocks for FSI port A/B */
 static struct clk fsiack_clk = {};
@@ -246,7 +402,8 @@ static void div4_kick(struct clk *clk)
 	__raw_writel(value, FRQCRB);
 }
 
-static unsigned int divisors[] = { 2, 3, 4, 6, 8, 12, 16, 18, 24, 0, 36, 48, 7 };
+static unsigned int divisors[] = { 2, 3, 4, 6, 8, 12, 16, 18, 24,
+							0, 36, 48, 7 };
 
 static struct clk_div_mult_table div4_div_mult_table = {
 	.divisors	= divisors,
@@ -266,13 +423,17 @@ enum {
 };
 
 static struct clk div4_clks[DIV4_NR] = {
-	[DIV4_I]   = SH_CLK_DIV4(&pll1_clk, FRQCRA, 20, 0xdff, 0),
+	[DIV4_I]   = SH_CLK_DIV4(&pll1_clk, FRQCRA, 20, 0xdff,
+							CLK_ENABLE_ON_INIT),
 	[DIV4_ZG]  = SH_CLK_DIV4(&pll1_clk, FRQCRA, 16, 0x97f, 0),
-	[DIV4_M3]  = SH_CLK_DIV4(&pll1_clk, FRQCRA, 12, 0x1dff, 0),
-	[DIV4_B]   = SH_CLK_DIV4(&pll1_clk, FRQCRA, 8, 0xdff, 0),
+	[DIV4_M3]  = SH_CLK_DIV4(&pll1_clk, FRQCRA, 12, 0x1dff,
+							CLK_ENABLE_ON_INIT),
+	[DIV4_B]   = SH_CLK_DIV4(&pll1_clk, FRQCRA, 8, 0xdff,
+							CLK_ENABLE_ON_INIT),
 	[DIV4_M1]  = SH_CLK_DIV4(&pll1_clk, FRQCRA, 4, 0x1dff, 0),
 	[DIV4_M5]  = SH_CLK_DIV4(&pll1_clk, FRQCRA, 0, 0x1dff, 0),
-	[DIV4_Z]   = SH_CLK_DIV4(NULL,      FRQCRB, 24, 0x097f, 0),
+	[DIV4_Z]   = SH_CLK_DIV4(NULL,      FRQCRB, 24, 0x097f,
+							CLK_ENABLE_ON_INIT),
 	[DIV4_ZTR] = SH_CLK_DIV4(&pll1_clk, FRQCRB, 20, 0x0dff, 0),
 	[DIV4_ZT]  = SH_CLK_DIV4(&pll1_clk, FRQCRB, 16, 0xdff, 0),
 	[DIV4_ZX]  = SH_CLK_DIV4(&pll1_clk, FRQCRB, 12, 0xdff, 0),
@@ -326,28 +487,16 @@ static struct clk ddr_clk = SH_CLK_CKSEL(FRQCRD, 0, 0,
 					 ddr_parent, ARRAY_SIZE(ddr_parent), 4,
 					 1);
 
-static struct clk zb30_clk = {
-	.parent = &ddr_clk,
-	.ops = &fixed_div_clk_ops,
-	.priv = (void *)2,
-};
+SH_FIXED_RATIO_CLK(zb30_clk,		ddr_clk,	div2);
+SH_FIXED_RATIO_CLK(zb30d2_clk,		ddr_clk,	div4);
+SH_FIXED_RATIO_CLK(ddr_div2_clk,	ddr_clk,	div2);
+SH_FIXED_RATIO_CLK(ddr_div4_clk,	ddr_clk,	div4);
 
-static struct clk zb30d2_clk = {
-	.parent = &ddr_clk,
-	.ops = &fixed_div_clk_ops,
-	.priv = (void *)4,
-};
-
-static struct clk ddr_div2_clk = {
-	.parent = &ddr_clk,
-	.ops = &fixed_div_clk_ops,
-	.priv = (void *)2,
-};
-
-static struct clk ddr_div4_clk = {
-	.parent = &ddr_clk,
-	.ops = &fixed_div_clk_ops,
-	.priv = (void *)4,
+static struct clk *ddr_clks[] = {
+	&zb30_clk,
+	&zb30d2_clk,
+	&ddr_div2_clk,
+	&ddr_div4_clk,
 };
 
 static struct clk *zb30sl_parent[] = {
@@ -361,39 +510,39 @@ static struct clk zb30sl_clk = SH_CLK_CKSEL(FRQCRD, 0, 0,
 
 
 static struct clk div6_clks[DIV6_NR] = {
-	[DIV6_ZB] = SH_CLK_DIV6_EXT(ZBCKCR, 8, 0,
+	[DIV6_ZB] = SH_CLK_DIV6_EXT(ZBCKCR, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 7, 1),
-	[DIV6_SD0] = SH_CLK_DIV6_EXT(SD0CKCR, 8, 0,
+	[DIV6_SD0] = SH_CLK_DIV6_EXT(SD0CKCR, 0,
 			sd_parent, ARRAY_SIZE(sd_parent), 6, 2),
-	[DIV6_SD1] = SH_CLK_DIV6_EXT(SD1CKCR, 8, 0,
+	[DIV6_SD1] = SH_CLK_DIV6_EXT(SD1CKCR, 0,
 			sd_parent, ARRAY_SIZE(sd_parent), 6, 2),
-	[DIV6_SD2] = SH_CLK_DIV6_EXT(SD2CKCR, 8, 0,
+	[DIV6_SD2] = SH_CLK_DIV6_EXT(SD2CKCR, 0,
 			sd_parent, ARRAY_SIZE(sd_parent), 6, 2),
-	[DIV6_VCK1] = SH_CLK_DIV6_EXT(VCLKCR1, 8, 0,
+	[DIV6_VCK1] = SH_CLK_DIV6_EXT(VCLKCR1, 0,
 			vclk_parent, ARRAY_SIZE(vclk_parent), 12, 3),
-	[DIV6_VCK2] = SH_CLK_DIV6_EXT(VCLKCR2, 8, 0,
+	[DIV6_VCK2] = SH_CLK_DIV6_EXT(VCLKCR2, 0,
 			vclk_parent, ARRAY_SIZE(vclk_parent), 12, 3),
-	[DIV6_VCK3] = SH_CLK_DIV6_EXT(VCLKCR3, 8, 0,
+	[DIV6_VCK3] = SH_CLK_DIV6_EXT(VCLKCR3, 0,
 			vclk_parent, ARRAY_SIZE(vclk_parent), 12, 3),
-	[DIV6_VCK4] = SH_CLK_DIV6_EXT(VCLKCR4, 8, 0,
+	[DIV6_VCK4] = SH_CLK_DIV6_EXT(VCLKCR4, 0,
 			vclk_parent, ARRAY_SIZE(vclk_parent), 12, 3),
-	[DIV6_VCK5] = SH_CLK_DIV6_EXT(VCLKCR5, 8, 0,
+	[DIV6_VCK5] = SH_CLK_DIV6_EXT(VCLKCR5, 0,
 			vclk_parent, ARRAY_SIZE(vclk_parent), 12, 3),
-	[DIV6_FSIA] = SH_CLK_DIV6_EXT(FSIACKCR, 8, 0,
+	[DIV6_FSIA] = SH_CLK_DIV6_EXT(FSIACKCR, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 6, 1),
-	[DIV6_FSIB] = SH_CLK_DIV6_EXT(FSIBCKCR, 8, 0,
+	[DIV6_FSIB] = SH_CLK_DIV6_EXT(FSIBCKCR, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 6, 1),
-	[DIV6_MP] = SH_CLK_DIV6_EXT(MPCKCR, 9, CLK_DIV_SHARED,
+	[DIV6_MP] = SH_CLK_DIV6_EXT(MPCKCR, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 6, 1),
-	[DIV6_SPUA] = SH_CLK_DIV6_EXT(SPUACKCR, 8, 0,
+	[DIV6_SPUA] = SH_CLK_DIV6_EXT(SPUACKCR, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 6, 1),
-	[DIV6_SPUV] = SH_CLK_DIV6_EXT(SPUVCKCR, 8, 0,
+	[DIV6_SPUV] = SH_CLK_DIV6_EXT(SPUVCKCR, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 6, 1),
-	[DIV6_SLIMB] = SH_CLK_DIV6_EXT(SLIMBCKCR, 8, 0,
+	[DIV6_SLIMB] = SH_CLK_DIV6_EXT(SLIMBCKCR, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 7, 1),
-	[DIV6_HSI] = SH_CLK_DIV6_EXT(HSICKCR, 8, 0,
+	[DIV6_HSI] = SH_CLK_DIV6_EXT(HSICKCR, 0,
 			hsi_parent, ARRAY_SIZE(hsi_parent), 6, 2),
-	[DIV6_DSIT] = SH_CLK_DIV6_EXT(DSITCKCR, 8, 0,
+	[DIV6_DSIT] = SH_CLK_DIV6_EXT(DSITCKCR, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 7, 1),
 	[DIV6_DSI0P] = SH_CLK_DIV6(&pll1_div2_clk, DSI0PCKCR, 0),
 	[DIV6_DSI1P] = SH_CLK_DIV6(&pll2_clk, DSI1PCKCR, 0),
@@ -488,7 +637,7 @@ static struct clk dsi0p0_cksel_clk = SH_CLK_CKSEL(DSI0PCKCR,
 static struct clk dsi0p0_clk = {
 	.parent = &dsi0p0_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = DSI0PCKCR,
+	.enable_reg = (void *__iomem)DSI0PCKCR,
 	.src_shift = 16,
 	.src_width = 6,
 };
@@ -502,7 +651,7 @@ static struct clk dsi0p1_cksel_clk = SH_CLK_CKSEL(DSI0PCKCR,
 static struct clk dsi0p1_clk = {
 	.parent = &dsi0p1_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = DSI0PCKCR,
+	.enable_reg = (void *__iomem)DSI0PCKCR,
 	.src_shift = 0,
 	.src_width = 6,
 };
@@ -524,7 +673,7 @@ static struct clk dsi1p0_cksel_clk = SH_CLK_CKSEL(DSI1PCKCR,
 static struct clk dsi1p0_clk = {
 	.parent = &dsi1p0_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = DSI1PCKCR,
+	.enable_reg = (void *__iomem)DSI1PCKCR,
 	.src_shift = 16,
 	.src_width = 6,
 };
@@ -538,7 +687,7 @@ static struct clk dsi1p1_cksel_clk = SH_CLK_CKSEL(DSI1PCKCR,
 static struct clk dsi1p1_clk = {
 	.parent = &dsi1p1_cksel_clk,
 	.ops = &div_clk_ops,
-	.enable_reg = DSI1PCKCR,
+	.enable_reg = (void *__iomem)DSI1PCKCR,
 	.src_shift = 0,
 	.src_width = 6,
 };
@@ -582,21 +731,32 @@ static struct clk *selmon1_parent[2] = {
 
 static struct clk dsi0p_clk = {
 	.ops = &selmon_clk_ops,
-	.enable_reg = DSI0PCKCR,
+	.enable_reg = (void *__iomem)DSI0PCKCR,
 	.enable_bit = 8,
 	.parent_table = selmon0_parent,
 	.src_shift = 27,
 	.src_width = 1,
 };
 
+static struct clk *dsi0p_clks[] = {
+	&dsi0p0_clk,
+	&dsi0p1_clk,
+	&dsi0p_clk,
+};
+
 static struct clk dsi1p_clk = {
-	.enable_reg = DSI1PCKCR,
+	.enable_reg = (void *__iomem)DSI1PCKCR,
 	.enable_bit = 8,
 	.parent_table = selmon1_parent,
 	.src_shift = 27,
 	.src_width = 1,
 };
 
+static struct clk *dsi1p_clks[] = {
+	&dsi1p0_clk,
+	&dsi1p1_clk,
+	&dsi1p_clk,
+};
 
 enum {
 	MSTP031, MSTP030, MSTP029, MSTP026,
@@ -634,19 +794,23 @@ enum {
 };
 
 #define MSTP(_reg, _bit, _parent, _flags) \
-	SH_CLK_MSTP32_EXT(_parent, SMSTPCR##_reg, MSTPSR##_reg, _bit, _flags)
+		SH_CLK_MSTP32(_parent, SMSTPCR##_reg, _bit, _flags)
 
 static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP031] = MSTP(0, 31, &div4_clks[DIV4_I], 0), /* RT-CPU TLB */
-	[MSTP030] = MSTP(0, 30, &div4_clks[DIV4_I], 0), /* RT-CPU Instruction Cache (IC) */
-	[MSTP029] = MSTP(0, 29, &div4_clks[DIV4_I], 0), /* RT-CPU Operand Cache (OC) */
+	/* RT-CPU Instruction Cache (IC) */
+	[MSTP030] = MSTP(0, 30, &div4_clks[DIV4_I], 0),
+	/* RT-CPU Operand Cache (OC) */
+	[MSTP029] = MSTP(0, 29, &div4_clks[DIV4_I], 0),
 	[MSTP026] = MSTP(0, 26, &div4_clks[DIV4_I], 0), /* RT-CPU X/Y memory */
 	[MSTP022] = MSTP(0, 22, &div4_clks[DIV4_HP], 0), /* INTC-RT */
 	[MSTP021] = MSTP(0, 21, &div4_clks[DIV4_ZS], 0), /* RT-DMAC */
 	[MSTP019] = MSTP(0, 19, &div4_clks[DIV4_HP], 0), /* H-UDI */
-	[MSTP018] = MSTP(0, 18, &div4_clks[DIV4_HP], 0), /* RT-CPU debug module 1 */
+	/* RT-CPU debug module 1 */
+	[MSTP018] = MSTP(0, 18, &div4_clks[DIV4_HP], 0),
 	[MSTP017] = MSTP(0, 17, &div4_clks[DIV4_ZS], 0), /* UBC */
-	[MSTP016] = MSTP(0, 16, &div4_clks[DIV4_HP], 0), /* RT-CPU debug module 2 */
+	/* RT-CPU debug module 2 */
+	[MSTP016] = MSTP(0, 16, &div4_clks[DIV4_HP], 0),
 	[MSTP015] = MSTP(0, 15, &div4_clks[DIV4_ZS], 0), /* ILRAM */
 	[MSTP007] = MSTP(0,  7, &div4_clks[DIV4_B], 0), /* ICB */
 	[MSTP001] = MSTP(0,  1, &div4_clks[DIV4_HP], 0), /* IIC2 */
@@ -733,9 +897,12 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP402] = MSTP(4,  2, &cp_clk, 0), /* RWDT0 */
 
 	[MSTP530] = MSTP(5, 30, &div4_clks[DIV4_HP], 0), /* Secure boot ROM */
-	[MSTP529] = MSTP(5, 29, &div4_clks[DIV4_HP], CLK_ENABLE_ON_INIT), /* Secure RAM */
-	[MSTP528] = MSTP(5, 28, &div4_clks[DIV4_HP], 0), /* Inter connect RAM1 */
-	[MSTP527] = MSTP(5, 27, &div4_clks[DIV4_HP], CLK_ENABLE_ON_INIT), /* Inter connect RAM0 */
+	/* Secure RAM */
+	[MSTP529] = MSTP(5, 29, &div4_clks[DIV4_HP], CLK_ENABLE_ON_INIT),
+	/* Inter connect RAM1 */
+	[MSTP528] = MSTP(5, 28, &div4_clks[DIV4_HP], 0),
+	/* Inter connect RAM0 */
+	[MSTP527] = MSTP(5, 27, &div4_clks[DIV4_HP], CLK_ENABLE_ON_INIT),
 	[MSTP526] = MSTP(5, 26, &div4_clks[DIV4_HP], 0), /* Public boot ROM */
 	[MSTP525] = MSTP(5, 25, &div4_clks[DIV4_HP], 0), /* IICB0 */
 	[MSTP524] = MSTP(5, 24, NULL, 0), /* SLIMBUS */
@@ -871,7 +1038,8 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("renesas_sdhi.0", &mstp_clks[MSTP314]), /* SDHI0 */
 	CLKDEV_DEV_ID("renesas_sdhi.1", &mstp_clks[MSTP313]), /* SDHI1 */
 	CLKDEV_DEV_ID("renesas_sdhi.2", &mstp_clks[MSTP312]), /* SDHI2 */
-	CLKDEV_DEV_ID("tpu-renesas-sh_mobile.0", &mstp_clks[MSTP304]), /* TPU0 */
+	/* TPU0 */
+	CLKDEV_DEV_ID("tpu-renesas-sh_mobile.0", &mstp_clks[MSTP304]),
 	CLKDEV_DEV_ID("i2c-sh_mobile.7", &mstp_clks[MSTP427]), /* IIC3H */
 	CLKDEV_DEV_ID("e682e000.i2c7", &mstp_clks[MSTP427]), /* IIC3H */
 	CLKDEV_DEV_ID("i2c-sh_mobile.6", &mstp_clks[MSTP426]), /* IIC2H */
@@ -884,8 +1052,10 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("i2c-sh_mobile.3", &mstp_clks[MSTP411]), /* IIC3 */
 	CLKDEV_DEV_ID("e6826000.i2c3", &mstp_clks[MSTP411]), /* IIC3 */
 	CLKDEV_DEV_ID("sh_keysc.0", &mstp_clks[MSTP403]), /* KEYSC */
-	CLKDEV_DEV_ID("pcm2pwm-renesas-sh_mobile.1", &mstp_clks[MSTP523]), /* PCM2PWM */
-	CLKDEV_DEV_ID("thermal_sensor.0", &mstp_clks[MSTP522]), /* Thermal Sensor */
+	/* PCM2PWM */
+	CLKDEV_DEV_ID("pcm2pwm-renesas-sh_mobile.1", &mstp_clks[MSTP523]),
+	/* Thermal Sensor */
+	CLKDEV_DEV_ID("thermal_sensor.0", &mstp_clks[MSTP522]),
 
 	/* DSI0P clocks */
 	CLKDEV_CON_ID("dsi0p_clk", &div6_clks[DIV6_DSI0P]),
@@ -902,8 +1072,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("r8a66597_hcd.0", &mstp_clks[MSTP322]),/* USBHS */
 #endif
 #ifdef CONFIG_USB_OTG
-	CLKDEV_DEV_ID("tusb1211_driver.0",\
-					&mstp_clks[MSTP322]),/*USBHS*/
+	CLKDEV_DEV_ID("tusb1211_driver.0", &mstp_clks[MSTP322]),/*USBHS*/
 #endif
 
 
@@ -985,7 +1154,7 @@ void __init r8a7373_clock_init(void)
 		ret = clk_register(main_clks[k]);
 
 	if (!ret)
-		ret = sh_clk_cksel_register(cksel_pll_clks, CKSEL_PLL_NR);
+		ret = r8a7373_clk_cksel_register(cksel_pll_clks, CKSEL_PLL_NR);
 
 	for (k = 0; !ret && (k < ARRAY_SIZE(pll_clks)); k++)
 		ret = clk_register(pll_clks[k]);
@@ -995,28 +1164,25 @@ void __init r8a7373_clock_init(void)
 	if (!ret)
 		ret = sh_clk_div6_reparent_register(div6_clks, DIV6_NR);
 	if (!ret)
-		ret = sh_clk_cksel_register(cksel_clks, CKSEL_NR);
+		ret = r8a7373_clk_cksel_register(cksel_clks, CKSEL_NR);
 	if (!ret)
-		ret = sh_clk_mstp32_register(mstp_clks, MSTP_NR);
+		ret = sh_clk_mstp_register(mstp_clks, MSTP_NR);
 
-/* DDR clock registration */
-	sh_clk_cksel_register(&ddr_clk, 1);
-	clk_register(&zb30_clk);
-	clk_register(&zb30d2_clk);
-	clk_register(&ddr_div2_clk);
-		clk_register(&ddr_div4_clk);
-	sh_clk_cksel_register(&zb30sl_clk, 1);
-	sh_clk_cksel_register(&dsi0p0_cksel_clk, 1);
-	sh_clk_cksel_register(&dsi0p1_cksel_clk, 1);
-	clk_register(&dsi0p0_clk);
-	clk_register(&dsi0p1_clk);
-	clk_register(&dsi0p_clk);
+	/* DDR clock registration */
+	r8a7373_clk_cksel_register(&ddr_clk, 1);
+	for (k = 0; !ret && (k < ARRAY_SIZE(ddr_clks)); k++)
+		ret = clk_register(ddr_clks[k]);
 
-	sh_clk_cksel_register(&dsi1p0_cksel_clk, 1);
-	sh_clk_cksel_register(&dsi1p1_cksel_clk, 1);
-	clk_register(&dsi1p0_clk);
-	clk_register(&dsi1p1_clk);
-	clk_register(&dsi1p_clk);
+	r8a7373_clk_cksel_register(&zb30sl_clk, 1);
+	r8a7373_clk_cksel_register(&dsi0p0_cksel_clk, 1);
+	r8a7373_clk_cksel_register(&dsi0p1_cksel_clk, 1);
+	for (k = 0; !ret && (k < ARRAY_SIZE(dsi0p_clks)); k++)
+		ret = clk_register(dsi0p_clks[k]);
+
+	r8a7373_clk_cksel_register(&dsi1p0_cksel_clk, 1);
+	r8a7373_clk_cksel_register(&dsi1p1_cksel_clk, 1);
+	for (k = 0; !ret && (k < ARRAY_SIZE(dsi1p_clks)); k++)
+		ret = clk_register(dsi1p_clks[k]);
 
 	for (k = 0; !ret && (k < ARRAY_SIZE(late_main_clks)); k++)
 		ret = clk_register(late_main_clks[k]);
