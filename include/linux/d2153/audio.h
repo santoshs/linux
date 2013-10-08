@@ -233,6 +233,8 @@ struct d2153_audio {
 	bool aad_codec_detect_enable;	/* d2153 detect configuration */
 	bool aad_gpio_detect_enable;	/* gpio detect configuration */
 	int aad_gpio_port;		/* gpio port for jack detect */
+	int debounce_ms;		/* debounce time in milli seconds */
+	u8 fm34_device;			/* usage of fm34 device */
 };
 
 int d2153_audio_hs_poweron(bool on);
@@ -249,7 +251,7 @@ int d2153_audio_hs_preamp_gain(enum d2153_preamp_gain_val hsgain_val);
 int d2153_audio_ihf_preamp_gain(enum d2153_preamp_gain_val ihfgain_val);
 int d2153_audio_enable_zcd(int enable);
 int d2153_audio_enable_vol_slew(int enable);
-int d2153_set_hs_noise_gate(u16 regval);		
+int d2153_set_hs_noise_gate(u16 regval);
 int d2153_set_ihf_noise_gate(u16 regval);
 int d2153_set_ihf_none_clip(u16 regval);
 int d2153_set_ihf_pwr(u8 regval);

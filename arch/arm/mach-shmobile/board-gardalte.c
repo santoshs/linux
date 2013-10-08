@@ -552,7 +552,7 @@ static void __init board_init(void)
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
-	u2audio_init(u2_board_rev);
+	u2audio_init();
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 
 	gpio_request(GPIO_PORT24, NULL);
