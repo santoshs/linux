@@ -41,7 +41,6 @@
 #include <linux/debug_locks.h>
 #include <linux/lockdep.h>
 #include <linux/idr.h>
-#include <memlog/memlog.h>
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 #include <mach/sec_debug.h>
 #endif
@@ -1872,7 +1871,6 @@ __acquires(&gcwq->lock)
 	lock_map_acquire_read(&cwq->wq->lockdep_map);
 	lock_map_acquire(&lockdep_map);
 	trace_workqueue_execute_start(work);
-	memory_log_worker((unsigned long)f, task_pid_nr(current), 1);
 
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 	sec_debug_work_log(worker, work, f, 1);
@@ -1886,7 +1884,6 @@ __acquires(&gcwq->lock)
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 	sec_debug_work_log(worker, work, f, 2);
 #endif
-	memory_log_worker((unsigned long)f, task_pid_nr(current), 0);
 	trace_workqueue_execute_end(work);
 	lock_map_release(&lockdep_map);
 	lock_map_release(&cwq->wq->lockdep_map);
