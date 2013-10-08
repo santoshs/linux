@@ -30,6 +30,8 @@
 #include <mach/memory-r8a7373.h>
 #include <linux/gpio.h>
 #include <linux/sched.h>
+#include <mach/setup-u2audio.h>
+#include <mach/setup-u2ion.h>
 #include <mach/setup-u2timers.h>
 #ifdef CONFIG_SH_RAMDUMP
 #include <mach/ramdump.h>
@@ -1540,4 +1542,17 @@ void __init r8a7373_init_early(void)
 #endif
 	/* override timer setup with soc-specific code */
 	shmobile_timer.init = u2_timers_init;
+}
+
+/*
+ * Common reserve for R8 A7373 - for memory carveouts
+ */
+void __init r8a7373_reserve(void)
+{
+	u2evm_ion_adjust();
+	u2vcd_reserve();
+
+#if defined(CONFIG_SEC_DEBUG)
+	sec_debug_magic_init();
+#endif
 }

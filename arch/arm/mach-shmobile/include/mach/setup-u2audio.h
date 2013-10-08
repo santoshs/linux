@@ -24,5 +24,6 @@
 #define	DEVICE_EXIST	1
 
 void u2audio_init(unsigned int u2_board_rev);
+void u2vcd_reserve(void);
 
 #endif /* __ASM_ARCH_SETUP_U2AUDIO_H */
