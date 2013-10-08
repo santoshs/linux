@@ -300,7 +300,8 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 {
 	struct i2c_sh_mobile_platform_data *pdata = pd->dev->platform_data;
 
-	if (pdata->pin_multi) {
+	/* TODO: no device-tree equivalent, what is this doing */
+	if (pdata && pdata->pin_multi) {
 		gpio_free(pdata->scl_info.port_num);
 		gpio_free(pdata->sda_info.port_num);
 		gpio_request(pdata->scl_info.port_func, NULL);
@@ -340,7 +341,8 @@ static void deactivate_ch(struct sh_mobile_i2c_data *pd)
 	clk_disable(pd->clk);
 	pm_runtime_put_sync(pd->dev);
 
-	if (pdata->pin_multi) {
+	/* TODO: no device-tree equivalent, what is this doing */
+	if (pdata && pdata->pin_multi) {
 		gpio_free(pdata->scl_info.port_func);
 		gpio_free(pdata->sda_info.port_func);
 		gpio_request(pdata->scl_info.port_num, NULL);
@@ -812,7 +814,8 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 		goto err_all;
 	}
 
-	if (pdata->pin_multi) {
+	/* TODO: no device-tree equivalent, what is this doing */
+	if (pdata && pdata->pin_multi) {
 		gpio_free(pdata->scl_info.port_func);
 		gpio_free(pdata->sda_info.port_func);
 		gpio_request(pdata->scl_info.port_num, NULL);
