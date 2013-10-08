@@ -655,6 +655,7 @@ static const char *logan_compat_dt[] __initdata = {
 };
 
 DT_MACHINE_START(U2_LOGANLTE, "LoganLTE")
+	.smp		= smp_ops(r8a7373_smp_ops),
 	.map_io		= r8a7373_map_io,
 	.init_early     = r8a7373_init_early,
 	.init_machine   = board_init,
@@ -664,6 +665,7 @@ DT_MACHINE_START(U2_LOGANLTE, "LoganLTE")
 MACHINE_END
 #else  /* CONFIG_OF */
 MACHINE_START(U2EVM, "u2evm")
+	.smp		= smp_ops(r8a7373_smp_ops),
 	.map_io		= r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,
 	.init_early     = r8a7373_init_early,

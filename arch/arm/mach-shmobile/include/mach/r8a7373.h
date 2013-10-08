@@ -521,6 +521,8 @@ extern void r8a7373_pm_add_subdomain(struct r8a7373_pm_domain *r8a7373_pd,
 #define r8a7373_pm_add_subdomain(pd, sd) do { } while (0)
 #endif /* CONFIG_PM */
 
+extern struct smp_operations r8a7373_smp_ops;
+
 #endif /* __ASSEMBLY__*/
 
 #define SMGP000_PMIC	SMGP000 /* for PMIC GPADC access from APE/Modem */
