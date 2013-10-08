@@ -471,6 +471,14 @@ config FLASH_MIC2871
 	---help---
  	    Adds MIC2871 LED Flash driver
 
+config FLASH_RT8547
+        bool "Enable RT8547 driver"
+        default n
+        ---help---
+            Adds RT8547 LED Flash driver
+		It enables Flash
+		Support for Flash Driver
+
 source "arch/arm/mach-shmobile/ramdefrag/Kconfig"
 
 config SHMOBILE_PASR_SUPPORT
