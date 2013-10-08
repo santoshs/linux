@@ -41,7 +41,7 @@
 		#interrupt-cells = <3>;
 	};
 
-	i2c0: i2c0@e6820000 {
+	i2c0: i2c@e6820000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "renesas,rmobile-iic";
@@ -51,7 +51,7 @@
 		clock-frequency = <400000>;
 	};
 
-	i2c1: i2c1@e6822000 {
+	i2c1: i2c@e6822000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "renesas,rmobile-iic";
@@ -61,7 +61,7 @@
 		clock-frequency = <400000>;
 	};
 
-	i2c2: i2c2@e6824000 {
+	i2c2: i2c@e6824000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "renesas,rmobile-iic";
@@ -71,7 +71,7 @@
 		clock-frequency = <400000>;
 	};
 
-	i2c3: i2c3@e6826000 {
+	i2c3: i2c@e6826000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "renesas,rmobile-iic";
@@ -81,7 +81,7 @@
 		clock-frequency = <400000>;
 	};
 
-	i2c4: i2c4@e6828000 {
+	i2c4: i2c@e6828000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "renesas,rmobile-iic";
@@ -94,7 +94,7 @@
 	};
 
 
-	i2c5: i2c5@e682a000 {
+	i2c5: i2c@e682a000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "renesas,rmobile-iic";
@@ -104,7 +104,7 @@
 		clock-frequency = <400000>;
 	};
 
-	i2c6: i2c6@e682c000 {
+	i2c6: i2c@e682c000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "renesas,rmobile-iic";
@@ -114,7 +114,7 @@
 		clock-frequency = <400000>;
 	};
 
-	i2c7: i2c7@e682e000 {
+	i2c7: i2c@e682e000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "renesas,rmobile-iic";
