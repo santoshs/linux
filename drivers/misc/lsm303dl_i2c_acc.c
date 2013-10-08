@@ -318,7 +318,7 @@ static int lsm303dl_acc_set_sensitivity(u8 val)
 	/*Save sensitivity level to global variable for further usage*/
 	lsm303dl_acc_info->sensitivity = val;
 
-	if (is_accel_interrupt_enabled()) {
+#ifdef ACCEL_INTERRUPT_ENABLED
 		/*INT1_THS_A*/
 		reg_value = thres_lsb_val[val];
 		ret = lsm303dl_acc_i2c_write(INT1_THS_A, &reg_value, 1);
@@ -326,7 +326,7 @@ static int lsm303dl_acc_set_sensitivity(u8 val)
 			printk("Cannot configure for INT1_THS_A reg\n");
 			return ret;
 		}
-	}
+#endif
 
 	return 0;
 }
@@ -634,8 +634,8 @@ static void lsm303dl_acc_irq_work_func(struct work_struct *work)
  ***************************************************************************/
 int lsm303dl_acc_power_on_off(bool flag)
 {
-if (is_runtime_pm_up()) {
 
+#ifdef RUNTIME_PM
 	if (!accm_regltr_3v) {
 		printk("Error: accm_regltr_3v is unavailable\n");
 		return -1;
@@ -648,7 +648,7 @@ if (is_runtime_pm_up()) {
 		lsm303dl_log("\n LDO off %s ", __func__);
 		regulator_disable(accm_regltr_3v);
 	}
-}
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(lsm303dl_acc_power_on_off);
@@ -663,8 +663,7 @@ EXPORT_SYMBOL(lsm303dl_acc_power_on_off);
  ****************************************************************************/
 int lsm303dl_acc_cs_power_on_off(bool flag)
 {
-if (is_runtime_pm_up()) {
-
+#ifdef RUNTIME_PM
 	if (!accm_regltr_18v) {
 		printk("Error: accm_regltr_18v is unavailable\n");
 		return -1;
@@ -677,7 +676,7 @@ if (is_runtime_pm_up()) {
 		lsm303dl_log("\n LDO on %s ", __func__);
 		regulator_disable(accm_regltr_18v);
 	}
-}
+#endif
 	return 0;
 }
 
@@ -730,8 +729,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 
 	lsm303dl_log("lsm303dl_acc_i2c_probe is called\n");
 
-	if (is_runtime_pm_up()) {
-
+#ifdef RUNTIME_PM
 	lsm303dl_log("%s: Accelrometer - Setting up regulators\n", __func__);
 	accm_regltr_18v = regulator_get(NULL, "sensor_acc_18v");
 	if (IS_ERR_OR_NULL(accm_regltr_18v)) {
@@ -748,10 +746,10 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 	regulator_set_voltage(accm_regltr_3v, 3000000, 3000000);
 	regulator_enable(accm_regltr_18v);
 	regulator_enable(accm_regltr_3v);
+#endif
+/* PM runtime regulator setup*/
 
-	} /* PM runtime regulator setup*/
-
-	if (is_accel_interrupt_enabled()) {
+# ifdef ACCEL_INTERRUPT_ENABLED
 	/* Hard-coded GPIO removal for accelerometer */
 	pinfo = client->dev.platform_data;
 	lsm303dl_log("lsm303dl_acc_i2c_probe::GPIO PORT = %x\n", \
@@ -772,7 +770,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 		ret = -ENOTSUPP;
 		goto handle_gpio;
 	}
-	}
+#endif
 
 	/*Check functionalities of I2C adapter*/
 	ret = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
@@ -825,7 +823,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 		goto hw_init_err;
 	}
 
-	if (is_accel_interrupt_enabled()) {
+#ifdef ACCEL_INTERRUPT_ENABLED
 		reg_default[0] = 0x00; /*CTRL_REG2_A*/
 		reg_default[1] = 0x10; /*CTRL_REG3_A*/
 		reg_default[2] = 0x80; /*CTRL_REG4_A*/
@@ -857,7 +855,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 			ret = -EIO;
 			goto hw_init_err;
 		}
-	}
+#endif
 
 	/*Initialize Accelerometer default setting*/
 	ret = lsm303dl_acc_hw_init((u8 *)&lsm303dl_acc_setting_default[0]);
@@ -868,7 +866,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 		goto hw_init_err;
 	}
 
-	if (is_accel_interrupt_enabled()) {
+#ifdef ACCEL_INTERRUPT_ENABLED
 
 		/*Create work queue for handling bottom-half interrupt*/
 		lsm303dl_acc_info->irq1_workqueue = \
@@ -893,7 +891,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 			goto req_irq_err;
 		}
 		lsm303dl_acc_info->irq1 = client->irq;
-	}
+#endif
 
 	/*Change to standby mode*/
 	lsm303dl_acc_power_status(ACC_STANDBY);
@@ -914,8 +912,7 @@ hw_init_err:
 	kfree(lsm303dl_acc_info);
 	lsm303dl_acc_info = NULL;
 
-	if (is_runtime_pm_up()) {
-
+#ifdef RUNTIME_PM
 	if (accm_regltr_18v) {
 		lsm303dl_acc_cs_power_on_off(false);
 		regulator_put(accm_regltr_18v);
@@ -924,8 +921,7 @@ hw_init_err:
 		lsm303dl_acc_power_on_off(false);
 		regulator_put(accm_regltr_3v);
 	}
-
-	}
+#endif
 
 	return ret;
 }
@@ -939,17 +935,15 @@ hw_init_err:
  *************************************************************************/
 static int lsm303dl_acc_i2c_remove(struct i2c_client *client)
 {
-	if (is_accel_interrupt_enabled()) {
+#ifdef ACCEL_INTERRUPT_ENABLED
 		destroy_workqueue(lsm303dl_acc_info->irq1_workqueue);
 		free_irq(lsm303dl_acc_info->irq1, lsm303dl_acc_info);
-	}
-
+#endif
 	wake_lock_destroy(&lsm303dl_acc_info->wakelock);
 	kfree(lsm303dl_acc_info);
 	lsm303dl_acc_info = NULL;
 
-	if (is_runtime_pm_up()) {
-
+#ifdef RUNTIME_PM
 	if (accm_regltr_18v) {
 		lsm303dl_acc_cs_power_on_off(false);
 		regulator_put(accm_regltr_18v);
@@ -958,9 +952,7 @@ static int lsm303dl_acc_i2c_remove(struct i2c_client *client)
 		lsm303dl_acc_power_on_off(false);
 		regulator_put(accm_regltr_3v);
 	}
-
-	}
-
+#endif
 	return 0;
 }
 
@@ -1022,10 +1014,10 @@ handle_error:
 	/*Remove accelerometer driver from I2C core*/
 	i2c_del_driver(&acc_driver);
 
-	if (is_accel_interrupt_enabled()) {
+#ifdef ACCEL_INTERRUPT_ENABLED
 		/* Hard-coded GPIO removal for accelerometer */
 		gpio_free(pinfo->lsm303dl_acc_port);
-	}
+#endif
 	return ret;
 }
 
@@ -1045,10 +1037,10 @@ static void __exit lsm303dl_acc_exit(void)
 	if (acc_client != NULL)
 		i2c_unregister_device(acc_client);
 
-	if (is_accel_interrupt_enabled()) {
+#ifdef ACCEL_INTERRUPT_ENABLED
 		/* Hard-coded GPIO removal for accelerometer */
 		gpio_free(pinfo->lsm303dl_acc_port);
-	}
+#endif
 
 }
 

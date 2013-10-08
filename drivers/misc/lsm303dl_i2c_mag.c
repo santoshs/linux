@@ -430,7 +430,7 @@ int lsm303dl_mag_get_data(s16 *data)
 	hw_data[2] = (hw_data[2] & 0x8000) ? (hw_data[2] | 0xFFFF0000) \
 								: (hw_data[2]);
 
-	if (is_hard_iron_calibration()) {
+#ifdef MAG_HARD_IRON_CALIBRATION
 	/* Hard iron Calibration */
 	m.x = hw_data[0];
 	m.y = hw_data[1];
@@ -455,7 +455,7 @@ int lsm303dl_mag_get_data(s16 *data)
 	hw_data[1] = m.y - d_y;
 	hw_data[2] = m.z - d_z;
 	/* LSM303DLHC_HARD_IRON_CALIB_ENABLE */
-	}
+#endif
 
 	/*Adjust x-axis value based on sensitivity*/
 	if (hw_data[0] != 0xF000)
@@ -494,8 +494,7 @@ EXPORT_SYMBOL(lsm303dl_mag_get_data);
 int lsm303dl_mag_power_on_off(bool flag)
 {
 
-if (is_runtime_pm_up()) {
-
+#ifdef RUNTIME_PM
 	if (!mag_regltr_3v) {
 		printk("Error: mag_regltr_3v is unavailable\n");
 		return -1;
@@ -508,7 +507,7 @@ if (is_runtime_pm_up()) {
 		lsm303dl_log("\n LDO off %s ", __func__);
 		regulator_disable(mag_regltr_3v);
 	}
-}
+#endif
 
 	return 0;
 }
@@ -524,7 +523,7 @@ EXPORT_SYMBOL(lsm303dl_mag_power_on_off);
 int lsm303dl_mag_cs_power_on_off(bool flag)
 {
 
-if (is_runtime_pm_up()) {
+#ifdef RUNTIME_PM
 
 	if (!mag_regltr_18v) {
 		printk("Error: mag_regltr_18v is unavailable\n");
@@ -538,7 +537,7 @@ if (is_runtime_pm_up()) {
 		lsm303dl_log("\n LDO off %s ", __func__);
 		regulator_disable(mag_regltr_18v);
 	}
-}
+#endif
 
 	return 0;
 }
@@ -585,7 +584,7 @@ static int lsm303dl_mag_i2c_probe(struct i2c_client *client,
 
 	lsm303dl_log("lsm303dl_mag_i2c_probe is called\n");
 
-	if (is_runtime_pm_up()) {
+#ifdef RUNTIME_PM
 
 	lsm303dl_log("%s: Magnetometer setting up regulator supplies\n", __func__);
 	mag_regltr_18v = regulator_get(NULL, "sensor_mag_18v");
@@ -602,8 +601,8 @@ static int lsm303dl_mag_i2c_probe(struct i2c_client *client,
 	}
 	regulator_set_voltage(mag_regltr_3v, 3000000, 3000000);
 	regulator_enable(mag_regltr_3v);
-
-	} /* Runtime PM regulator setup */
+#endif
+/* Runtime PM regulator setup */
 
 
 	/*Check functionalities of I2C adapter*/
@@ -659,7 +658,7 @@ hw_init_err:
 	kfree(lsm303dl_mag_info);
 	lsm303dl_mag_info = NULL;
 
-	if (is_runtime_pm_up()) {
+#ifdef RUNTIME_PM
 
 	if (mag_regltr_18v) {
 		lsm303dl_mag_cs_power_on_off(false);
@@ -669,8 +668,7 @@ hw_init_err:
 		lsm303dl_mag_power_on_off(false);
 		regulator_put(mag_regltr_3v);
 	}
-
-	}
+#endif
 
 	return ret;
 }
@@ -690,8 +688,7 @@ static int lsm303dl_mag_i2c_remove(struct i2c_client *client)
 	kfree(lsm303dl_mag_info);
 	lsm303dl_mag_info = NULL;
 
-	if (is_runtime_pm_up()) {
-
+#ifdef RUNTIME_PM
 	if (mag_regltr_18v) {
 		lsm303dl_mag_cs_power_on_off(false);
 		regulator_put(mag_regltr_18v);
@@ -700,8 +697,7 @@ static int lsm303dl_mag_i2c_remove(struct i2c_client *client)
 		lsm303dl_mag_power_on_off(false);
 		regulator_put(mag_regltr_3v);
 	}
-
-	}
+#endif
 
 	return 0;
 }

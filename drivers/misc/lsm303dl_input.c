@@ -95,10 +95,12 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 
 	/*Activate/Deactivate Accelerometer*/
 	case IOCTL_ACC_ENABLE:
-		if (is_accel_interrupt_enabled())
-			lsm303dl_log("Interrupt mechanism is used in accelerometer\n");
-		else
-			lsm303dl_log("Polling mechanism is used in accelerometer\n");
+
+#ifdef ACCEL_INTERRUPT_ENABLED
+		lsm303dl_log("Interrupt mechanism is used in accelerometer\n");
+#else
+		lsm303dl_log("Polling mechanism is used in accelerometer\n");
+#endif
 
 		activate_acc = atomic_read(&lsm303dl_info->acc_enable);
 
@@ -497,10 +499,12 @@ static void lsm303dl_work_func(struct work_struct *work)
 	}
 
 	/*Polling mechanism is used in Accelerometer*/
-	if ((!is_accel_interrupt_enabled()) && (ACC_ENABLE == activate_acc)) {
+#ifndef ACCEL_INTERRUPT_ENABLED
+	if (ACC_ENABLE == activate_acc) {
 		/*Read accelerometer values and report them to HAL*/
 		lsm303dl_acc_report_values();
 	}
+#endif
 
 	if (MAG_ENABLE == activate_mag) {
 		/*Read magnetometer values and report them to HAL*/

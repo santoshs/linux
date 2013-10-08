@@ -472,6 +472,11 @@ config SENSOR_L3GD20
 	depends on I2C
 	default n
 
+config SENSOR_OPTICAL_TAOS_TMD2771
+        tristate "TAOS ambient proximity input device without light sensor"
+	depends on I2C
+        default n
+
 config SENSORS_MAG_15BIT
 	tristate "15bit Magnetic Sensor Driver Support"
          depends on I2C

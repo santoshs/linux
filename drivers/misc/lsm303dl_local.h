@@ -139,9 +139,9 @@
 #define LSM303DL_MAG_NAME			"lsm303dl_mag"
 
 /*interrupt enable_flag*/
-#define is_accel_interrupt_enabled()		0
-#define is_hard_iron_calibration()		1
-#define is_runtime_pm_up()			0
+#define ACCEL_INTERRUPT_ENABLED			0
+#define MAG_HARD_IRON_CALIBRATION		1
+#define RUNTIME_PM				0
 
 /************************************************
 *	Exported function definition section	*

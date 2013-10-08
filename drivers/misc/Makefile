@@ -57,6 +57,7 @@ obj-$(CONFIG_SENSOR_LSM303DL)	+= lsm303dl_input.o
 obj-$(CONFIG_SENSOR_LSM303DL)	+= lsm303dl_i2c_acc.o
 obj-$(CONFIG_SENSOR_LSM303DL)   += lsm303dl_i2c_mag.o
 obj-$(CONFIG_SENSOR_L3GD20)	+= l3gd20.o
+obj-$(CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)	+= tmd2771.o
 obj-$(CONFIG_SENSORS_ATSN01P)	+= atsn01p.o
 obj-$(CONFIG_USB_SWITCH_FSA9485) += fsa9485.o
 obj-$(CONFIG_OPTICAL_TAOS_TRITON)	+= taos.o

@@ -544,11 +544,9 @@ static void __init board_init(void)
 	i2c_register_board_info(0, i2c0_devices_d2153,
 					ARRAY_SIZE(i2c0_devices_d2153));
 
-#if defined(CONFIG_SAMSUNG_SENSOR)
+#if defined (CONFIG_AMETHYST_SENSOR)
 	board_sensor_init();
 #endif
-
-	amethyst_board_sensor_init();
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
