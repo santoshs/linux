@@ -4713,7 +4713,7 @@ static int cyttsp4_core_probe(struct cyttsp4_core *core)
 	spin_lock_init(&cd->spinlock);
 	cd->dev = dev;
 	cd->pdata = pdata;
-	cd->irq = gpio_to_irq(pdata->irq_gpio);
+	cd->irq = (pdata->irq_gpio);
 	cd->irq_enabled = true;
 	dev_set_drvdata(dev, cd);
 	if (cd->irq < 0) {

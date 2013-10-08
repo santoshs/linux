@@ -67,7 +67,7 @@ static struct cyttsp4_touch_firmware cyttsp4_firmware = {
 //#define CYTTSP4_I2C_RST_GPIO 14
 #endif
 
-#if defined(CONFIG_MACH_WILCOX_EUR_LTE)
+#if defined(CONFIG_MACH_WILCOX_EUR_LTE) || defined(CONFIG_MACH_WILCOXLTE)
 #define CY_MAXX 540
 #define CY_MAXY 960
 #else
