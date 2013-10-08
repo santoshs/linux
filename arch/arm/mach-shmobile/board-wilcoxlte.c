@@ -508,6 +508,10 @@ static void __init board_init(void)
 	gpio_direction_input(GPIO_PORT32);
 	gpio_pull_up_port(GPIO_PORT32);
 
+	/* BACKLIGHT */
+	gpio_request(GPIO_PORT47, NULL);
+	gpio_direction_output(GPIO_PORT47, 0);
+
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)

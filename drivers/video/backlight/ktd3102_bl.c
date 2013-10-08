@@ -40,7 +40,7 @@
 #include <linux/lcd.h>
 
 int current_intensity;
-static int backlight_pin = 47;
+static int backlight_pin;
 //static int backlight_pwm = 144;
 
 static DEFINE_SPINLOCK(bl_ctrl_lock);
@@ -480,7 +480,7 @@ static int ktd_backlight_probe(struct platform_device *pdev)
 		goto err_alloc;
 	}
 
-	ktd->ctrl_pin = data->ctrl_pin;
+	backlight_pin = data->ctrl_pin;
     
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = data->max_brightness;
