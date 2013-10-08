@@ -714,6 +714,7 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	struct device_node *np = dev->dev.of_node;
 	int size;
 	int ret;
+	u32 bus_data_delay = 0;
 
 	pd = kzalloc(sizeof(struct sh_mobile_i2c_data), GFP_KERNEL);
 	if (pd == NULL) {
@@ -755,22 +756,36 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 
 	/* Use platform data bus speed or STANDARD_MODE */
 	pd->bus_speed = STANDARD_MODE;
-	if (pdata && pdata->bus_speed)
-		pd->bus_speed = pdata->bus_speed;
-	else {
-		unsigned long bus_speed = 0;
+	if (pdata) {
+		if (pdata->bus_speed)
+			pd->bus_speed = pdata->bus_speed;
+	} else {
+		u32 bus_speed = 0;
 		if (!of_property_read_u32(np, "clock-frequency", &bus_speed))
 			pd->bus_speed = bus_speed;
 	}
 
 	pd->clks_per_count = 1;
-	if (pdata && pdata->clks_per_count)
-		pd->clks_per_count = pdata->clks_per_count;
-	if (pdata && (pdata->bus_data_delay <= MAX_SDA_DELAY))
-		pd->bus_data_delay = pdata->bus_data_delay <<
-							SHIFT_3BITS_SDA_DELAY;
+	if (pdata) {
+		if (pdata->clks_per_count)
+			pd->clks_per_count = pdata->clks_per_count;
+	} else {
+		u32 clks_per_count = 0;
+		if (!of_property_read_u32(np, "renesas,clks-per-count", &clks_per_count))
+			pd->clks_per_count = clks_per_count;
+	}
+
+	if (pdata) {
+		bus_data_delay = pdata->bus_data_delay;
+	} else {
+		of_property_read_u32(np, "renesas,bus-data-delay", &bus_data_delay);
+	}
+
+	if (bus_data_delay >= MIN_SDA_DELAY && bus_data_delay <= MAX_SDA_DELAY)
+		pd->bus_data_delay = bus_data_delay << SHIFT_3BITS_SDA_DELAY;
 	else
 		pd->bus_data_delay = MIN_SDA_DELAY;
+
 	/* The IIC blocks on SH-Mobile ARM processors
 	 * come with two new bits in ICIC.
 	 */

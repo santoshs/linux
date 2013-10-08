@@ -89,6 +89,8 @@
 		interrupt-parent = <&gic>;
 		interrupts = <0 188 0x4>;
 		clock-frequency = <400000>;
+		renesas,bus-data-delay = <17>;
+		renesas,clks-per-count = <2>;
 	};
 
 
