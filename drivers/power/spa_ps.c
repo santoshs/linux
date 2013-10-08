@@ -122,7 +122,7 @@ static int spa_batt_get_property(struct power_supply *batt, enum power_supply_pr
 
 					}
 
-#elif CONFIG_BATTERY_D2153
+#elif defined CONFIG_BATTERY_D2153
 						propval->intval = d2153_battery_read_status(D2153_BATTERY_VOLTAGE_NOW) * 1000;
 						if(propval->intval < 0)
 							propval->intval = spa_ps_iter->state.voltage * 1000;
