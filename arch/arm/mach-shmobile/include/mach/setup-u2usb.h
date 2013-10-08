@@ -30,11 +30,20 @@
 #define USB_SPRD		0x0002
 #define USB_SPADDR		IO_ADDRESS(HSUSB_BASE_PHYS + 0x0138)
 
+#define MUIC_IS_PRESENT		muic_is_present()
+
+#define TUSB1211_POWER_CONTROL_REG			0x3D
+#define TUSB_VENDOR_SPECIFIC1				0x80
+#define TUSB_VENDOR_SPECIFIC3				0x85
+#define TUSB_VENDOR_SPECIFIC4				0x88
+#define TUSB_DEBUG_REG					0x15
+
 extern struct platform_device tusb1211_device;
 extern struct platform_device usb_host_device;
 extern struct platform_device usbhs_func_device;
 extern struct platform_device usbhs_func_device_d2153;
 
+extern unsigned int muic_is_present(void);
 extern void __init USBGpio_init(void);
 
 #endif /* __ASM_ARCH_U2USB_H */
