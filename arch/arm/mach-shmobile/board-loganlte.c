@@ -112,6 +112,7 @@
 #endif
 
 #include <mach/sbsc.h>
+#include <linux/pinctrl/machine.h>
 
 static int unused_gpios_logan_rev1[] = {
 				GPIO_PORT4, GPIO_PORT27, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
@@ -330,6 +331,12 @@ void board_restart(char mode, const char *cmd)
 	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
 
+static const struct pinctrl_map loganlte_pinctrl_map[] = {
+	PIN_MAP_MUX_GROUP_DEFAULT("i2c.7", "pfc-r8a7373",
+				  "i2c7_data", "i2c7"),
+};
+
+
 static void __init board_init(void)
 {
 	int stm_select = -1;    // Shall tell how to route STM traces. See setup-u2stm.c for details.
@@ -366,6 +373,8 @@ static void __init board_init(void)
 			iounmap(sbsc_sdmra_38200);
 	}
 	r8a7373_avoid_a2slpowerdown_afterL2sync();
+	pinctrl_register_mappings(loganlte_pinctrl_map,
+				  ARRAY_SIZE(loganlte_pinctrl_map));
 	r8a7373_pinmux_init();
 
 	/* set board version */

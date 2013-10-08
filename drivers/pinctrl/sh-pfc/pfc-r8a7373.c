@@ -398,7 +398,6 @@ enum {
 	F1(SDHICLK0), F3(STMCLK_1),
 	F1(SDHICD0), IRQ(50),
 
-#if 0
 	/* MSEL3 special cases */
 	SDHI_IO_POWER_OFF_MARK,
 	SDHI_IO_POWER_ON_MARK,
@@ -427,7 +426,6 @@ enum {
 	RESETA_DISABLE_PU_MARK,
 	ASEBRK_PD_MARK,
 	ASEBRK_PU_MARK,
-#endif
 	PINMUX_MARK_END,
 };
 
@@ -1124,7 +1122,6 @@ static pinmux_enum_t pinmux_data[] = {
 	PINMUX_DATA(SDHICD0_MARK, PORT327_FN1),
 	PINMUX_DATA(IRQ50_MARK, PORT327_FN0),
 
-#if 0
 	/* MSEL3 special cases */
 	PINMUX_DATA(SDHI_IO_POWER_OFF_MARK, MSEL3CR_MSEL28_0),
 	PINMUX_DATA(SDHI_IO_POWER_ON_MARK, MSEL3CR_MSEL28_1),
@@ -1153,7 +1150,6 @@ static pinmux_enum_t pinmux_data[] = {
 	PINMUX_DATA(RESETA_DISABLE_PU_MARK, MSEL4CR_MSEL4_1),
 	PINMUX_DATA(ASEBRK_PD_MARK, MSEL4CR_MSEL1_0),
 	PINMUX_DATA(ASEBRK_PU_MARK, MSEL4CR_MSEL1_1),
-#endif
 };
 
 #define R8A7373_PIN(pin, cfgs)			\
@@ -1164,11 +1160,19 @@ static pinmux_enum_t pinmux_data[] = {
 	}
 
 #define __O		(SH_PFC_PIN_CFG_OUTPUT)
+#define __I		(SH_PFC_PIN_CFG_INPUT)
+#define __PU		(SH_PFC_PIN_CFG_PULL_UP)
+#define __PD		(SH_PFC_PIN_CFG_PULL_DOWN)
 #define __IO		(SH_PFC_PIN_CFG_INPUT | SH_PFC_PIN_CFG_OUTPUT)
 #define __PUD		(SH_PFC_PIN_CFG_PULL_DOWN | SH_PFC_PIN_CFG_PULL_UP)
 
-#define R8A7373_PIN_IO_PU_PD(pin)	R8A7373_PIN(pin, __IO | __PUD)
 #define R8A7373_PIN_O(pin)		R8A7373_PIN(pin, __O)
+#define R8A7373_PIN_I(pin)		R8A7373_PIN(pin, __O)
+#define R8A7373_PIN_I_PU(pin)		R8A7373_PIN(pin, __I | __PU)
+#define R8A7373_PIN_O_PU(pin)		R8A7373_PIN(pin, __O | __PU)
+#define R8A7373_PIN_I_PD(pin)		R8A7373_PIN(pin, __I | __PD)
+#define R8A7373_PIN_O_PD(pin)		R8A7373_PIN(pin, __O | __PD)
+#define R8A7373_PIN_IO_PU_PD(pin)	R8A7373_PIN(pin, __IO | __PUD)
 
 static struct sh_pfc_pin pinmux_pins[] = {
 	R8A7373_PIN_IO_PU_PD(0),
@@ -1500,6 +1504,15 @@ static const unsigned int scifa0_ctrl_pins[] = {
 static const unsigned int scifa0_ctrl_mux[] = {
 	SCIFA0_RTS__MARK, SCIFA0_CTS__MARK,
 };
+/* - I2C-7 ------------------------------------------------------------*/
+static const unsigned int i2c7_data_pins[] = {
+	/* I2C_SCL3H, I2C_SDA3H */
+	273, 274,
+};
+
+static const unsigned int i2c7_data_mux[] = {
+	I2C_SCL3H_MARK, I2C_SDA3H_MARK,
+};
 /* -------------------------------------------------------------------- */
 static const struct sh_pfc_pin_group pinmux_groups[] = {
 	SH_PFC_PIN_GROUP(irqc_irq0),
@@ -1569,6 +1582,7 @@ static const struct sh_pfc_pin_group pinmux_groups[] = {
 	SH_PFC_PIN_GROUP(scifa0_data),
 	SH_PFC_PIN_GROUP(scifa0_clk),
 	SH_PFC_PIN_GROUP(scifa0_ctrl),
+	SH_PFC_PIN_GROUP(i2c7_data),
 };
 
 static const char * const irqc_groups[] = {
@@ -1644,9 +1658,14 @@ static const char * const scifa0_groups[] = {
 	"scifa0_ctrl",
 };
 
+static const char * const i2c7_groups[] = {
+	"i2c7_data"
+};
+
 static const struct sh_pfc_function pinmux_functions[] = {
 	SH_PFC_FUNCTION(irqc),
 	SH_PFC_FUNCTION(scifa0),
+	SH_PFC_FUNCTION(i2c7),
 };
 
 #define PINMUX_FN_BASE  GPIO_FN_LCDD0

@@ -326,7 +326,7 @@ enum {
 	GPIO_FN_SDHIWP0,
 	GPIO_FN_SDHICLK0, GPIO_FN_STMCLK_1,
 	GPIO_FN_SDHICD0, GPIO_FN_IRQ50,
-#if 0
+
 	/* MSEL3 special case */
 	GPIO_FN_SDHI_IO_POWER_OFF,
 	GPIO_FN_SDHI_IO_POWER_ON,
@@ -355,7 +355,6 @@ enum {
 	GPIO_FN_RESETA_DISABLE_PU,
 	GPIO_FN_ASEBRK_PD,
 	GPIO_FN_ASEBRK_PU,
-#endif
 };
 
 extern int r8a7373_irqc_set_debounce(int irq, unsigned debounce);
