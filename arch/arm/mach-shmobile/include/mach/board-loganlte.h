@@ -68,4 +68,11 @@
 #define ION_HEAP_VIDEO_ADDR	0x4AE00000
 #endif
 
+#ifdef CONFIG_MFD_D2153
+#include <linux/d2153/pmic.h>
+#include <linux/d2153/core.h>
+extern struct d2153_regl_init_data
+	      d2153_regulators_init_data[D2153_NUMBER_OF_REGULATORS];
+extern struct d2153_regl_map regl_map[D2153_NUMBER_OF_REGULATORS];
+#endif
 #endif // __ASM_ARCH_BOARD_H

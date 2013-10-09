@@ -137,6 +137,9 @@ obj-y						+= gpio.o
 
 # setup-d2153
 obj-$(CONFIG_MFD_D2153)	+= setup-d2153.o
+ifeq ($(CONFIG_REGULATOR_D2153),y)
+obj-$(CONFIG_MACH_LOGANLTE) += loganlte-ldoconfig.o
+endif
 
 #setup-audio
 obj-$(CONFIG_SND_SOC_SH4_FSI)	+= setup-u2audio.o

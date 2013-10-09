@@ -245,6 +245,48 @@ struct fm34_platform_data fm34_data = {
 	.gpio_bp = GPIO_PORT46,
 };
 
+/* D2153 setup */
+#ifdef CONFIG_MFD_D2153
+struct d2153_battery_platform_data pbat_pdata = {
+	.battery_technology = POWER_SUPPLY_TECHNOLOGY_LION,
+	.battery_capacity = BAT_CAPACITY_1800MA,
+	.vf_lower = 250,
+	.vf_upper = 510,
+};
+
+struct d2153_platform_data d2153_pdata = {
+	.pbat_platform  = &pbat_pdata,
+	.regulator_data = d2153_regulators_init_data,
+	.regl_map = regl_map,
+};
+#define LDO_CONSTRAINTS(__id)					\
+	(d2153_pdata.regulator_data[__id].initdata->constraints)
+
+#define SET_LDO_ALWAYS_ON(__id) (LDO_CONSTRAINTS(__id).always_on = 1)
+
+#define SET_LDO_BOOT_ON(__id) (LDO_CONSTRAINTS(__id).boot_on = 1)
+
+#define SET_LDO_APPLY_UV(__id) (LDO_CONSTRAINTS(__id).apply_uV = true)
+
+static void __init d2153_init_board_defaults(void)
+{
+	SET_LDO_ALWAYS_ON(D2153_BUCK_1); /* VCORE */
+	SET_LDO_ALWAYS_ON(D2153_BUCK_2); /* VIO2 */
+	SET_LDO_ALWAYS_ON(D2153_BUCK_3); /* VIO1 */
+	SET_LDO_ALWAYS_ON(D2153_BUCK_4); /* VCORE_RF */
+	SET_LDO_ALWAYS_ON(D2153_BUCK_5); /* VANA1_RF */
+	SET_LDO_ALWAYS_ON(D2153_BUCK_6); /* VPAM */
+
+	/* VMMC */
+	SET_LDO_ALWAYS_ON(D2153_LDO_3);
+	SET_LDO_APPLY_UV(D2153_LDO_3);
+
+	/* VDD_MOTOR */
+	SET_LDO_APPLY_UV(D2153_LDO_16);
+}
+
+#endif
+
 /* I2C */
 static struct i2c_board_info __initdata i2c0_devices_d2153[] = {
 #if defined(CONFIG_MFD_D2153)
@@ -620,6 +662,7 @@ static void __init board_init(void)
 	board_edid_init();
 #endif
 
+	d2153_init_board_defaults();
 	i2c_register_board_info(0, i2c0_devices_d2153,
 					ARRAY_SIZE(i2c0_devices_d2153));
 /* GPS Init */

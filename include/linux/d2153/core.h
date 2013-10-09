@@ -185,7 +185,7 @@ struct d2153_platform_data {
 	struct d2153_hwmon_platform_data *hwmon_pdata;
 	struct d2153_battery_platform_data *pbat_platform;
 
-	struct d2153_regl_map regl_map[D2153_NUMBER_OF_REGULATORS];
+	struct d2153_regl_map *regl_map;
 
 	struct d2153_audio audio;
 };
