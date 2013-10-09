@@ -100,9 +100,8 @@ static inline int sr030pc50_read(struct i2c_client *client,
 }
 
 static inline int sr030pc50_write(struct i2c_client *client,
-						unsigned short packet)
+						unsigned char packet[])
 {
-	unsigned char buf[2];
 
 	int err = 0;
 	int retry_count = 5;
@@ -110,7 +109,7 @@ static inline int sr030pc50_write(struct i2c_client *client,
 	struct i2c_msg msg = {
 		.addr   = client->addr,
 		.flags  = 0,
-		.buf    = buf,
+		.buf    = (char *)packet,
 		.len    = 2,
 	};
 
@@ -122,8 +121,6 @@ static inline int sr030pc50_write(struct i2c_client *client,
 
 	while (retry_count--) {
 		/**(unsigned short *)buf = cpu_to_be16(packet);*/
-		buf[0] = (unsigned char)(packet >> 8) & 0xFF;
-		buf[1] = (unsigned char)(packet >> 0);
 		err = i2c_transfer(client->adapter, &msg, 1);
 		if (likely(err == 1))
 			break;
@@ -289,9 +286,12 @@ static int SR030PC50_g_chip_ident(struct v4l2_subdev *sd,
 	/* check i2c device */
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	unsigned char rcv_buf[1];
+	unsigned char send_buf[2];
 	int ret = 0;
 
-	sr030pc50_write(client, 0x0300); /* Page 0 */
+	send_buf[0] = 0x03;
+	send_buf[1] = 0x00;
+	sr030pc50_write(client, send_buf); /* Page 0 */
 	ret = sr030pc50_read(client, 0x04, rcv_buf);
 	/* device id = P0(0x00) address 0x04 = 0xB8 */
 
@@ -372,7 +372,7 @@ static int SR030PC50_s_ctrl(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
-struct v4l2_ctrl_ops SR030PC50_ctrl_ops = {
+static struct v4l2_ctrl_ops SR030PC50_ctrl_ops = {
 	.s_ctrl = SR030PC50_s_ctrl,
 };
 
