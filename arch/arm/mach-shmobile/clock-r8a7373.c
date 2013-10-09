@@ -1035,6 +1035,7 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("e6822000.i2c1", &mstp_clks[MSTP323]),
 	CLKDEV_DEV_ID("r8a66597_udc.0", &mstp_clks[MSTP322]), /* USBHS */
 	CLKDEV_DEV_ID("renesas_mmcif.0", &mstp_clks[MSTP315]), /* MMCIF0 */
+	CLKDEV_DEV_ID("e6bd0000.mmcif", &mstp_clks[MSTP315]), /* MMCIF0 */
 	CLKDEV_DEV_ID("renesas_sdhi.0", &mstp_clks[MSTP314]), /* SDHI0 */
 	CLKDEV_DEV_ID("renesas_sdhi.1", &mstp_clks[MSTP313]), /* SDHI1 */
 	CLKDEV_DEV_ID("renesas_sdhi.2", &mstp_clks[MSTP312]), /* SDHI2 */

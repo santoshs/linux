@@ -36,6 +36,7 @@
 #include <linux/irqchip/arm-gic.h>
 #include <mach/setup-u2timers.h>
 #include <mach/board-loganlte-config.h>
+#include <linux/mmc/renesas_mmcif.h>
 #include <mach/poweroff.h>
 #include <mach/sbsc.h>
 #ifdef CONFIG_MFD_D2153
@@ -294,9 +295,51 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 
 };
 
+static struct resource renesas_mmcif_resources[] = {
+	[0] = {
+		.name   = "MMCIF",
+		.start  = 0xe6bd0000,
+		.end    = 0xe6bd00ff,
+		.flags  = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start  = gic_spi(122),
+		.flags  = IORESOURCE_IRQ,
+	},
+};
+
+/* For different STM muxing options 0, 1, or None, as given by
+ * boot_command_line parameter stm=0/1/n
+ */
+
+
+static struct sh_mmcif_plat_data renesas_mmcif_plat = {
+	.sup_pclk	= 0,
+	.ocr		= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34,
+	.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA |
+			  MMC_CAP_1_8V_DDR | MMC_CAP_UHS_DDR50 |
+			  MMC_CAP_NONREMOVABLE,
+	.set_pwr	= mmcif_set_pwr,
+	.down_pwr	= mmcif_down_pwr,
+	.slave_id_tx	= SHDMA_SLAVE_MMCIF0_TX,
+	.slave_id_rx	= SHDMA_SLAVE_MMCIF0_RX,
+	.max_clk	= 52000000,
+};
+
+static struct platform_device mmcif_device = {
+	.name		= "renesas_mmcif",
+	.id		= 0,
+	.dev		= {
+				.platform_data  = &renesas_mmcif_plat,
+			  },
+	.resource	= renesas_mmcif_resources,
+	.num_resources	= ARRAY_SIZE(renesas_mmcif_resources),
+};
+
 /* Rhea Ray specific platform devices */
 static struct platform_device *plat_devices[] __initdata = {
 	&bcm_backlight_devices,
+	&mmcif_device,
 };
 
 #if 0

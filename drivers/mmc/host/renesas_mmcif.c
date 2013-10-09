@@ -377,11 +377,11 @@ static void sh_mmcif_request_dma(struct sh_mmcif_host *host,
 
 	/* We can only either use DMA for both Tx and Rx or not use it at all */
 	tx = &host->dma_slave_tx;
-	tx->slave_id = pdata->slave_id_tx;
+	tx->shdma_slave.slave_id = pdata->slave_id_tx;
 	rx = &host->dma_slave_rx;
-	rx->slave_id = pdata->slave_id_rx;
+	rx->shdma_slave.slave_id = pdata->slave_id_rx;
 
-	if (tx->slave_id > 0 && rx->slave_id > 0) {
+	if (tx->shdma_slave.slave_id > 0 && rx->shdma_slave.slave_id > 0) {
 		dma_cap_mask_t mask;
 
 		dma_cap_zero(mask);
@@ -1111,7 +1111,7 @@ static irqreturn_t sh_mmcif_intr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int __devinit sh_mmcif_probe(struct platform_device *pdev)
+static int sh_mmcif_probe(struct platform_device *pdev)
 {
 	int ret = 0, irq[2];
 	struct mmc_host *mmc;
@@ -1261,7 +1261,7 @@ clean_up:
 	return ret;
 }
 
-static int __devexit sh_mmcif_remove(struct platform_device *pdev)
+static int sh_mmcif_remove(struct platform_device *pdev)
 {
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
 	int irq[2];
