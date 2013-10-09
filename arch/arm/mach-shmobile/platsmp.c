@@ -22,13 +22,8 @@
 
 #define is_sh73a0() (machine_is_ag5evm() || machine_is_kota2())
 #define is_r8a7779() machine_is_marzen()
-#ifdef CONFIG_ARCH_R8A7373
-/* XXX We aren't using real machine IDs, so can't use machine_is_() macros. */
-/* This is very broken, and prevents multi-chip-capable builds. */
-#define is_r8a7373() 1
-#else
-#define is_r8a7373() 0
-#endif
+#define is_r8a7373() (machine_is_loganlte() || machine_is_amethyst())
+
 
 static unsigned int __init shmobile_smp_get_core_count(void)
 {
