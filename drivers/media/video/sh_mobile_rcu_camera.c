@@ -82,7 +82,7 @@ static unsigned int *dumplog_addr;
 static unsigned int *dumplog_ktbl;
 static unsigned int *dumplog_max_idx;
 static unsigned int *dumplog_cnt_idx;
-spinlock_t lock_log;
+static spinlock_t lock_log;
 #define SH_RCU_DUMP_LOG_SIZE_ALL (1024*1024)
 #define SH_RCU_DUMP_LOG_SIZE_USER (800*1024)
 #define SH_RCU_DUMP_LOG_OFFSET (8)
@@ -723,17 +723,17 @@ static void sh_mobile_rcu_dump_reg(struct sh_mobile_rcu_dev *pcdev)
 			" IMCTCR2[%08x] "
 			"   IMSTR[%08x] "
 			"   IMEAR[%08x]\n",
-			*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMCTCR1),
-			*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMCTCR2),
-			*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMSTR),
-			*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMEAR));
+			*(u32 __force *) (pcdev->ipmmu + RCU_IPMMU_IMCTCR1),
+			*(u32 __force *) (pcdev->ipmmu + RCU_IPMMU_IMCTCR2),
+			*(u32 __force *) (pcdev->ipmmu + RCU_IPMMU_IMSTR),
+			*(u32 __force *) (pcdev->ipmmu + RCU_IPMMU_IMEAR));
 		dev_err(pcdev->icd->parent,
 			"  IMASID[%08x] "
 			"  IMTTBR[%08x] "
 			" IMTTBCR[%08x]\n",
-			*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMASID),
-			*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMTTBR),
-			*(u32 *) (pcdev->ipmmu + RCU_IPMMU_IMTTBCR));
+			*(u32 __force *) (pcdev->ipmmu + RCU_IPMMU_IMASID),
+			*(u32 __force *) (pcdev->ipmmu + RCU_IPMMU_IMTTBR),
+			*(u32 __force *) (pcdev->ipmmu + RCU_IPMMU_IMTTBCR));
 		dev_err(pcdev->icd->parent,
 			"  ACTST1[%08x] "
 			"    CTRL[%08x] "
@@ -875,7 +875,7 @@ static int sh_mobile_rcu_soft_reset(struct sh_mobile_rcu_dev *pcdev)
 	return 0;
 }
 
-int sh_mobile_rcu_bytes_per_line(u32 width,
+static int sh_mobile_rcu_bytes_per_line(u32 width,
 const struct soc_mbus_pixelfmt *mf, struct sh_mobile_rcu_dev *pcdev)
 {
 	int bytes_per_line = -EINVAL;
@@ -1456,6 +1456,7 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q, unsigned int count
 				dev_err(pcdev->icd->parent,
 					"%s:meram error CONTI[%d],BLOCK[%d]\n",
 					__func__, meram_tmp, RCU_MERAM_BLOCK);
+				spin_unlock_irqrestore(&pcdev->lock, flags);
 				return -1;
 			}
 			pcdev->meram_bsize[RCU_MERAM_FRAMEA] =
@@ -1511,6 +1512,7 @@ static int sh_mobile_rcu_start_streaming(struct vb2_queue *q, unsigned int count
 				dev_err(pcdev->icd->parent,
 					"%s:meram error CONTI[%d],BLOCK[%d]\n",
 					__func__, cont_num, RCU_MERAM_BLOCK);
+				spin_unlock_irqrestore(&pcdev->lock, flags);
 				return -1;
 			}
 			meram_tmp = RCU_MERAM_MAX_CONTBUF / cont_num - 1;
@@ -3071,12 +3073,12 @@ static int sh_mobile_rcu_mmap(void *buf_priv, struct vm_area_struct *vma)
 	}
 
 	kfree(pcdev->mmap_pages);
-	pcdev->mmap_pages = 0;
+	pcdev->mmap_pages = NULL;
 	pcdev->mmap_size = 0;
 	return 0;
 }
 
-const struct vb2_mem_ops sh_mobile_rcu_memops = {
+static const struct vb2_mem_ops sh_mobile_rcu_memops = {
 	.get_userptr	= sh_mobile_rcu_contig_get_userptr,
 	.put_userptr	= sh_mobile_rcu_contig_put_userptr,
 	.mmap		= sh_mobile_rcu_mmap,
@@ -3144,7 +3146,7 @@ void sh_mobile_rcu_flash(int led)
 	return;
 }
 
-void sh_mobile_rcu_init_dumplog(void)
+static void sh_mobile_rcu_init_dumplog(void)
 {
 #ifdef SH_RCU_DUMP_LOG_ENABLE
 	dumplog_init_cnt++;
@@ -3178,7 +3180,7 @@ void sh_mobile_rcu_init_dumplog(void)
 	return;
 }
 
-void sh_mobile_rcu_deinit_dumplog(void)
+static void sh_mobile_rcu_deinit_dumplog(void)
 {
 #ifdef SH_RCU_DUMP_LOG_ENABLE
 	dumplog_init_cnt--;
