@@ -38,6 +38,7 @@
 #include <asm/atomic.h>
 #include <asm/cacheflush.h>
 #include <sound/soundpath/common_extern.h>
+#include <sound/soundpath/fsi_extern.h>
 
 #include <linux/sh_dma.h>
 #include <linux/dma-mapping.h>
@@ -225,6 +226,7 @@ static unsigned int g_old_addr;
 void fsi_set_trigger_stop(struct snd_pcm_substream *substream, bool flag);
 void fsi_dma_stop_by_hooks(void);
 static struct fsi_priv *fsi_get_priv(struct snd_pcm_substream *substream);
+static struct fsi_priv *fsi_get_priv_frm_dai(struct snd_soc_dai *dai);
 static void fsi_irq_enable(struct fsi_priv *fsi, int is_play);
 static void fsi_irq_disable(struct fsi_priv *fsi, int is_play);
 #ifdef USE_DMA
@@ -266,7 +268,7 @@ EXPORT_SYMBOL(fsi_dma_stop_by_hooks);
 /* global variable */
 callback_function g_fsi_logical;
 
-bool g_slave;
+static bool g_slave;
 void fsi_set_slave(const bool slave)
 {
 	g_slave = slave;
@@ -406,8 +408,6 @@ struct fsi_priv *fsi_get_priv_frm_dai(struct snd_soc_dai *dai)
 		return &master->fsib;
 
 }
-EXPORT_SYMBOL(fsi_get_priv_frm_dai);
-
 static struct fsi_priv *fsi_get_priv(struct snd_pcm_substream *substream)
 {
 	return fsi_get_priv_frm_dai(fsi_get_dai(substream));

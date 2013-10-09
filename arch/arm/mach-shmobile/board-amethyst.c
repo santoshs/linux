@@ -584,7 +584,8 @@ static void __init board_init(void)
 
 	/* PA devices init */
 	spa_init();
-	vibrator_init(u2_board_rev);
+	ss_vibrator_data.voltage = 2800000;
+	u2_vibrator_init();
 
 	printk(KERN_DEBUG "%s\n", __func__);
 #ifdef CONFIG_MMC_OOPS

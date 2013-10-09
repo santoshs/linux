@@ -30,10 +30,6 @@
 FSI_CTRL_NO_EXTERN int fsi_start(const u_int uiValue, const u_int uiRegClr);
 /* FSI stop function */
 FSI_CTRL_NO_EXTERN void fsi_stop(const u_int regclr);
-/* DMA transfer function */
-FSI_CTRL_NO_EXTERN void fsi_dma_start(void);
-/* DMA transfer function */
-FSI_CTRL_NO_EXTERN void fsi_dma_stop(void);
 /* registers dump function */
 FSI_CTRL_NO_EXTERN void fsi_reg_dump(const u_int uiValue);
 /* FSI soft reset function */
