@@ -61,6 +61,7 @@
 #include <mach/gpio.h>
 #define SCIFB1_SCxSR_TEND_BIT_READ_ATTEMPT	 100
 
+extern bool KERNEL_LOG; /* For kernel log supression */
 #ifdef CONFIG_SERIAL_CORE_CONSOLE
 #define sci_uart_console(port)	\
 	((port)->cons && (port)->cons->index == (port)->line)
@@ -2326,7 +2327,7 @@ static void serial_console_putchar(struct uart_port *port, int ch)
 static void serial_console_write(struct console *co, const char *s,
 				 unsigned count)
 {
-if (get_kernel_log_status()) {
+if(KERNEL_LOG) {
 	struct sci_port *sci_port = &sci_ports[co->index];
 	struct uart_port *port = &sci_port->port;
 	unsigned short bits = 0, ctrl = 0 ;
@@ -2627,6 +2628,7 @@ static struct platform_driver sci_driver = {
 static int __init sci_init(void)
 {
 	int ret;
+	KERNEL_LOG = 1;
 	printk(banner);
 
 	ret = uart_register_driver(&sci_uart_driver);

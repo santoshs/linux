@@ -39,5 +39,3 @@
 
 #define SCI_MAJOR		204
 #define SCI_MINOR_START		8
-
-extern int get_kernel_log_status(void);
