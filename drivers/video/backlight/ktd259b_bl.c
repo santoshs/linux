@@ -244,9 +244,6 @@ static void ktd259b_backlight_lateresume(struct early_suspend *desc)
 static int ktd259b_backlight_suspend(struct platform_device *pdev,
 					pm_message_t state)
 {
-	struct backlight_device *bl = platform_get_drvdata(pdev);
-	struct ktd259b_bl_data *ktd259b = dev_get_drvdata(&bl->dev);
-    
         BLDBG("[BACKLIGHT] ktd259b_backlight_suspend\n");
         
 	return 0;

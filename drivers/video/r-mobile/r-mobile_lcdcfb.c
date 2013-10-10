@@ -1041,6 +1041,7 @@ static int sh_mobile_lcdc_set_bpp(struct fb_var_screeninfo *var, int bpp)
 }
 
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static int sh_mobile_lcdc_suspend(struct device *dev)
 {
 	int lcd_num;
@@ -1135,7 +1136,6 @@ static int sh_mobile_lcdc_resume(struct device *dev)
 }
 
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void sh_mobile_fb_early_suspend(struct early_suspend *h)
 {
 	struct sh_mobile_lcdc_priv *priv;

@@ -22,6 +22,7 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/proc_fs.h>
+#include <linux/slab.h>
 
 #include <media/sh_mobile_appmem.h>
 #include <rtapi/system_memory.h>
