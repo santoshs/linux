@@ -17,10 +17,17 @@
  *
  */
 
+
 #ifndef TSU6712_H
 #define TSU6712_H
 
 #include <linux/types.h>
+
+#define UART_AT_MODE           1001
+#define UART_INVALID_MODE      1002
+#define UART_EMPTY_CR          1003
+#define UART_EMPTY_CRLF        1004
+#define UART_AT_MODE_MODECHAN  1005
 
 enum {
 	TSU6712_DETACHED,

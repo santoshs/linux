@@ -37,12 +37,6 @@
 #include <linux/switch.h>
 #include <linux/ctype.h>
 
-#define MUSB_IC_UART_AT_MODE           2
-#define MUSB_IC_UART_INVALID_MODE      -1
-#define MUSB_IC_UART_EMPTY_CR          3
-#define MUSB_IC_UART_EMPTY_CRLF        4
-#define MUSB_IC_UART_AT_MODE_MODECHAN  5
-
 void send_usb_insert_event(int);
 
 #define USE_LOCAL_CALLBACK
@@ -966,7 +960,7 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	    (strncmp((char *)at_isi_switch_buf, "\r\n", 2) == 0)) {
 		memset(at_isi_switch_buf, 0, 400);
 		KERNEL_LOG = 0;
-		return MUSB_IC_UART_EMPTY_CRLF;
+		return UART_EMPTY_CRLF;
 	}
 
 	if (strstr(at_isi_switch_buf, "\r\n"))
@@ -988,11 +982,11 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	if (strstr(at_isi_switch_buf, atbuf) != NULL) {
 		KERNEL_LOG = 0;
 		memset(at_isi_switch_buf, 0, 400);
-		return MUSB_IC_UART_AT_MODE;
+		return UART_AT_MODE;
 	} else if (strstr(at_isi_switch_buf, atmodechanbuf) != NULL) {
 		KERNEL_LOG = 0;
 		memset(at_isi_switch_buf, 0, 400);
-		return MUSB_IC_UART_AT_MODE_MODECHAN;
+		return UART_AT_MODE_MODECHAN;
 	} else if (strstr(at_isi_switch_buf, "AT+ISISTART") != NULL ||
 		   strstr(at_isi_switch_buf, "AT+MODECHAN=0,0") != NULL) {
 		/*do not switch to isi mode if isi mode already set*/
@@ -1010,10 +1004,10 @@ ssize_t ld_set_switch_buf(struct device *dev,
 		strstr(at_isi_switch_buf, "AT+MODECHAN=0,0\r") != NULL) {
 		memset(at_isi_switch_buf, 0, 400);
 		ld_set_manualsw(NULL, NULL, isi_cmd_buf, strlen(isi_cmd_buf));
-		return MUSB_IC_UART_INVALID_MODE;
+		return UART_INVALID_MODE;
 	}
 	if (error != 0) {
-		count = MUSB_IC_UART_INVALID_MODE;
+		count = UART_INVALID_MODE;
 		memset(at_isi_switch_buf, 0, 400);
 	}
 
