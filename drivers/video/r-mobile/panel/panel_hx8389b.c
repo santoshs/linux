@@ -59,42 +59,41 @@
 #define R_MOBILE_M_PANEL_SIZE_WIDTH     54
 #define R_MOBILE_M_PANEL_SIZE_HEIGHT    95
 
-#define R_MOBILE_M_PANEL_PIXEL_WIDTH	 540
-#define R_MOBILE_M_PANEL_PIXEL_HEIGHT	 960
-#define R_MOBILE_M_PANEL_LEFT_MARGIN	 8
-#define R_MOBILE_M_PANEL_RIGHT_MARGIN	 100
-#define R_MOBILE_M_PANEL_HSYNC_LEN	 8
-#define R_MOBILE_M_PANEL_UPPER_MARGIN	 2
-#define R_MOBILE_M_PANEL_LOWER_MARGIN	 2
-#define R_MOBILE_M_PANEL_VSYNC_LEN	 2
-#define R_MOBILE_M_PANEL_PIXCLOCK	 23504
-#define R_MOBILE_M_PANEL_H_TOTAL	 656
-#define R_MOBILE_M_PANEL_V_TOTAL	 966
-
-#define LCD_DSITCKCR		0x00000007
-#define LCD_DSI0PCKCR		0x00000015
-#define LCD_DSI0PHYCR		0x2A80000B
-#define LCD_SYSCONF		0x00000F07
-#define LCD_TIMSET0		0x4C2C6332
-#define LCD_TIMSET1		0x000800A2
-#define LCD_DSICTRL		0x00000001
-#define LCD_VMCTR1		0x0001003E
-#define LCD_VMCTR2		0x00000710
-#define LCD_VMLEN1		0x06540000
-#define LCD_VMLEN2		0x00260000
-#define LCD_VMLEN3		0x00000000
-#define LCD_VMLEN4		0x00000000
-#define LCD_DTCTR		0x00000007
-#define LCD_MLDHCNR		0x00430052
-#define LCD_MLDHSYNR		0x00010050
-#define LCD_MLDHAJR		0x04000000
-#define LCD_MLDVLNR		0x03C003C6
-#define LCD_MLDVSYNR		0x000203C3
-#define LCD_MLDMT1R		0x0400000B
-#define LCD_LDDCKR		0x00010040
-#define LCD_MLDDCKPAT1R		0x00000000
-#define LCD_MLDDCKPAT2R		0x00000000
-#define LCD_PHYTEST		0x0000038C
+#define R_MOBILE_M_PANEL_PIXEL_WIDTH    540
+#define R_MOBILE_M_PANEL_PIXEL_HEIGHT   960
+#define R_MOBILE_M_PANEL_LEFT_MARGIN	64
+#define R_MOBILE_M_PANEL_RIGHT_MARGIN	64
+#define R_MOBILE_M_PANEL_HSYNC_LEN      8
+#define R_MOBILE_M_PANEL_UPPER_MARGIN   5
+#define R_MOBILE_M_PANEL_LOWER_MARGIN   9
+#define R_MOBILE_M_PANEL_VSYNC_LEN      2
+#define R_MOBILE_M_PANEL_PIXCLOCK       25227
+#define R_MOBILE_M_PANEL_H_TOTAL        676
+#define R_MOBILE_M_PANEL_V_TOTAL        976
+#define LCD_DSITCKCR			0x00000007
+#define LCD_DSI0PCKCR			0x0000003C
+#define LCD_DSI0PHYCR			0x2A80001E
+#define LCD_SYSCONF			0x00000F07
+#define LCD_TIMSET0			0x4C2C6332
+#define LCD_TIMSET1			0x00070092
+#define LCD_DSICTRL			0x00000001
+#define LCD_VMCTR1			0x0001003E
+#define LCD_VMCTR2			0x00020710
+#define LCD_VMLEN1			0x06540000
+#define LCD_VMLEN2			0x00CE0000
+#define LCD_VMLEN3			0x00000000
+#define LCD_VMLEN4			0x00000000
+#define LCD_DTCTR			0x00000007
+#define LCD_MLDHCNR                     0x00430054
+#define LCD_MLDHSYNR                    0x0001004B
+#define LCD_MLDHAJR			0x04040004
+#define LCD_MLDVLNR                     0x03C003D0
+#define LCD_MLDVSYNR                    0x000203CA
+#define LCD_MLDMT1R                     0x0400000B
+#define LCD_LDDCKR                     0x00010040
+#define LCD_MLDDCKPAT1R                      0x00000000
+#define LCD_MLDDCKPAT2R                      0x00000000
+#define LCD_PHYTEST                   0x0000038C
 
 #define LCD_MASK_DSITCKCR	0x000000BF
 #define LCD_MASK_DSI0PCKCR	0x0000703F
@@ -122,11 +121,11 @@
 #define LCD_MASK_PHYTEST	0x000003CC
 
 #ifdef HX8389b_SWITCH_FRAMERATE_40HZ
-#define LCD_DSI0PCKCR_40HZ		0x00000027
-#define LCD_DSI0PHYCR_40HZ		0x2A80000D
+#define LCD_DSI0PCKCR_40HZ		0x0000003D
+#define LCD_DSI0PHYCR_40HZ		0x2A800014
 #else
-#define LCD_DSI0PCKCR_30HZ		0x00000027
-#define LCD_DSI0PHYCR_30HZ		0x2A80000A
+#define LCD_DSI0PCKCR_30HZ		0x0000003A
+#define LCD_DSI0PHYCR_30HZ		0x2A80000E
 #endif
 
 
@@ -303,6 +302,17 @@ static unsigned char setDgcLut[] = { 0xC1, 0x01, 0x00, 0x07, 0x1C, 0x2A,
 
 	static unsigned char DisplayOn[] = { 0x29};
 
+	static unsigned char dispoff[] = { 0x28};
+
+static unsigned char slpin[] = { 0x10};
+
+/*CABC PWM*/
+
+static unsigned char wrdisbv[] = {0x51, 0xff};
+static unsigned char wrctrld[] = {0x53, 0x24};
+static unsigned char wrcabc[] = {0x55, 0x01};
+
+
 static const struct specific_cmdset initialize_cmdset[] = {
 	/*Powersetting Start*/
 	{ MIPI_DSI_DCS_LONG_WRITE,  setExtc,  sizeof(setExtc) },
@@ -325,6 +335,10 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DELAY,           NULL,      120              },
 	{ MIPI_DSI_DCS_SHORT_WRITE, DisplayOn,    sizeof(DisplayOn)   },
 	{ MIPI_DSI_DELAY,           NULL,      10              },
+	{ MIPI_DSI_DCS_LONG_WRITE,  wrdisbv,  sizeof(wrdisbv) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  wrctrld,  sizeof(wrctrld) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  wrcabc,  sizeof(wrcabc) },
+	{ MIPI_DSI_DELAY,           NULL,      5             },
 	{ MIPI_DSI_END,             NULL, 0}
 	};
 
@@ -390,7 +404,17 @@ static unsigned char SleepOut[] = { 0x11 };
 
 static unsigned char DisplayOn[] = { 0x29 };
 
-static unsigned char ControlDisplayBrt[] = { 0x53, 0x2C};
+/*static unsigned char ControlDisplayBrt[] = { 0x53, 0x2C};*/
+
+static unsigned char dispoff[] = { 0x28};
+
+static unsigned char slpin[] = { 0x10};
+
+/*CABC PWM*/
+
+static unsigned char wrdisbv[] = {0x51, 0xff};
+static unsigned char wrctrld[] = {0x53, 0x24};
+static unsigned char wrcabc[] = {0x55, 0x01};
 
 static const struct specific_cmdset initialize_cmdset[] = {
 /*Powersetting Start*/
@@ -415,6 +439,10 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DELAY,           NULL,      120              },
 	{ MIPI_DSI_DCS_SHORT_WRITE, DisplayOn,    sizeof(DisplayOn)   },
 	{ MIPI_DSI_DELAY,           NULL,      10              },
+	{ MIPI_DSI_DCS_LONG_WRITE,  wrdisbv,  sizeof(wrdisbv) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  wrctrld,  sizeof(wrctrld) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  wrcabc,  sizeof(wrcabc) },
+	{ MIPI_DSI_DELAY,           NULL,      5             },
 	{ MIPI_DSI_END,             NULL,      0                }
 };
 
@@ -469,12 +497,13 @@ static unsigned char setDgcLut[] = {
 	0x64, 0x6C, 0x74, 0x7D, 0x84, 0x8C, 0x95, 0x9D, 0xA4, 0xAC, 0xB3,
 	0xBD, 0xC7, 0xCD, 0xD5, 0xDF, 0xE6, 0xEF, 0xF7, 0xFF, 0x11, 0x6C,
 	0x58, 0x66, 0x38, 0x5B, 0x86, 0xE3, 0xC0 };
-
-static unsigned char setGPanelFrwdScn[] = { 0xCC, 0x02 };
-
 #if 0
-static unsigned char setGPanelBckwrdScn[] = { 0xCC, 0x06 };
+static unsigned char setGPanelFrwdScn[] = { 0xCC, 0x02 };
 #endif
+
+/*static unsigned char setGPanelBckwrdScn[] = { 0xCC, 0x06 };*/
+static unsigned char setGPanelBckwrdScn[] = { 0xCC, 0x0e };
+
 
 static unsigned char setClock[] = { 0xCB, 0x07,	0x07 };
 
@@ -490,6 +519,12 @@ static unsigned char dispoff[] = { 0x28};
 
 static unsigned char slpin[] = { 0x10};
 
+/*CABC PWM*/
+
+static unsigned char wrdisbv[] = {0x51, 0xff};
+static unsigned char wrctrld[] = {0x53, 0x24};
+static unsigned char wrcabc[] = {0x55, 0x01};
+
 static const struct specific_cmdset initialize_cmdset[] = {
 	/*Powersetting Start*/
 	{ MIPI_DSI_DCS_LONG_WRITE,  setExtc,  sizeof(setExtc) },
@@ -501,8 +536,8 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  setGip,    sizeof(setGip)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setGamma2_8,    sizeof(setGamma2_8)   },
 	{ MIPI_DSI_DCS_LONG_WRITE,  setDgcLut, sizeof(setDgcLut)},
-	{ MIPI_DSI_DCS_LONG_WRITE,  setGPanelFrwdScn, sizeof(setGPanelFrwdScn)},
-/*{ MIPI_DSI_DCS_LONG_WRITE, setGPanelBckwrdScn, sizeof(setGPanelBckwrdScn)},*/
+/*{ MIPI_DSI_DCS_LONG_WRITE,  setGPanelFrwdScn, sizeof(setGPanelFrwdScn)},*/
+{ MIPI_DSI_DCS_LONG_WRITE, setGPanelBckwrdScn, sizeof(setGPanelBckwrdScn)},
 	{ MIPI_DSI_DCS_LONG_WRITE,  setClock,    sizeof(setClock) },
 {MIPI_DSI_DCS_LONG_WRITE, setGammaOPBiasCurrent, sizeof(setGammaOPBiasCurrent)},
 	/*Powersetting End*/
@@ -512,6 +547,10 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DELAY,           NULL,      120              },
 	{ MIPI_DSI_DCS_SHORT_WRITE, DisplayOn,    sizeof(DisplayOn)   },
 	{ MIPI_DSI_DELAY,           NULL,      10              },
+	{ MIPI_DSI_DCS_LONG_WRITE,  wrdisbv,  sizeof(wrdisbv) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  wrctrld,  sizeof(wrctrld) },
+	{ MIPI_DSI_DCS_LONG_WRITE,  wrcabc,  sizeof(wrcabc) },
+	{ MIPI_DSI_DELAY,           NULL,      5             },
 	{ MIPI_DSI_END,             NULL,      0                }
 
 };
@@ -1677,6 +1716,10 @@ static int HX8389b_panel_resume(void)
 #endif
 
 retry:
+
+	/* LCD panel reset */
+	mipi_display_reset();
+
 	screen_handle =  screen_display_new();
 
 	/* Start a display to LCD */
@@ -1689,7 +1732,7 @@ retry:
 	}
 
 	/* LCD panel reset */
-	mipi_display_reset();
+	/*mipi_display_reset();*/
 
 	is_dsi_read_enabled = 1;
 
