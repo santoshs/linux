@@ -22,8 +22,6 @@
 #include <mach/sec_debug.h>
 #endif
 
-#include <memlog/memlog.h>
-
 #include "internals.h"
 
 /**
@@ -147,11 +145,9 @@ handle_irq_event_percpu(struct irq_desc *desc, struct irqaction *action)
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 		sec_debug_irq_log(irq, (void *)action->handler, 1);
 #endif
-		memory_log_irq(irq,1);
 		trace_irq_handler_entry(irq, action);
 		res = action->handler(irq, action->dev_id);
 		trace_irq_handler_exit(irq, action, res);
-		memory_log_irq(irq,0);
 #ifdef CONFIG_SEC_DEBUG_SCHED_LOG
 		sec_debug_irq_log(irq, (void *)action->handler, 2);
 #endif

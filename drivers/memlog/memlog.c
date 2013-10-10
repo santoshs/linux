@@ -23,7 +23,10 @@
 #include <linux/percpu.h>
 #include <linux/sched.h>
 #include <memlog/memlog.h>
-#include <mach/sec_debug.h>
+
+#include <trace/events/irq.h>
+#include <trace/events/sched.h>
+#include <trace/events/workqueue.h>
 
 static struct kobject *memlog_kobj;
 
@@ -41,14 +44,13 @@ static DEFINE_PER_CPU(struct log_area, irq_log_area);
 static DEFINE_PER_CPU(struct log_area, func_log_area);
 static DEFINE_PER_CPU(struct log_area, dump_log_area);
 
-void memory_log_proc(const char *name, unsigned long pid)
+static inline void memory_log_proc(const char *name, unsigned long pid)
 {
 	struct log_area *log;
 	struct proc_log_entry proc_log;
 	unsigned long index = 0;
 
-	if (!logdata || !name || !memlog_capture
-			|| !sec_debug_level.en.kernel_fault)
+	if (!logdata || !name || !memlog_capture)
 		return;
 
 	memset(&proc_log, 0, PROC_ENTRY_SIZE);
@@ -69,13 +71,14 @@ void memory_log_proc(const char *name, unsigned long pid)
 }
 EXPORT_SYMBOL_GPL(memory_log_proc);
 
-void memory_log_worker(unsigned long func_addr, unsigned long pid, int in)
+static inline void memory_log_worker(unsigned long func_addr,
+		unsigned long pid, int in)
 {
 	char str[16];
 	if (in)
-		sprintf(str, " IN 0x%lx", func_addr);
+		snprintf(str, 16, ">%pf", (void *)func_addr);
 	else
-		sprintf(str, "OUT 0x%lx", func_addr);
+		snprintf(str, 16, "<%pf", (void *)func_addr);
 	memory_log_proc(str, pid);
 }
 EXPORT_SYMBOL_GPL(memory_log_worker);
@@ -86,7 +89,7 @@ void memory_log_irq(unsigned int irq, int in)
 	struct irq_log_entry irq_log;
 	unsigned long index = 0;
 
-	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture)
 		return;
 
 	memset(&irq_log, 0, IRQ_ENTRY_SIZE);
@@ -114,7 +117,7 @@ void memory_log_func(unsigned long func_id, int in)
 	unsigned long index = 0;
 	unsigned long flags = 0;
 
-	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture)
 		return;
 
 	memset(&func_log, 0, FUNC_ENTRY_SIZE);
@@ -144,7 +147,7 @@ void memory_log_dump_int(unsigned char dump_id, int dump_data)
 	unsigned long index = 0;
 	unsigned long flags = 0;
 
-	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture)
 		return;
 
 	memset(&dump_log, 0, DUMP_ENTRY_SIZE);
@@ -174,7 +177,7 @@ void memory_log_timestamp(unsigned int id)
 	struct timestamp_entries *p =
 			(struct timestamp_entries *)(logdata + TIMESTAMP_INDEX);
 
-	if (!logdata || !memlog_capture || !sec_debug_level.en.kernel_fault)
+	if (!logdata || !memlog_capture)
 			return;
 	cpu = get_cpu();
 	p->time[cpu][id] = local_clock();
@@ -182,7 +185,7 @@ void memory_log_timestamp(unsigned int id)
 }
 EXPORT_SYMBOL_GPL(memory_log_timestamp);
 
-void memory_log_init(void)
+static void memory_log_init(void)
 {
 	struct memlog_header mh;
 	BUILD_BUG_ON(MEMLOG_END > MEMLOG_SIZE);
@@ -293,40 +296,107 @@ static struct bin_attribute log_attr = {
 	.read = read_log,
 };
 
+/* ftrace probes */
+static void notrace
+probe_irq_handler_entry(void *ignore, int irq, struct irqaction *action)
+{
+	memory_log_irq(irq, 1);
+}
+static void notrace
+probe_irq_handler_exit(void *ignore, int irq, struct irqaction *action, int ret)
+{
+	memory_log_irq(irq, 0);
+}
+
+static void notrace
+probe_sched_switch(void *ignore,
+		struct task_struct *prev, struct task_struct *next)
+{
+	memory_log_proc(next->comm, next->pid);
+}
+
+static void notrace
+probe_workqueue_execute_start(void *ignore,
+			  struct work_struct *work)
+{
+	memory_log_worker((unsigned long)work->func, task_pid_nr(current), 1);
+}
+static void notrace
+probe_workqueue_execute_end(void *ignore,
+			  struct work_struct *work)
+{
+	memory_log_worker((unsigned long)work->func, task_pid_nr(current), 0);
+}
+
 static int __init init_memlog(void)
 {
 	int ret = 0;
 
 	memlog_kobj = kobject_create_and_add("memlog", NULL);
 	if (!memlog_kobj) {
-		printk(KERN_ERR "kobject_create_and_add: failed\n");
+		pr_err("kobject_create_and_add: failed\n");
 		ret = -ENOMEM;
 		goto exit;
 	}
 
 	ret = sysfs_create_file(memlog_kobj, &capture_attribute.attr);
 	if (ret) {
-		printk(KERN_ERR "sysfs_create_file: failed (%d)", ret);
+		pr_err("sysfs_create_file: failed (%d)", ret);
 		goto kset_exit;
 	}
 
 	ret = sysfs_create_bin_file(memlog_kobj, &log_attr);
 	if (ret) {
-		printk(KERN_ERR "sysfs_create_bin_file: failed (%d)", ret);
+		pr_err("sysfs_create_bin_file: failed (%d)", ret);
 		goto kset_exit;
 	}
 
 	if (MEMLOG_ADDRESS > SDRAM_KERNEL_END_ADDR)
-		logdata = (char *)ioremap_nocache(MEMLOG_ADDRESS, MEMLOG_SIZE);
+		logdata = (char __force *)ioremap_nocache(MEMLOG_ADDRESS,
+				MEMLOG_SIZE);
 	else
-		logdata = (char *)ioremap_wc(MEMLOG_ADDRESS, MEMLOG_SIZE);
+		logdata = (char __force *)ioremap_wc(MEMLOG_ADDRESS,
+				MEMLOG_SIZE);
 	if (!logdata) {
-		printk(KERN_ERR "ioremap: failed");
+		pr_err("ioremap: failed");
 		ret = -ENOMEM;
 		goto exit;
 	}
 
 	memory_log_init();
+
+	ret = register_trace_irq_handler_entry(probe_irq_handler_entry, NULL);
+	if (ret) {
+		pr_err("Couldn't activate tracepoint probe to %pf\n",
+				probe_irq_handler_entry);
+	}
+
+	ret = register_trace_irq_handler_exit(probe_irq_handler_exit, NULL);
+	if (ret) {
+		pr_err("Couldn't activate tracepoint probe to %pf\n",
+				probe_irq_handler_exit);
+	}
+
+	ret = register_trace_sched_switch(probe_sched_switch, NULL);
+	if (ret) {
+		pr_err("Couldn't activate tracepoint probe to %pf\n",
+				probe_sched_switch);
+	}
+
+	ret = register_trace_workqueue_execute_start(
+			probe_workqueue_execute_start, NULL);
+	if (ret) {
+		pr_err("Couldn't activate tracepoint probe to %pf\n",
+				probe_workqueue_execute_start);
+	}
+
+	ret = register_trace_workqueue_execute_end(
+			probe_workqueue_execute_end, NULL);
+	if (ret) {
+		pr_err("Couldn't activate tracepoint probe to %pf\n",
+				probe_workqueue_execute_end);
+	}
+
 	return 0;
 
 kset_exit:
