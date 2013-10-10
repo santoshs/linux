@@ -102,6 +102,7 @@ obj-$(CONFIG_SOC_CAMERA_SR200PC20M)	+= sr200pc20m.o
 obj-$(CONFIG_SOC_CAMERA_SR130PC20)	+= sr130pc20.o
 obj-$(CONFIG_SOC_CAMERA_SR352)		+= sr352.o
 obj-$(CONFIG_SOC_CAMERA_OV5645)         += ov5645.o
+obj-$(CONFIG_SOC_CAMERA_HM2056)         += hm2056.o
 # And now the v4l2 drivers:
 
 obj-$(CONFIG_VIDEO_BT848) += bt8xx/
