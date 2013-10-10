@@ -1126,6 +1126,24 @@ config SOC_CAMERA_OV9740
 	help
 	  This is a ov9740 camera driver
 
+config SOC_CAMERA_OV5645
+	tristate "ov5645 camera support"
+	depends on SOC_CAMERA && I2C
+	help
+	  This driver supports OV5645 cameras from Omnivision
+	  This supports auto focus
+	  The LED flash has been implemented in the driver
+	  Added new function to support exp time
+
+config SOC_CAMERA_OV5645_TUNING
+	tristate "ov5645 tuning support"
+	depends on SOC_CAMERA_OV5645 && I2C
+	help
+	  This driver supports OV5645 tuning cameras from Omnivision
+	  This supports auto focus
+	  The LED flash has been implemented in the driver
+	  Added new function to support exp time
+
 config MX1_VIDEO
 	bool
 
