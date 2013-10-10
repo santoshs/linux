@@ -1278,42 +1278,33 @@ void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
 
 
 #if defined(CONFIG_MFD_D2153)
-struct regulator *emmc_regulator;
 
 void d2153_mmcif_pwr_control(int onoff)
 {
 	int ret;
+	static unsigned short vmmc_reg_enable;
+	struct regulator *emmc_regulator;
 
-	printk(KERN_EMERG "%s %s\n", __func__, (onoff) ? "on" : "off");
-	if (emmc_regulator == NULL) {
-		printk(KERN_INFO " %s, %d\n", __func__, __LINE__);
-		emmc_regulator = regulator_get(NULL, "vmmc");
-		if (IS_ERR(emmc_regulator)) {
-			printk(KERN_INFO "can not get vmmc regulator\n");
-			return;
-		}
+	printk(KERN_INFO "%s %s\n", __func__, (onoff) ? "on" : "off");
+	emmc_regulator = regulator_get(NULL, "vmmc");
+	if (IS_ERR(emmc_regulator)) {
+		printk(KERN_INFO "can not get vmmc regulator\n");
+		return;
 	}
 
 	if (onoff == 1) {
-#if 1 /* always enabling the vmmc */
-		if (!regulator_is_enabled(emmc_regulator)) {
+		/* always enabling the vmmc */
+		if (vmmc_reg_enable == 0) {
 			printk(KERN_INFO " %s, %d vmmc On\n", __func__,
 				__LINE__);
 			ret = regulator_enable(emmc_regulator);
+			vmmc_reg_enable = 1;
 			printk(KERN_INFO "regulator_enable ret = %d\n", ret);
 		}
-#else
-		printk(KERN_INFO " %s, %d vmmc On\n", __func__, __LINE__);
-		ret = regulator_enable(emmc_regulator);
-		printk(KERN_INFO "regulator_enable ret = %d\n", ret);
-#endif
-	} else {
-#if 0 /* always enabling the vmmc */
-		printk(KERN_INFO "%s, %d vmmc Off\n", __func__, __LINE__);
-		ret = regulator_disable(emmc_regulator);
-		printk(KERN_INFO "regulator_disable ret = %d\n", ret);
-#endif
 	}
+
+	regulator_put(emmc_regulator);
+
 }
 #endif
 
