@@ -114,6 +114,7 @@
 
 #include <mach/sbsc.h>
 #include <linux/pinctrl/machine.h>
+#include <linux/pinctrl/pinconf-generic.h>
 
 static int unused_gpios_logan_rev1[] = {
 				GPIO_PORT4, GPIO_PORT27, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
@@ -416,9 +417,24 @@ void board_restart(char mode, const char *cmd)
 	shmobile_do_restart(mode, cmd, APE_RESETLOG_U2EVM_RESTART);
 }
 
+static unsigned long pin_pullup_conf[] = {
+	PIN_CONF_PACKED(PIN_CONFIG_BIAS_PULL_UP, 0),
+};
+
 static const struct pinctrl_map loganlte_pinctrl_map[] = {
-	PIN_MAP_MUX_GROUP_DEFAULT("i2c.7", "pfc-r8a7373",
+	PIN_MAP_MUX_GROUP_DEFAULT("sh-sci.0", "pfc-r8a7373",
+				  "scifa0_data", "scifa0"),
+#ifdef CONFIG_OF
+	PIN_MAP_MUX_GROUP_DEFAULT("e682e000.i2c7", "pfc-r8a7373",
 				  "i2c7_data", "i2c7"),
+	PIN_MAP_CONFIGS_GROUP_DEFAULT("e682e000.i2c7", "pfc-r8a7373",
+				      "i2c7_data", pin_pullup_conf),
+#else
+	PIN_MAP_MUX_GROUP_DEFAULT("i2c-sh_mobile.7", "pfc-r8a7373",
+				  "i2c7_data", "i2c7"),
+	PIN_MAP_CONFIGS_GROUP_DEFAULT("i2c-sh_mobile.7", "pfc-r8a7373",
+				      "i2c7_data", pin_pullup_conf),
+#endif
 };
 
 
@@ -497,10 +513,6 @@ static void __init board_init(void)
 		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev2); inx++)
 			unused_gpio_port_init(unused_gpios_logan_rev2[inx]);
 	}
-
-	/* SCIFA0 */
-	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
-	gpio_request(GPIO_FN_SCIFA0_RXD, NULL);
 
 	/* Bluetooth UART settings (ttySC4) */
 
