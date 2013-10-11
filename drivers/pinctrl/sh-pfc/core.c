@@ -113,11 +113,11 @@ unsigned long sh_pfc_read_raw_reg(void __iomem *mapped_reg,
 {
 	switch (reg_width) {
 	case 8:
-		return ioread8(mapped_reg);
+		return readb_relaxed(mapped_reg);
 	case 16:
-		return ioread16(mapped_reg);
+		return readw_relaxed(mapped_reg);
 	case 32:
-		return ioread32(mapped_reg);
+		return readl_relaxed(mapped_reg);
 	}
 
 	BUG();
@@ -129,13 +129,13 @@ void sh_pfc_write_raw_reg(void __iomem *mapped_reg, unsigned long reg_width,
 {
 	switch (reg_width) {
 	case 8:
-		iowrite8(data, mapped_reg);
+		writeb_relaxed(data, mapped_reg);
 		return;
 	case 16:
-		iowrite16(data, mapped_reg);
+		writew_relaxed(data, mapped_reg);
 		return;
 	case 32:
-		iowrite32(data, mapped_reg);
+		writel_relaxed(data, mapped_reg);
 		return;
 	}
 
@@ -418,6 +418,9 @@ static int sh_pfc_remove(struct platform_device *pdev)
 }
 
 static const struct platform_device_id sh_pfc_id_table[] = {
+#ifdef CONFIG_PINCTRL_PFC_R8A7373
+	{ "pfc-r8a7373", (kernel_ulong_t)&r8a7373_pinmux_info },
+#endif
 #ifdef CONFIG_PINCTRL_PFC_R8A73A4
 	{ "pfc-r8a73a4", (kernel_ulong_t)&r8a73a4_pinmux_info },
 #endif

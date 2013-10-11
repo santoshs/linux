@@ -140,6 +140,8 @@ source "drivers/hwspinlock/Kconfig"
 
 source "drivers/clocksource/Kconfig"
 
+source "drivers/pmic/Kconfig"
+
 source "drivers/mailbox/Kconfig"
 
 source "drivers/iommu/Kconfig"
@@ -167,5 +169,22 @@ source "drivers/irqchip/Kconfig"
 source "drivers/ipack/Kconfig"
 
 source "drivers/reset/Kconfig"
+
+source "drivers/sensors/Kconfig"
+
+# for PARAM
+source "drivers/param/Kconfig"
+
+source "drivers/smeco/Kconfig"
+
+source "drivers/thermal/thermal_sensor/Kconfig"
+
+source "drivers/motor/Kconfig"
+
+source "drivers/sec_hal/Kconfig"
+
+source "drivers/memlog/Kconfig"
+
+source "drivers/interceptor/Kconfig" 
 
 endmenu

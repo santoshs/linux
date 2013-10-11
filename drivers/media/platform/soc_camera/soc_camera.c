@@ -1,6 +1,9 @@
 /*
  * camera image capture (abstract) bus driver
  *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
  * Copyright (C) 2008, Guennadi Liakhovetski <kernel@pengutronix.de>
  *
  * This driver provides an interface between platform-specific camera
@@ -689,10 +692,14 @@ static int soc_camera_mmap(struct file *file, struct vm_area_struct *vma)
 
 	if (mutex_lock_interruptible(&ici->host_lock))
 		return -ERESTARTSYS;
+#if 0
 	if (ici->ops->init_videobuf)
 		err = videobuf_mmap_mapper(&icd->vb_vidq, vma);
 	else
 		err = vb2_mmap(&icd->vb2_vidq, vma);
+#else
+	err = icd->vb2_vidq.mem_ops->mmap(icd, vma);
+#endif
 	mutex_unlock(&ici->host_lock);
 
 	dev_dbg(icd->pdev, "vma start=0x%08lx, size=%ld, ret=%d\n",

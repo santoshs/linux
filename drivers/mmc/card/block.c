@@ -728,7 +728,6 @@ static int mmc_blk_cmd_error(struct request *req, const char *name, int error,
 
 		/* If the status cmd initially failed, retry the r/w cmd */
 		if (!status_valid) {
-			pr_err("%s: status not valid, retrying timeout\n", req->rq_disk->disk_name);
 			return ERR_RETRY;
 		}
 		/*
@@ -737,12 +736,10 @@ static int mmc_blk_cmd_error(struct request *req, const char *name, int error,
 		 * have corrected the state problem above.
 		 */
 		if (status & (R1_COM_CRC_ERROR | R1_ILLEGAL_COMMAND)) {
-			pr_err("%s: command error, retrying timeout\n", req->rq_disk->disk_name);
 			return ERR_RETRY;
 		}
 
 		/* Otherwise abort the command */
-		pr_err("%s: not retrying timeout\n", req->rq_disk->disk_name);
 		return ERR_ABORT;
 
 	default:
@@ -1708,7 +1705,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 	struct mmc_blk_data *md = mq->data;
 	struct mmc_card *card = md->queue.card;
 	struct mmc_blk_request *brq = &mq->mqrq_cur->brq;
-	int ret = 1, disable_multi = 0, retry = 0, type;
+	int ret = 1, disable_multi = 0, retry = 0, type, req_end_all = 0;
 	enum mmc_blk_status status;
 	struct mmc_queue_req *mq_rq;
 	struct request *req = rqc;
@@ -1798,6 +1795,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		case MMC_BLK_ABORT:
 			if (!mmc_blk_reset(md, card->host, type))
 				break;
+			req_end_all = 1;
 			goto cmd_abort;
 		case MMC_BLK_DATA_ERR: {
 			int err;
@@ -1829,6 +1827,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 				goto start_new_req;
 			break;
 		case MMC_BLK_NOMEDIUM:
+		req_end_all = 1;
 			goto cmd_abort;
 		default:
 			pr_err("%s: Unhandled return value (%d)",
@@ -1865,6 +1864,9 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 	} else {
 		if (mmc_card_removed(card))
 			req->cmd_flags |= REQ_QUIET;
+		if (req_end_all == 1)
+			blk_end_request_all(req, -EIO);
+		else
 		while (ret)
 			ret = blk_end_request(req, -EIO,
 					blk_rq_cur_bytes(req));

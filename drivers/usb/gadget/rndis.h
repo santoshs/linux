@@ -21,6 +21,10 @@
 #define RNDIS_MAXIMUM_FRAME_SIZE	1518
 #define RNDIS_MAX_TOTAL_SIZE		1558
 
+#define MAX_RNDIS_FRAME_COUNT 18
+#define RNDIS_FRAME_BYTE_ALIGMENT 8
+#define RNDIS_UL_MULTIFRAME_SUPPORT 5
+
 typedef struct rndis_init_msg_type
 {
 	__le32	MessageType;

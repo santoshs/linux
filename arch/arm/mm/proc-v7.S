@@ -296,6 +296,18 @@ __v7_setup:
 2:	ldr	r10, =0x00000c09		@ Cortex-A9 primary part number
 	teq	r0, r10
 	bne	3f
+#ifdef CONFIG_CPU_DYNAMIC_CLOCK_GATING
+	cmp	r6, #0x10			@ power ctrl reg added r1p0
+	mrcge	p15, 0, r10, c15, c0, 0		@ read power control register
+	orrge	r10, r10, #1			@ enable dynamic clock gating
+	mcrge	p15, 0, r10, c15, c0, 0		@ write power control register
+#endif
+#ifdef CONFIG_ARM_ERRATA_720791
+	teq	r5, #0x00100000			@ only present in r1p*
+	mrceq	p15, 0, r10, c15, c0, 2		@ read "chicken power ctrl" reg
+	orreq	r10, r10, #0x30			@ disable core clk gate on
+	mcreq	p15, 0, r10, c15, c0, 2		@ instr-side waits
+#endif
 #ifdef CONFIG_ARM_ERRATA_742230
 	cmp	r6, #0x22			@ only present up to r2p2
 	mrcle	p15, 0, r10, c15, c0, 1		@ read diagnostic register
@@ -324,6 +336,30 @@ __v7_setup:
 	orrlt	r10, r10, #1 << 11		@ set bit #11
 	mcrlt	p15, 0, r10, c15, c0, 1		@ write diagnostic register
 1:
+#endif
+
+#ifdef CONFIG_CPU_DCACHE_PREFETCH
+	/*
+	 * TODO: This should be disabled for all r0, r1 and r2 revisions
+	 * due to the 751473 Cortex-A9 erratum.
+	 */
+	mrc	p15, 0, r10, c1, c0, 1		@ read aux control register
+	orr	r10, r10, #1 << 2		@ set L1 prefetch enable bit
+	mcr	p15, 0, r10, c1, c0, 1		@ write aux control register
+
+#ifdef CONFIG_SMP
+	/*
+	 * When Cortex-A9 MPCore is configured to run in SMP mode,
+	 * the automatic data prefetchers issue special read accesses
+	 * to the L2CC(L2C-310), called Prefetch Hints.
+	 *
+	 * This feature should be enabled only when all the conditions
+	 * are satisfied.
+	 */
+	mrc	p15, 0, r10, c1, c0, 1		@ read aux control register
+	orr	r10, r10, #1 << 1		@ set L2 prefetch hint enable bit
+	mcr	p15, 0, r10, c1, c0, 1		@ write aux control register
+#endif
 #endif
 
 3:	mov	r10, #0

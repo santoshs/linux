@@ -4,6 +4,8 @@
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
  * Copyright (C) 2010 Alan Stern <stern@rowland.harvard.edu>
  *
+ * Copyright (C) 2012 Renesas Mobile Corporation
+ *
  * This file is released under the GPLv2.
  */
 
@@ -12,6 +14,10 @@
 #include <linux/pm_runtime.h>
 #include <trace/events/rpm.h>
 #include "power.h"
+#ifdef CONFIG_PDC
+#include <mach/pm.h>
+#include <linux/slab.h>
+#endif /* CONFIG_PDC */
 
 static int rpm_resume(struct device *dev, int rpmflags);
 static int rpm_suspend(struct device *dev, int rpmflags);
@@ -398,6 +404,9 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 	int (*callback)(struct device *);
 	struct device *parent = NULL;
 	int retval;
+#ifdef CONFIG_PDC
+	struct power_domain_info *pdi = __to_pdi(dev);
+#endif /* CONFIG_PDC */
 
 	trace_rpm_suspend(dev, rpmflags);
 
@@ -519,6 +528,13 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 		parent = dev->parent;
 		atomic_add_unless(&parent->power.child_count, -1, 0);
 	}
+#ifdef CONFIG_PDC
+		if (pdi) {
+			spin_unlock(&dev->power.lock);
+			power_domains_put_noidle(dev);
+			spin_lock(&dev->power.lock);
+		}
+#endif /* CONFIG_PDC */
 	wake_up_all(&dev->power.wait_queue);
 
 	if (dev->power.deferred_resume) {
@@ -538,6 +554,14 @@ static int rpm_suspend(struct device *dev, int rpmflags)
 
 		spin_lock(&dev->power.lock);
 	}
+
+#ifdef CONFIG_PDC
+	if (pdi) {
+		spin_unlock(&dev->power.lock);
+		for_each_power_device(dev, pm_runtime_suspend);
+		spin_lock(&dev->power.lock);
+	}
+#endif /* CONFIG_PDC */
 
  out:
 	trace_rpm_return_int(dev, _THIS_IP_, retval);
@@ -590,6 +614,9 @@ static int rpm_resume(struct device *dev, int rpmflags)
 	int (*callback)(struct device *);
 	struct device *parent = NULL;
 	int retval = 0;
+#ifdef CONFIG_PDC
+	struct power_domain_info *pdi = __to_pdi(dev);
+#endif /* CONFIG_PDC */
 
 	trace_rpm_resume(dev, rpmflags);
 
@@ -670,6 +697,13 @@ static int rpm_resume(struct device *dev, int rpmflags)
 		    || dev->parent->power.runtime_status == RPM_ACTIVE) {
 			atomic_inc(&dev->parent->power.child_count);
 			spin_unlock(&dev->parent->power.lock);
+#ifdef CONFIG_PDC
+			if (pdi) {
+				spin_unlock(&dev->power.lock);
+				power_domains_get_sync(dev);
+				spin_lock(&dev->power.lock);
+			}
+#endif /* CONFIG_PDC */
 			retval = 1;
 			goto no_callback;	/* Assume success. */
 		}
@@ -720,10 +754,25 @@ static int rpm_resume(struct device *dev, int rpmflags)
 	}
  skip_parent:
 
-	if (dev->power.no_callbacks)
+	if (dev->power.no_callbacks) {
+#ifdef CONFIG_PDC
+		if (pdi) {
+			spin_unlock(&dev->power.lock);
+			power_domains_get_sync(dev);
+			spin_lock(&dev->power.lock);
+		}
+#endif /* CONFIG_PDC */
 		goto no_callback;	/* Assume success. */
+	}
 
 	__update_runtime_status(dev, RPM_RESUMING);
+#ifdef CONFIG_PDC
+		if (pdi) {
+			spin_unlock(&dev->power.lock);
+			power_domains_get_sync(dev);
+			spin_lock(&dev->power.lock);
+		}
+#endif /* CONFIG_PDC */
 
 	if (dev->pm_domain)
 		callback = dev->pm_domain->ops.runtime_resume;
@@ -743,6 +792,13 @@ static int rpm_resume(struct device *dev, int rpmflags)
 	if (retval) {
 		__update_runtime_status(dev, RPM_SUSPENDED);
 		pm_runtime_cancel_pending(dev);
+#ifdef CONFIG_PDC
+		if (pdi) {
+			spin_unlock(&dev->power.lock);
+			power_domains_put_noidle(dev);
+			spin_lock(&dev->power.lock);
+		}
+#endif /* CONFIG_PDC */
 	} else {
  no_callback:
 		__update_runtime_status(dev, RPM_ACTIVE);
@@ -762,6 +818,14 @@ static int rpm_resume(struct device *dev, int rpmflags)
 
 		spin_lock_irq(&dev->power.lock);
 	}
+
+#ifdef CONFIG_PDC
+	if (pdi) {
+		spin_unlock(&dev->power.lock);
+		for_each_power_device(dev, pm_runtime_suspend);
+		spin_lock(&dev->power.lock);
+	}
+#endif /* CONFIG_PDC */
 
 	trace_rpm_return_int(dev, _THIS_IP_, retval);
 
@@ -988,9 +1052,19 @@ int __pm_runtime_set_status(struct device *dev, unsigned int status)
 	bool notify_parent = false;
 	int error = 0;
 
+#ifdef CONFIG_PDC
+	struct device *power_devs[POWER_DOMAIN_COUNT_MAX];
+	size_t power_dev_cnt = 0;
+	int i = 0;
+	bool notify_power_dev = false;
+#endif /* CONFIG_PDC */
+
 	if (status != RPM_ACTIVE && status != RPM_SUSPENDED)
 		return -EINVAL;
 
+#ifdef CONFIG_PDC
+	(void)power_domain_devices(dev_name(dev), power_devs, &power_dev_cnt);
+#endif /* CONFIG_PDC */
 	spin_lock_irqsave(&dev->power.lock, flags);
 
 	if (!dev->power.runtime_error && !dev->power.disable_depth) {
@@ -1007,6 +1081,9 @@ int __pm_runtime_set_status(struct device *dev, unsigned int status)
 			atomic_add_unless(&parent->power.child_count, -1, 0);
 			notify_parent = !parent->power.ignore_children;
 		}
+#ifdef CONFIG_PDC
+		notify_power_dev = true;
+#endif /* CONFIG_PDC */
 		goto out_set;
 	}
 
@@ -1031,6 +1108,25 @@ int __pm_runtime_set_status(struct device *dev, unsigned int status)
 			goto out;
 	}
 
+#ifdef CONFIG_PDC
+	for (i = 0; i < power_dev_cnt; i++) {
+		pm_runtime_get_noresume(power_devs[i]);
+
+		if (RPM_ACTIVE != power_devs[i]->power.runtime_status) {
+			spin_unlock_irqrestore(&dev->power.lock, flags);
+
+			for (; 0 <= i; i--)
+				pm_runtime_put(power_devs[i]);
+
+			if (parent) {
+				atomic_dec(&parent->power.child_count);
+				(void)pm_request_idle(parent);
+			}
+			return -EBUSY;
+		}
+	}
+#endif /* CONFIG_PDC */
+
  out_set:
 	__update_runtime_status(dev, status);
 	dev->power.runtime_error = 0;
@@ -1039,6 +1135,13 @@ int __pm_runtime_set_status(struct device *dev, unsigned int status)
 
 	if (notify_parent)
 		pm_request_idle(parent);
+
+#ifdef CONFIG_PDC
+	if (notify_power_dev) {
+		for (i = 0; i < power_dev_cnt; i++)
+			(void)pm_runtime_put(power_devs[i]);
+	}
+#endif /* CONFIG_PDC */
 
 	return error;
 }
@@ -1182,11 +1285,36 @@ EXPORT_SYMBOL_GPL(__pm_runtime_disable);
 void pm_runtime_enable(struct device *dev)
 {
 	unsigned long flags;
+#ifdef CONFIG_PDC
+	struct power_domain_info *pdi = NULL;
+
+	if (dev_name(dev))
+		pdi = get_pdi(dev_name(dev));
+	if (NULL != pdi)
+		(void)power_domain_devices(dev_name(dev), \
+			pdi->devs, &pdi->cnt);
+#endif /* CONFIG_PDC */
 
 	spin_lock_irqsave(&dev->power.lock, flags);
-
+#ifdef CONFIG_PDC
+	if (dev->power.disable_depth > 0) {
+		dev->power.disable_depth--;
+			if (!pdi) {
+				dev->power.pdi = NULL;
+				dev_err(dev, "%s is't supported by PDC\n", \
+					dev_name(dev));
+				spin_unlock_irqrestore(&dev->power.lock, flags);
+				return;
+			}
+			if (pdi->cnt != 0)
+				dev->power.pdi = pdi;
+			else
+				dev->power.pdi = NULL;
+	}
+#else
 	if (dev->power.disable_depth > 0)
 		dev->power.disable_depth--;
+#endif /* CONFIG_PDC */
 	else
 		dev_warn(dev, "Unbalanced %s!\n", __func__);
 

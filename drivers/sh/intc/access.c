@@ -73,28 +73,28 @@ unsigned long intc_get_field_from_handle(unsigned int value, unsigned int handle
 }
 
 static unsigned long test_8(unsigned long addr, unsigned long h,
-			    unsigned long ignore)
+			    unsigned long ignore, raw_spinlock_t *lock)
 {
 	void __iomem *ptr = (void __iomem *)addr;
 	return intc_get_field_from_handle(__raw_readb(ptr), h);
 }
 
 static unsigned long test_16(unsigned long addr, unsigned long h,
-			     unsigned long ignore)
+			     unsigned long ignore, raw_spinlock_t *lock)
 {
 	void __iomem *ptr = (void __iomem *)addr;
 	return intc_get_field_from_handle(__raw_readw(ptr), h);
 }
 
 static unsigned long test_32(unsigned long addr, unsigned long h,
-			     unsigned long ignore)
+			     unsigned long ignore, raw_spinlock_t *lock)
 {
 	void __iomem *ptr = (void __iomem *)addr;
 	return intc_get_field_from_handle(__raw_readl(ptr), h);
 }
 
 static unsigned long write_8(unsigned long addr, unsigned long h,
-			     unsigned long data)
+			     unsigned long data, raw_spinlock_t *lock)
 {
 	void __iomem *ptr = (void __iomem *)addr;
 	__raw_writeb(intc_set_field_from_handle(0, data, h), ptr);
@@ -103,7 +103,7 @@ static unsigned long write_8(unsigned long addr, unsigned long h,
 }
 
 static unsigned long write_16(unsigned long addr, unsigned long h,
-			      unsigned long data)
+			      unsigned long data, raw_spinlock_t *lock)
 {
 	void __iomem *ptr = (void __iomem *)addr;
 	__raw_writew(intc_set_field_from_handle(0, data, h), ptr);
@@ -112,7 +112,7 @@ static unsigned long write_16(unsigned long addr, unsigned long h,
 }
 
 static unsigned long write_32(unsigned long addr, unsigned long h,
-			      unsigned long data)
+			      unsigned long data, raw_spinlock_t *lock)
 {
 	void __iomem *ptr = (void __iomem *)addr;
 	__raw_writel(intc_set_field_from_handle(0, data, h), ptr);
@@ -121,44 +121,44 @@ static unsigned long write_32(unsigned long addr, unsigned long h,
 }
 
 static unsigned long modify_8(unsigned long addr, unsigned long h,
-			      unsigned long data)
+			      unsigned long data, raw_spinlock_t *lock)
 {
 	void __iomem *ptr = (void __iomem *)addr;
 	unsigned long flags;
 	unsigned int value;
-	local_irq_save(flags);
+	raw_spin_lock_irqsave(lock, flags);
 	value = intc_set_field_from_handle(__raw_readb(ptr), data, h);
 	__raw_writeb(value, ptr);
 	(void)__raw_readb(ptr);	/* Defeat write posting */
-	local_irq_restore(flags);
+	raw_spin_unlock_irqrestore(lock, flags);
 	return 0;
 }
 
 static unsigned long modify_16(unsigned long addr, unsigned long h,
-			       unsigned long data)
+			       unsigned long data, raw_spinlock_t *lock)
 {
 	void __iomem *ptr = (void __iomem *)addr;
 	unsigned long flags;
 	unsigned int value;
-	local_irq_save(flags);
+	raw_spin_lock_irqsave(lock, flags);
 	value = intc_set_field_from_handle(__raw_readw(ptr), data, h);
 	__raw_writew(value, ptr);
 	(void)__raw_readw(ptr);	/* Defeat write posting */
-	local_irq_restore(flags);
+	raw_spin_unlock_irqrestore(lock, flags);
 	return 0;
 }
 
 static unsigned long modify_32(unsigned long addr, unsigned long h,
-			       unsigned long data)
+			       unsigned long data, raw_spinlock_t *lock)
 {
 	void __iomem *ptr = (void __iomem *)addr;
 	unsigned long flags;
 	unsigned int value;
-	local_irq_save(flags);
+	raw_spin_lock_irqsave(lock, flags);
 	value = intc_set_field_from_handle(__raw_readl(ptr), data, h);
 	__raw_writel(value, ptr);
 	(void)__raw_readl(ptr);	/* Defeat write posting */
-	local_irq_restore(flags);
+	raw_spin_unlock_irqrestore(lock, flags);
 	return 0;
 }
 
@@ -166,35 +166,42 @@ static unsigned long intc_mode_field(unsigned long addr,
 				     unsigned long handle,
 				     unsigned long (*fn)(unsigned long,
 						unsigned long,
-						unsigned long),
-				     unsigned int irq)
+						unsigned long,
+						raw_spinlock_t *),
+				     unsigned int irq,
+				     raw_spinlock_t *lock)
 {
-	return fn(addr, handle, ((1 << _INTC_WIDTH(handle)) - 1));
+	return fn(addr, handle, ((1 << _INTC_WIDTH(handle)) - 1), lock);
 }
 
 static unsigned long intc_mode_zero(unsigned long addr,
 				    unsigned long handle,
 				    unsigned long (*fn)(unsigned long,
 					       unsigned long,
-					       unsigned long),
-				    unsigned int irq)
+					       unsigned long,
+					       raw_spinlock_t *),
+				    unsigned int irq,
+				    raw_spinlock_t *lock)
 {
-	return fn(addr, handle, 0);
+	return fn(addr, handle, 0, lock);
 }
 
 static unsigned long intc_mode_prio(unsigned long addr,
 				    unsigned long handle,
 				    unsigned long (*fn)(unsigned long,
 					       unsigned long,
-					       unsigned long),
-				    unsigned int irq)
+					       unsigned long,
+					       raw_spinlock_t *),
+				    unsigned int irq,
+				    raw_spinlock_t *lock)
 {
-	return fn(addr, handle, intc_get_prio_level(irq));
+	return fn(addr, handle, intc_get_prio_level(irq), lock);
 }
 
 unsigned long (*intc_reg_fns[])(unsigned long addr,
 				unsigned long h,
-				unsigned long data) = {
+				unsigned long data,
+				raw_spinlock_t *lock) = {
 	[REG_FN_TEST_BASE + 0] = test_8,
 	[REG_FN_TEST_BASE + 1] = test_16,
 	[REG_FN_TEST_BASE + 3] = test_32,
@@ -210,8 +217,10 @@ unsigned long (*intc_enable_fns[])(unsigned long addr,
 				   unsigned long handle,
 				   unsigned long (*fn)(unsigned long,
 					    unsigned long,
-					    unsigned long),
-				   unsigned int irq) = {
+					    unsigned long,
+					    raw_spinlock_t *),
+				   unsigned int irq,
+				   raw_spinlock_t *lock) = {
 	[MODE_ENABLE_REG] = intc_mode_field,
 	[MODE_MASK_REG] = intc_mode_zero,
 	[MODE_DUAL_REG] = intc_mode_field,
@@ -223,8 +232,10 @@ unsigned long (*intc_disable_fns[])(unsigned long addr,
 				    unsigned long handle,
 				    unsigned long (*fn)(unsigned long,
 					     unsigned long,
-					     unsigned long),
-				    unsigned int irq) = {
+					     unsigned long,
+					     raw_spinlock_t *),
+				    unsigned int irq,
+				    raw_spinlock_t *lock) = {
 	[MODE_ENABLE_REG] = intc_mode_zero,
 	[MODE_MASK_REG] = intc_mode_field,
 	[MODE_DUAL_REG] = intc_mode_field,
@@ -236,8 +247,10 @@ unsigned long (*intc_enable_noprio_fns[])(unsigned long addr,
 					  unsigned long handle,
 					  unsigned long (*fn)(unsigned long,
 						unsigned long,
-						unsigned long),
-					  unsigned int irq) = {
+						unsigned long,
+						raw_spinlock_t *),
+					  unsigned int irq,
+					  raw_spinlock_t *lock) = {
 	[MODE_ENABLE_REG] = intc_mode_field,
 	[MODE_MASK_REG] = intc_mode_zero,
 	[MODE_DUAL_REG] = intc_mode_field,

@@ -49,6 +49,7 @@
 #include <linux/err.h>
 #include <linux/dmaengine.h>
 #include <linux/dma-mapping.h>
+#include <linux/nmi.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
@@ -58,7 +59,16 @@
 #endif
 
 #include "sh-sci.h"
+#include <mach/gpio.h>
+#define SCIFB1_SCxSR_TEND_BIT_READ_ATTEMPT	 100
 
+extern bool KERNEL_LOG; /* For kernel log supression */
+#ifdef CONFIG_SERIAL_CORE_CONSOLE
+#define sci_uart_console(port)	\
+	((port)->cons && (port)->cons->index == (port)->line)
+#else
+#define sci_uart_console(port)	(0)
+#endif
 struct sci_port {
 	struct uart_port	port;
 
@@ -99,6 +109,9 @@ struct sci_port {
 #endif
 
 	struct notifier_block		freq_transition;
+	/* PCP# TT12102320062
+	Save & retain termios->c_cflag value */
+	int	cons_cflag ;
 };
 
 /* Function prototypes */
@@ -146,6 +159,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -165,6 +180,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -183,6 +200,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= { 0x30, 16 },
+		[SCPDR]		= { 0x34, 16 },
 	},
 
 	/*
@@ -201,6 +220,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= { 0x3c, 16 },
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= { 0x30, 16 },
+		[SCPDR]		= { 0x34, 16 },
 	},
 
 	/*
@@ -220,6 +241,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= { 0x20, 16 },
 		[SCLSR]		= { 0x24, 16 },
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -238,6 +261,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -256,6 +281,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= { 0x20, 16 },
 		[SCLSR]		= { 0x24, 16 },
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -275,6 +302,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= { 0x24, 16 },
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -294,6 +323,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= { 0x20, 16 },
 		[SCSPTR]	= { 0x24, 16 },
 		[SCLSR]		= { 0x28, 16 },
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 
 	/*
@@ -313,6 +344,8 @@ static struct plat_sci_reg sci_regmap[SCIx_NR_REGTYPES][SCIx_NR_REGS] = {
 		[SCRFDR]	= sci_reg_invalid,
 		[SCSPTR]	= sci_reg_invalid,
 		[SCLSR]		= sci_reg_invalid,
+		[SCPCR]		= sci_reg_invalid,
+		[SCPDR]		= sci_reg_invalid,
 	},
 };
 
@@ -452,12 +485,20 @@ static void sci_init_pins(struct uart_port *port, unsigned int cflag)
 {
 	struct sci_port *s = to_sci_port(port);
 	struct plat_sci_reg *reg = sci_regmap[s->cfg->regtype] + SCSPTR;
+	struct uart_state *state = port->state;
+	struct tty_port *tty_port = &state->port;
 
 	/*
 	 * Use port-specific handler if provided.
 	 */
 	if (s->cfg->ops && s->cfg->ops->init_pins) {
-		s->cfg->ops->init_pins(port, cflag);
+		/* PCP# VA13022646818 -
+		Check to achieve device wakeup functionality
+		in BT keyboard use case avoiding frame loss due
+		to RTS pin set to low before SCIF ports get resumed
+		after deep sleep */
+		if (!(tty_port->flags & ASYNC_SUSPENDED))
+			s->cfg->ops->init_pins(port, cflag);
 		return;
 	}
 
@@ -635,7 +676,6 @@ static void sci_receive_chars(struct uart_port *port)
 					}
 
 					/* Nonzero => end-of-break */
-					dev_dbg(port->dev, "debounce<%02x>\n", c);
 					sci_port->break_flag = 0;
 
 					if (STEPFN(c)) {
@@ -653,11 +693,9 @@ static void sci_receive_chars(struct uart_port *port)
 				if (status & SCxSR_FER(port)) {
 					flag = TTY_FRAME;
 					port->icount.frame++;
-					dev_notice(port->dev, "frame error\n");
 				} else if (status & SCxSR_PER(port)) {
 					flag = TTY_PARITY;
 					port->icount.parity++;
-					dev_notice(port->dev, "parity error\n");
 				} else
 					flag = TTY_NORMAL;
 
@@ -734,7 +772,6 @@ static int sci_handle_errors(struct uart_port *port)
 			if (tty_insert_flip_char(tport, 0, TTY_OVERRUN))
 				copied++;
 
-			dev_notice(port->dev, "overrun error");
 		}
 	}
 
@@ -753,7 +790,6 @@ static int sci_handle_errors(struct uart_port *port)
 				if (uart_handle_break(port))
 					return 0;
 
-				dev_dbg(port->dev, "BREAK detected\n");
 
 				if (tty_insert_flip_char(tport, 0, TTY_BREAK))
 					copied++;
@@ -766,7 +802,6 @@ static int sci_handle_errors(struct uart_port *port)
 			if (tty_insert_flip_char(tport, 0, TTY_FRAME))
 				copied++;
 
-			dev_notice(port->dev, "frame error\n");
 		}
 	}
 
@@ -777,7 +812,6 @@ static int sci_handle_errors(struct uart_port *port)
 		if (tty_insert_flip_char(tport, 0, TTY_PARITY))
 			copied++;
 
-		dev_notice(port->dev, "parity error");
 	}
 
 	if (copied)
@@ -805,7 +839,6 @@ static int sci_handle_fifo_overrun(struct uart_port *port)
 		tty_insert_flip_char(tport, 0, TTY_OVERRUN);
 		tty_flip_buffer_push(tport);
 
-		dev_notice(port->dev, "overrun error\n");
 		copied++;
 	}
 
@@ -834,7 +867,6 @@ static int sci_handle_breaks(struct uart_port *port)
 		if (tty_insert_flip_char(tport, 0, TTY_BREAK))
 			copied++;
 
-		dev_dbg(port->dev, "BREAK detected\n");
 	}
 
 	if (copied)
@@ -847,10 +879,11 @@ static int sci_handle_breaks(struct uart_port *port)
 
 static irqreturn_t sci_rx_interrupt(int irq, void *ptr)
 {
-#ifdef CONFIG_SERIAL_SH_SCI_DMA
+	unsigned long flags = 0 ;
 	struct uart_port *port = ptr;
 	struct sci_port *s = to_sci_port(port);
 
+#ifdef CONFIG_SERIAL_SH_SCI_DMA
 	if (s->chan_rx) {
 		u16 scr = serial_port_in(port, SCSCR);
 		u16 ssr = serial_port_in(port, SCxSR);
@@ -873,23 +906,30 @@ static irqreturn_t sci_rx_interrupt(int irq, void *ptr)
 	}
 #endif
 
+	if (s->cfg->irqs[0] != s->cfg->irqs[1])
+		spin_lock_irqsave(&port->lock, flags);
 	/* I think sci_receive_chars has to be called irrespective
 	 * of whether the I_IXOFF is set, otherwise, how is the interrupt
 	 * to be disabled?
 	 */
 	sci_receive_chars(ptr);
 
+	if (s->cfg->irqs[0] != s->cfg->irqs[1])
+		spin_unlock_irqrestore(&port->lock, flags);
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t sci_tx_interrupt(int irq, void *ptr)
 {
 	struct uart_port *port = ptr;
-	unsigned long flags;
+	unsigned long flags = 0 ;
 
-	spin_lock_irqsave(&port->lock, flags);
+	struct sci_port *s = to_sci_port(port);
+	if (s->cfg->irqs[0] != s->cfg->irqs[1])
+		spin_lock_irqsave(&port->lock, flags);
 	sci_transmit_chars(port);
-	spin_unlock_irqrestore(&port->lock, flags);
+	if (s->cfg->irqs[0] != s->cfg->irqs[1])
+		spin_unlock_irqrestore(&port->lock, flags);
 
 	return IRQ_HANDLED;
 }
@@ -947,7 +987,9 @@ static irqreturn_t sci_mpxed_interrupt(int irq, void *ptr)
 	struct uart_port *port = ptr;
 	struct sci_port *s = to_sci_port(port);
 	irqreturn_t ret = IRQ_NONE;
+	unsigned long flags = 0 ;
 
+	spin_lock_irqsave(&port->lock, flags);
 	ssr_status = serial_port_in(port, SCxSR);
 	scr_status = serial_port_in(port, SCSCR);
 	err_enabled = scr_status & port_rx_irq_mask(port);
@@ -973,6 +1015,7 @@ static irqreturn_t sci_mpxed_interrupt(int irq, void *ptr)
 	if ((ssr_status & SCxSR_BRK(port)) && err_enabled)
 		ret = sci_br_interrupt(irq, ptr);
 
+	spin_unlock_irqrestore(&port->lock, flags) ;
 	return ret;
 }
 
@@ -1214,11 +1257,9 @@ static void sci_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 static unsigned int sci_get_mctrl(struct uart_port *port)
 {
-	/*
-	 * CTS/RTS is handled in hardware when supported, while nothing
-	 * else is wired up. Keep it simple and simply assert DSR/CAR.
-	 */
-	return TIOCM_DSR | TIOCM_CAR;
+	/* This routine is used for getting signals of: DTR, DCD, DSR, RI,
+	 * and CTS/RTS */
+	return  TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR | TIOCM_CAR;
 }
 
 #ifdef CONFIG_SERIAL_SH_SCI_DMA
@@ -1500,6 +1541,9 @@ static void sci_start_tx(struct uart_port *port)
 	struct sci_port *s = to_sci_port(port);
 	unsigned short ctrl;
 
+	/* Wake BT chip before sending a frame */
+	if (s->cfg->exit_lpm_cb)
+		s->cfg->exit_lpm_cb(port);
 #ifdef CONFIG_SERIAL_SH_SCI_DMA
 	if (port->type == PORT_SCIFA || port->type == PORT_SCIFB) {
 		u16 new, scr = serial_port_in(port, SCSCR);
@@ -1723,6 +1767,8 @@ static void sci_free_dma(struct uart_port *port)
 {
 	struct sci_port *s = to_sci_port(port);
 
+	del_timer_sync(&s->rx_timer);
+
 	if (s->chan_tx)
 		sci_tx_dma_release(s, false);
 	if (s->chan_rx)
@@ -1788,6 +1834,8 @@ static unsigned int sci_scbrr_calc(unsigned int algo_id, unsigned int bps,
 		return (((freq * 2) + 16 * bps) / (16 * bps) - 1);
 	case SCBRR_ALGO_4:
 		return (((freq * 2) + 16 * bps) / (32 * bps) - 1);
+	case SCBRR_ALGO_4_BIS:
+		return (((freq * 2) + 13 * bps) / (26 * bps) - 1);
 	case SCBRR_ALGO_5:
 		return (((freq * 1000 / 32) / bps) - 1);
 	}
@@ -1798,20 +1846,47 @@ static unsigned int sci_scbrr_calc(unsigned int algo_id, unsigned int bps,
 	return ((freq + 16 * bps) / (32 * bps) - 1);
 }
 
-static void sci_reset(struct uart_port *port)
+static int sci_reset(struct uart_port *port)
 {
 	struct plat_sci_reg *reg;
 	unsigned int status;
+	int idx = 0;
 
+	/* JIRA ID 1911 (PCP# JK12122071879).
+	Propagation PCP# VA13022823537
+	TEND bit in SCxSR register is a read only bit
+	set by hardware on transmission end.
+	At times, when there is no ACK from GPS chip for
+	previous transmission, infinite busy loop is observed for
+	SCIFB1 port as TEND bit is NOT read as 1 for long time.
+	Possible solution to avoid busy loop.
+	Note:
+	1. TEND bit is always read as 1 on first attempt and
+	so read attempt is limited to 100 attempts.
+	2. SCIFB port could be reset to read TEND bit as 1.
+	However, due to lack of reproduciblity, this cannot be verified.
+	3. TTY framework does not permit to return error code
+	on this failure case.
+	*/
 	do {
+		idx++;
 		status = serial_port_in(port, SCxSR);
+		if (idx > SCIFB1_SCxSR_TEND_BIT_READ_ATTEMPT)
+			break;
 	} while (!(status & SCxSR_TEND(port)));
 
+	if (idx > SCIFB1_SCxSR_TEND_BIT_READ_ATTEMPT) {
+		dev_dbg(port->dev, \
+			"%s(%d) Possible busy loop, exit gracefully\n", \
+					__func__, port->line) ;
+		return -EPERM ;
+	}
 	serial_port_out(port, SCSCR, 0x00);	/* TE=0, RE=0, CKE1=0 */
 
 	reg = sci_getreg(port, SCFCR);
 	if (reg->size)
 		serial_port_out(port, SCFCR, SCFCR_RFRST | SCFCR_TFRST);
+	return 0;
 }
 
 static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
@@ -1821,7 +1896,20 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 	struct plat_sci_reg *reg;
 	unsigned int baud, smr_val, max_baud, cks;
 	int t = -1;
+	int ret = 0;
+	unsigned long flags = 0 ;
 
+	/* PCP# TT12102320062 - Save & retain termios->c_cflag value
+	for TTY close use case.	This change is applicable only for
+	SCIFA port to retain all register values as C4 power area
+	might get turned OFF and reset register values
+	in TTY close use case */
+	if (sci_uart_console(port) && s && termios) {
+		if (termios->c_cflag == 0)
+			termios->c_cflag = s->cons_cflag ;
+		else
+			s->cons_cflag = termios->c_cflag;
+	}
 	/*
 	 * earlyprintk comes here early on with port->uartclk set to zero.
 	 * the clock framework is not up and running at this point so here
@@ -1837,9 +1925,20 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 		t = sci_scbrr_calc(s->cfg->scbrr_algo_id, baud, port->uartclk);
 
 	sci_port_enable(s);
+	/* Propagation PCP# VA13022823537 -
+	To avoid possible race condition occurrence between
+	sci_mpxed_interrupt() & serial_console_write()/sci_set_termios
+	*/
+	spin_lock_irqsave(&port->lock, flags);
 
-	sci_reset(port);
-
+	ret = sci_reset(port);
+	if (ret < 0) {
+		/* spin_unlock_* should be invoked here as spin_lock_*
+		is invoked before for PCP# JK13012548863 */
+		spin_unlock_irqrestore(&port->lock, flags);
+		sci_port_disable(s);
+		return ;
+	}
 	smr_val = serial_port_in(port, SCSMR) & 3;
 
 	if ((termios->c_cflag & CSIZE) == CS7)
@@ -1850,6 +1949,12 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 		smr_val |= 0x30;
 	if (termios->c_cflag & CSTOPB)
 		smr_val |= 0x08;
+
+	if(s->cfg->scbrr_algo_id == SCBRR_ALGO_4_BIS)
+	{
+		smr_val &= ~(7 << 8);
+		smr_val |= 4 << 8;
+	}
 
 	uart_update_timeout(port, termios->c_cflag, baud);
 
@@ -1873,8 +1978,12 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 		unsigned short ctrl = serial_port_in(port, SCFCR);
 
 		if (s->cfg->capabilities & SCIx_HAVE_RTSCTS) {
-			if (termios->c_cflag & CRTSCTS)
+			/* Set rts_ctrl to control RTS pin in
+			suspend & resume only when CRTSCTS is set */
+			if (termios->c_cflag & CRTSCTS) {
 				ctrl |= SCFCR_MCE;
+				s->cfg->rts_ctrl = 1 ;
+			}
 			else
 				ctrl &= ~SCFCR_MCE;
 		}
@@ -1915,6 +2024,7 @@ static void sci_set_termios(struct uart_port *port, struct ktermios *termios,
 
 	if ((termios->c_cflag & CREAD) != 0)
 		sci_start_rx(port);
+	spin_unlock_irqrestore(&port->lock, flags);
 
 	sci_port_disable(s);
 }
@@ -2205,11 +2315,14 @@ static void serial_console_putchar(struct uart_port *port, int ch)
 static void serial_console_write(struct console *co, const char *s,
 				 unsigned count)
 {
+if(KERNEL_LOG) {
 	struct sci_port *sci_port = &sci_ports[co->index];
 	struct uart_port *port = &sci_port->port;
 	unsigned short bits, ctrl;
 	unsigned long flags;
 	int locked = 1;
+
+	touch_nmi_watchdog();
 
 	local_irq_save(flags);
 	if (port->sysrq)
@@ -2236,6 +2349,7 @@ static void serial_console_write(struct console *co, const char *s,
 	if (locked)
 		spin_unlock(&port->lock);
 	local_irq_restore(flags);
+	}
 }
 
 static int serial_console_setup(struct console *co, char *options)
@@ -2270,7 +2384,12 @@ static int serial_console_setup(struct console *co, char *options)
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
 
-	return uart_set_options(port, co, baud, parity, bits, flow);
+	ret = uart_set_options(port, co, baud, parity, bits, flow);
+	/* PCP# TT12102320062 - Save & retain termios->c_cflag
+	value for TTY close use case */
+	if (sci_port && port->cons && port->cons->cflag != 0)
+		sci_port->cons_cflag = port->cons->cflag ;
+	return ret;
 }
 
 static struct console serial_console = {
@@ -2420,20 +2539,62 @@ static int sci_probe(struct platform_device *dev)
 static int sci_suspend(struct device *dev)
 {
 	struct sci_port *sport = dev_get_drvdata(dev);
+	struct uart_port *port = &sport->port;
+	u16 data = 0 ;
 
-	if (sport)
+	/* GPIO settings review comments for PCP# NK12120730341 */
+	if (sport && sport->cfg) {
+		if (sport->cfg->rts_ctrl) {
+			sci_port_enable(sport);
+
+			/* Set RTS to high before going in deep sleep mode */
+			data = serial_port_in(port, SCPCR);
+			serial_port_out(port, SCPCR,  data | 0x0010);
+			data = serial_port_in(port, SCPDR);
+			serial_port_out(port, SCPDR,  data | 0x0010);
+
+			sci_port_disable(sport);
+		}
 		uart_suspend_port(&sci_uart_driver, &sport->port);
-
+		/* PCP# RM13040153846 - Avoiding GPIO settings for SCIFA0
+		 * when console_suspend_enabled is zero for PM debug purpose.*/
+		if (port->suspended)
+			/* Set suspend state GPIO CR values here
+						to reduce power consumption */
+			/* Second parameter is suspend_mode */
+			gpio_set_portncr_value(sport->cfg->port_count,\
+				sport->cfg->scif_gpio_setting_info, 1);
+	}
 	return 0;
 }
 
 static int sci_resume(struct device *dev)
 {
 	struct sci_port *sport = dev_get_drvdata(dev);
+	struct uart_port *port = &sport->port;
+	u16 data = 0 ;
 
-	if (sport)
+	/* GPIO settings review comments for PCP# NK12120730341 */
+	if (sport && sport->cfg) {
+		/* PCP# RM13040153846 - Avoiding GPIO settings for SCIFA0
+		 * when console_suspend_enabled is zero for PM debug purpose.*/
+		if (port->suspended)
+			/* Resume back initial GPIO settings here */
+			gpio_set_portncr_value(sport->cfg->port_count, \
+				sport->cfg->scif_gpio_setting_info, 0);
 		uart_resume_port(&sci_uart_driver, &sport->port);
+		if (sport->cfg->rts_ctrl) {
+			sci_port_enable(sport);
 
+			/* Set RTS to low after the resume */
+			data = serial_port_in(port, SCPCR);
+			serial_port_out(port, SCPCR,  data & 0xFFEF);
+			data = serial_port_in(port, SCPDR);
+			serial_port_out(port, SCPDR,  data & 0xFFEF);
+
+			sci_port_disable(sport);
+		}
+	}
 	return 0;
 }
 
@@ -2455,7 +2616,7 @@ static struct platform_driver sci_driver = {
 static int __init sci_init(void)
 {
 	int ret;
-
+	KERNEL_LOG = 1;
 	printk(banner);
 
 	ret = uart_register_driver(&sci_uart_driver);
@@ -2478,7 +2639,7 @@ static void __exit sci_exit(void)
 early_platform_init_buffer("earlyprintk", &sci_driver,
 			   early_serial_buf, ARRAY_SIZE(early_serial_buf));
 #endif
-module_init(sci_init);
+subsys_initcall(sci_init);
 module_exit(sci_exit);
 
 MODULE_LICENSE("GPL");

@@ -24,6 +24,11 @@
 
 #include "u_ether.h"
 #include "rndis.h"
+#include <linux/usb/gadget_cust.h>
+
+#include <linux/clk.h>
+#include <linux/sh_clk.h>
+#include <mach/pm.h>
 
 
 /*
@@ -103,6 +108,9 @@ static unsigned int bitrate(struct usb_gadget *g)
 
 #define RNDIS_STATUS_INTERVAL_MS	32
 #define STATUS_BYTECOUNT		8	/* 8 bytes data */
+#define HSUSBDMA_IRQ           117
+#define R8A66597_UDC_IRQ       119
+#define smc_net		       228
 
 
 /* interface descriptor: */
@@ -662,9 +670,9 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_composite_dev *cdev = c->cdev;
 	struct f_rndis		*rndis = func_to_rndis(f);
-	int			status;
+	int			status, ret = 0;
 	struct usb_ep		*ep;
-
+	int count = 0;
 	/* allocate instance-specific interface IDs */
 	status = usb_interface_id(c, f);
 	if (status < 0)
@@ -758,6 +766,22 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	 * the network link ... which is unavailable to this code
 	 * until we're activated via set_alt().
 	 */
+	ret = stop_cpufreq();
+	DBG(cdev, "%s(): stop_cpufreq\n", __func__);
+	if (ret) {
+		dfs_started = 1;
+		ERROR(cdev, "%s(): error<%d>! stop_cpufreq\n",
+			__func__, ret);
+	} else {
+
+		dfs_started = 0;
+		while (!cpu_online(1)||(++count < 10))
+		udelay(1);
+
+		irq_set_affinity(HSUSBDMA_IRQ, cpumask_of(1));
+		irq_set_affinity(R8A66597_UDC_IRQ, cpumask_of(1));
+		irq_set_affinity(smc_net, cpumask_of(0));
+		}
 
 	DBG(cdev, "RNDIS: %s speed IN/%s OUT/%s NOTIFY/%s\n",
 			gadget_is_superspeed(c->cdev->gadget) ? "super" :
@@ -801,6 +825,12 @@ rndis_unbind(struct usb_configuration *c, struct usb_function *f)
 	kfree(rndis->notify_req->buf);
 	usb_ep_free_request(rndis->notify, rndis->notify_req);
 
+	if (!dfs_started) {
+		start_cpufreq();
+		DBG(c->cdev, "%s(): start_cpufreq\n", __func__);
+		dfs_started = 1;
+		irq_set_affinity(smc_net, cpu_all_mask);
+	}
 	kfree(rndis);
 }
 

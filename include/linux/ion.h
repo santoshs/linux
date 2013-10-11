@@ -51,6 +51,27 @@ enum ion_heap_type {
 #define ION_NUM_HEAP_IDS		sizeof(unsigned int) * 8
 
 /**
+ * These are the only ids that should be used for Ion heap ids.
+ * The ids listed are the order in which allocation will be attempted
+ * if specified. Don't swap the order of heap ids unless you know what
+ * you are doing!
+ */
+enum ion_heap_ids {
+	ION_HEAP_SYSTEM_ID,
+	ION_HEAP_SYSTEM_CONTIG_ID,
+	ION_HEAP_CAMERA_ID,
+	ION_HEAP_GPU_ID,
+#ifdef CONFIG_ION_R_MOBILE_USE_VIDEO_HEAP
+	ION_HEAP_VIDEO_ID,
+#else
+	ION_HEAP_VIDEO_ID = ION_HEAP_CAMERA_ID,
+#endif
+
+	ION_HEAP_NON_SECURE_ID = ION_HEAP_CAMERA_ID,
+	ION_HEAP_SECURE_ID = ION_HEAP_VIDEO_ID,
+};
+
+/**
  * allocation flags - the lower 16 bits are used by core ion, the upper 16
  * bits are reserved for use by the heaps themselves.
  */
@@ -132,6 +153,14 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 				     const char *name);
 
 /**
+ * r_mobile_ion_client_create() - creates a new platform-specific ion client
+ *
+ * name is the same as ion_client_create, return values
+ * are the same as ion_client_create.
+ */
+struct ion_client *r_mobile_ion_client_create(const char *name);
+
+/**
  * ion_client_destroy() -  free's a client and all it's handles
  * @client:	the client
  *
@@ -189,7 +218,7 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 	     ion_phys_addr_t *addr, size_t *len);
 
 /**
- * ion_map_dma - return an sg_table describing a handle
+ * ion_sg_table - return an sg_table describing a handle
  * @client:	the client
  * @handle:	the handle
  *
@@ -372,5 +401,12 @@ struct ion_custom_data {
  * passes appropriate userdata for that ioctl
  */
 #define ION_IOC_CUSTOM		_IOWR(ION_IOC_MAGIC, 6, struct ion_custom_data)
+
+/**
+ * R-Mobile custom ioctl
+ */
+enum {
+	R_MOBILE_ION_RT_MAP,
+};
 
 #endif /* _LINUX_ION_H */

@@ -102,7 +102,9 @@ extern unsigned long nr_running(void);
 extern unsigned long nr_iowait(void);
 extern unsigned long nr_iowait_cpu(int cpu);
 extern unsigned long this_cpu_load(void);
-
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+extern unsigned long this_cpu_loadx(int i);
+#endif
 
 extern void calc_global_load(unsigned long ticks);
 extern void update_cpu_load_nohz(void);
@@ -269,7 +271,7 @@ extern void scheduler_tick(void);
 
 extern void sched_show_task(struct task_struct *p);
 
-#ifdef CONFIG_LOCKUP_DETECTOR
+#if defined CONFIG_LOCKUP_DETECTOR || defined CONFIG_RMU2_RWDT
 extern void touch_softlockup_watchdog(void);
 extern void touch_softlockup_watchdog_sync(void);
 extern void touch_all_softlockup_watchdogs(void);

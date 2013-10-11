@@ -482,4 +482,10 @@ config LEDS_BLINKM
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"
 
+config LEDS_KTD253EHD
+	tristate "LED support for KTD253EHD"
+	depends on LEDS_CLASS && GENERIC_GPIO
+	help
+	  This option enables support for the KTD253EHD.
+
 endif # NEW_LEDS

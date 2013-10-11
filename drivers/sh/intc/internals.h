@@ -70,6 +70,9 @@ struct intc_desc_int {
 	struct irq_domain *domain;
 	struct irq_chip chip;
 	bool skip_suspend;
+
+	int (*set_type)(struct irq_data *data, unsigned int flow_type);
+	int (*set_wake)(struct irq_data *data, unsigned int on);
 };
 
 
@@ -120,23 +123,24 @@ static inline int intc_handle_int_cmp(const void *a, const void *b)
 
 /* access.c */
 extern unsigned long
-(*intc_reg_fns[])(unsigned long addr, unsigned long h, unsigned long data);
+(*intc_reg_fns[])(unsigned long addr, unsigned long h, unsigned long data,
+		 raw_spinlock_t *lock);
 
 extern unsigned long
 (*intc_enable_fns[])(unsigned long addr, unsigned long handle,
 		     unsigned long (*fn)(unsigned long,
-				unsigned long, unsigned long),
-		     unsigned int irq);
+				unsigned long, unsigned long, raw_spinlock_t *),
+		     unsigned int irq, raw_spinlock_t *lock);
 extern unsigned long
 (*intc_disable_fns[])(unsigned long addr, unsigned long handle,
 		      unsigned long (*fn)(unsigned long,
-				unsigned long, unsigned long),
-		      unsigned int irq);
+				unsigned long, unsigned long, raw_spinlock_t *),
+		      unsigned int irq, raw_spinlock_t *lock);
 extern unsigned long
 (*intc_enable_noprio_fns[])(unsigned long addr, unsigned long handle,
 		            unsigned long (*fn)(unsigned long,
-				unsigned long, unsigned long),
-			    unsigned int irq);
+				unsigned long, unsigned long, raw_spinlock_t *),
+			    unsigned int irq, raw_spinlock_t *lock);
 
 unsigned long intc_phys_to_virt(struct intc_desc_int *d, unsigned long address);
 unsigned int intc_get_reg(struct intc_desc_int *d, unsigned long address);

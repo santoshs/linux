@@ -4,6 +4,7 @@
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
  * Copyright (c) 2009 Rafael J. Wysocki <rjw@sisk.pl>, Novell Inc.
+ * Copyright (C) 2012 Renesas Mobile Corporation
  *
  * This file is released under the GPLv2.
  */
@@ -27,6 +28,7 @@
 #include <linux/ftrace.h>
 #include <linux/rtc.h>
 #include <trace/events/power.h>
+#include <mach/pm.h>
 
 #include "power.h"
 
@@ -116,8 +118,18 @@ static int suspend_test(int level)
 {
 #ifdef CONFIG_PM_DEBUG
 	if (pm_test_level == level) {
+#if defined(CONFIG_ARCH_R8A7373) && defined(CONFIG_PM_TEST)
+#include <linux/time.h>
+		extern int wait_time;
+		unsigned long wait_time_jiffies = jiffies + (wait_time * HZ);
+		printk(KERN_INFO "%s: Waiting for %d seconds.\n", __func__, wait_time);
+		while ( time_before ( jiffies, wait_time_jiffies ) ) {
+			cpu_relax ( ) ;
+		}
+#else
 		printk(KERN_INFO "suspend debug: Waiting for 5 seconds.\n");
 		mdelay(5000);
+#endif /* CONFIG_ARCH_R8A7373 & CONFIG_PM_TEST */
 		return 1;
 	}
 #endif /* !CONFIG_PM_DEBUG */
@@ -338,7 +350,7 @@ static int enter_state(suspend_state_t state)
 	sys_sync();
 	printk("done.\n");
 
-	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
+	printk(KERN_INFO "PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare(state);
 	if (error)
 		goto Unlock;
@@ -346,7 +358,7 @@ static int enter_state(suspend_state_t state)
 	if (suspend_test(TEST_FREEZER))
 		goto Finish;
 
-	pr_debug("PM: Entering %s sleep\n", pm_states[state]);
+	printk(KERN_INFO "PM: Entering %s sleep\n", pm_states[state]);
 	pm_restrict_gfp_mask();
 	error = suspend_devices_and_enter(state);
 	pm_restore_gfp_mask();
@@ -381,9 +393,19 @@ static void pm_suspend_marker(char *annotation)
 int pm_suspend(suspend_state_t state)
 {
 	int error;
+#ifdef CONFIG_PM_TEST
+	extern int for_kernel_test;
+#endif
 
 	if (state <= PM_SUSPEND_ON || state >= PM_SUSPEND_MAX)
 		return -EINVAL;
+
+#ifdef CONFIG_PM_DEBUG
+	if (is_systemsuspend_enable() == 0){
+		pr_debug("\nSystem Suspend is not available at this moment\n\n");
+		return 0;
+	}
+#endif	/* CONFIG_PM_DEBUG */
 
 	pm_suspend_marker("entry");
 	error = enter_state(state);
@@ -394,6 +416,13 @@ int pm_suspend(suspend_state_t state)
 		suspend_stats.success++;
 	}
 	pm_suspend_marker("exit");
+#ifdef CONFIG_PM_TEST
+	if (for_kernel_test == 1) {
+		/* Execute late resume */
+		request_suspend_state(PM_SUSPEND_ON);
+	}
+#endif /* CONFIG_PM_TEST */
+
 	return error;
 }
 EXPORT_SYMBOL(pm_suspend);

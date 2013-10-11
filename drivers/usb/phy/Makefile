@@ -10,6 +10,7 @@ obj-$(CONFIG_USB_OTG_WAKELOCK)		+= otg-wakelock.o
 # transceiver drivers, keep the list sorted
 
 obj-$(CONFIG_AB8500_USB)		+= phy-ab8500-usb.o
+obj-$(CONFIG_EOS2_USB2_OTG)		+= phy-tusb1211.o
 phy-fsl-usb2-objs			:= phy-fsl-usb.o phy-fsm-usb.o
 obj-$(CONFIG_FSL_USB2_OTG)		+= phy-fsl-usb2.o
 obj-$(CONFIG_ISP1301_OMAP)		+= phy-isp1301-omap.o
@@ -32,3 +33,4 @@ obj-$(CONFIG_USB_MXS_PHY)		+= phy-mxs-usb.o
 obj-$(CONFIG_USB_RCAR_PHY)		+= phy-rcar-usb.o
 obj-$(CONFIG_USB_ULPI)			+= phy-ulpi.o
 obj-$(CONFIG_USB_ULPI_VIEWPORT)		+= phy-ulpi-viewport.o
+obj-$(CONFIG_USB_USBHS_VBUS)		+= phy-usbhs-vbus.o

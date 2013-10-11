@@ -1,8 +1,10 @@
 /*
- *  linux/arch/arm/kernel/process.c
+ * linux/arch/arm/kernel/process.c
  *
- *  Copyright (C) 1996-2000 Russell King - Converted to ARM.
- *  Original Copyright (C) 1995  Linus Torvalds
+ * Copyright (C) 2012 Renesas Mobile Corporation
+ *
+ * Copyright (C) 1996-2000 Russell King - Converted to ARM.
+ * Original Copyright (C) 1995  Linus Torvalds
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -40,6 +42,7 @@
 #include <asm/thread_notify.h>
 #include <asm/stacktrace.h>
 #include <asm/mach/time.h>
+#include <mach/pm.h>
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 #include <linux/stackprotector.h>
@@ -235,6 +238,12 @@ __setup("reboot=", reboot_setup);
  */
 void machine_shutdown(void)
 {
+#ifdef CONFIG_ARCH_R8A7373
+	extern void shmobile_pm_stop_peripheral_devices(void);
+
+	/* Stop peripheral devices */
+	shmobile_pm_stop_peripheral_devices();
+#endif
 #ifdef CONFIG_SMP
 	/*
 	 * Disable preemption so we're guaranteed to
@@ -257,6 +266,7 @@ void machine_halt(void)
 {
 	smp_send_stop();
 
+	sec_hal_pm_poweroff();
 	local_irq_disable();
 	while (1);
 }
@@ -270,6 +280,8 @@ void machine_halt(void)
 void machine_power_off(void)
 {
 	smp_send_stop();
+
+	sec_hal_pm_poweroff();
 
 	if (pm_power_off)
 		pm_power_off();
@@ -289,6 +301,7 @@ void machine_power_off(void)
 void machine_restart(char *cmd)
 {
 	smp_send_stop();
+	sec_hal_pm_poweroff();
 
 	/* Flush the console to make sure all the relevant messages make it
 	 * out to the console drivers */

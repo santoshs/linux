@@ -479,6 +479,27 @@ not_relocated:	mov	r0, #0
 		bl	decompress_kernel
 		bl	cache_clean_flush
 		bl	cache_off
+#if defined(CONFIG_ARM_TZ) && defined(CONFIG_ARCH_R8A7373)
+		/*
+		 * If enabled the "CONFIG_ARM_TZ" in the "R-Mobile-U2",
+		 * the L2$ controller is already ON due to H/W specification.
+		 * Therefore, it must do the "L2$ clean&flush" operation
+		 * here.
+        */
+		bl	l2_cache_clean_flush
+#endif
+
+		ldr	r0, =0x45000400
+		str	r0, [r0]
+		dsb
+		ldr	r0, =0xE6F10054
+		ldr	r2, =0x7004
+		str	r2, [r0]
+		dsb
+		ldr	r2, =0x4004
+		str	r2, [r0]
+		dsb
+
 		mov	r1, r7			@ restore architecture number
 		mov	r2, r8			@ restore atags pointer
 
@@ -1248,6 +1269,33 @@ memdump:	mov	r12, r0
 		mov	pc, r10
 #endif
 
+#if defined(CONFIG_ARM_TZ) && defined(CONFIG_ARCH_R8A7373)
+l2_cache_clean_flush:
+		/*
+		 * Clean & Invalidate L2 Cache
+		 */
+		adr r0, __l2_clean_and_invalidate_by_way
+		ldr r2, [r0]
+		ldr r0, =0xffff
+		str r0, [r2]    @ Write clean and inv by way reg
+wait:
+		ldr r0, [r2]
+		ldr r1, =0xffff
+		ands    r0, r0, r1
+		bne wait        @ Wait until finished the L2$ op
+		/*
+		 * Sync L2 Cache
+		 */
+		adr r0, __l2_sync
+		ldr r2, [r0]
+		ldr r0, =0x0
+		str r0, [r2]
+		mov     pc, lr
+__l2_clean_and_invalidate_by_way:
+		.long   0xf01007fc
+__l2_sync:
+		.long   0xf0100730
+#endif
 		.ltorg
 
 #ifdef CONFIG_ARM_VIRT_EXT

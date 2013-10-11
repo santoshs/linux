@@ -468,10 +468,24 @@ static void __init mm_init(void)
 	vmalloc_init();
 }
 
+/* To verify if TrustZone Environment is enabled */
+static int isTrustZoneEnvironmentEnabled(void)
+{
+#ifdef CONFIG_ARM_TZ
+	return 1;
+#else
+	return 0;
+#endif
+}
+
 asmlinkage void __init start_kernel(void)
 {
 	char * command_line;
 	extern const struct kernel_param __start___param[], __stop___param[];
+	if (isTrustZoneEnvironmentEnabled())
+		printk(KERN_NOTICE "TRUST ZONE ENABLED");
+	else
+		printk(KERN_NOTICE "TRUST ZONE DISABLED");
 
 	/*
 	 * Need to run as early as possible, to initialize the

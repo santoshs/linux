@@ -2138,6 +2138,16 @@ extern int search_dir(struct buffer_head *bh,
 		      const struct qstr *d_name,
 		      unsigned int offset,
 		      struct ext4_dir_entry_2 **res_dir);
+#ifdef CONFIG_SDCARD_FS_CI_SEARCH
+extern int search_dir_ci(struct buffer_head *bh,
+			 char *search_buf,
+			 int buf_size,
+			 struct inode *dir,
+			 const struct qstr *d_name,
+			 unsigned int offset,
+			 struct ext4_dir_entry_2 **res_dir,
+			 char *ci_name_buf);
+#endif
 extern int ext4_generic_delete_entry(handle_t *handle,
 				     struct inode *dir,
 				     struct ext4_dir_entry_2 *de_del,

@@ -489,6 +489,7 @@ static void sh_mmcif_sync_reset(struct sh_mmcif_host *host)
 		SRSPTO_256 | SRBSYTO_29 | SRWDTO_29 | SCCSTO_29);
 	/* byte swap on */
 	sh_mmcif_bitset(host, MMCIF_CE_BUF_ACC, BUF_ACC_ATYP);
+	sh_mmcif_writel(host->addr, MMCIF_CE_DELAY_SEL, 0);
 }
 
 static int sh_mmcif_error_manage(struct sh_mmcif_host *host)

@@ -93,6 +93,13 @@ config INPUT_BMA150
 	  To compile this driver as a module, choose M here: the
 	  module will be called bma150.
 
+config INPUT_D2153_ONKEY
+	tristate "D2153 ONKEY support"
+	depends on MFD_D2153
+	help
+	  Say Y here if you want the ONKEY functionality from the
+	  Dialog D2153 multifunction device
+
 config INPUT_PCSPKR
 	tristate "PC Speaker support"
 	depends on PCSPKR_PLATFORM
@@ -652,5 +659,8 @@ config INPUT_XEN_KBDDEV_FRONTEND
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called xen-kbdfront.
+
+source "drivers/input/misc/mpu6050/Kconfig"
+source "drivers/input/misc/mpu6500/Kconfig"
 
 endif

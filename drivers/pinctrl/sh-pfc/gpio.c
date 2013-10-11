@@ -11,6 +11,7 @@
 
 #include <linux/device.h>
 #include <linux/gpio.h>
+#include <linux/hwspinlock.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/pinctrl/consumer.h>
@@ -76,6 +77,24 @@ static void gpio_write_data_reg(struct sh_pfc_chip *chip,
 	sh_pfc_write_raw_reg(mem, dreg->reg_width, value);
 }
 
+static void gpio_write_set_reg(struct sh_pfc_chip *chip,
+			       const struct pinmux_data_reg *dreg,
+			       unsigned long value)
+{
+	void __iomem *mem = dreg->set_reg - chip->mem->phys + chip->mem->virt;
+
+	sh_pfc_write_raw_reg(mem, dreg->reg_width, value);
+}
+
+static void gpio_write_clr_reg(struct sh_pfc_chip *chip,
+			       const struct pinmux_data_reg *dreg,
+			       unsigned long value)
+{
+	void __iomem *mem = dreg->clr_reg - chip->mem->phys + chip->mem->virt;
+
+	sh_pfc_write_raw_reg(mem, dreg->reg_width, value);
+}
+
 static void gpio_setup_data_reg(struct sh_pfc_chip *chip, unsigned gpio)
 {
 	struct sh_pfc *pfc = chip->pfc;
@@ -117,7 +136,8 @@ static int gpio_setup_data_regs(struct sh_pfc_chip *chip)
 
 	for (i = 0, dreg = pfc->info->data_regs; dreg->reg_width; ++i, ++dreg) {
 		chip->regs[i].info = dreg;
-		chip->regs[i].shadow = gpio_read_data_reg(chip, dreg);
+		if (!dreg->set_reg || !dreg->clr_reg)
+			chip->regs[i].shadow = gpio_read_data_reg(chip, dreg);
 	}
 
 	for (i = 0; i < pfc->info->nr_pins; i++) {
@@ -160,6 +180,14 @@ static void gpio_pin_set_value(struct sh_pfc_chip *chip, unsigned offset,
 	gpio_get_data_reg(chip, offset, &reg, &bit);
 
 	pos = reg->info->reg_width - (bit + 1);
+
+	if (reg->info->set_reg && reg->info->clr_reg) {
+		if (value)
+			gpio_write_set_reg(chip, reg->info, pos);
+		else
+			gpio_write_clr_reg(chip, reg->info, pos);
+		return;
+	}
 
 	if (value)
 		set_bit(pos, &reg->shadow);
@@ -254,6 +282,10 @@ static int gpio_pin_setup(struct sh_pfc_chip *chip)
  * Function GPIOs
  */
 
+static struct hwspinlock *gpio_hwlock;
+
+#define HWLOCK_TIMEOUT	1000 /* in msecs */
+
 static int gpio_function_request(struct gpio_chip *gc, unsigned offset)
 {
 	static bool __print_once;
@@ -272,9 +304,21 @@ static int gpio_function_request(struct gpio_chip *gc, unsigned offset)
 	if (mark == 0)
 		return -EINVAL;
 
-	spin_lock_irqsave(&pfc->lock, flags);
+	if (gpio_hwlock) {
+		ret = hwspin_lock_timeout_irqsave(gpio_hwlock, HWLOCK_TIMEOUT,
+									&flags);
+		if (ret < 0) {
+			printk(KERN_ERR "\nGPIO HWLOCK time out: %s %s\n",
+							__FILE__, __func__);
+			return -EINVAL;
+		}
+	} else
+		spin_lock_irqsave(&pfc->lock, flags);
 	ret = sh_pfc_config_mux(pfc, mark, PINMUX_TYPE_FUNCTION);
-	spin_unlock_irqrestore(&pfc->lock, flags);
+	if (gpio_hwlock)
+		hwspin_unlock_irqrestore(gpio_hwlock, &flags);
+	else
+		spin_unlock_irqrestore(&pfc->lock, flags);
 
 	return ret;
 }
@@ -411,4 +455,12 @@ int sh_pfc_unregister_gpiochip(struct sh_pfc *pfc)
 	err = gpiochip_remove(&pfc->func->gpio_chip);
 
 	return ret < 0 ? ret : err;
+}
+
+void pinmux_hwspinlock_init(struct hwspinlock *hwlock)
+{
+	gpio_hwlock = hwlock;
+
+	pr_info("Registered hwspinlock id %d as gpio_hwlock\n",
+		hwspin_lock_get_id(hwlock));
 }

@@ -48,6 +48,9 @@
 
 #include <asm/uaccess.h>
 
+#if defined (CONFIG_SEC_DEBUG)
+#include <mach/sec_debug.h>
+#endif
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 
@@ -762,9 +765,14 @@ void __init setup_log_buf(int early)
 	char *new_log_buf;
 	int free;
 
-	if (!new_log_buf_len)
+	if (!new_log_buf_len) {
+#if defined(CONFIG_SEC_DEBUG)
+		/* {{ Mark for GetLog */
+		sec_getlog_supply_kloginfo(__log_buf);
+		/* }} Mark for GetLog */
+#endif
 		return;
-
+}
 	if (early) {
 		unsigned long mem;
 
@@ -789,6 +797,12 @@ void __init setup_log_buf(int early)
 	free = __LOG_BUF_LEN - log_next_idx;
 	memcpy(log_buf, __log_buf, __LOG_BUF_LEN);
 	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
+
+#if defined(CONFIG_SEC_DEBUG)
+		/* {{ Mark for GetLog */
+		sec_getlog_supply_kloginfo(__log_buf);
+		/* }} Mark for GetLog */
+#endif
 
 	pr_info("log_buf_len: %d\n", log_buf_len);
 	pr_info("early log buf free: %d(%d%%)\n",

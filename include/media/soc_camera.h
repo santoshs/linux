@@ -370,4 +370,8 @@ static inline u32 soc_camera_grp_id(const struct soc_camera_device *icd)
 void soc_camera_lock(struct vb2_queue *vq);
 void soc_camera_unlock(struct vb2_queue *vq);
 
+extern bool cam_class_init;
+extern struct class *camera_class; /* /sys/class/camera */
+extern struct device *sec_main_cam_dev; /* /sys/class/camera/rear/rear_type */
+extern struct device *sec_sub_cam_dev; /* /sys/class/camera/rear/rear_type */
 #endif

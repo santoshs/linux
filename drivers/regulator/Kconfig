@@ -20,7 +20,6 @@ menuconfig REGULATOR
 
 	  If unsure, say no.
 
-
 if REGULATOR
 
 config REGULATOR_DEBUG
@@ -119,6 +118,13 @@ config REGULATOR_DA9055
 
 	  This driver can also be built as a module. If so, the module
 	  will be called da9055-regulator.
+
+config REGULATOR_D2153
+        tristate "Dialog Semiconductor D2153 PMIC regulators"
+        depends on MFD_D2153
+        help
+          Support the voltage and current regulators of the Dialog D2153
+          multifunction device.
 
 config REGULATOR_FAN53555
 	tristate "Fairchild FAN53555 Regulator"

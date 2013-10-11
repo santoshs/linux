@@ -606,6 +606,13 @@ static void gs_write_complete(struct usb_ep *ep, struct usb_request *req)
 		pr_warning("%s: unexpected %s status %d\n",
 				__func__, ep->name, req->status);
 		/* FALL THROUGH */
+
+		if (-ECONNRESET == req->status) {
+			/* Do not want transmission to start.
+			 Temp Fix for UE crash*/
+			gs_buf_clear(&port->port_write_buf);
+			break;
+		}
 	case 0:
 		/* normal completion */
 		gs_start_tx(port);
@@ -941,9 +948,19 @@ static void gs_flush_chars(struct tty_struct *tty)
 
 static int gs_write_room(struct tty_struct *tty)
 {
-	struct gs_port	*port = tty->driver_data;
+	struct gs_port	*port;
 	unsigned long	flags;
 	int		room = 0;
+
+	if (tty == NULL)
+	return room;
+
+	port = tty->driver_data; 
+        
+        if (NULL == port || NULL == &port->port_lock
+		|| NULL == &port->port_lock.rlock)
+		return room;
+
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	if (port->port_usb)

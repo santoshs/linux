@@ -135,6 +135,14 @@ ssize_t part_stat_show(struct device *dev,
 		jiffies_to_msecs(part_stat_read(p, time_in_queue)));
 }
 
+ssize_t partition_name_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct hd_struct *p = dev_to_part(dev);
+
+	return sprintf(buf, "%s\n", p->info->volname);
+}
+
 ssize_t part_inflight_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
@@ -175,6 +183,7 @@ static DEVICE_ATTR(alignment_offset, S_IRUGO, part_alignment_offset_show, NULL);
 static DEVICE_ATTR(discard_alignment, S_IRUGO, part_discard_alignment_show,
 		   NULL);
 static DEVICE_ATTR(stat, S_IRUGO, part_stat_show, NULL);
+static DEVICE_ATTR(partition_name, S_IRUGO, partition_name_show, NULL);
 static DEVICE_ATTR(inflight, S_IRUGO, part_inflight_show, NULL);
 #ifdef CONFIG_FAIL_MAKE_REQUEST
 static struct device_attribute dev_attr_fail =
@@ -189,6 +198,7 @@ static struct attribute *part_attrs[] = {
 	&dev_attr_alignment_offset.attr,
 	&dev_attr_discard_alignment.attr,
 	&dev_attr_stat.attr,
+	&dev_attr_partition_name.attr,
 	&dev_attr_inflight.attr,
 #ifdef CONFIG_FAIL_MAKE_REQUEST
 	&dev_attr_fail.attr,

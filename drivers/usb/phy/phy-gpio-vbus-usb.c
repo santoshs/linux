@@ -83,7 +83,10 @@ static void set_vbus_draw(struct gpio_vbus_data *gpio_vbus, unsigned mA)
 			gpio_vbus->vbus_draw_enabled = 0;
 		}
 	}
-	gpio_vbus->mA = mA;
+	if (mA)
+		gpio_vbus->mA = mA;
+
+	dev_info(gpio_vbus->dev, "Avail curr from USB = %u\n", mA);
 }
 
 static int is_vbus_powered(struct gpio_vbus_mach_info *pdata)
@@ -371,7 +374,7 @@ static int __exit gpio_vbus_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int gpio_vbus_pm_suspend(struct device *dev)
 {
 	struct gpio_vbus_data *gpio_vbus = dev_get_drvdata(dev);
@@ -384,19 +387,20 @@ static int gpio_vbus_pm_suspend(struct device *dev)
 
 static int gpio_vbus_pm_resume(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct gpio_vbus_data *gpio_vbus = dev_get_drvdata(dev);
 
 	if (device_may_wakeup(dev))
 		disable_irq_wake(gpio_vbus->irq);
 
+	gpio_vbus->vbus = 0; /* start with disconnected */
+	gpio_vbus_irq(gpio_vbus->irq, pdev);
 	return 0;
 }
-
-static const struct dev_pm_ops gpio_vbus_dev_pm_ops = {
-	.suspend	= gpio_vbus_pm_suspend,
-	.resume		= gpio_vbus_pm_resume,
-};
 #endif
+
+static SIMPLE_DEV_PM_OPS(gpio_vbus_dev_pm_ops,
+			 gpio_vbus_pm_suspend, gpio_vbus_pm_resume);
 
 /* NOTE:  the gpio-vbus device may *NOT* be hotplugged */
 
@@ -406,9 +410,7 @@ static struct platform_driver gpio_vbus_driver = {
 	.driver = {
 		.name  = "gpio-vbus",
 		.owner = THIS_MODULE,
-#ifdef CONFIG_PM
 		.pm = &gpio_vbus_dev_pm_ops,
-#endif
 	},
 	.remove  = __exit_p(gpio_vbus_remove),
 };

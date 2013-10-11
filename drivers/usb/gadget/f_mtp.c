@@ -36,6 +36,12 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/f_mtp.h>
 
+#include <linux/clk.h>
+#include <linux/sh_clk.h>
+#include <mach/pm.h>
+
+static int dfs_started = -1;
+
 #define MTP_BULK_BUFFER_SIZE       16384
 #define INTR_BUFFER_SIZE           28
 
@@ -116,7 +122,8 @@ static struct usb_interface_descriptor mtp_interface_desc = {
 	.bNumEndpoints          = 3,
 	.bInterfaceClass        = USB_CLASS_VENDOR_SPEC,
 	.bInterfaceSubClass     = USB_SUBCLASS_VENDOR_SPEC,
-	.bInterfaceProtocol     = 0,
+	.bInterfaceProtocol 	= 1,	/* To support Deviceprotocol in IAD \
+										as per USB2.0 */
 };
 
 static struct usb_interface_descriptor ptp_interface_desc = {
@@ -495,7 +502,17 @@ requeue_req:
 	}
 
 	/* wait for a request to complete */
-	ret = wait_event_interruptible(dev->read_wq, dev->rx_done);
+	ret = wait_event_interruptible(dev->read_wq,
+				dev->rx_done || dev->state != STATE_BUSY);
+	if (dev->state == STATE_CANCELED) {
+		r = -ECANCELED;
+		if (!dev->rx_done)
+			usb_ep_dequeue(dev->ep_out, req);
+		spin_lock_irq(&dev->lock);
+		dev->state = STATE_CANCELED;
+		spin_unlock_irq(&dev->lock);
+		goto done;
+	}
 	if (ret < 0) {
 		r = ret;
 		usb_ep_dequeue(dev->ep_out, req);
@@ -700,7 +717,8 @@ static void send_file_work(struct work_struct *data)
 		ret = usb_ep_queue(dev->ep_in, req, GFP_KERNEL);
 		if (ret < 0) {
 			DBG(cdev, "send_file_work: xfer error %d\n", ret);
-			dev->state = STATE_ERROR;
+			if (dev->state != STATE_OFFLINE)
+				dev->state = STATE_ERROR;
 			r = -EIO;
 			break;
 		}
@@ -753,7 +771,8 @@ static void receive_file_work(struct work_struct *data)
 			ret = usb_ep_queue(dev->ep_out, read_req, GFP_KERNEL);
 			if (ret < 0) {
 				r = -EIO;
-				dev->state = STATE_ERROR;
+				if (dev->state != STATE_OFFLINE)
+					dev->state = STATE_ERROR;
 				break;
 			}
 		}
@@ -765,7 +784,8 @@ static void receive_file_work(struct work_struct *data)
 			DBG(cdev, "vfs_write %d\n", ret);
 			if (ret != write_req->actual) {
 				r = -EIO;
-				dev->state = STATE_ERROR;
+				if (dev->state != STATE_OFFLINE)
+					dev->state = STATE_ERROR;
 				break;
 			}
 			write_req = NULL;
@@ -942,6 +962,7 @@ out:
 
 static int mtp_open(struct inode *ip, struct file *fp)
 {
+	int ret = 0;
 	printk(KERN_INFO "mtp_open\n");
 	if (mtp_lock(&_mtp_dev->open_excl))
 		return -EBUSY;
@@ -951,6 +972,15 @@ static int mtp_open(struct inode *ip, struct file *fp)
 		_mtp_dev->state = STATE_READY;
 
 	fp->private_data = _mtp_dev;
+	ret = stop_cpufreq();
+	DBG(_mtp_dev->cdev, "%s(): stop_cpufreq\n", __func__);
+	if (ret) {
+		dfs_started = 1;
+		ERROR(_mtp_dev->cdev, "%s(): error<%d>! stop_cpufreq\n",
+			__func__, ret);
+	} else
+		dfs_started = 0;
+
 	return 0;
 }
 
@@ -959,6 +989,13 @@ static int mtp_release(struct inode *ip, struct file *fp)
 	printk(KERN_INFO "mtp_release\n");
 
 	mtp_unlock(&_mtp_dev->open_excl);
+
+	if (!dfs_started) {
+		start_cpufreq();
+		DBG(_mtp_dev->cdev, "%s(): start_cpufreq\n", __func__);
+		dfs_started = 1;
+	}
+
 	return 0;
 }
 

@@ -73,8 +73,8 @@ static int addr_doit(struct sk_buff *skb, struct nlmsghdr *nlh)
 	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
+	/*if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;*/
 
 	ASSERT_RTNL();
 
@@ -236,8 +236,8 @@ static int route_doit(struct sk_buff *skb, struct nlmsghdr *nlh)
 	if (!capable(CAP_NET_ADMIN))
 		return -EPERM;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
+	/*if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;*/
 
 	ASSERT_RTNL();
 

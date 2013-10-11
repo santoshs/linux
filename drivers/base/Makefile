@@ -24,4 +24,4 @@ obj-$(CONFIG_SOC_BUS) += soc.o
 obj-$(CONFIG_PINCTRL) += pinctrl.o
 
 ccflags-$(CONFIG_DEBUG_DRIVER) := -DDEBUG
-
+subdir-ccflags-y += -Werror

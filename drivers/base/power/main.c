@@ -3,6 +3,7 @@
  *
  * Copyright (c) 2003 Patrick Mochel
  * Copyright (c) 2003 Open Source Development Lab
+ * Copyright (C) 2012 Renesas Mobile Corporation
  *
  * This file is released under the GPLv2
  *
@@ -30,6 +31,7 @@
 #include <linux/suspend.h>
 #include <linux/cpuidle.h>
 #include <linux/timer.h>
+#include <memlog/memlog.h>
 
 #include "../base.h"
 #include "power.h"
@@ -501,6 +503,7 @@ static void dpm_resume_noirq(pm_message_t state)
 {
 	ktime_t starttime = ktime_get();
 
+	memory_log_func(PM_FUNC_ID_DPM_RESUME_NOIRQ, 1);
 	mutex_lock(&dpm_list_mtx);
 	while (!list_empty(&dpm_noirq_list)) {
 		struct device *dev = to_device(dpm_noirq_list.next);
@@ -525,6 +528,7 @@ static void dpm_resume_noirq(pm_message_t state)
 	dpm_show_time(starttime, state, "noirq");
 	resume_device_irqs();
 	cpuidle_resume();
+	memory_log_func(PM_FUNC_ID_DPM_RESUME_NOIRQ, 0);
 }
 
 /**
@@ -570,7 +574,9 @@ static int device_resume_early(struct device *dev, pm_message_t state)
  Out:
 	TRACE_RESUME(error);
 
+#ifndef CONFIG_PDC
 	pm_runtime_enable(dev);
+#endif
 	return error;
 }
 
@@ -735,6 +741,7 @@ void dpm_resume(pm_message_t state)
 	struct device *dev;
 	ktime_t starttime = ktime_get();
 
+	memory_log_func(PM_FUNC_ID_DPM_RESUME, 1);
 	might_sleep();
 
 	mutex_lock(&dpm_list_mtx);
@@ -774,6 +781,7 @@ void dpm_resume(pm_message_t state)
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
 	dpm_show_time(starttime, state, NULL);
+	memory_log_func(PM_FUNC_ID_DPM_RESUME, 0);
 }
 
 /**
@@ -817,7 +825,9 @@ static void device_complete(struct device *dev, pm_message_t state)
 
 	device_unlock(dev);
 
+#ifndef CONFIG_PDC
 	pm_runtime_put(dev);
+#endif
 }
 
 /**
@@ -831,6 +841,7 @@ void dpm_complete(pm_message_t state)
 {
 	struct list_head list;
 
+	memory_log_func(PM_FUNC_ID_DPM_COMPLETE, 1);
 	might_sleep();
 
 	INIT_LIST_HEAD(&list);
@@ -850,6 +861,7 @@ void dpm_complete(pm_message_t state)
 	}
 	list_splice(&list, &dpm_list);
 	mutex_unlock(&dpm_list_mtx);
+	memory_log_func(PM_FUNC_ID_DPM_COMPLETE, 0);
 }
 
 /**
@@ -940,6 +952,7 @@ static int dpm_suspend_noirq(pm_message_t state)
 	ktime_t starttime = ktime_get();
 	int error = 0;
 
+	memory_log_func(PM_FUNC_ID_DPM_SUSPEND_NOIRQ, 1);
 	cpuidle_pause();
 	suspend_device_irqs();
 	mutex_lock(&dpm_list_mtx);
@@ -974,6 +987,7 @@ static int dpm_suspend_noirq(pm_message_t state)
 		dpm_resume_noirq(resume_event(state));
 	else
 		dpm_show_time(starttime, state, "noirq");
+	memory_log_func(PM_FUNC_ID_DPM_SUSPEND_NOIRQ, 0);
 	return error;
 }
 
@@ -989,7 +1003,11 @@ static int device_suspend_late(struct device *dev, pm_message_t state)
 	pm_callback_t callback = NULL;
 	char *info = NULL;
 
+#ifndef CONFIG_PDC
 	__pm_runtime_disable(dev, false);
+#else
+	pr_debug("no processing\n");
+#endif
 
 	if (dev->power.syscore)
 		return 0;
@@ -1241,6 +1259,7 @@ int dpm_suspend(pm_message_t state)
 	ktime_t starttime = ktime_get();
 	int error = 0;
 
+	memory_log_func(PM_FUNC_ID_DPM_SUSPEND, 1);
 	might_sleep();
 
 	mutex_lock(&dpm_list_mtx);
@@ -1276,6 +1295,7 @@ int dpm_suspend(pm_message_t state)
 		dpm_save_failed_step(SUSPEND_SUSPEND);
 	} else
 		dpm_show_time(starttime, state, NULL);
+	memory_log_func(PM_FUNC_ID_DPM_SUSPEND, 0);
 	return error;
 }
 
@@ -1302,7 +1322,9 @@ static int device_prepare(struct device *dev, pm_message_t state)
 	 * block runtime suspend here, during the prepare phase, and allow
 	 * it again during the complete phase.
 	 */
+#ifndef CONFIG_PDC
 	pm_runtime_get_noresume(dev);
+#endif
 
 	device_lock(dev);
 
@@ -1347,6 +1369,7 @@ int dpm_prepare(pm_message_t state)
 {
 	int error = 0;
 
+	memory_log_func(PM_FUNC_ID_DPM_PREPARE, 1);
 	might_sleep();
 
 	mutex_lock(&dpm_list_mtx);
@@ -1377,6 +1400,7 @@ int dpm_prepare(pm_message_t state)
 		put_device(dev);
 	}
 	mutex_unlock(&dpm_list_mtx);
+	memory_log_func(PM_FUNC_ID_DPM_PREPARE, 0);
 	return error;
 }
 

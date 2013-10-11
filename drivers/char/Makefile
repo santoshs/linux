@@ -2,6 +2,11 @@
 # Makefile for the kernel character device drivers.
 #
 
+#obj-y				+= mfis/	# merge: TODO: uncomment and resolve
+#obj-y				+= rtapi/	# merge: TODO: uncomment and resolve
+obj-y				+= composer/
+#obj-y				+= vcd/		# merge: TODO: uncomment and resolve
+
 obj-y				+= mem.o random.o
 obj-$(CONFIG_TTY_PRINTK)	+= ttyprintk.o
 obj-y				+= misc.o
@@ -62,4 +67,7 @@ obj-$(CONFIG_PS3_FLASH)		+= ps3flash.o
 obj-$(CONFIG_JS_RTC)		+= js-rtc.o
 js-rtc-y = rtc.o
 
+obj-$(CONFIG_TTY_STM)		+= stm_tty.o
+
 obj-$(CONFIG_TILE_SROM)		+= tile-srom.o
+obj-$(CONFIG_MTD_TRACE)		+= mtd_trace.o

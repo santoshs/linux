@@ -152,6 +152,10 @@ config PM_RUNTIME
 	  responsible for the actual handling of the autosuspend requests and
 	  wake-up events.
 
+config PM_RUNTIME_DOMAIN_GOVERNOR
+	bool "Governors for device PM domains"
+	depends on PM_RUNTIME
+
 config PM
 	def_bool y
 	depends on PM_SLEEP || PM_RUNTIME
@@ -289,3 +293,8 @@ config SUSPEND_TIME
 	  Prints the time spent in suspend in the kernel log, and
 	  keeps statistics on the time spent in suspend in
 	  /sys/kernel/debug/suspend_time
+	  
+config PM_TEST
+	bool "Addition test features for suspend/resume"
+	depends on SUSPEND
+	select PM_DEBUG

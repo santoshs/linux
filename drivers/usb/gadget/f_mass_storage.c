@@ -648,6 +648,9 @@ static int do_read(struct fsg_common *common)
 	loff_t			file_offset, file_offset_tmp;
 	unsigned int		amount;
 	ssize_t			nread;
+#ifdef CONFIG_USB_MSC_PROFILING
+	ktime_t			start, diff;
+#endif
 
 	/*
 	 * Get the starting Logical Block Address and check that it's
@@ -715,11 +718,20 @@ static int do_read(struct fsg_common *common)
 
 		/* Perform the read */
 		file_offset_tmp = file_offset;
+
+#ifdef CONFIG_USB_MSC_PROFILING
+		start = ktime_get();
+#endif
 		nread = vfs_read(curlun->filp,
 				 (char __user *)bh->buf,
 				 amount, &file_offset_tmp);
 		VLDBG(curlun, "file read %u @ %llu -> %d\n", amount,
 		      (unsigned long long)file_offset, (int)nread);
+#ifdef CONFIG_USB_MSC_PROFILING
+		diff = ktime_sub(ktime_get(), start);
+		curlun->perf.rbytes += nread;
+		curlun->perf.rtime = ktime_add(curlun->perf.rtime, diff);
+#endif
 		if (signal_pending(current))
 			return -EINTR;
 
@@ -780,6 +792,9 @@ static int do_write(struct fsg_common *common)
 	unsigned int		amount;
 	ssize_t			nwritten;
 	int			rc;
+#ifdef CONFIG_USB_MSC_PROFILING
+	ktime_t			start, diff;
+#endif
 
 	if (curlun->ro) {
 		curlun->sense_data = SS_WRITE_PROTECTED;
@@ -908,11 +923,20 @@ static int do_write(struct fsg_common *common)
 
 			/* Perform the write */
 			file_offset_tmp = file_offset;
+#ifdef CONFIG_USB_MSC_PROFILING
+			start = ktime_get();
+#endif
 			nwritten = vfs_write(curlun->filp,
 					     (char __user *)bh->buf,
 					     amount, &file_offset_tmp);
 			VLDBG(curlun, "file write %u @ %llu -> %d\n", amount,
 			      (unsigned long long)file_offset, (int)nwritten);
+#ifdef CONFIG_USB_MSC_PROFILING
+			diff = ktime_sub(ktime_get(), start);
+			curlun->perf.wbytes += nwritten;
+			curlun->perf.wtime =
+					ktime_add(curlun->perf.wtime, diff);
+#endif
 			if (signal_pending(current))
 				return -EINTR;		/* Interrupted! */
 
@@ -2255,16 +2279,6 @@ reset:
 			}
 		}
 
-		/* Disable the endpoints */
-		if (fsg->bulk_in_enabled) {
-			usb_ep_disable(fsg->bulk_in);
-			fsg->bulk_in_enabled = 0;
-		}
-		if (fsg->bulk_out_enabled) {
-			usb_ep_disable(fsg->bulk_out);
-			fsg->bulk_out_enabled = 0;
-		}
-
 		common->fsg = NULL;
 		wake_up(&common->fsg_wait);
 	}
@@ -2275,28 +2289,6 @@ reset:
 
 	common->fsg = new_fsg;
 	fsg = common->fsg;
-
-	/* Enable the endpoints */
-	rc = config_ep_by_speed(common->gadget, &(fsg->function), fsg->bulk_in);
-	if (rc)
-		goto reset;
-	rc = usb_ep_enable(fsg->bulk_in);
-	if (rc)
-		goto reset;
-	fsg->bulk_in->driver_data = common;
-	fsg->bulk_in_enabled = 1;
-
-	rc = config_ep_by_speed(common->gadget, &(fsg->function),
-				fsg->bulk_out);
-	if (rc)
-		goto reset;
-	rc = usb_ep_enable(fsg->bulk_out);
-	if (rc)
-		goto reset;
-	fsg->bulk_out->driver_data = common;
-	fsg->bulk_out_enabled = 1;
-	common->bulk_out_maxpacket = usb_endpoint_maxp(fsg->bulk_out->desc);
-	clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
 
 	/* Allocate the requests */
 	for (i = 0; i < fsg_num_buffers; ++i) {
@@ -2315,8 +2307,8 @@ reset:
 	}
 
 	common->running = 1;
-	for (i = 0; i < common->nluns; ++i)
-		common->luns[i].unit_attention_data = SS_RESET_OCCURRED;
+	/*for (i = 0; i < common->nluns; ++i)
+		common->luns[i].unit_attention_data = SS_RESET_OCCURRED;*/
 	return rc;
 }
 
@@ -2326,14 +2318,55 @@ reset:
 static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct fsg_dev *fsg = fsg_from_func(f);
+	struct fsg_common *common = fsg->common;
+	int rc;
+
+	/* Enable the endpoints */
+	rc = config_ep_by_speed(common->gadget, &(fsg->function), fsg->bulk_in);
+	if (rc)
+		return rc;
+	rc = usb_ep_enable(fsg->bulk_in);
+	if (rc)
+		return rc;
+	fsg->bulk_in->driver_data = common;
+	fsg->bulk_in_enabled = 1;
+
+	rc = config_ep_by_speed(common->gadget, &(fsg->function), fsg->bulk_out);
+	if (rc)
+		goto reset_bulk_in;
+	rc = usb_ep_enable(fsg->bulk_out);
+	if (rc)
+		goto reset_bulk_in;
+	fsg->bulk_out->driver_data = common;
+	fsg->bulk_out_enabled = 1;
+	common->bulk_out_maxpacket = usb_endpoint_maxp(fsg->bulk_out->desc);
+	clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
 	fsg->common->new_fsg = fsg;
 	raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE);
 	return USB_GADGET_DELAYED_STATUS;
+
+reset_bulk_in:
+	usb_ep_disable(fsg->bulk_in);
+	fsg->bulk_in_enabled = 0;
+	fsg->bulk_in->driver_data = NULL;
+	return rc;
 }
 
 static void fsg_disable(struct usb_function *f)
 {
 	struct fsg_dev *fsg = fsg_from_func(f);
+
+	/* Disable the endpoints */
+	if (fsg->bulk_in_enabled) {
+		usb_ep_disable(fsg->bulk_in);
+		fsg->bulk_in_enabled = 0;
+		fsg->bulk_in->driver_data = NULL;
+	}
+	if (fsg->bulk_out_enabled) {
+		usb_ep_disable(fsg->bulk_out);
+		fsg->bulk_out_enabled = 0;
+		fsg->bulk_out->driver_data = NULL;
+	}
 	fsg->common->new_fsg = NULL;
 	raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE);
 }
@@ -2457,9 +2490,9 @@ static void handle_exception(struct fsg_common *common)
 		 * a waste of time.  Ditto for the INTERFACE_CHANGE and
 		 * CONFIG_CHANGE cases.
 		 */
-		/* for (i = 0; i < common->nluns; ++i) */
-		/*	common->luns[i].unit_attention_data = */
-		/*		SS_RESET_OCCURRED;  */
+		for (i = 0; i < common->nluns; ++i)
+			common->luns[i].unit_attention_data = 
+				SS_RESET_OCCURRED;
 		break;
 
 	case FSG_STATE_CONFIG_CHANGE:
@@ -2571,6 +2604,8 @@ static int fsg_main_thread(void *common_)
 
 	/* Let fsg_unbind() know the thread has exited */
 	complete_and_exit(&common->thread_notifier, 0);
+
+	return 0;
 }
 
 
@@ -2579,6 +2614,9 @@ static int fsg_main_thread(void *common_)
 static DEVICE_ATTR(ro, 0644, fsg_show_ro, fsg_store_ro);
 static DEVICE_ATTR(nofua, 0644, fsg_show_nofua, fsg_store_nofua);
 static DEVICE_ATTR(file, 0644, fsg_show_file, fsg_store_file);
+#ifdef CONFIG_USB_MSC_PROFILING
+static DEVICE_ATTR(perf, 0644, fsg_show_perf, fsg_store_perf);
+#endif
 
 static struct device_attribute dev_attr_ro_cdrom =
 	__ATTR(ro, 0444, fsg_show_ro, NULL);
@@ -2681,6 +2719,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		curlun->ro = lcfg->cdrom || lcfg->ro;
 		curlun->initially_ro = curlun->ro;
 		curlun->removable = lcfg->removable;
+		curlun->nofua = lcfg->nofua;
 		curlun->dev.release = fsg_lun_release;
 		curlun->dev.parent = &gadget->dev;
 		/* curlun->dev.driver = &fsg_driver.driver; XXX */
@@ -2710,7 +2749,12 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		rc = device_create_file(&curlun->dev, &dev_attr_nofua);
 		if (rc)
 			goto error_luns;
-
+#ifdef CONFIG_USB_MSC_PROFILING
+		rc = device_create_file(&curlun->dev, &dev_attr_perf);
+		if (rc)
+			dev_err(&gadget->dev, "failed to create sysfs entry:"
+				"(dev_attr_perf) error: %d\n", rc);
+#endif
 		if (lcfg->filename) {
 			rc = fsg_lun_open(curlun, lcfg->filename);
 			if (rc)
@@ -2827,6 +2871,9 @@ static void fsg_common_release(struct kref *ref)
 
 		/* In error recovery common->nluns may be zero. */
 		for (; i; --i, ++lun) {
+#ifdef CONFIG_USB_MSC_PROFILING
+			device_remove_file(&lun->dev, &dev_attr_perf);
+#endif
 			device_remove_file(&lun->dev, &dev_attr_nofua);
 			device_remove_file(&lun->dev,
 					   lun->cdrom
@@ -3042,6 +3089,7 @@ fsg_config_from_params(struct fsg_config *cfg,
 			params->file_count > i && params->file[i][0]
 			? params->file[i]
 			: 0;
+		lun->nofua = !!params->nofua[i];
 	}
 
 	/* Let MSF use defaults */

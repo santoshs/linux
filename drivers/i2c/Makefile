@@ -12,3 +12,4 @@ obj-$(CONFIG_I2C_STUB)		+= i2c-stub.o
 
 ccflags-$(CONFIG_I2C_DEBUG_CORE) := -DDEBUG
 CFLAGS_i2c-core.o := -Wno-deprecated-declarations
+subdir-ccflags-y += -Werror

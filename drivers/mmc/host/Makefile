@@ -52,6 +52,8 @@ obj-$(CONFIG_MMC_WMT)		+= wmt-sdmmc.o
 obj-$(CONFIG_MMC_REALTEK_PCI)	+= rtsx_pci_sdmmc.o
 
 obj-$(CONFIG_MMC_REALTEK_PCI)	+= rtsx_pci_sdmmc.o
+obj-$(CONFIG_MMC_RENESAS_MMCIF)	+= renesas_mmcif.o
+obj-$(CONFIG_MMC_RENESAS_SDHI)	+= renesas_sdhi.o
 
 obj-$(CONFIG_MMC_SDHCI_PLTFM)		+= sdhci-pltfm.o
 obj-$(CONFIG_MMC_SDHCI_CNS3XXX)		+= sdhci-cns3xxx.o

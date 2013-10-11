@@ -5,6 +5,7 @@
 menu "Character devices"
 
 source "drivers/tty/Kconfig"
+source "drivers/char/composer/Kconfig"
 
 config DEVMEM
 	bool "Memory device driver"
@@ -611,6 +612,24 @@ config MSM_SMD_PKT
 	  Enables userspace clients to read and write to some packet SMD
 	  ports via device interface for MSM chipset.
 
+config TTY_STM
+	tristate "TTY driver for ARM's System Trace Macrocell"
+	depends on ARM
+	default n
+	help
+	  ARM STM is a device which exports traces other STPv2 link
+
+config TTY_LL_STM
+       bool "Low-Level printk_stm_xxx functions for ARM's System Trace Macrocell"
+       depends on TTY_STM
+       default n
+       help
+         ARM STM low-level lockless traces to be used in kernel debugging.
+         User is responsible for selecting unique channel number for potentially
+         overlapping traces. Master IDs are adding to uniqueness, so does not
+         need to have separate channel number for multiple CPUs. First low
+         numbered channel numbers are reserved for TTY_STM.
+
 config TILE_SROM
 	bool "Character-device access via hypervisor to the Tilera SPI ROM"
 	depends on TILE
@@ -621,6 +640,13 @@ config TILE_SROM
 	  in /dev/srom/.  The Tilera hypervisor makes the flash
 	  device appear much like a simple EEPROM, and knows
 	  how to partition a single ROM for multiple purposes.
+
+config MTD_TRACE
+                tristate "Modem trace buffer in R8A7373"
+                depends on ARCH_R8A7373
+                default y
+                ---help---
+                  Create device to provice access to trace buffer of LTE Modem
 
 endmenu
 

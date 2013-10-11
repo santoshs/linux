@@ -14,6 +14,7 @@
  *
  */
 
+#include <linux/device.h>
 #include <linux/err.h>
 #include <linux/freezer.h>
 #include <linux/ion.h>
@@ -23,6 +24,7 @@
 #include <linux/sched.h>
 #include <linux/scatterlist.h>
 #include <linux/vmalloc.h>
+#include <linux/export.h>
 #include "ion_priv.h"
 
 void *ion_heap_map_kernel(struct ion_heap *heap,
@@ -291,6 +293,7 @@ struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 	heap->id = heap_data->id;
 	return heap;
 }
+EXPORT_SYMBOL(ion_heap_create);
 
 void ion_heap_destroy(struct ion_heap *heap)
 {
@@ -318,3 +321,4 @@ void ion_heap_destroy(struct ion_heap *heap)
 		       heap->type);
 	}
 }
+EXPORT_SYMBOL(ion_heap_destroy);

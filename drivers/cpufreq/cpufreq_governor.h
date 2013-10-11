@@ -37,6 +37,12 @@
 #define MIN_LATENCY_MULTIPLIER			(20)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
+#define ENABLE_SAMPLING_CHANGE	1
+#ifdef ENABLE_SAMPLING_CHANGE
+extern unsigned int dfs_low_flag;
+extern DEFINE_SPINLOCK(sampling_lock);
+#endif /* ENABLE_SAMPLING_CHANGE */
+
 /* Ondemand Sampling types */
 enum {OD_NORMAL_SAMPLE, OD_SUB_SAMPLE};
 

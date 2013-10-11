@@ -21,6 +21,10 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
+
 /* Version */
 #define MXT_VER_20		20
 #define MXT_VER_21		21
@@ -178,6 +182,7 @@
 #define MXT_BACKUP_VALUE	0x55
 #define MXT_BACKUP_TIME		50	/* msec */
 #define MXT_RESET_TIME		200	/* msec */
+#define MXT_RESET_NOCHGREAD	200     /* msec */
 
 #define MXT_FWRESET_TIME	175	/* msec */
 
@@ -256,6 +261,9 @@ struct mxt_data {
 	unsigned int irq;
 	unsigned int max_x;
 	unsigned int max_y;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend early_suspend;
+#endif
 
 	/* Cached parameters from object table */
 	u8 T6_reportid;
@@ -263,6 +271,11 @@ struct mxt_data {
 	u8 T9_reportid_max;
 	u8 T19_reportid;
 };
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void mxt_ts_early_suspend(struct early_suspend *h);
+static void mxt_ts_late_resume(struct early_suspend *h);
+#endif
 
 static bool mxt_object_readable(unsigned int type)
 {
@@ -597,6 +610,9 @@ static irqreturn_t mxt_interrupt(int irq, void *dev_id)
 	do {
 		if (mxt_read_message(data, &message)) {
 			dev_err(dev, "Failed to read message\n");
+			/* soft reset */
+			mxt_write_object(data, MXT_GEN_COMMAND_T6, MXT_COMMAND_RESET, 1);
+			msleep(MXT_RESET_TIME);
 			goto end;
 		}
 
@@ -818,6 +834,7 @@ static int mxt_initialize(struct mxt_data *data)
 	struct mxt_info *info = &data->info;
 	int error;
 	u8 val;
+	int timeout = 0;
 
 	error = mxt_get_info(data);
 	if (error)
@@ -853,6 +870,16 @@ static int mxt_initialize(struct mxt_data *data)
 	mxt_write_object(data, MXT_GEN_COMMAND_T6,
 			MXT_COMMAND_RESET, 1);
 	msleep(MXT_RESET_TIME);
+	if (data->pdata->read_chg) {
+		while ((timeout++ < 100) && data->pdata->read_chg())
+			msleep(2);
+		if (timeout >= 100) {
+			dev_err(&client->dev, "No response after reset!\n");
+			return -EIO;
+		}
+	} else {
+		msleep(MXT_RESET_NOCHGREAD);
+	}
 
 	/* Update matrix size at info struct */
 	error = mxt_read_reg(client, MXT_MATRIX_X_SIZE, &val);
@@ -1149,8 +1176,7 @@ static int mxt_probe(struct i2c_client *client,
 
 	data->is_tp = pdata && pdata->is_tp;
 
-	input_dev->name = (data->is_tp) ? "Atmel maXTouch Touchpad" :
-					  "Atmel maXTouch Touchscreen";
+	input_dev->name = "atmel_mxt_ts";
 	snprintf(data->phys, sizeof(data->phys), "i2c-%u-%04x/input0",
 		 client->adapter->nr, client->addr);
 
@@ -1224,6 +1250,9 @@ static int mxt_probe(struct i2c_client *client,
 	input_set_drvdata(input_dev, data);
 	i2c_set_clientdata(client, data);
 
+	if (pdata->set_pwr)
+		pdata->set_pwr(1);
+
 	error = request_threaded_irq(client->irq, NULL, mxt_interrupt,
 				     pdata->irqflags | IRQF_ONESHOT,
 				     client->name, data);
@@ -1244,12 +1273,20 @@ static int mxt_probe(struct i2c_client *client,
 	if (error)
 		goto err_unregister_device;
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
+	data->early_suspend.suspend = mxt_ts_early_suspend;
+	data->early_suspend.resume = mxt_ts_late_resume;
+	register_early_suspend(&data->early_suspend);
+#endif
 	return 0;
 
 err_unregister_device:
 	input_unregister_device(input_dev);
 	input_dev = NULL;
 err_free_irq:
+	if (pdata->set_pwr)
+		pdata->set_pwr(0);
 	free_irq(client->irq, data);
 err_free_object:
 	kfree(data->object_table);
@@ -1262,8 +1299,14 @@ err_free_mem:
 static int mxt_remove(struct i2c_client *client)
 {
 	struct mxt_data *data = i2c_get_clientdata(client);
-
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&data->early_suspend);
+#endif
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
+
+	if (data->pdata->set_pwr)
+		data->pdata->set_pwr(0);
+
 	free_irq(data->irq, data);
 	input_unregister_device(data->input_dev);
 	kfree(data->object_table);
@@ -1281,10 +1324,14 @@ static int mxt_suspend(struct device *dev)
 
 	mutex_lock(&input_dev->mutex);
 
+	disable_irq(data->irq);
+	
 	if (input_dev->users)
 		mxt_stop(data);
 
 	mutex_unlock(&input_dev->mutex);
+
+	data->pdata->set_pwr(0);
 
 	return 0;
 }
@@ -1294,6 +1341,9 @@ static int mxt_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mxt_data *data = i2c_get_clientdata(client);
 	struct input_dev *input_dev = data->input_dev;
+
+	data->pdata->set_pwr(1);
+	msleep(22);
 
 	/* Soft reset */
 	mxt_write_object(data, MXT_GEN_COMMAND_T6,
@@ -1306,6 +1356,7 @@ static int mxt_resume(struct device *dev)
 	if (input_dev->users)
 		mxt_start(data);
 
+	enable_irq(data->irq);
 	mutex_unlock(&input_dev->mutex);
 
 	return 0;
@@ -1313,6 +1364,23 @@ static int mxt_resume(struct device *dev)
 #endif
 
 static SIMPLE_DEV_PM_OPS(mxt_pm_ops, mxt_suspend, mxt_resume);
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void mxt_ts_early_suspend(struct early_suspend *h)
+{
+	struct mxt_data *ts;
+	ts = container_of(h, struct mxt_data, early_suspend);
+	mxt_suspend(&ts->client->dev);
+}
+
+static void mxt_ts_late_resume(struct early_suspend *h)
+{
+	struct mxt_data *ts;
+	ts = container_of(h, struct mxt_data, early_suspend);
+	mxt_resume(&ts->client->dev);
+}
+#endif
+
 
 static const struct i2c_device_id mxt_id[] = {
 	{ "qt602240_ts", 0 },
@@ -1327,7 +1395,9 @@ static struct i2c_driver mxt_driver = {
 	.driver = {
 		.name	= "atmel_mxt_ts",
 		.owner	= THIS_MODULE,
+#ifndef CONFIG_HAS_EARLYSUSPEND
 		.pm	= &mxt_pm_ops,
+#endif
 	},
 	.probe		= mxt_probe,
 	.remove		= mxt_remove,

@@ -9,3 +9,7 @@ obj-$(CONFIG_ANDROID_LOW_MEMORY_KILLER)	+= lowmemorykiller.o
 obj-$(CONFIG_ANDROID_INTF_ALARM_DEV)	+= alarm-dev.o
 obj-$(CONFIG_SYNC)			+= sync.o
 obj-$(CONFIG_SW_SYNC)			+= sw_sync.o
+
+ifeq ($(CONFIG_LOW_MEM_SNPR),y)
+ccflags-$(CONFIG_ANDROID_LOW_MEMORY_KILLER) += -I$(srctree)/drivers/staging/lowmemsnpr
+endif

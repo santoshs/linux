@@ -646,3 +646,17 @@ config MMC_REALTEK_PCI
 	help
 	  Say Y here to include driver code to support SD/MMC card interface
 	  of Realtek PCI-E card reader
+
+config MMC_RENESAS_MMCIF
+	tristate "Renesas MMCIF Multimedia Card Interface support"
+	depends on MMC_BLOCK && ARCH_SHMOBILE
+	help
+	  This selects the Renesas MMCIF Multimedia Card Interface support.
+
+config MMC_RENESAS_SDHI
+	tristate "Renesas SDHI MMC/SD/SDIO Multimedia Card Interface support"
+	depends on MMC_BLOCK && ARCH_SHMOBILE
+	help
+	  This selects support for the Renesas Secure Digital Host Controller
+	  IP block, this provdes host support for SD/SDIO and MMC interface,
+	  in both PIO and external DMA modes.

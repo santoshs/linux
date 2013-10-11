@@ -1619,7 +1619,7 @@ int mmc_resume_bus(struct mmc_host *host)
 		host->bus_ops->resume(host);
 	}
 
-	if (host->bus_ops->detect && !host->bus_dead)
+	if (host->bus_ops && host->bus_ops->detect && !host->bus_dead)
 		host->bus_ops->detect(host);
 
 	mmc_bus_put(host);
@@ -2403,6 +2403,8 @@ void mmc_rescan(struct work_struct *work)
 	if (host->rescan_disable)
 		return;
 
+	printk(KERN_INFO "%s: %s >>\n", __func__, mmc_hostname(host));
+
 	/* If there is a non-removable card registered, only scan once */
 	if ((host->caps & MMC_CAP_NONREMOVABLE) && host->rescan_entered)
 		return;
@@ -2414,9 +2416,11 @@ void mmc_rescan(struct work_struct *work)
 	 * if there is a _removable_ card registered, check whether it is
 	 * still present
 	 */
+	printk(KERN_INFO "%s: A\n", __func__);
 	if (host->bus_ops && host->bus_ops->detect && !host->bus_dead
 	    && !(host->caps & MMC_CAP_NONREMOVABLE))
 		host->bus_ops->detect(host);
+	printk(KERN_INFO "%s: B\n", __func__);
 
 	host->detect_change = 0;
 
@@ -2462,6 +2466,8 @@ void mmc_rescan(struct work_struct *work)
 			break;
 	}
 	mmc_release_host(host);
+
+	printk(KERN_INFO "%s: %s <<\n", __func__, mmc_hostname(host));
 
  out:
 	if (extend_wakelock)

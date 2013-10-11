@@ -34,6 +34,9 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/i2c/i2c-sh_mobile.h>
+#include <linux/gpio.h>
+#include <mach/gpio.h>
+#include <mach/common.h>
 
 /* Transmit operation:                                                      */
 /*                                                                          */
@@ -138,12 +141,14 @@ struct sh_mobile_i2c_data {
 	int pos;
 	int sr;
 	bool send_stop;
+	int8_t bus_data_delay;
 };
 
 #define IIC_FLAG_HAS_ICIC67	(1 << 0)
 
 #define STANDARD_MODE		100000
 #define FAST_MODE		400000
+#define FAST_MODE_PLUS		1000000
 
 /* Register offsets */
 #define ICDR			0x00
@@ -152,6 +157,7 @@ struct sh_mobile_i2c_data {
 #define ICIC			0x0c
 #define ICCL			0x10
 #define ICCH			0x14
+#define ICTC			0x28
 
 /* Register bits */
 #define ICCR_ICE		0x80
@@ -176,23 +182,34 @@ struct sh_mobile_i2c_data {
 #define ICIC_WAITE		0x02
 #define ICIC_DTEE		0x01
 
+#define RLTE_SSG_REV_041	4
+#define MAX_SDA_DELAY		31
+#define MIN_SDA_DELAY		0
+#define UNMASK_ICTC_BITS_0TO2	0x07
+#define UNMASK_DATA_DELAY_3TO7	0xF8
+#define SHIFT_3BITS_SDA_DELAY	3
 static void iic_wr(struct sh_mobile_i2c_data *pd, int offs, unsigned char data)
 {
 	if (offs == ICIC)
 		data |= pd->icic;
 
-	iowrite8(data, pd->reg + offs);
+	writeb_relaxed(data, pd->reg + offs);
 }
 
 static unsigned char iic_rd(struct sh_mobile_i2c_data *pd, int offs)
 {
-	return ioread8(pd->reg + offs);
+	return readb_relaxed(pd->reg + offs);
 }
 
 static void iic_set_clr(struct sh_mobile_i2c_data *pd, int offs,
 			unsigned char set, unsigned char clr)
 {
 	iic_wr(pd, offs, (iic_rd(pd, offs) | set) & ~clr);
+}
+
+static void iic_sync(struct sh_mobile_i2c_data *pd)
+{
+	readb(pd->reg + ICSR); /* defeat write posting */
 }
 
 static u32 sh_mobile_i2c_iccl(unsigned long count_khz, u32 tLOW, u32 tf, int offset)
@@ -250,6 +267,11 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 		tHIGH	= 6;	/* tHD;STA = tHIGH = 0.6 us */
 		tf	= 3;	/* tf = 0.3 us */
 		offset	= 0;	/* No offset */
+	} else if (pd->bus_speed == FAST_MODE_PLUS) {
+		tLOW	= 5;	/* tLOW = 0.5 us */
+		tHIGH	= 2.6;	/* tHD;STA = tHIGH = 0.26 us */
+		tf	= 1.2;	/* tf = 0.12 us */
+		offset	= 0;	/* No offset */
 	} else {
 		dev_err(pd->dev, "unrecognized bus speed %lu Hz\n",
 			pd->bus_speed);
@@ -276,16 +298,27 @@ out:
 
 static void activate_ch(struct sh_mobile_i2c_data *pd)
 {
+	struct i2c_sh_mobile_platform_data *pdata = pd->dev->platform_data;
+
+	if (pdata->pin_multi) {
+		gpio_free(pdata->scl_info.port_num);
+		gpio_free(pdata->sda_info.port_num);
+		gpio_request(pdata->scl_info.port_func, NULL);
+		gpio_request(pdata->sda_info.port_func, NULL);
+	}
+
 	/* Wake up device and enable clock */
 	pm_runtime_get_sync(pd->dev);
 	clk_enable(pd->clk);
 
 	/* Enable channel and configure rx ack */
+	iic_wr(pd, ICCR, 1);
 	iic_set_clr(pd, ICCR, ICCR_ICE, 0);
 
 	/* Mask all interrupts */
 	iic_wr(pd, ICIC, 0);
-
+	iic_wr(pd, ICTC, (iic_rd(pd, ICTC) & UNMASK_ICTC_BITS_0TO2)|
+			(pd->bus_data_delay & UNMASK_DATA_DELAY_3TO7));
 	/* Set the clock */
 	iic_wr(pd, ICCL, pd->iccl & 0xff);
 	iic_wr(pd, ICCH, pd->icch & 0xff);
@@ -293,16 +326,30 @@ static void activate_ch(struct sh_mobile_i2c_data *pd)
 
 static void deactivate_ch(struct sh_mobile_i2c_data *pd)
 {
+	struct i2c_sh_mobile_platform_data *pdata = pd->dev->platform_data;
+
 	/* Clear/disable interrupts */
 	iic_wr(pd, ICSR, 0);
 	iic_wr(pd, ICIC, 0);
 
 	/* Disable channel */
-	iic_set_clr(pd, ICCR, 0, ICCR_ICE);
+	iic_wr(pd, ICCR, 0);
+	iic_sync(pd);
 
 	/* Disable clock and mark device as idle */
 	clk_disable(pd->clk);
 	pm_runtime_put_sync(pd->dev);
+
+	if (pdata->pin_multi) {
+		gpio_free(pdata->scl_info.port_func);
+		gpio_free(pdata->sda_info.port_func);
+		gpio_request(pdata->scl_info.port_num, NULL);
+		gpio_request(pdata->sda_info.port_num, NULL);
+		gpio_direction_input(pdata->scl_info.port_num);
+		gpio_direction_input(pdata->sda_info.port_num);
+		gpio_direction_none_port(pdata->scl_info.port_num);
+		gpio_direction_none_port(pdata->sda_info.port_num);
+	}
 }
 
 static unsigned char i2c_op(struct sh_mobile_i2c_data *pd,
@@ -469,8 +516,8 @@ static irqreturn_t sh_mobile_i2c_isr(int irq, void *dev_id)
 		wake_up(&pd->wait);
 	}
 
-	/* defeat write posting to avoid spurious WAIT interrupts */
-	iic_rd(pd, ICSR);
+	/* get I/O synced to avoid spurious WAIT interrupts */
+	iic_sync(pd);
 
 	return IRQ_HANDLED;
 }
@@ -515,7 +562,7 @@ static int poll_dte(struct sh_mobile_i2c_data *pd)
 			break;
 
 		if (val & ICSR_TACK)
-			return -EIO;
+			return -EAGAIN;
 
 		udelay(10);
 	}
@@ -544,7 +591,7 @@ static int poll_busy(struct sh_mobile_i2c_data *pd)
 		if (!(val & ICSR_BUSY)) {
 			/* handle missing acknowledge and arbitration lost */
 			if ((val | pd->sr) & (ICSR_TACK | ICSR_AL))
-				return -EIO;
+				return -EAGAIN;
 			break;
 		}
 
@@ -710,7 +757,11 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	pd->clks_per_count = 1;
 	if (pdata && pdata->clks_per_count)
 		pd->clks_per_count = pdata->clks_per_count;
-
+	if (pdata && (pdata->bus_data_delay <= MAX_SDA_DELAY))
+		pd->bus_data_delay = pdata->bus_data_delay <<
+							SHIFT_3BITS_SDA_DELAY;
+	else
+		pd->bus_data_delay = MIN_SDA_DELAY;
 	/* The IIC blocks on SH-Mobile ARM processors
 	 * come with two new bits in ICIC.
 	 */
@@ -752,6 +803,17 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	if (ret < 0) {
 		dev_err(&dev->dev, "cannot add numbered adapter\n");
 		goto err_all;
+	}
+
+	if (pdata->pin_multi) {
+		gpio_free(pdata->scl_info.port_func);
+		gpio_free(pdata->sda_info.port_func);
+		gpio_request(pdata->scl_info.port_num, NULL);
+		gpio_request(pdata->sda_info.port_num, NULL);
+		gpio_direction_input(pdata->scl_info.port_num);
+		gpio_direction_input(pdata->sda_info.port_num);
+		gpio_direction_none_port(pdata->scl_info.port_num);
+		gpio_direction_none_port(pdata->sda_info.port_num);
 	}
 
 	dev_info(&dev->dev,

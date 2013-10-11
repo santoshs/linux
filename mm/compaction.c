@@ -1,6 +1,8 @@
 /*
  * linux/mm/compaction.c
  *
+ * Copyright (C) 2012 Renesas Mobile Corporation
+ *
  * Memory compaction for the reduction of external fragmentation. Note that
  * this heavily depends upon page migration to do all the real heavy
  * lifting
@@ -37,6 +39,30 @@ static inline void count_compact_events(enum vm_event_item item, long delta)
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/compaction.h>
+
+#define SDRAM_START			0x40000000
+#define SDRAM_END			0x7FFFFFFF
+#define BANK_SIZE			0x04000000
+
+#define INUSED_RANGE		(CONFIG_MEMORY_START - SDRAM_START)
+#define USED_BANKS			(((INUSED_RANGE % BANK_SIZE) != 0)  \
+					? ((INUSED_RANGE / BANK_SIZE) + 1) \
+					: (INUSED_RANGE / BANK_SIZE))
+
+#define UNUSED_BANKS_START	(SDRAM_START + (USED_BANKS * BANK_SIZE))
+#define NUMBER_PAGES_SKIP	(((INUSED_RANGE % BANK_SIZE) != 0) \
+					? (UNUSED_BANKS_START - CONFIG_MEMORY_START) \
+					: 0 )
+
+#define SDRAM_SIZE 		((SDRAM_END - SDRAM_START) + 1)
+#define MAX_BANKS		(SDRAM_SIZE / BANK_SIZE)
+#define MAX_UNUSED_BANKS	(MAX_BANKS - USED_BANKS)
+#define MAX_PAGES_IN_BANK	(BANK_SIZE / PAGE_SIZE)
+
+
+const unsigned int max_unused_banks1 = MAX_UNUSED_BANKS;
+const unsigned int max_pages_in_bank1 = MAX_PAGES_IN_BANK;
+const unsigned int number_pages_skip1 = NUMBER_PAGES_SKIP;
 
 static unsigned long release_freepages(struct list_head *freelist)
 {
@@ -1124,6 +1150,59 @@ static void __compact_pgdat(pg_data_t *pgdat, struct compact_control *cc)
 	}
 }
 
+static int page_check(struct page *page)
+{
+	int mapcount;
+	int pagecount;
+	mapcount = 0;
+	pagecount = 0;
+	if (page != NULL) {
+		mapcount = atomic_read(&page->_mapcount);
+		pagecount = atomic_read(&page->_count);
+
+		if ((mapcount >= 0) || (page->mapping != NULL)
+			|| (pagecount > 0)
+			|| (page->flags & PAGE_FLAGS_CHECK_AT_FREE)) {
+			return 1;	/* Page is "used" */
+		}
+		return 0;		/* Page is "freed" */
+	} else {
+		return -EINVAL;
+	}
+}
+
+void move_pageblock(void)
+{
+	unsigned int i;
+	unsigned int j;
+	unsigned int begin;
+	unsigned int end;
+	unsigned int status;
+	struct page* start_page_check;
+	struct zone *zone;
+
+	i = 0;
+	j = 0;
+	begin = 0;
+	end = 0;
+	status = 0xFFFFFFFF;
+	/* start checking */
+	start_page_check = mem_map + number_pages_skip1/PAGE_SIZE;
+	for (i = 0; i < max_unused_banks1; i++) {
+		begin = i * max_pages_in_bank1;
+		end = ((i + 1) * max_pages_in_bank1) - 1;
+
+		for (j = begin; j <= end; j++) {
+			if ((page_check(start_page_check + j) == 0) && (get_pageblock_migratetype(start_page_check + j) == MIGRATE_UNMOVABLE)) {
+				zone = page_zone(start_page_check+j);
+				set_pageblock_migratetype(start_page_check+j, MIGRATE_MOVABLE);
+				move_freepages_block(zone,start_page_check+j,MIGRATE_MOVABLE);
+			}
+		}
+	}
+
+}
+
 void compact_pgdat(pg_data_t *pgdat, int order)
 {
 	struct compact_control cc = {
@@ -1145,9 +1224,10 @@ static void compact_node(int nid)
 }
 
 /* Compact all nodes in the system */
-static void compact_nodes(void)
+void compact_nodes(void)
 {
 	int nid;
+	move_pageblock();
 
 	/* Flush pending updates to the LRU lists */
 	lru_add_drain_all();

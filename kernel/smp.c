@@ -13,6 +13,8 @@
 #include <linux/smp.h>
 #include <linux/cpu.h>
 
+#include <memlog/memlog.h>
+
 #include "smpboot.h"
 
 #ifdef CONFIG_USE_GENERIC_SMP_HELPERS
@@ -198,7 +200,9 @@ void generic_smp_call_function_single_interrupt(void)
 		 */
 		csd_flags = csd->flags;
 
+		memory_log_func((unsigned long)csd->func, 1);
 		csd->func(csd->info);
+		memory_log_func((unsigned long)csd->func, 0);
 
 		/*
 		 * Unlocked CSDs are valid through generic_exec_single():
@@ -245,7 +249,9 @@ int smp_call_function_single(int cpu, smp_call_func_t func, void *info,
 
 	if (cpu == this_cpu) {
 		local_irq_save(flags);
+		memory_log_func((unsigned long)func, 1);
 		func(info);
+		memory_log_func((unsigned long)func, 0);
 		local_irq_restore(flags);
 	} else {
 		if ((unsigned)cpu < nr_cpu_ids && cpu_online(cpu)) {
@@ -343,7 +349,9 @@ void __smp_call_function_single(int cpu, struct call_single_data *csd,
 
 	if (cpu == this_cpu) {
 		local_irq_save(flags);
+		memory_log_func((unsigned long)csd->func, 1);
 		csd->func(csd->info);
+		memory_log_func((unsigned long)csd->func, 0);
 		local_irq_restore(flags);
 	} else {
 		csd_lock(csd);
@@ -568,7 +576,9 @@ int on_each_cpu(void (*func) (void *info), void *info, int wait)
 	preempt_disable();
 	ret = smp_call_function(func, info, wait);
 	local_irq_save(flags);
+	memory_log_func((unsigned long)func, 1);
 	func(info);
+	memory_log_func((unsigned long)func, 0);
 	local_irq_restore(flags);
 	preempt_enable();
 	return ret;
@@ -597,7 +607,9 @@ void on_each_cpu_mask(const struct cpumask *mask, smp_call_func_t func,
 	smp_call_function_many(mask, func, info, wait);
 	if (cpumask_test_cpu(cpu, mask)) {
 		local_irq_disable();
+		memory_log_func((unsigned long)func, 1);
 		func(info);
+		memory_log_func((unsigned long)func, 0);
 		local_irq_enable();
 	}
 	put_cpu();

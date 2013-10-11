@@ -46,6 +46,11 @@
 #include <asm/virt.h>
 #include <asm/mach/arch.h>
 
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
+#include <mach/sec_debug.h>
+#endif
+
+#include <memlog/memlog.h>
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
  * so we need some other way of telling a new secondary core
@@ -92,7 +97,6 @@ int __cpuinit __cpu_up(unsigned int cpu, struct task_struct *idle)
 	secondary_data.swapper_pg_dir = virt_to_phys(swapper_pg_dir);
 	__cpuc_flush_dcache_area(&secondary_data, sizeof(secondary_data));
 	outer_clean_range(__pa(&secondary_data), __pa(&secondary_data + 1));
-
 	/*
 	 * Now bring the CPU into our world.
 	 */
@@ -577,10 +581,14 @@ static void ipi_cpu_stop(unsigned int cpu)
 	    system_state == SYSTEM_RUNNING) {
 		raw_spin_lock(&stop_lock);
 		printk(KERN_CRIT "CPU%u: stopping\n", cpu);
+#ifdef CONFIG_SEC_DEBUG
+		sec_debug_save_context();
+#endif
 		dump_stack();
 		raw_spin_unlock(&stop_lock);
 	}
 
+	flush_cache_louis();
 	set_cpu_online(cpu, false);
 
 	local_fiq_disable();
@@ -658,6 +666,11 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 	if (ipinr < NR_IPI)
 		__inc_irq_stat(cpu, ipi_irqs[ipinr]);
 
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
+	sec_debug_irq_log(ipinr, do_IPI, 1);
+#endif
+	memory_log_irq(ipinr,1);
+
 	switch (ipinr) {
 	case IPI_WAKEUP:
 		break;
@@ -701,6 +714,13 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		       cpu, ipinr);
 		break;
 	}
+
+	memory_log_irq(ipinr,0);
+
+#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
+	sec_debug_irq_log(ipinr, do_IPI, 2);
+#endif
+
 	set_irq_regs(old_regs);
 }
 

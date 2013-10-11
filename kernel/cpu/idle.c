@@ -62,6 +62,10 @@ void __weak arch_cpu_idle(void)
 	local_irq_enable();
 }
 
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+extern void could_cswap(void);
+#endif /* CONFIG_ZRAM_FOR_ANDROID */
+
 /*
  * Generic idle loop implementation
  */
@@ -76,6 +80,10 @@ static void cpu_idle_loop(void)
 
 			if (cpu_is_offline(smp_processor_id()))
 				arch_cpu_idle_dead();
+
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+			could_cswap();
+#endif /* CONFIG_ZRAM_FOR_ANDROID */
 
 			local_irq_disable();
 			arch_cpu_idle_enter();

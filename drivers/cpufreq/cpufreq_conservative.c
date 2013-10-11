@@ -5,6 +5,7 @@
  *            (C)  2003 Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>.
  *                      Jun Nakajima <jun.nakajima@intel.com>
  *            (C)  2009 Alexander Clouter <alex@digriz.org.uk>
+ *			  (C)  2012 Renesas Mobile Corporation
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -27,9 +28,15 @@
 #include "cpufreq_governor.h"
 
 /* Conservative governor macros */
+#ifdef CONFIG_SHMOBILE_CPUFREQ
+#define DEF_FREQUENCY_UP_THRESHOLD		(CONFIG_SH_UP_THRESHOLD)
+#define DEF_FREQUENCY_DOWN_THRESHOLD		(CONFIG_SH_DOWN_THRESHOLD)
+#define DEF_FREQUENCY_STEP			(CONFIG_SH_FRQ_STEP)
+#else
 #define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_FREQUENCY_DOWN_THRESHOLD		(20)
 #define DEF_FREQUENCY_STEP			(5)
+#endif
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(10)
 

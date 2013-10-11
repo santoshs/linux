@@ -24,6 +24,8 @@
 #include <linux/sysctl.h>
 #include <linux/smpboot.h>
 #include <linux/sched/rt.h>
+#include <linux/rmu2_cmt15.h>
+#include <linux/rmu2_rwdt.h>
 
 #include <asm/irq_regs.h>
 #include <linux/kvm_para.h>
@@ -143,6 +145,8 @@ static void __touch_watchdog(void)
 
 void touch_softlockup_watchdog(void)
 {
+	rmu2_cmt_clear();
+	rmu2_rwdt_cntclear();
 	__this_cpu_write(watchdog_touch_ts, 0);
 }
 EXPORT_SYMBOL(touch_softlockup_watchdog);
@@ -151,6 +155,8 @@ void touch_all_softlockup_watchdogs(void)
 {
 	int cpu;
 
+	rmu2_cmt_clear();
+	rmu2_rwdt_cntclear();
 	/*
 	 * this is done lockless
 	 * do we care if a 0 races with a timestamp?

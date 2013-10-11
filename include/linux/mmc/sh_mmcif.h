@@ -63,6 +63,7 @@ struct sh_mmcif_plat_data {
 #define MMCIF_CE_HOST_STS1	0x00000048
 #define MMCIF_CE_HOST_STS2	0x0000004C
 #define MMCIF_CE_VERSION	0x0000007C
+#define MMCIF_CE_DELAY_SEL	0x00000080
 
 /* CE_BUF_ACC */
 #define BUF_ACC_DMAWEN		(1 << 25)
@@ -112,7 +113,7 @@ static inline int sh_mmcif_boot_cmd_poll(void __iomem *base, unsigned long mask)
 	unsigned long tmp;
 	int cnt;
 
-	for (cnt = 0; cnt < 1000000; cnt++) {
+	for (cnt = 0; cnt < 5000000; cnt++) {
 		tmp = sh_mmcif_readl(base, MMCIF_CE_INT);
 		if (tmp & mask) {
 			sh_mmcif_writel(base, MMCIF_CE_INT, tmp & ~mask);

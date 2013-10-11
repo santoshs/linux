@@ -21,6 +21,15 @@
 #include <asm/pmu.h>
 #include <asm/stacktrace.h>
 
+#define DYNAMIC_ENABLE 1
+
+static int normalmode = 1;
+static inline void normalmode_check(void){
+	if (normalmode == 1)
+		pr_info("WARNING: PMU cannot work in this mode\n");
+	normalmode = 2;
+}
+
 static int
 armpmu_map_cache_event(const unsigned (*cache_map)
 				      [PERF_COUNT_HW_CACHE_MAX]
@@ -162,6 +171,8 @@ armpmu_stop(struct perf_event *event, int flags)
 	 * ARM pmu always has to update the counter, so ignore
 	 * PERF_EF_UPDATE, see comments in armpmu_start().
 	 */
+	if (normalmode)
+		return;
 	if (!(hwc->state & PERF_HES_STOPPED)) {
 		armpmu->disable(event);
 		armpmu_event_update(event);
@@ -178,6 +189,10 @@ static void armpmu_start(struct perf_event *event, int flags)
 	 * ARM pmu always has to reprogram the period, so ignore
 	 * PERF_EF_RELOAD, see the comment below.
 	 */
+	if (normalmode) {
+		normalmode_check();
+		return;
+	}
 	if (flags & PERF_EF_RELOAD)
 		WARN_ON_ONCE(!(hwc->state & PERF_HES_UPTODATE));
 
@@ -420,6 +435,11 @@ static int armpmu_event_init(struct perf_event *event)
 	if (has_branch_stack(event))
 		return -EOPNOTSUPP;
 
+	if (normalmode) {
+		normalmode_check();
+		return -ENODEV;
+	}
+
 	if (armpmu->map_event(event) == -ENOENT)
 		return -ENOENT;
 
@@ -451,6 +471,10 @@ static void armpmu_enable(struct pmu *pmu)
 	struct pmu_hw_events *hw_events = armpmu->get_hw_events();
 	int enabled = bitmap_weight(hw_events->used_mask, armpmu->num_events);
 
+	if (normalmode) {
+		normalmode_check();
+		return;
+	}
 	if (enabled)
 		armpmu->start(armpmu);
 }
@@ -458,6 +482,10 @@ static void armpmu_enable(struct pmu *pmu)
 static void armpmu_disable(struct pmu *pmu)
 {
 	struct arm_pmu *armpmu = to_arm_pmu(pmu);
+	if (normalmode) {
+		normalmode_check();
+		return;
+	}
 	armpmu->stop(armpmu);
 }
 

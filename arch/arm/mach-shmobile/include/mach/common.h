@@ -37,4 +37,10 @@ static inline void __init shmobile_init_late(void)
 	shmobile_cpuidle_init();
 }
 
+extern void sh_modify_register8(void __iomem *, u8, u8);
+extern void sh_modify_register16(void __iomem *, u16, u16);
+extern void sh_modify_register32(void __iomem *, u32, u32);
+
+extern unsigned int u2_get_board_rev(void);
+
 #endif /* __ARCH_MACH_COMMON_H */

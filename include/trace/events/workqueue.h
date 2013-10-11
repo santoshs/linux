@@ -7,6 +7,8 @@
 #include <linux/tracepoint.h>
 #include <linux/workqueue.h>
 
+struct pool_workqueue;
+
 DECLARE_EVENT_CLASS(workqueue_work,
 
 	TP_PROTO(struct work_struct *work),

@@ -2024,6 +2024,7 @@ static int sh_mobile_lcdc_check_var(struct fb_var_screeninfo *var,
 	return 0;
 }
 
+#if 0
 static int sh_mobile_lcdc_set_par(struct fb_info *info)
 {
 	struct sh_mobile_lcdc_chan *ch = info->par;
@@ -2060,6 +2061,7 @@ static int sh_mobile_lcdc_set_par(struct fb_info *info)
 
 	return ret;
 }
+#endif
 
 /*
  * Screen blanking. Behavior is as follows:
@@ -2127,7 +2129,9 @@ static struct fb_ops sh_mobile_lcdc_ops = {
 	.fb_open	= sh_mobile_lcdc_open,
 	.fb_release	= sh_mobile_lcdc_release,
 	.fb_check_var	= sh_mobile_lcdc_check_var,
+#if 0
 	.fb_set_par	= sh_mobile_lcdc_set_par,
+#endif
 	.fb_mmap	= sh_mobile_lcdc_mmap,
 };
 

@@ -1,6 +1,9 @@
 /*
  * soc-camera media bus helper routines
  *
+ * Copyright (C) 2012 Renesas Mobile Corp.
+ * All rights reserved.
+ *
  * Copyright (C) 2009, Guennadi Liakhovetski <g.liakhovetski@gmx.de>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -293,6 +296,15 @@ static const struct soc_mbus_lookup mbus_fmt[] = {
 		.layout			= SOC_MBUS_LAYOUT_PACKED,
 	},
 }, {
+	.code = V4L2_MBUS_FMT_SGBRG8_1X8,
+	.fmt = {
+		.fourcc			= V4L2_PIX_FMT_SGBRG8,
+		.name			= "Bayer 8 GBRG",
+		.bits_per_sample	= 8,
+		.packing		= SOC_MBUS_PACKING_NONE,
+		.order			= SOC_MBUS_ORDER_LE,
+	},
+}, {
 	.code = V4L2_MBUS_FMT_SGRBG8_1X8,
 	.fmt = {
 		.fourcc			= V4L2_PIX_FMT_SGRBG8,
@@ -301,6 +313,15 @@ static const struct soc_mbus_lookup mbus_fmt[] = {
 		.packing		= SOC_MBUS_PACKING_NONE,
 		.order			= SOC_MBUS_ORDER_LE,
 		.layout			= SOC_MBUS_LAYOUT_PACKED,
+	},
+}, {
+	.code = V4L2_MBUS_FMT_SRGGB8_1X8,
+	.fmt = {
+		.fourcc			= V4L2_PIX_FMT_SRGGB8,
+		.name			= "Bayer 8 RGGB",
+		.bits_per_sample	= 8,
+		.packing		= SOC_MBUS_PACKING_NONE,
+		.order			= SOC_MBUS_ORDER_LE,
 	},
 }, {
 	.code = V4L2_MBUS_FMT_SGRBG10_DPCM8_1X8,

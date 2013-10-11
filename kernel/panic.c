@@ -22,6 +22,9 @@
 #include <linux/sysrq.h>
 #include <linux/init.h>
 #include <linux/nmi.h>
+#include <asm/io.h>
+#include <linux/rmu2_rwdt.h>
+#include <mach/r8a7373.h>
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -34,6 +37,12 @@ static unsigned long tainted_mask;
 static int pause_on_oops;
 static int pause_on_oops_flag;
 static DEFINE_SPINLOCK(pause_on_oops_lock);
+
+#if defined CONFIG_ARCH_SHMOBILE && defined CONFIG_CPU_FREQ
+extern void disable_hotplug_duringPanic(void);
+#else
+static inline void disable_hotplug_duringPanic(void) { }
+#endif
 
 #ifndef CONFIG_PANIC_TIMEOUT
 #define CONFIG_PANIC_TIMEOUT 0
@@ -79,6 +88,9 @@ void panic(const char *fmt, ...)
 	long i, i_next = 0;
 	int state = 0;
 
+	u8 reg = __raw_readb(STBCHR2);
+	__raw_writeb((reg | APE_RESETLOG_PANIC_START), STBCHR2); // write STBCHR2 for debug
+
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
 	 * from deadlocking the first cpu that invokes the panic, since
@@ -120,6 +132,10 @@ void panic(const char *fmt, ...)
 	 * Do we want to call this before we try to display a message?
 	 */
 	crash_kexec(NULL);
+	rmu2_rwdt_cntclear();
+	disable_hotplug_duringPanic();
+
+	smp_send_all_cpu_backtrace();
 
 	/*
 	 * Note smp_send_stop is the usual smp shutdown function, which
@@ -129,6 +145,11 @@ void panic(const char *fmt, ...)
 	smp_send_stop();
 
 	kmsg_dump(KMSG_DUMP_PANIC);
+
+	reg = __raw_readb(STBCHR2);
+
+	/* write STBCHR2 for debug */
+	__raw_writeb((reg | APE_RESETLOG_PANIC_END), STBCHR2);
 
 	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
 
