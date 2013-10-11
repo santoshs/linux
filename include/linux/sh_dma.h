@@ -31,6 +31,7 @@ struct sh_dmae_slave_config {
 	dma_addr_t	addr;
 	u32		chcr;
 	char		mid_rid;
+	u32		burst_sizes; /* XXX not implemented */
 };
 
 struct sh_dmae_channel {
