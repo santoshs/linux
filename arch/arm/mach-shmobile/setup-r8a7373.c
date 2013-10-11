@@ -55,9 +55,7 @@
 #include <mach/sec_debug_inform.h>
 #endif
 
-#ifdef CONFIG_MFD_D2153
-#include <linux/d2153/core.h>
-#endif
+#include <linux/regulator/consumer.h>
 #include <mach/setup-u2sci.h>
 
 #ifdef CONFIG_ARCH_SHMOBILE
@@ -1272,58 +1270,38 @@ void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
 
 
-#if defined(CONFIG_MFD_D2153)
-struct regulator *emmc_regulator;
-
-void d2153_mmcif_pwr_control(int onoff)
+void mmcif_pwr_control(int onoff)
 {
 	int ret;
+	struct regulator *emmc_regulator;
 
-	printk(KERN_EMERG "%s %s\n", __func__, (onoff) ? "on" : "off");
-	if (emmc_regulator == NULL) {
-		printk(KERN_INFO " %s, %d\n", __func__, __LINE__);
-		emmc_regulator = regulator_get(NULL, "vmmc");
-		if (IS_ERR(emmc_regulator)) {
-			printk(KERN_INFO "can not get vmmc regulator\n");
-			return;
-		}
+	pr_info("%s %s\n", __func__, (onoff) ? "on" : "off");
+	emmc_regulator = regulator_get(NULL, "vmmc");
+	if (IS_ERR(emmc_regulator)) {
+		pr_err("can not get vmmc regulator\n");
+		return;
 	}
 
+	/* always enabling the vmmc */
 	if (onoff == 1) {
-#if 1 /* always enabling the vmmc */
 		if (!regulator_is_enabled(emmc_regulator)) {
-			printk(KERN_INFO " %s, %d vmmc On\n", __func__,
+			pr_info("%s, %d vmmc On\n", __func__,
 				__LINE__);
 			ret = regulator_enable(emmc_regulator);
-			printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+			pr_info("regulator_enable ret = %d\n", ret);
 		}
-#else
-		printk(KERN_INFO " %s, %d vmmc On\n", __func__, __LINE__);
-		ret = regulator_enable(emmc_regulator);
-		printk(KERN_INFO "regulator_enable ret = %d\n", ret);
-#endif
-	} else {
-#if 0 /* always enabling the vmmc */
-		printk(KERN_INFO "%s, %d vmmc Off\n", __func__, __LINE__);
-		ret = regulator_disable(emmc_regulator);
-		printk(KERN_INFO "regulator_disable ret = %d\n", ret);
-#endif
 	}
+	regulator_put(emmc_regulator);
 }
-#endif
 
 void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
-#if defined(CONFIG_MFD_D2153)
-	d2153_mmcif_pwr_control(1);
-#endif /* CONFIG_MFD_D2153 */
+	mmcif_pwr_control(1);
 }
 
 void mmcif_down_pwr(struct platform_device *pdev)
 {
-#if defined(CONFIG_MFD_D2153)
-	d2153_mmcif_pwr_control(0);
-#endif /* CONFIG_MFD_D2153 */
+	mmcif_pwr_control(0);
 }
 
 /* Lock used while modifying register */
