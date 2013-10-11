@@ -41,8 +41,6 @@ struct proc_dir_entry *root_device;
 #if defined(CONFIG_MACH_LOGANLTE) || \
 	defined(CONFIG_MACH_AMETHYST)
 struct proc_dir_entry *fm34_entry;
-#elif defined(CONFIG_MACH_LT02LTE)
-struct proc_dir_entry *tpa2026_entry;
 #endif
 
 /* Proc read handler */
@@ -103,15 +101,6 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 	defined(CONFIG_MACH_AMETHYST)
 	if ((BOARD_REV_0_1 < u2_board_rev) &&
 		(BOARD_REV_0_4 > u2_board_rev)) {
-		d2153_pdata.audio.aad_codec_detect_enable = true;
-		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
-		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
-	} else {
-		d2153_pdata.audio.aad_codec_detect_enable = false;
-		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
-	}
-#elif defined(CONFIG_MACH_LT02LTE)
-	if (BOARD_REV_0_1 < u2_board_rev) {
 		d2153_pdata.audio.aad_codec_detect_enable = true;
 		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
 		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
@@ -201,15 +190,6 @@ void u2audio_init(unsigned int u2_board_rev)
 				printk(KERN_ERR "%s Failed create_proc_entry fm34\n",
 					__func__);
 			}
-#elif defined(CONFIG_MACH_LT02LTE)
-			tpa2026_entry = create_proc_entry("tpa2026",
-				S_IRUGO, root_device);
-			if (NULL != tpa2026_entry)
-				tpa2026_entry->read_proc =
-					proc_read_u2audio_device_exist;
-			else
-				printk(KERN_ERR "%s Failed create_proc_entry tpa2026\n",
-					__func__);
 #endif
 		}
 	} else {

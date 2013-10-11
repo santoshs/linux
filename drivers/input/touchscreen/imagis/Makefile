@@ -3,7 +3,6 @@
 #
 
 # Each configuration option enables a list of files.
-obj-$(CONFIG_BOARD_VERSION_GARDA)		+= gardalte/
-obj-$(CONFIG_BOARD_VERSION_LOGANLTE)	+= loganlte/
-obj-$(CONFIG_BOARD_VERSION_AMETHYST)	+= loganlte/
+obj-$(CONFIG_MACH_LOGANLTE)	+= loganlte/
+obj-$(CONFIG_MACH_AMETHYST)	+= loganlte/
 

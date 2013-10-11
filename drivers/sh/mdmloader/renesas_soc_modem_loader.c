@@ -417,7 +417,8 @@ static int rmc_loader_open(struct inode *inode, struct file *file)
 
 			/* data = __raw_readl(DBGREG1); */
 
-			if((system_rev & 0xFFFF) >= 0x3E12) /* ES2.02 and onwards */
+			 /* ES2.02 and onwards */
+			if (!shmobile_is_older(U2_VERSION_2_2))
 			{
 				/* printk("ES2.02 on later\n"); */
 				/* if ((data & (1 << 29))) */

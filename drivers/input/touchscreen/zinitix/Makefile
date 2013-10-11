@@ -1,7 +1,6 @@
 #
 # Makefile for the Zinitix touchscreen drivers.
 #
-obj-$(CONFIG_BOARD_VERSION_LOGANLTE)	+= loganlte/
-obj-$(CONFIG_BOARD_VERSION_LT02LTE)		+= lt02lte/
-obj-$(CONFIG_BOARD_VERSION_AMETHYST)	+= loganlte/
+obj-$(CONFIG_MACH_LOGANLTE)	+= loganlte/
+obj-$(CONFIG_MACH_AMETHYST)	+= loganlte/
 

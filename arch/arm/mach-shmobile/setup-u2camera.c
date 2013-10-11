@@ -40,9 +40,8 @@
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2ion.h>
 
-#if defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || \
-	defined(CONFIG_MACH_AMETHYST)/* Gardalte, Logan ,Amethyst */
+#if defined(CONFIG_MACH_LOGANLTE) || \
+	defined(CONFIG_MACH_AMETHYST)/* Logan ,Amethyst */
 
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
 	defined(CONFIG_SOC_CAMERA_SR030PC50) /* Select by board Rev */
@@ -110,75 +109,8 @@ struct soc_camera_link camera_links[] = {
 #endif
 };
 #endif	/* Select by board Rev */
-#endif	/* Gardalte, Logan */
+#endif	/* Logan */
 
-#if defined(CONFIG_MACH_LT02LTE) /* LT02LTE */
-#if defined(CONFIG_SOC_CAMERA_SR352) && \
-	defined(CONFIG_SOC_CAMERA_SR130PC20)	/* Select by board Rev */
-static struct i2c_board_info i2c_cameras[] = {
-	{
-		I2C_BOARD_INFO("SR352", 0x20),
-	},
-	{
-		I2C_BOARD_INFO("SR130PC20", 0x28), /* TODO::HYCHO (0x41>>1) */
-	},
-};
-static struct soc_camera_link camera_links[] = {
-	{
-		.bus_id			= 0,
-		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id		= 1,
-		.module_name		= "SR352",
-		.power			= SR352_power,
-	},
-	{
-		.bus_id			= 1,
-		.board_info		= &i2c_cameras[1],
-		.i2c_adapter_id	= 1,
-		.module_name		= "SR130PC20",
-		.power			= SR130PC20_power,
-	},
-};
-#else	/* Select by board Rev */
-struct i2c_board_info i2c_cameras[] = {
-	/* Rear Camera */
-#if defined(CONFIG_SOC_CAMERA_SR352)
-	{
-		I2C_BOARD_INFO("SR352", 0x20),
-	},
-#endif
-	/* Front Camera */
-#if defined(CONFIG_SOC_CAMERA_SR130PC20)
-	{
-		I2C_BOARD_INFO("SR130PC20", 0x28), /* TODO::HYCHO (0x41>>1) */
-	},
-#endif
-};
-
-struct soc_camera_link camera_links[] = {
-	/* Rear Camera */
-#if defined(CONFIG_SOC_CAMERA_SR352)
-	{
-		.bus_id			= 0,
-		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id		= 1,
-		.module_name		= "SR352",
-		.power			= SR352_power,
-	},
-#endif
-	/* Front Camera */
-#if defined(CONFIG_SOC_CAMERA_SR130PC20)
-	{
-		.bus_id			= 1,
-		.board_info		= &i2c_cameras[1],
-		.i2c_adapter_id	= 1,
-		.module_name	= "SR130PC20",
-		.power			= SR130PC20_power,
-	},
-#endif
-};
-#endif	/* Select by board Rev */
-#endif	/* LT02LTE */
 
 struct platform_device camera_devices[] = {
 	{
@@ -207,7 +139,7 @@ int camera_init(void)
 	gpio_direction_output(GPIO_PORT3, 0);	/* CAM_PWR_EN */
 	gpio_request(GPIO_PORT20, NULL);
 	gpio_direction_output(GPIO_PORT20, 0);	/* CAM0_RST_N */
-	/* Gardalte, Logan, lt02lte */
+	/* Logan */
 	gpio_request(GPIO_PORT45, NULL);
 	gpio_direction_output(GPIO_PORT45, 0);	/* CAM0_STBY */
 
@@ -233,9 +165,8 @@ int camera_init(void)
 	camera_links[1].priv = &csi21_info;
 	printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 
-#if defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || \
-	defined(CONFIG_MACH_AMETHYST) /* Gardalte, Logan  Amethyst*/
+#if defined(CONFIG_MACH_LOGANLTE) || \
+	defined(CONFIG_MACH_AMETHYST) /* Logan  Amethyst*/
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
 	defined(CONFIG_SOC_CAMERA_SR030PC50) /* Select by board Rev */
 	csi20_info.clients[0].lanes = 0x3;
@@ -244,43 +175,8 @@ int camera_init(void)
 	csi20_info.clients[0].lanes = 0x3;
 #endif
 #endif	/* Select by board Rev */
-#endif	/* Gardalte, Logan */
+#endif	/* Logan */
 
-#if defined(CONFIG_MACH_LT02LTE) /* lt02lte */
-#if defined(CONFIG_SOC_CAMERA_SR200PC20M) && \
-	defined(CONFIG_SOC_CAMERA_SR130PC20) /* Select by board Rev */
-	csi20_info.clients[0].lanes = 0x1;
-	camera_devices[0].dev.platform_data = &camera_links_rev7[0];
-	camera_devices[1].dev.platform_data = &camera_links_rev7[1];
-	camera_links_rev7[0].priv = &csi20_info;
-	camera_links_rev7[1].priv = &csi21_info;
-#else	/* Select by board Rev */
-#if defined(CONFIG_SOC_CAMERA_SR200PC20M)
-	csi20_info.clients[0].lanes = 0x1;
-#endif
-	camera_devices[0].dev.platform_data = &camera_links[0];
-	camera_devices[1].dev.platform_data = &camera_links[1];
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
-#endif	/* Select by board Rev */
-
-#if defined(CONFIG_SOC_CAMERA_SR352) && \
-	defined(CONFIG_SOC_CAMERA_SR130PC20) /* Select by board Rev */
-	csi20_info.clients[0].lanes = 0x1;
-	camera_devices[0].dev.platform_data = &camera_links[0];
-	camera_devices[1].dev.platform_data = &camera_links[1];
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
-#else	/* Select by board Rev */
-#if defined(CONFIG_SOC_CAMERA_SR352)
-	csi20_info.clients[0].lanes = 0x1;
-#endif
-	camera_devices[0].dev.platform_data = &camera_links[0];
-	camera_devices[1].dev.platform_data = &camera_links[1];
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
-#endif	/* Select by board Rev */
-#endif	/* lr02lte */
 
 	return 0;
 }
@@ -894,7 +790,6 @@ int SR352_power(struct device *dev, int power_on)
 {
 	struct clk *vclk1_clk;
 	int iRet;
-	unsigned int u2_board_rev;
 #if defined(CONFIG_MFD_D2153)
 	struct regulator *regulator_io = NULL;
 	struct regulator *regulator_a = NULL;
@@ -902,7 +797,6 @@ int SR352_power(struct device *dev, int power_on)
 	struct regulator *regulator_vt = NULL;
 #endif
 	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
-	u2_board_rev = u2_get_board_rev();
 	vclk1_clk = clk_get(NULL, "vclk1_clk");
 	if (IS_ERR(vclk1_clk)) {
 		dev_err(dev, "clk_get(vclk1_clk) failed\n");
@@ -943,7 +837,7 @@ int SR352_power(struct device *dev, int power_on)
 			return -1;
 		}
 		regulator_set_voltage(regulator_a, 2800000, 2800000);
-		if (BOARD_REV_0_0 == u2_board_rev) {
+		if (BOARD_REV_0_0 == system_rev) {
 			/* CAM_CORE_1.8V Get */
 			regulator_vt = regulator_get(NULL, "vt_cam");
 			if (IS_ERR(regulator_vt)) {
@@ -975,7 +869,7 @@ int SR352_power(struct device *dev, int power_on)
 		regulator_enable(regulator_io);
 		/* CAM_AVDD_2V8  enable */
 		regulator_enable(regulator_a);
-		if (BOARD_REV_0_0 == u2_board_rev) {
+		if (BOARD_REV_0_0 == system_rev) {
 			/* CAM_CORE_1_1V8 (VT)	enable */
 			regulator_enable(regulator_vt);
 		} else {
@@ -989,7 +883,7 @@ int SR352_power(struct device *dev, int power_on)
 		/* Regulator free */
 		regulator_put(regulator_io);
 		regulator_put(regulator_a);
-		if (BOARD_REV_0_0 == u2_board_rev) {
+		if (BOARD_REV_0_0 == system_rev) {
 			regulator_put(regulator_vt);
 		} else {
 			regulator_put(regulator_vt);
@@ -1034,7 +928,7 @@ int SR352_power(struct device *dev, int power_on)
 		mdelay(1);
 
 #if defined(CONFIG_MFD_D2153)
-		if (BOARD_REV_0_0 == u2_board_rev) {
+		if (BOARD_REV_0_0 == system_rev) {
 			/* CAM_CORE_1.8V Get */
 			regulator_vt = regulator_get(NULL, "vt_cam");
 			if (IS_ERR(regulator_vt)) {
@@ -1077,7 +971,7 @@ int SR352_power(struct device *dev, int power_on)
 		}
 
 		dev_err(dev, "regulator_disable s\n");
-		if (BOARD_REV_0_0 == u2_board_rev) {
+		if (BOARD_REV_0_0 == system_rev) {
 			/* CAM_CORE_1_1V8 (VT) disable */
 			regulator_disable(regulator_vt);
 		} else {
@@ -1093,7 +987,7 @@ int SR352_power(struct device *dev, int power_on)
 		dev_err(dev, "regulator_disable e\n");
 
 		/* Regulator free */
-		if (BOARD_REV_0_0 == u2_board_rev) {
+		if (BOARD_REV_0_0 == system_rev) {
 			regulator_put(regulator_vt);
 		} else {
 			regulator_put(regulator_af);
@@ -1185,7 +1079,7 @@ int SR130PC20_power(struct device *dev, int power_on)
 		regulator_vt = regulator_get(NULL, "vt_cam");
 		if (IS_ERR(regulator_vt))
 			return -1;
-		if (!(BOARD_REV_0_0 == u2_get_board_rev()))
+		if (!(BOARD_REV_0_0 == system_rev))
 			regulator_set_voltage(regulator_vt, 1800000, 1800000);
 
 		regulator_enable(regulator_vt);

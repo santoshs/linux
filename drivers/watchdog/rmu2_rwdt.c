@@ -294,25 +294,6 @@ static void rmu2_rwdt_workfn(struct work_struct *work)
 	*  get a watchdog reset due to that!
 	*/
 
-#ifdef CONFIG_IRQ_TRACE
-	{
-		unsigned int val;
-		/* Get Time Stamp value */
-		val = __raw_readl(CMCNT3);
-		printk(KERN_DEBUG "< %s > CMTCNT3=%08x\n", __func__, val);
-
-		if (smp_processor_id())
-			/* Store Time Stamp value in CPU1 Time Stamp location
-				in History Information Area */
-			__raw_writel(val, (tmplog_nocache_address +
-				TMPLOG_SIZE_PERCPU + TMPLOG_TIME_OFFSET));
-		else
-			/* Store Time Stamp value in CPU0 Time Stamp location
-				in History Information Area */
-			__raw_writel(val, (tmplog_nocache_address +
-				TMPLOG_TIME_OFFSET));
-	}
-#endif /* CONFIG_IRQ_TRACE */
 	cpg_check_check();
 
 	preempt_disable();
@@ -562,7 +543,7 @@ static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 	wa_zq_flg = 0;
 	reg8 = __raw_readb(STBCHRB3);
-	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
+	if ((reg8 & 0x80) && !shmobile_is_older(U2_VERSION_2_2)) {
 		RWDT_DEBUG("< %s > Apply for ZQ calibration\n", __func__);
 
 		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);

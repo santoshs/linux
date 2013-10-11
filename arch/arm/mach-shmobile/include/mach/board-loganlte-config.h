@@ -20,10 +20,10 @@
 #define __ASM_ARCH_BOARD_CONFIG_H
 
 #include <linux/platform_device.h>
-#include <linux/mmcoops.h>
 #include <linux/mmc/renesas_mmcif.h>
 #include <mach/setup-u2sdhi.h>
 #include <mach/setup-u2stm.h>
+#include <mach/crashlog.h>
 
 #if defined(CONFIG_BCM4334_BT)
 #include <mach/board-bcm4334-bt.h>
@@ -89,31 +89,6 @@ static struct platform_device mmcif_device = {
 	.resource		= renesas_mmcif_resources,
 	.num_resources	= ARRAY_SIZE(renesas_mmcif_resources),
 };
-
-#ifdef CONFIG_MMC_OOPS
-static struct mmcoops_platform_data mmcoops_info = {
-#ifdef CONFIG_CRASHLOG_EMMC
-	.pdev			= &mmcif_device,
-#endif
-	.start			= MMCOOPS_START_OFFSET,
-	.size			= MMCOOPS_LOG_SIZE,
-	.record_size		= MMCOOPS_RECORD_SIZE,
-	.kmsg_size		= MMCOOPS_KMSG_SIZE,
-	.logcat_main_size	= MMCOOPS_LOGCAT_MAIN_SIZE,
-	.logcat_system_size	= MMCOOPS_LOGCAT_SYSTEM_SIZE,
-	.logcat_radio_size	= MMCOOPS_LOGCAT_RADIO_SIZE,
-	.logcat_events_size	= MMCOOPS_LOGCAT_EVENTS_SIZE,
-	.local_version		= MMCOOPS_LOCAL_VERSION,
-	.soft_version		= RMC_LOCAL_VERSION,
-};
-
-static struct platform_device mmcoops_device = {
-	.name   = "mmcoops",
-	.dev    = {
-		.platform_data  = &mmcoops_info,
-	},
-};
-#endif
 
 static struct resource fsi_resources[] = {
 	[0] = {
@@ -453,9 +428,6 @@ static struct platform_device *devices_stm_sdhi1[] __initdata = {
 	&tusb1211_device,
 #endif
 	&mmcif_device,
-#ifdef CONFIG_MMC_OOPS
-	&mmcoops_device,
-#endif
 	&sdhi0_device,
 #if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
@@ -511,9 +483,6 @@ static struct platform_device *devices_stm_sdhi0[] __initdata = {
 	&tusb1211_device,
 #endif
 	&mmcif_device,
-#ifdef CONFIG_MMC_OOPS
-	&mmcoops_device,
-#endif
 	&sdhi1_device,
 #if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
 	&bcm4334_bluetooth_device,
@@ -569,9 +538,6 @@ static struct platform_device *devices_stm_none[] __initdata = {
 	&tusb1211_device,
 #endif
 	&mmcif_device,
-#ifdef CONFIG_MMC_OOPS
-	&mmcoops_device,
-#endif
 	&sdhi0_device,
 	&sdhi1_device,
 #if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)

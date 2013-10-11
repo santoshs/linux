@@ -12,6 +12,7 @@
 
 #ifdef CONFIG_ARCH_SHMOBILE
 /* added to test EOS LDREX/STREX errata */
+#include <mach/common.h>
 #ifndef __ASM_ARM_SMP_H
 #include <asm/smp.h>
 #endif
@@ -90,7 +91,7 @@ static inline void arch_spin_lock(arch_spinlock_t *lock)
 {
 	unsigned long tmp;
 #ifdef CONFIG_ARCH_SHMOBILE
-	if ((system_rev & 0xFFFF) <= 0x3E12) { /* ES2.02 or older*/
+	if (shmobile_is_older(U2_VERSION_2_3)) {
 		/* added to test EOS LDREX/STREX errata */
 		unsigned long cpu_number = raw_smp_processor_id();
 		cpu_number += 1;
@@ -131,7 +132,7 @@ static inline int arch_spin_trylock(arch_spinlock_t *lock)
 {
 	unsigned long tmp;
 #ifdef CONFIG_ARCH_SHMOBILE
-	if ((system_rev & 0xFFFF) <= 0x3E12) { /* ES2.02 or older*/
+	if (shmobile_is_older(U2_VERSION_2_3)) {
 		/* added to test EOS LDREX/STREX errata */
 		unsigned long cpu_number = raw_smp_processor_id();
 		cpu_number += 1;

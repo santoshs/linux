@@ -143,9 +143,7 @@ void (*shmobile_arch_reset)(char mode, const char *cmd);
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
-	unsigned int u2_board_rev = 0;
-	u2_board_rev = u2_get_board_rev();
-	count = snprintf(page, count, "%x", u2_board_rev);
+	count = snprintf(page, count, "%x", system_rev);
 	return count;
 }
 
@@ -324,10 +322,9 @@ static void __init board_init(void)
 	int inx = 0;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-	unsigned int u2_board_rev = 0;
 	u8 reg8 = __raw_readb(STBCHRB3);
 
-	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
+	if ((reg8 & 0x80) && !shmobile_is_older(U2_VERSION_2_2)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
 				__func__, __raw_readl(PLL3CR));
@@ -356,9 +353,6 @@ static void __init board_init(void)
 #endif
 	r8a7373_pinmux_init();
 
-	/* set board version */
-	u2_board_rev = u2_get_board_rev();
-
 	create_proc_read_entry("board_revision", 0444, NULL,
 				proc_read_board_rev, NULL);
 
@@ -369,15 +363,14 @@ static void __init board_init(void)
 	r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 	pinmux_hwspinlock_init(r8a7373_hwlock_gpio);
 
-	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
+	if (!shmobile_is_older(U2_VERSION_2_0)) {
 		__raw_writew(0x0022, GPIO_DRVCR_SD0);
 		__raw_writew(0x0022, GPIO_DRVCR_SIM1);
 		__raw_writew(0x0022, GPIO_DRVCR_SIM2);
 	}
 	shmobile_arch_reset = board_restart;
 
-	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
+	printk(KERN_INFO "%s hw rev : %d\n", __func__, system_rev);
 
 	/* Init unused GPIOs */
 	for (inx = 0; inx < ARRAY_SIZE(unused_gpios_amethyst); inx++)
@@ -509,7 +502,7 @@ static void __init board_init(void)
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
-	u2audio_init(u2_board_rev);
+	u2audio_init(system_rev);
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 
 #ifndef CONFIG_ARM_TZ
@@ -526,7 +519,7 @@ static void __init board_init(void)
 
 	camera_init();
 
-	gpio_key_init(stm_select, u2_board_rev,
+	gpio_key_init(stm_select,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
 			devices_stm_sdhi1,
@@ -550,7 +543,7 @@ static void __init board_init(void)
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if (u2_board_rev == BOARD_REV_0_0 || u2_board_rev > BOARD_REV_0_4) {
+	if (system_rev == BOARD_REV_0_0 || system_rev > BOARD_REV_0_4) {
 		int i;
 		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
 			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {
@@ -582,21 +575,28 @@ static void __init board_init(void)
 
 	/* PA devices init */
 	spa_init();
-	vibrator_init(u2_board_rev);
+	vibrator_init();
 
 	printk(KERN_DEBUG "%s\n", __func__);
-#ifdef CONFIG_MMC_OOPS
-	crashlog_r_local_ver_write(mmcoops_info.soft_version);
-#endif
 	crashlog_reset_log_write();
-	crashlog_init_tmplog();
 
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 	pn547_device_i2c_register();
 #endif
 }
 
-MACHINE_START(U2EVM, "u2evm")
+#if 0 //commnted by preetam
+static void __init board_reserve(void)
+{
+	u2evm_ion_adjust();
+
+#if defined(CONFIG_SEC_DEBUG)
+	sec_debug_magic_init();
+#endif
+}
+#endif
+
+MACHINE_START(AMETHYST, "amethyst")
 	.map_io         = r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,
 	.init_early     = r8a7373_init_early,
