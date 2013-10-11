@@ -133,7 +133,7 @@ static int cyttsp4_hw_power(int on, int use_irq, int irq_gpio)
 	}
 
 	if (!reg_lvs6) {
-		reg_lvs6 = regulator_get(NULL, "vlcd_1v8");
+		reg_lvs6 = regulator_get(NULL, "vtsp_1v8");
 		if (IS_ERR(reg_lvs6)) {
 			pr_err("%s: could not get 8917_lvs6, rc = %ld\n",
 				__func__, PTR_ERR(reg_lvs6));
@@ -289,7 +289,7 @@ static int cyttsp4_led_power_onoff(int on)
 		}
 
 	if (on == 1) {
-		if (!regulator_is_enabled(reg_l36)) {
+/*		if (!regulator_is_enabled(reg_l36)) {*/
 			ret = regulator_enable(reg_l36);
 			if (ret) {
 				pr_err("%s: enable l36 failed, rc=%d\n",
@@ -297,9 +297,9 @@ static int cyttsp4_led_power_onoff(int on)
 				return -1;
 			}
 			pr_info("%s: keyled 3.3V on is finished.\n", __func__);
-		}
+/*		}
 		else
-			pr_info("%s: keyled 3.3V is already on.\n", __func__);
+			pr_info("%s: keyled 3.3V is already on.\n", __func__);*/
 	} else {
 		if (regulator_is_enabled(reg_l36))
 			ret = regulator_disable(reg_l36);
