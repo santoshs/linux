@@ -367,6 +367,12 @@ config BACKLIGHT_KTD259B
 	  If you have a backlight driven by a NXP KTD259B MFD, say Y here to
 	  enable its driver.
 
+config LED_BACKLIGHT_CNTL
+	bool "Backlight and LCD device support"
+	help
+	  If you have backlight based on TPU and pwm, say Y her to 
+	  enable its driver
+
 endif # BACKLIGHT_CLASS_DEVICE
 
 endif # BACKLIGHT_LCD_SUPPORT
