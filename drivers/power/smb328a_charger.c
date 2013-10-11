@@ -989,10 +989,6 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 
 	smb328a_irq_init(client);
 
-#ifdef CONFIG_BATTERY_D2153
-	d2153_battery_start();
-#endif
-
 	return 0;
 }
 
