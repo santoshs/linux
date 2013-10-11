@@ -94,8 +94,8 @@ void cyttsp4_pr_buf_op_mode(struct device *dev, u8 *pr_buf,
 					si->btn_rec_data[i]);
 		totalSize += num_btns * si->si_ofs.btn_rec_size + 1;
 	}
-	pr_info("%s=%s%s\n", "cyttsp4_OpModeData", pr_buf,
-			totalSize <= max ? "" : CY_PR_TRUNCATED);
+/*	pr_info("%s=%s%s\n", "cyttsp4_OpModeData", pr_buf,
+			totalSize <= max ? "" : CY_PR_TRUNCATED);*/
 }
 
 static void cyttsp4_debug_print(struct device *dev, u8 *pr_buf, u8 *sptr,
@@ -205,7 +205,7 @@ static int cyttsp4_xy_worker(struct cyttsp4_debug_data *dd)
 	}
 
 	/* Interrupt */
-	pr_info("Interrupt(%u)\n", dd->interrupt_count);
+/*	pr_info("Interrupt(%u)\n", dd->interrupt_count);*/
 
 	if (formated_output)
 		cyttsp4_debug_formated(dev, dd->pr_buf, si, num_cur_tch);
@@ -221,7 +221,7 @@ static int cyttsp4_xy_worker(struct cyttsp4_debug_data *dd)
 	}
 #endif
 
-	pr_info("\n");
+/*	pr_info("\n"); */
 
 	dev_vdbg(dev, "%s: done\n", __func__);
 

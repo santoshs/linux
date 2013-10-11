@@ -89,48 +89,23 @@ static int cyttsp4_exec_cmd_(struct cyttsp4_core_data *cd, u8 mode,
 
 #ifdef SEC_TSP_FACTORY_TEST
 
-#define RAWCOUNT_2BYTE (1) // YKJ 20130621 ;(1) GEN4x, TSG4.BASE.V2, (0) TSG4.PANSAM.x
-#define DIFFCOUNT_2BYTE (1) // YKJ 20130621 ;(1) GEN4x, TSG4.BASE.V2, (0) TSG4.PANSAM.x
+#define RAWCOUNT_SIZE (2)
+#define DIFFCOUNT_SIZE (2)
+#define LOCALIDAC_SIZE (1)
 #define I2C_RETRY_CNT 2
 
-#if defined(CONFIG_MACH_WILCOX_EUR_LTE)
+#if defined(CONFIG_MACH_WILCOXLTE)
+#define BUTTON_NUM (0x02)
+#define RX_NUM (21)
+#define TX_NUM (12)
+#define TX_IS_X 1
+#else//defined(CONFIG_MACH_WILCOXLTE)
+#define BUTTON_NUM (0x00)
+#define RX_NUM (22)
+#define TX_NUM (14)
+#define TX_IS_X 0
 
-// For Button
-#define BUTTON_NUM  (0x02)
-
-#if (BUTTON_NUM)
-#define NODE_X_NUM (21 + 1)
-#else
-#define NODE_X_NUM (21)
-#endif
-
-#define NODE_Y_NUM (12)
-
-#else//defined(CONFIG_MACH_WILCOX_EUR_LTE)
-
-// For Button
-#define BUTTON_NUM  (0x00) //(0x02)
-
-#if (BUTTON_NUM)
-#define NODE_X_NUM (22 + 1)
-#else
-#define NODE_X_NUM (22)
-#endif
-
-#define NODE_Y_NUM (14)
-
-#endif//defined(CONFIG_MACH_WILCOX_EUR_LTE)
-
-
-#define GLOBAL_IDAC_NUM	10
-#define LOCAL_IDAC_START	 1
-#define GLOBAL_IDAC_START 0
-
-#define MIN_VALUE 4640
-#define MAX_VALUE 11040
-
-#define NODE_TOTAL_NUM 209
-#define ADC_TOP_VALUE 16384
+#endif//defined(CONFIG_MACH_WILCOXLTE)
 
 #define TSP_BUF_SIZE 1024
 
@@ -138,7 +113,7 @@ static int cyttsp4_exec_cmd_(struct cyttsp4_core_data *cd, u8 mode,
 #define TSP_CMD_RESULT_STR_LEN 512
 #define TSP_CMD_PARAM_NUM 8
 
-#define NODE_NUM	(NODE_X_NUM * NODE_Y_NUM)
+#define NODE_NUM	(RX_NUM * TX_NUM)
 
 #define TSP_CMD(name, func) .cmd_name = name, .cmd_func = func
 
@@ -152,18 +127,26 @@ struct tsp_cmd {
 
 
 //static int g_touch_pressed=0;
-static int tsp_testmode = 0;
 static uint16_t gv_refrence_node[NODE_NUM];
 static s16 gv_delta_node[NODE_NUM];
 
-s16 raw_count[NODE_NUM];
-s16 difference[NODE_NUM];
-u16 local_idac[NODE_NUM];
-u16 global_idac[NODE_NUM];
+#if RAWCOUNT_SIZE == 2
+#define RAW_TYPE s16
+#else
+#define RAW_TYPE s8
+#endif
+static RAW_TYPE raw_count[NODE_NUM];
+static RAW_TYPE difference[NODE_NUM];
+#define LOCAL_IDAC_OFFSET 1
+static u8  local_idac[LOCAL_IDAC_OFFSET + NODE_NUM];
+static u16 global_idac;
 
-// For Button
-s16 button_raw_count[BUTTON_NUM];
-s16 button_difference[BUTTON_NUM];
+#if BUTTON_NUM
+static RAW_TYPE button_raw_count[BUTTON_NUM];
+static RAW_TYPE button_difference[BUTTON_NUM];
+static u8  button_local_idac[BUTTON_NUM];
+static u16 button_global_idac;
+#endif
 
 static void get_config_ver(void *device_data);
 static void get_fw_ver_bin(void *device_data);
@@ -182,6 +165,10 @@ static void get_raw_count(void *device_data);
 static void get_difference(void *device_data);
 static void get_local_idac(void *device_data);
 static void get_global_idac(void *device_data);
+static void get_raw_count_button(void *device_data);
+static void get_difference_button(void *device_data);
+static void get_local_idac_button(void *device_data);
+static void get_global_idac_button(void *device_data);
 static void run_raw_count_read(void *device_data);
 static void run_difference_read(void *device_data);
 static void run_global_idac_read(void *device_data);
@@ -1008,6 +995,10 @@ struct tsp_cmd tsp_cmds[] = {
        {TSP_CMD("get_difference", get_difference),},     /* added */
        {TSP_CMD("get_local_idac", get_local_idac),},	     /* added */
        {TSP_CMD("get_global_idac", get_global_idac),},  /* added */
+       {TSP_CMD("get_raw_count_button", get_raw_count_button),},
+       {TSP_CMD("get_difference_button", get_difference_button),},
+       {TSP_CMD("get_local_idac_button", get_local_idac_button),},
+       {TSP_CMD("get_global_idac_button", get_global_idac_button),},
 	{TSP_CMD("get_delta", get_delta),},
 	{TSP_CMD("run_reference_read", run_reference_read),},
        {TSP_CMD("run_raw_count_read", run_raw_count_read),},  /* added */
@@ -1185,9 +1176,10 @@ static int check_rx_tx_num(void *device_data)
 	int node;
 
 	if (ts->cmd_param[0] < 0 ||
-			ts->cmd_param[0] >= NODE_X_NUM  ||
-			ts->cmd_param[1] < 0 ||
-			ts->cmd_param[1] >= NODE_Y_NUM) {
+		ts->cmd_param[0] >= RX_NUM  ||
+		ts->cmd_param[1] < 0 ||
+		ts->cmd_param[1] >= TX_NUM) {
+
 		snprintf(buff, sizeof(buff) , "%s", "NG");
 		set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
 		ts->cmd_state = 3;
@@ -1197,14 +1189,16 @@ static int check_rx_tx_num(void *device_data)
 				ts->cmd_param[1]);
 		node = -1;
 		return node;
-             }
+	}
 
-	node = ts->cmd_param[0] * NODE_Y_NUM + ts->cmd_param[1];
-	dev_info(ts->dev, "%s: node = %d\n", __func__,
-			node);
+#if TX_IS_X
+	node = ts->cmd_param[0]/*Y, RX*/ + ts->cmd_param[1]/*X, TX*/ * RX_NUM;
+#else
+	node = ts->cmd_param[0]/*Y, TX*/ * TX_NUM + ts->cmd_param[1]/*X, RX*/;
+#endif
+	dev_info(ts->dev, "%s: node = %d\n", __func__, node);
 	return node;
-
- }
+}
 
 #if 0
 static int global_value_check(void *device_data)
@@ -1239,7 +1233,8 @@ static void get_reference(void *device_data)
 
 }
 
-static void get_difference(void *device_data) // item2
+static void
+factory_get_node_value(void *device_data, void* value_buf, u8 value_size)
 {
 	struct cyttsp4_core_data *ts = (struct cyttsp4_core_data *)device_data;
 
@@ -1253,7 +1248,10 @@ static void get_difference(void *device_data) // item2
 	if (node < 0)
 		return;
 
-	val = difference[node];
+	if (value_size == 2)
+		val = ((s16*)value_buf)[node];
+	else
+		val = ((u8*)value_buf)[node];
 	snprintf(buff, sizeof(buff), "%d", val);
 	set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
 	ts->cmd_state = 2;
@@ -1262,31 +1260,18 @@ static void get_difference(void *device_data) // item2
 			strnlen(buff, sizeof(buff)));
 }
 
+static void get_raw_count(void *device_data)
+{
+	factory_get_node_value(device_data, raw_count, 2);
+}
+static void get_difference(void *device_data) // item2
+{
+	factory_get_node_value(device_data, difference, 2);
+}
 static void get_local_idac(void *device_data)
 {
-	struct cyttsp4_core_data *ts = (struct cyttsp4_core_data *)device_data;
-
-	char buff[16] = {0};
-	unsigned int val;
-	int node;
-
-	set_default_result(ts);
-	node = check_rx_tx_num(ts);
-
-	if (node < 0)
-		return;
-
-	val = local_idac[node];
-	snprintf(buff, sizeof(buff), "%d", val);
-	set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
-	ts->cmd_state = 2;
-
-	dev_info(ts->dev, "%s: %s(%d)\n", __func__, buff,
-			strnlen(buff, sizeof(buff)));
-
+	factory_get_node_value(device_data, local_idac + LOCAL_IDAC_OFFSET, 1);
 }
-
-
 static void get_global_idac(void *device_data)
 {
 	struct cyttsp4_core_data *ts = (struct cyttsp4_core_data *)device_data;
@@ -1294,19 +1279,99 @@ static void get_global_idac(void *device_data)
 	char buff[16] = {0};
 	unsigned int val;
 
-	int x_channel_value=0;
+	set_default_result(ts);
 
+	val = global_idac;
+
+	printk("global_idac=%d\n", val );
+
+	snprintf(buff, sizeof(buff), "%d", val);
+	set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
+	ts->cmd_state = 2;
+
+	dev_info(ts->dev, "%s: %s(%d)\n", __func__, buff,
+			strnlen(buff, sizeof(buff)));
+}
+
+#if BUTTON_NUM
+static int
+check_button_num(void *device_data)
+{
+	struct cyttsp4_core_data *ts = (struct cyttsp4_core_data *)device_data;
+
+	char buff[TSP_CMD_STR_LEN] = {0};
+	int node;
+
+	if (ts->cmd_param[0] < 0 ||
+		ts->cmd_param[0] >= BUTTON_NUM) {
+		snprintf(buff, sizeof(buff) , "%s", "NG");
+		set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
+		ts->cmd_state = 3;
+
+		dev_info(ts->dev, "%s: parameter error: %u\n",
+				__func__, ts->cmd_param[0]);
+		node = -1;
+		return node;
+	}
+
+	node = ts->cmd_param[0];
+	dev_info(ts->dev, "%s: node = %d\n", __func__, node);
+	return node;
+}
+static void
+factory_get_button_value(void *device_data, void* value_buf, u8 value_size)
+{
+	struct cyttsp4_core_data *ts = (struct cyttsp4_core_data *)device_data;
+
+	char buff[16] = {0};
+	signed int val;
+	int node;
+
+	set_default_result(ts);
+	node = check_button_num(ts);
+
+	if (node < 0)
+		return;
+
+	if (value_size == 2)
+		val = ((s16*)value_buf)[node];
+	else
+		val = ((u8*)value_buf)[node];
+
+	snprintf(buff, sizeof(buff), "%d", val);
+	set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
+	ts->cmd_state = 2;
+
+	dev_info(ts->dev, "%s: %s(%d)\n", __func__, buff,
+			strnlen(buff, sizeof(buff)));
+}
+
+static void get_raw_count_button(void *device_data)
+{
+	factory_get_button_value(device_data, button_raw_count, 2);
+}
+
+static void get_difference_button(void *device_data) // item2
+{
+	factory_get_button_value(device_data, button_difference, 2);
+}
+
+static void get_local_idac_button(void *device_data)
+{
+	factory_get_button_value(device_data, button_local_idac, 1);
+}
+static void get_global_idac_button(void *device_data)
+{
+	struct cyttsp4_core_data *ts = (struct cyttsp4_core_data *)device_data;
+
+	char buff[16] = {0};
+	unsigned int val;
 
 	set_default_result(ts);
 
-    x_channel_value = check_rx_tx_num(ts);
+	val = button_global_idac;
 
-    if(x_channel_value <0)
-        return;
-
-	val = global_idac[x_channel_value];
-
-	printk("global_idac[%d]=%d\n",x_channel_value, val );
+	printk("button_global_idac=%d\n", val );
 
 	snprintf(buff, sizeof(buff), "%d", val);
 	set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
@@ -1316,6 +1381,8 @@ static void get_global_idac(void *device_data)
 			strnlen(buff, sizeof(buff)));
 
 }
+#endif//BUTTON_NUM
+
 static void get_delta(void *device_data) // item2
 {
 	struct cyttsp4_core_data *ts = (struct cyttsp4_core_data *)device_data;
@@ -1347,11 +1414,11 @@ static void get_x_num(void *device_data)
 	char buff[16] = {0};
 /*	int ver; FIX BUILD ERROR CANE3G */
 
-	printk("[TSP] %s, x channel=%d\n", __func__ , NODE_X_NUM);
+	printk("[TSP] %s, x channel=%d\n", __func__ , RX_NUM);
 
 	set_default_result(ts);
 
-	snprintf(buff, sizeof(buff), "%d", NODE_X_NUM);
+	snprintf(buff, sizeof(buff), "%d", RX_NUM);
 
 	set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
 	ts->cmd_state = 2;
@@ -1366,11 +1433,11 @@ static void get_y_num(void *device_data)
 	char buff[16] = {0};
 /*	int ver; FIX BUILD ERROR CANE3G */
 
-	printk("[TSP] %s, x channel=%d\n", __func__ , NODE_Y_NUM);
+	printk("[TSP] %s, x channel=%d\n", __func__ , TX_NUM);
 
 	set_default_result(ts);
 
-	snprintf(buff, sizeof(buff), "%d", NODE_Y_NUM);
+	snprintf(buff, sizeof(buff), "%d", TX_NUM);
 
 	set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
 	ts->cmd_state = 2;
@@ -1386,50 +1453,144 @@ static void run_reference_read(void *device_data)
 
 }
 
-static void get_raw_count(void *device_data)
+
+
+
+#define READ_LIMIT_256B
+#ifdef READ_LIMIT_256B
+#define MAX_READABLE_I2C_BYTES 255
+#define RETRIEVE_DATA_HEADER_SIZE 5
+#define RETRIEVE_PANEL_HEADER_SIZE 5
+#endif
+
+static void
+screen_retrieve(struct cyttsp4_core_data *cd,
+				u8 header_size,
+				u8 cmd,
+                u8 data_id,
+				void* value_buf,
+                u8 elem_size,
+				u16 node_num)
 {
-	struct cyttsp4_core_data *ts = (struct cyttsp4_core_data *)device_data;
+	u16 i;
+	u8  command_buf[8], return_buf[MAX_READABLE_I2C_BYTES];
+	u16 max_readable_nodes;
+	u16 node_index;
+	u16 nodes_to_read;
+	u8* p_u8;
+	int rc;
 
-	char buff[16] = {0};
-	signed int val;
-	int node;
+	max_readable_nodes = (MAX_READABLE_I2C_BYTES - header_size)/elem_size;
 
-	set_default_result(ts);
-	node = check_rx_tx_num(ts);
+	/* Retrieve panel scan (Screen diff counts) */
+	node_index = 0;
+	command_buf[0] = cmd;//CY_CMD_CAT_RETRIEVE_PANEL_SCAN;
+	command_buf[5] = data_id/*0x02*/; // Difference Data
+	do
+	{
+		command_buf[1] = ((node_index) >> 8) & 0xFF; // Offset Hi
+		command_buf[2] = (node_index) & 0xFF;	// Offset Lo
 
-	if (node < 0)
-		return;
+		nodes_to_read = (node_num - node_index);
+		if (nodes_to_read > max_readable_nodes)
+			nodes_to_read = max_readable_nodes;
+		command_buf[3] = 0; // Length Hi
+		command_buf[4] = nodes_to_read; // Length Lo
+		rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT,
+							   command_buf, 6,
+							   return_buf, nodes_to_read * elem_size + header_size,
+							   500);
+#ifdef DEBUG
+		dev_err(cd->dev, "%s: max_readable_nodes : %d", __func__, max_readable_nodes);
 
-	val = raw_count[node];
-	snprintf(buff, sizeof(buff), "%d", val);
-	set_cmd_result(ts, buff, strnlen(buff, sizeof(buff)));
-	ts->cmd_state = 2;
+		dev_err(cd->dev, "%s: command_buf : ", __func__);
+		for (i = 0; i < 6; i++)
+		{
+			printk("%d ", command_buf[i]);
+		}
+		printk("\n");
+#endif
+		if (rc < 0) {
+			dev_err(cd->dev, "%s: fail to execute retrieve panel scan command\n", __func__);
+			return;
+		}
+		if (return_buf[0] != 0) {
+			dev_err(cd->dev, "%s: retrieve panel scan command unsuccessful\n", __func__);
+			rc = -EINVAL;
+			return;
+		}
 
-	dev_info(ts->dev, "%s: %s(%d)\n", __func__, buff,
-			strnlen(buff, sizeof(buff)));
+#ifdef DEBUG
+		dev_err(cd->dev, "%s: return_buf : ", __func__);
+		for (i = 0; i < (nodes_to_read * elem_size + header_size); i++)
+		{
+			printk("%3d:%2x ", i, return_buf[i]);
+		}
+		printk("\n");
+
+		dev_err(cd->dev, "%s: node_index:%d, nodes_to_read:%d\n", __func__, node_index, nodes_to_read);
+
+#endif
+		if (!rc) {
+			p_u8 = &return_buf[header_size];
+
+			for (i = node_index; i < (node_index + nodes_to_read) ; i++) {
+			if (elem_size == 2)
+				{
+					((s16*)value_buf)[i] = *p_u8;
+					p_u8++;
+					((s16*)value_buf)[i] |= ((s16)(*p_u8)) << 8;
+					p_u8++;
+				}
+				else
+				{
+					((u8*)value_buf)[i] = *p_u8;
+					p_u8++;
+				}
+			}
+	#ifdef DEBUG
+			dev_err(cd->dev, "%s: difference : ", __func__);
+			for (i = node_index ; i < (node_index + nodes_to_read) ; i++) {
+				printk("%3d:%d ", i, difference[i]);
+			}
+			printk("\n");
+	#endif
+	#ifdef DEBUG
+			dev_err(cd->dev, "%s: p_u8 : ", __func__);
+			p_u8 = &return_buf[header_size];
+			for (i = 0 ; i < (nodes_to_read*2) ; i++) {
+				printk("%3d:%2x ", i, *p_u8);
+				p_u8++;
+			}
+			printk("\n");
+	#endif
+		}
+		node_index += nodes_to_read;
+		msleep(50);
+	} while (node_index < node_num);
+
+#ifdef DEBUG
+		dev_err(cd->dev, "%s: sizeof(difference):%d %x \n", __func__, sizeof(difference), sizeof(difference));
+		dev_err(cd->dev, "%s: all diff : ", __func__);
+		for (i = 0 ; i < (node_num) ; i++) {
+			printk("%3d:%d ", i, difference[i]);
+		}
+		printk("\n");
+#endif
 }
 
-static void run_raw_count_read(void *device_data) //item 1
+static void
+run_raw_count_read(void *device_data) //item 1
 {
 	struct cyttsp4_core_data *cd = (struct cyttsp4_core_data *)device_data;
-	int col_num = cd->sysinfo.si_ptrs.pcfg->electrodes_y;
-	int row_num = cd->sysinfo.si_ptrs.pcfg->electrodes_x;
-#if (RAWCOUNT_2BYTE) // YKJ 20130621 ; 2bytes
-	int intersect_num = (col_num * row_num)*2;
-    uint8_t command_buf[8], return_buf[intersect_num + 5];
-#else
-	int intersect_num = (col_num * row_num);
-	uint8_t command_buf[8], return_buf[NODE_NUM + 5];
+	u16 i, node_num;
+	s16 max_value = 0, min_value = 0;
+    uint8_t command_buf[8], return_buf[16];
+#if (BUTTON_NUM)
+	int8_t *raw_data = (int8_t *)&return_buf[RETRIEVE_PANEL_HEADER_SIZE];
 #endif
-	int8_t *raw_data = (int8_t *)&return_buf[5];
 	char buff[TSP_CMD_STR_LEN] = {0};
-	s32 max_value = 0, min_value = 0;
-    s32 temp;
-	int i;
 	int rc;
-    int index_cnt;
-
-	tsp_testmode = 1;
 
 	set_default_result(cd);
 
@@ -1467,64 +1628,23 @@ static void run_raw_count_read(void *device_data) //item 1
 	}
 
 	/* Screen Area */
+	node_num = (cd->sysinfo.si_ptrs.pcfg->electrodes_x * cd->sysinfo.si_ptrs.pcfg->electrodes_y);
+	screen_retrieve(cd,
+					RETRIEVE_PANEL_HEADER_SIZE,
+					CY_CMD_CAT_RETRIEVE_PANEL_SCAN, // 0x0C
+	                0x00,// raw count
+					raw_count,
+	                RAWCOUNT_SIZE,
+					node_num);
 
-	/* Execute panel scan */
-	command_buf[0] = CY_CMD_CAT_EXEC_PANEL_SCAN;
-	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 1, return_buf, 1, 500);
-	if (rc < 0) {
-		dev_err(cd->dev, "%s: fail to execute execute panel scan command\n", __func__);
-		goto exit_switch;
+    max_value = raw_count[0];
+	min_value = raw_count[0];
+	for (i = 0; i < node_num; i++)
+	{
+		max_value = max(max_value, raw_count[i]);
+		min_value = min(min_value, raw_count[i]);
 	}
-	if (return_buf[0] != 0) {
-		dev_err(cd->dev, "%s: execute panel scan command unsuccessful\n", __func__);
-		rc = -EINVAL;
-		goto exit_switch;
-	}
-
-	/* Retrieve panel scan (Screen raw counts) */
-	command_buf[0] = CY_CMD_CAT_RETRIEVE_PANEL_SCAN;
-	command_buf[1] = 0x00; // Offset Hi
-	command_buf[2] = 0x00; // Offset Lo
-	command_buf[3] = (intersect_num >> 8) & 0xFF; // Length Hi
-	command_buf[4] = intersect_num & 0xFF; // Length Lo
-	command_buf[5] = 0x00; // Raw Data
-	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 6, return_buf, intersect_num + 5, 500);
-	if (rc < 0) {
-		dev_err(cd->dev, "%s: fail to execute retrieve panel scan command\n", __func__);
-		goto exit_switch;
-	}
-	if (return_buf[0] != 0) {
-		dev_err(cd->dev, "%s: retrieve panel scan command unsuccessful\n", __func__);
-		rc = -EINVAL;
-		goto exit_switch;
-	}
-
-	if (!rc) {
-#if (RAWCOUNT_2BYTE) // YKJ 20130621 ; 2bytes
-        index_cnt = 0;
-		min_value = max_value = 0;//((raw_data[1]<<8)||raw_data[0]);
-		for (i = 0 ; i < intersect_num/2 ; i++) {
-            temp = (((s32)raw_data[index_cnt]));
-            index_cnt++;
-            temp |= ((((s32)raw_data[index_cnt]) << 8));
-            index_cnt++;
-			max_value = max((s16)max_value, (s16)temp);
-			min_value = min((s16)min_value, (s16)temp);
-
-			raw_count[i] = temp;
-		}
-#else
-        min_value = max_value = raw_data[0];
-		for (i = 0 ; i < intersect_num ; i++) {
-			max_value = max(max_value, (s32)raw_data[i]);
-			min_value = min(min_value, (s32)raw_data[i]);
-
-			raw_count[i] = (s16)raw_data[i];
-		}
-#endif
-	}
-
-    msleep(50);
+	msleep(50);
 
 #if (BUTTON_NUM)
     /* Button Area */
@@ -1562,13 +1682,12 @@ static void run_raw_count_read(void *device_data) //item 1
 
     if (!rc) {
         button_raw_count[0] = (((s16)raw_data[0]) & 0x00FF) | ( (((s16)raw_data[1]) << 8) & 0xFF00);
-        button_raw_count[1] = (((s16)raw_data[0+8]) & 0x00FF) | ( (((s16)raw_data[1+8]) << 8) & 0xFF00);
-        raw_count[intersect_num]   = (int8_t)button_raw_count[0];
-        raw_count[intersect_num+1] = (int8_t)button_raw_count[1];
+        button_raw_count[0+1] = (((s16)raw_data[0+8]) & 0x00FF) | ( (((s16)raw_data[1+8]) << 8) & 0xFF00);
     }
-#endif
 
+#endif
 exit_switch:
+
 	/* Switch to Operational mode */
 	dev_vdbg(cd->dev, "%s: set mode cd->core=%p hst_mode=%02X mode=%d...\n",
 		__func__, cd->core, CY_HST_OPERATE, CY_MODE_OPERATIONAL);
@@ -1587,18 +1706,11 @@ exit_release:
 exit_put:
 	pm_runtime_put(cd->dev);
 
-#if (RAWCOUNT_2BYTE) // YKJ 20130621 ; 2bytes
 #if (BUTTON_NUM)
-	snprintf(buff, sizeof(buff), "%d,%d,%d,%d", (s16)min_value, (s16)max_value, (s16)button_raw_count[0], (s16)button_raw_count[1]);
+	snprintf(buff, sizeof(buff), "%d,%d,%d,%d", min_value, max_value,
+		button_raw_count[0], button_raw_count[1]);
 #else
-    snprintf(buff, sizeof(buff), "%d,%d", (s16)min_value, (s16)max_value);
-#endif
-#else
-#if (BUTTON_NUM)
-	snprintf(buff, sizeof(buff), "%d,%d,%d,%d", (s8)min_value, (s8)max_value, (s16)button_raw_count[0], (s16)button_raw_count[1]);
-#else
-    snprintf(buff, sizeof(buff), "%d,%d", (s8)min_value, (s8)max_value);
-#endif
+    snprintf(buff, sizeof(buff), "%d,%d", min_value, max_value);
 #endif
 
 	set_cmd_result(cd, buff, strnlen(buff, sizeof(buff)));
@@ -1606,35 +1718,22 @@ exit_put:
 	dev_info(cd->dev, "%s: %s(%d)\n", __func__,
 			buff, strnlen(buff, sizeof(buff)));
 
-	tsp_testmode = 0;
-
 	cd->cmd_state = 2;
 }
 
-static void run_difference_read(void *device_data) //item 2
+
+static void
+run_difference_read(void *device_data) //item 2
 {
 	struct cyttsp4_core_data *cd = (struct cyttsp4_core_data *)device_data;
-	int col_num = cd->sysinfo.si_ptrs.pcfg->electrodes_y;
-	int row_num = cd->sysinfo.si_ptrs.pcfg->electrodes_x;
-#if (DIFFCOUNT_2BYTE) // YKJ 20130621
-    int intersect_num = (col_num * row_num)*2;
-	uint8_t command_buf[8], return_buf[intersect_num + 5];
-#else
-	int intersect_num = col_num * row_num;
-	uint8_t command_buf[8], return_buf[NODE_NUM + 5];
+	u16 i, node_num;
+    s16 max_value = 0, min_value = 0;
+#if (BUTTON_NUM)
+	uint8_t command_buf[8], return_buf[16];
+	int8_t *diff_data = (int8_t *)&return_buf[RETRIEVE_PANEL_HEADER_SIZE];
 #endif
-	int8_t *diff_data = (int8_t *)&return_buf[5];
 	char buff[TSP_CMD_STR_LEN] = {0};
-	s32 max_value = 0, min_value = 0;
-    s32 temp;
-	int i;
 	int rc;
-    int index_cnt;
-
-    button_difference[0] = 0;
-    button_difference[1] = 0;
-
-	tsp_testmode = 1;
 
 	set_default_result(cd);
 
@@ -1653,74 +1752,30 @@ static void run_difference_read(void *device_data) //item 2
 		__func__, cd->core, CY_HST_CAT, CY_MODE_CAT);
 	rc = set_mode(cd, cd->core, CY_HST_CAT, CY_MODE_CAT);
 	if (rc < 0) {
- 		dev_err(cd->dev, "%s: fail set mode to CAT\n", __func__);
+		dev_err(cd->dev, "%s: fail set mode to CAT\n", __func__);
 		goto exit_release;
 	}
 
 	/* Screen Area */
+	node_num = (cd->sysinfo.si_ptrs.pcfg->electrodes_x * cd->sysinfo.si_ptrs.pcfg->electrodes_y);
+	screen_retrieve(cd,
+					RETRIEVE_PANEL_HEADER_SIZE,
+					CY_CMD_CAT_RETRIEVE_PANEL_SCAN, // 0x0C
+	                0x02, // diff count
+					difference,
+	                DIFFCOUNT_SIZE,
+					node_num);
 
-	/* Execute the panel scan */
-	command_buf[0] = CY_CMD_CAT_EXEC_PANEL_SCAN;
-	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 1, return_buf, 1, 500);
-	if (rc < 0) {
-		dev_err(cd->dev, "%s: fail to execute execute panel scan command\n", __func__);
-		goto exit_switch;
+    max_value = difference[0];
+	min_value = difference[0];
+	for (i = 0; i < node_num; i++)
+	{
+		max_value = max(max_value, difference[i]);
+		min_value = min(min_value, difference[i]);
 	}
-	if (return_buf[0] != 0) {
-		dev_err(cd->dev, "%s: execute panel scan command unsuccessful\n", __func__);
-		rc = -EINVAL;
-		goto exit_switch;
-	}
-
-	/* Retrieve panel scan (Screen diff counts) */
-	command_buf[0] = CY_CMD_CAT_RETRIEVE_PANEL_SCAN;
-	command_buf[1] = 0x00; // Offset Hi
-	command_buf[2] = 0x00; // Offset Lo
-	command_buf[3] = (intersect_num >> 8) & 0xFF; // Length Hi
-	command_buf[4] = intersect_num & 0xFF; // Length Lo
-	command_buf[5] = 0x02; // Difference Data
-	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 6, return_buf, intersect_num + 5, 500);
-	if (rc < 0) {
-		dev_err(cd->dev, "%s: fail to execute retrieve panel scan command\n", __func__);
-		goto exit_switch;
-	}
-	if (return_buf[0] != 0) {
-		dev_err(cd->dev, "%s: retrieve panel scan command unsuccessful\n", __func__);
-		rc = -EINVAL;
-		goto exit_switch;
-	}
-
-    if (!rc) {
-#if (DIFFCOUNT_2BYTE) // YKJ 20130621
-        index_cnt = 0;
-		min_value = max_value = 0;//((raw_data[1]<<8)||raw_data[0]);
-		for (i = 0 ; i < intersect_num/2 ; i++) {
-            temp = (((s32)diff_data[index_cnt]));
-            index_cnt++;
-            temp |= ((((s32)diff_data[index_cnt]) << 8));
-            index_cnt++;
-			max_value = max((s16)max_value, (s16)temp);
-			min_value = min((s16)min_value, (s16)temp);
-
-			difference[i] = (s16)temp;
-		}
-#else
-        min_value = max_value = diff_data[0];
-        for (i = 0 ; i < intersect_num ; i++) {
-            max_value = max(max_value, (s32)diff_data[i]);
-            min_value = min(min_value, (s32)diff_data[i]);
-
-            difference[i] = diff_data[i];
-        }
-#endif
-    }
-
-    msleep(50);
+	msleep(50);
 
 #if (BUTTON_NUM)
-
-    /* Button Area */
-
     /* Execute panel scan */
     command_buf[0] = CY_CMD_CAT_EXEC_PANEL_SCAN;
     rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 1, return_buf, 1, 500);
@@ -1755,12 +1810,10 @@ static void run_difference_read(void *device_data) //item 2
     if (!rc) {
         button_difference[0] = (((s16)diff_data[4]) & 0x00FF) | ( (((s16)diff_data[5]) << 8) & 0xFF00);
         button_difference[1] = (((s16)diff_data[4+8]) & 0x00FF) | ( (((s16)diff_data[5+8]) << 8) & 0xFF00);
-        difference[intersect_num]   = (int8_t)button_difference[0];
-        difference[intersect_num+1] = (int8_t)button_difference[1];
     }
-#endif
-
 exit_switch:
+#endif//(BUTTON_NUM)
+
 	/* Switch to Operational mode */
 	dev_vdbg(cd->dev, "%s: set mode cd->core=%p hst_mode=%02X mode=%d...\n",
 		__func__, cd->core, CY_HST_OPERATE, CY_MODE_OPERATIONAL);
@@ -1779,40 +1832,32 @@ exit_release:
 exit_put:
 	pm_runtime_put(cd->dev);
 
-
-#if (DIFFCOUNT_2BYTE) // YKJ 20130621
 #if (BUTTON_NUM)
-	snprintf(buff, sizeof(buff), "%d,%d,%d,%d", (s16)min_value, (s16)max_value, (s16)button_difference[0], (s16)button_difference[1]);
+	snprintf(buff, sizeof(buff), "%d,%d,%d,%d", min_value, max_value,
+		button_difference[0], button_difference[1]);
 #else
-    snprintf(buff, sizeof(buff), "%d,%d", (s16)min_value, (s16)max_value);
+    snprintf(buff, sizeof(buff), "%d,%d", min_value, max_value);
 #endif
-#else
-#if (BUTTON_NUM)
-	snprintf(buff, sizeof(buff), "%d,%d,%d,%d", (s8)min_value, (s8)max_value, (s16)button_difference[0], (s16)button_difference[1]);
-#else
-    snprintf(buff, sizeof(buff), "%d,%d", (s8)min_value, (s8)max_value);
-#endif  // (BUTTON_NUM)
-#endif // (DIFFCOUNT_2BYTE)
 
 	set_cmd_result(cd, buff, strnlen(buff, sizeof(buff)));
 
 	dev_info(cd->dev, "%s: %s(%d)\n", __func__,
 			buff, strnlen(buff, sizeof(buff)));
 
-	tsp_testmode = 0;
-
 	cd->cmd_state = 2;
 }
 
-static void run_global_idac_read(void *device_data) //item 3
+static void run_local_idac_read(void *device_data) //item 4
 {
 	struct cyttsp4_core_data *cd = (struct cyttsp4_core_data *)device_data;
-	uint8_t command_buf[8], return_buf[8];
-	uint8_t *global_data = &return_buf[5];
+	u16 i, node_num;
+	s16 max_value = 0, min_value = 0;
+#if (BUTTON_NUM)
+	uint8_t command_buf[8], return_buf[16];
+	uint8_t *local_idac_data = &return_buf[RETRIEVE_DATA_HEADER_SIZE];
+#endif
 	char buff[TSP_CMD_STR_LEN] = {0};
 	int rc;
-
-	tsp_testmode = 1;
 
 	set_default_result(cd);
 
@@ -1831,7 +1876,144 @@ static void run_global_idac_read(void *device_data) //item 3
 		__func__, cd->core, CY_HST_CAT, CY_MODE_CAT);
 	rc = set_mode(cd, cd->core, CY_HST_CAT, CY_MODE_CAT);
 	if (rc < 0) {
- 		dev_err(cd->dev, "%s: fail set mode to CAT\n", __func__);
+		dev_err(cd->dev, "%s: fail set mode to CAT\n", __func__);
+		goto exit_release;
+	}
+
+#ifdef SAMSUNG_PERFORM_CALIBRATION_BEFORE_LOCAL_IDAC_READ
+	/* Calibrate IDACs for Screen */
+	command_buf[0] = CY_CMD_CAT_CALIBRATE_IDACS;
+	command_buf[1] = 0x00;
+	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 2, return_buf, 1, 500);
+	if (rc < 0) {
+ 		dev_err(cd->dev, "%s: fail to execute calibrate idacs command for screen\n", __func__);
+		goto exit_switch;
+	}
+	if (return_buf[0] != 0) {
+ 		dev_err(cd->dev, "%s: calibrate idacs command for screen unsuccessful\n", __func__);
+ 		rc = -EINVAL;
+		goto exit_switch;
+	}
+
+	/* Calibrate IDACs for Buttons */
+	command_buf[0] = CY_CMD_CAT_CALIBRATE_IDACS;
+	command_buf[1] = 0x01;
+	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 2, return_buf, 1, 500);
+	if (rc < 0) {
+ 		dev_err(cd->dev, "%s: fail to execute calibrate idacs command for buttons\n", __func__);
+		goto exit_switch;
+	}
+	if (return_buf[0] != 0) {
+ 		dev_err(cd->dev, "%s: calibrate idacs command for buttons unsuccessful\n", __func__);
+		rc = -EINVAL;
+		goto exit_switch;
+	}
+#endif
+
+    /* Screen Area */
+	node_num = (cd->sysinfo.si_ptrs.pcfg->electrodes_x * cd->sysinfo.si_ptrs.pcfg->electrodes_y);
+	screen_retrieve(cd,
+					RETRIEVE_DATA_HEADER_SIZE,
+					CY_CMD_CAT_RETRIEVE_DATA_STRUCTURE,//0x10
+					0x00, // mutual
+					local_idac,
+					LOCALIDAC_SIZE,
+					node_num + LOCAL_IDAC_OFFSET);
+
+	max_value = (s16)(local_idac[LOCAL_IDAC_OFFSET]);
+	min_value = (s16)(local_idac[LOCAL_IDAC_OFFSET]);
+	for (i = LOCAL_IDAC_OFFSET; i < (node_num + LOCAL_IDAC_OFFSET); i++)
+	{
+		max_value = max(max_value, (s16)(local_idac[i]));
+		min_value = min(min_value, (s16)(local_idac[i]));
+	}
+    msleep(50);
+
+#if (BUTTON_NUM)
+	/* Retrieve data for IDACs */
+	command_buf[0] = CY_CMD_CAT_RETRIEVE_DATA_STRUCTURE;
+	command_buf[1] = 0x00; // Offset Hi
+	command_buf[2] = LOCAL_IDAC_OFFSET; // Offset Lo
+	command_buf[3] = 0x00; // Length Hi
+	command_buf[4] = BUTTON_NUM; // Length Lo - Global iDAC + Local iDAC(Button_NUM)
+	command_buf[5] = 0x03; // Button iDAC Data
+	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 6, return_buf, BUTTON_NUM + 5, 500);
+	if (rc < 0) {
+		dev_err(cd->dev, "%s: fail to execute retrieve panel scan command\n", __func__);
+		goto exit_switch;
+	}
+	if (return_buf[0] != 0) {
+		dev_err(cd->dev, "%s: retrieve panel scan command unsuccessful\n", __func__);
+		rc = -EINVAL;
+		goto exit_switch;
+	}
+
+    if (!rc) {
+        button_local_idac[0] = local_idac_data[0];
+        button_local_idac[1] = local_idac_data[1];
+    }
+exit_switch:
+#endif//#if (BUTTON_NUM)
+
+	/* Switch to Operational mode */
+	dev_vdbg(cd->dev, "%s: set mode cd->core=%p hst_mode=%02X mode=%d...\n",
+		__func__, cd->core, CY_HST_OPERATE, CY_MODE_OPERATIONAL);
+	rc = set_mode(cd, cd->core, CY_HST_OPERATE, CY_MODE_OPERATIONAL);
+	if (rc < 0)
+ 		dev_err(cd->dev, "%s: fail set mode to Operational\n", __func__);
+
+exit_release:
+	/* Release exclusive access */
+	if (release_exclusive(cd, cd->core) < 0)
+		/* Don't return fail code, mode is already changed. */
+		dev_err(cd->dev, "%s: fail to release exclusive\n", __func__);
+	else
+		dev_vdbg(cd->dev, "%s: pass release exclusive\n", __func__);
+
+exit_put:
+	pm_runtime_put(cd->dev);
+
+#if (BUTTON_NUM)
+	snprintf(buff, sizeof(buff), "%d,%d,%d,%d", min_value, max_value,
+		button_local_idac[0], button_local_idac[1]);
+#else
+    snprintf(buff, sizeof(buff), "%d,%d", min_value, max_value);
+#endif
+
+	set_cmd_result(cd, buff, strnlen(buff, sizeof(buff)));
+
+	dev_info(cd->dev, "%s: %s(%d)\n", __func__,
+			buff, strnlen(buff, sizeof(buff)));
+
+	cd->cmd_state = 2;
+}
+
+static void run_global_idac_read(void *device_data) //item 3
+{
+	struct cyttsp4_core_data *cd = (struct cyttsp4_core_data *)device_data;
+	uint8_t command_buf[8], return_buf[8];
+	uint8_t *global_data = &return_buf[5];
+	char buff[TSP_CMD_STR_LEN] = {0};
+	int rc;
+
+	set_default_result(cd);
+
+	pm_runtime_get_sync(cd->dev);
+
+	/* Request exclusive access */
+	rc = request_exclusive(cd, cd->core, CY_REQUEST_EXCLUSIVE_TIMEOUT);
+	if (rc < 0) {
+		dev_err(cd->dev, "%s: fail get exclusive ex=%p own=%p\n",
+				__func__, cd->exclusive_dev, cd->core);
+		goto exit_put;
+	}
+
+	/* Switch to CAT mode */
+	dev_vdbg(cd->dev, "%s: set mode cd->core=%p hst_mode=%02X mode=%d...\n",
+		__func__, cd->core, CY_HST_CAT, CY_MODE_CAT);
+	rc = set_mode(cd, cd->core, CY_HST_CAT, CY_MODE_CAT);
+	if (rc < 0) {
+		dev_err(cd->dev, "%s: fail set mode to CAT\n", __func__);
 		goto exit_release;
 	}
 
@@ -1887,7 +2069,7 @@ static void run_global_idac_read(void *device_data) //item 3
 	}
 
 	if (!rc) {
-		global_idac[0] = global_data[0];
+		global_idac = global_data[0];
 	}
 
     msleep(50);
@@ -1915,7 +2097,7 @@ static void run_global_idac_read(void *device_data) //item 3
 	}
 
     if (!rc) {
-        global_idac[1] = global_data[0];
+        button_global_idac = global_data[0];
     }
 #endif
 
@@ -1938,176 +2120,12 @@ exit_release:
 exit_put:
 	pm_runtime_put(cd->dev);
 
-    snprintf(buff, sizeof(buff), "%d,%d", global_idac[0], global_idac[1]);
+    snprintf(buff, sizeof(buff), "%d,%d", global_idac, button_global_idac);
 
 	set_cmd_result(cd, buff, strnlen(buff, sizeof(buff)));
 
 	dev_info(cd->dev, "%s: %s(%d)\n", __func__,
 			buff, strnlen(buff, sizeof(buff)));
-
-	tsp_testmode = 0;
-
-	cd->cmd_state = 2;
-}
-
-static void run_local_idac_read(void *device_data) //item 4
-{
-	struct cyttsp4_core_data *cd = (struct cyttsp4_core_data *)device_data;
-	int col_num = cd->sysinfo.si_ptrs.pcfg->electrodes_y;
-	int row_num = cd->sysinfo.si_ptrs.pcfg->electrodes_x;
-	int intersect_num = col_num * row_num;
-	uint8_t command_buf[8], return_buf[NODE_NUM + 5];
-	uint8_t *local_idac_data = &return_buf[5];
-	char buff[TSP_CMD_STR_LEN] = {0};
-	s32 max_value = 0, min_value = 0;
-	int i;
-	int rc;
-
-	tsp_testmode = 1;
-
-	set_default_result(cd);
-
-	pm_runtime_get_sync(cd->dev);
-
-	/* Request exclusive access */
-	rc = request_exclusive(cd, cd->core, CY_REQUEST_EXCLUSIVE_TIMEOUT);
-	if (rc < 0) {
-		dev_err(cd->dev, "%s: fail get exclusive ex=%p own=%p\n",
-				__func__, cd->exclusive_dev, cd->core);
-		goto exit_put;
-	}
-
-	/* Switch to CAT mode */
-	dev_vdbg(cd->dev, "%s: set mode cd->core=%p hst_mode=%02X mode=%d...\n",
-		__func__, cd->core, CY_HST_CAT, CY_MODE_CAT);
-	rc = set_mode(cd, cd->core, CY_HST_CAT, CY_MODE_CAT);
-	if (rc < 0) {
- 		dev_err(cd->dev, "%s: fail set mode to CAT\n", __func__);
-		goto exit_release;
-	}
-
-#ifdef SAMSUNG_PERFORM_CALIBRATION_BEFORE_LOCAL_IDAC_READ
-	/* Calibrate IDACs for Screen */
-	command_buf[0] = CY_CMD_CAT_CALIBRATE_IDACS;
-	command_buf[1] = 0x00;
-	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 2, return_buf, 1, 500);
-	if (rc < 0) {
- 		dev_err(cd->dev, "%s: fail to execute calibrate idacs command for screen\n", __func__);
-		goto exit_switch;
-	}
-	if (return_buf[0] != 0) {
- 		dev_err(cd->dev, "%s: calibrate idacs command for screen unsuccessful\n", __func__);
- 		rc = -EINVAL;
-		goto exit_switch;
-	}
-
-	/* Calibrate IDACs for Buttons */
-	command_buf[0] = CY_CMD_CAT_CALIBRATE_IDACS;
-	command_buf[1] = 0x01;
-	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 2, return_buf, 1, 500);
-	if (rc < 0) {
- 		dev_err(cd->dev, "%s: fail to execute calibrate idacs command for buttons\n", __func__);
-		goto exit_switch;
-	}
-	if (return_buf[0] != 0) {
- 		dev_err(cd->dev, "%s: calibrate idacs command for buttons unsuccessful\n", __func__);
- 		rc = -EINVAL;
-		goto exit_switch;
-	}
-#endif
-
-    /* Screen Area */
-
-	/* Retrieve data for IDACs */
-	command_buf[0] = CY_CMD_CAT_RETRIEVE_DATA_STRUCTURE;
-	command_buf[1] = 0x00; // Offset Hi
-	command_buf[2] = 0x01; // Offset Lo
-	command_buf[3] = (intersect_num >> 8) & 0xFF; // Length Hi
-	command_buf[4] = intersect_num & 0xFF; // Length Lo
-	command_buf[5] = 0x00; // Mutual IDAC Data
-	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 6, return_buf, intersect_num + 5, 500);
-	if (rc < 0) {
- 		dev_err(cd->dev, "%s: fail to execute retrieve panel scan command\n", __func__);
-		goto exit_switch;
-	}
-	if (return_buf[0] != 0) {
- 		dev_err(cd->dev, "%s: retrieve panel scan command unsuccessful\n", __func__);
-		rc = -EINVAL;
-		goto exit_switch;
-	}
-
-	if (!rc) {
-		min_value = max_value = local_idac_data[0];
-		for (i = 0 ; i < intersect_num ; i++) {
-			max_value = max(max_value, (s32)local_idac_data[i]);
-			min_value = min(min_value, (s32)local_idac_data[i]);
-
-			local_idac[i] = local_idac_data[i];
-		}
-	}
-
-    msleep(50);
-
-#if (BUTTON_NUM)
-
-    /* Button Area */
-
-	/* Retrieve data for IDACs */
-	command_buf[0] = CY_CMD_CAT_RETRIEVE_DATA_STRUCTURE;
-	command_buf[1] = 0x00; // Offset Hi
-	command_buf[2] = 0x01; // Offset Lo
-	command_buf[3] = 0x00; // Length Hi
-	command_buf[4] = BUTTON_NUM; // Length Lo - Global iDAC + Local iDAC(Button_NUM)
-	command_buf[5] = 0x03; // Button iDAC Data
-	rc = cyttsp4_exec_cmd_(cd, CY_MODE_CAT, command_buf, 6, return_buf, BUTTON_NUM + 5, 500);
-	if (rc < 0) {
- 		dev_err(cd->dev, "%s: fail to execute retrieve panel scan command\n", __func__);
-		goto exit_switch;
-	}
-	if (return_buf[0] != 0) {
- 		dev_err(cd->dev, "%s: retrieve panel scan command unsuccessful\n", __func__);
-		rc = -EINVAL;
-		goto exit_switch;
-	}
-
-
-    if (!rc) {
-        local_idac[intersect_num]   = local_idac_data[0];
-        local_idac[intersect_num+1] = local_idac_data[1];
-    }
-#endif
-
-exit_switch:
-	/* Switch to Operational mode */
-	dev_vdbg(cd->dev, "%s: set mode cd->core=%p hst_mode=%02X mode=%d...\n",
-		__func__, cd->core, CY_HST_OPERATE, CY_MODE_OPERATIONAL);
-	rc = set_mode(cd, cd->core, CY_HST_OPERATE, CY_MODE_OPERATIONAL);
-	if (rc < 0)
- 		dev_err(cd->dev, "%s: fail set mode to Operational\n", __func__);
-
-exit_release:
-	/* Release exclusive access */
-	if (release_exclusive(cd, cd->core) < 0)
-		/* Don't return fail code, mode is already changed. */
-		dev_err(cd->dev, "%s: fail to release exclusive\n", __func__);
-	else
-		dev_vdbg(cd->dev, "%s: pass release exclusive\n", __func__);
-
-exit_put:
-	pm_runtime_put(cd->dev);
-
-#if (BUTTON_NUM)
-	snprintf(buff, sizeof(buff), "%d,%d,%d,%d", min_value, max_value, (u8)local_idac[intersect_num], (u8)local_idac[intersect_num+1]);
-#else
-    snprintf(buff, sizeof(buff), "%d,%d", min_value, max_value);
-#endif
-
-	set_cmd_result(cd, buff, strnlen(buff, sizeof(buff)));
-
-	dev_info(cd->dev, "%s: %s(%d)\n", __func__,
-			buff, strnlen(buff, sizeof(buff)));
-
-	tsp_testmode = 0;
 
 	cd->cmd_state = 2;
 }
@@ -4318,9 +4336,6 @@ static int cyttsp4_core_suspend(struct device *dev)
 	int rc;
 
 	dev_dbg(dev, "%s\n", __func__);
-	
-	//disable irq
-	disable_irq(cd->irq);
 
 	rc = cyttsp4_core_sleep(cd);
 	if (rc < 0) {
@@ -4343,9 +4358,6 @@ static int cyttsp4_core_resume(struct device *dev)
 		dev_err(dev, "%s: Error on wake\n", __func__);
 		return -EAGAIN;
 	}
-
-	//enable irq
-	enable_irq(cd->irq);
 
 	return 0;
 }
@@ -4706,7 +4718,7 @@ static int cyttsp4_core_probe(struct cyttsp4_core *core)
       int i = 0;
       int retval = 0;
 
-	#ifdef SEC_TSP_FACTORY_TEST
+      #ifdef SEC_TSP_FACTORY_TEST
 	struct device *fac_dev_ts;
       #endif
 
@@ -4748,7 +4760,7 @@ static int cyttsp4_core_probe(struct cyttsp4_core *core)
 	spin_lock_init(&cd->spinlock);
 	cd->dev = dev;
 	cd->pdata = pdata;
-	cd->irq = (pdata->irq_gpio);
+	cd->irq = gpio_to_irq(pdata->irq_gpio);
 	cd->irq_enabled = true;
 	dev_set_drvdata(dev, cd);
 	if (cd->irq < 0) {
@@ -4982,7 +4994,7 @@ struct cyttsp4_core_driver cyttsp4_core_driver = {
 		.name = CYTTSP4_CORE_NAME,
 		.bus = &cyttsp4_bus_type,
 		.owner = THIS_MODULE,
-		.pm = &cyttsp4_core_pm_ops,
+//		.pm = &cyttsp4_core_pm_ops,
 	},
 };
 

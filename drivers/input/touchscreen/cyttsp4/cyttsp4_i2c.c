@@ -45,7 +45,7 @@
 
 #define CY_I2C_DATA_SIZE  (3 * 256)
 
-#if defined(CONFIG_MACH_WILCOX_EUR_LTE)
+#if defined(CONFIG_MACH_WILCOXLTE)
 extern int poweroff_charging;
 #endif
 struct cyttsp4_i2c {
@@ -230,11 +230,13 @@ static int __init cyttsp4_i2c_init(void)
 {
 	int rc = 0;
 
-#if defined(CONFIG_MACH_WILCOX_EUR_LTE)
+#if defined(CONFIG_MACH_WILCOXLTE)
+#if 0 // TODO : disabled the below code because of linker error.*/
 	if (poweroff_charging) {
 		pr_info("%s: Cypress TTSP I2C Touchscreen Driver Unload poweroff_charging = %d  , rc=%d \n", __func__, poweroff_charging,rc);
 		return 0;
 	}
+#endif
 #endif
 
 	rc = i2c_add_driver(&cyttsp4_i2c_driver);
