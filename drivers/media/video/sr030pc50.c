@@ -22,12 +22,136 @@
 #include <linux/videodev2.h>
 #include <linux/gpio.h>
 #include <linux/clk.h>
+#include <linux/d2153/core.h>
 
 #include <media/soc_camera.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-chip-ident.h>
 #include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
+
+
+/* CAM1 Power function */
+int SR030PC50_power(struct device *dev, int power_on)
+{
+	struct clk *vclk1_clk, *vclk2_clk;
+	int iRet;
+	struct regulator *regulator;
+
+	vclk1_clk = clk_get(NULL, "vclk1_clk");
+	if (IS_ERR(vclk1_clk)) {
+		dev_err(dev, "clk_get(vclk1_clk) failed\n");
+		return -1;
+	}
+
+	vclk2_clk = clk_get(NULL, "vclk2_clk");
+	if (IS_ERR(vclk2_clk)) {
+		dev_err(dev, "clk_get(vclk2_clk) failed\n");
+		return -1;
+	}
+
+	if (power_on) {
+		printk(KERN_ALERT "%s PowerON\n", __func__);
+
+		sh_csi2_power(dev, power_on);
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN */
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		gpio_set_value(GPIO_PORT91, 0); /* TODO::HYCHO CAM1_CEN */
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
+
+		mdelay(10);
+		/* 10ms */
+
+		/* CAM_AVDD_2V8  On */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* CAM_VDDIO_1V8 On */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* CAM_CORE_1V2  On */
+		gpio_set_value(GPIO_PORT3, 1);
+		mdelay(2);
+
+		/* CAM_CORE_1V2  Off */
+		gpio_set_value(GPIO_PORT3, 0);
+		mdelay(4);
+
+		/* MCLK Sub-Camera */
+		iRet = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+
+		iRet = clk_enable(vclk2_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(10);
+
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		mdelay(4);
+
+		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
+		mdelay(100);
+
+		printk(KERN_ALERT "%s PowerON fin\n", __func__);
+	} else {
+		printk(KERN_ALERT "%s PowerOFF\n", __func__);
+
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		mdelay(2);
+
+		clk_disable(vclk2_clk);
+		mdelay(1);
+
+		/* CAM_VDDIO_1V8 Off */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* CAM_AVDD_2V8  Off */
+		/* cam_sensor_a2.8 */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* CAM_CORE_1V2  Off */
+		gpio_set_value(GPIO_PORT3, 0);
+		mdelay(1);
+		sh_csi2_power(dev, power_on);
+		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
+
+	}
+
+	clk_put(vclk1_clk);
+	clk_put(vclk2_clk);
+
+	return 0;
+}
 
 static ssize_t subcamtype_SR030PC50_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
