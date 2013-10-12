@@ -105,7 +105,7 @@ obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec
 obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
 
 # touchkey
-#obj-y += setup-u2touchkey.o dev-touchpanel.o
+obj-y += setup-u2touchkey.o dev-touchpanel.o
 
 #touchscreen BCM15xx
 #obj-$(CONFIG_TOUCHSCREEN_BCMTCH15XXX) += dev-touchpanel-bcmtch15xxx.o
