@@ -518,15 +518,19 @@ static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attrib
 
 static struct device_attribute ss_batt_ext_attrs[]=
 {
-	__ATTR(batt_lp_charging, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-	//__ATTR(batt_charging_source, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-	__ATTR(batt_temp_aver, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-	__ATTR(batt_temp_adc_aver, 0644, ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
-	__ATTR(batt_type, 0644, ss_batt_ext_attrs_show, NULL),
-	__ATTR(batt_read_adj_soc, 0644, ss_batt_ext_attrs_show , NULL),
-	__ATTR(batt_read_raw_soc, 0644, ss_batt_ext_attrs_show , NULL),
-	__ATTR(batt_reset_soc, 0664, NULL, ss_batt_ext_attrs_store),
-	__ATTR(batt_vol_aver, 0664, ss_batt_ext_attrs_show, NULL),
+	__ATTR(batt_lp_charging, S_IRUGO | S_IWUSR,
+			ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
+	/*__ATTR(batt_charging_source, S_IRUGO | (S_IWUSR | S_IWGRP),
+			ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),*/
+	__ATTR(batt_temp_aver, S_IRUGO | S_IWUSR,
+			ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
+	__ATTR(batt_temp_adc_aver, S_IRUGO | S_IWUSR,
+			ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
+	__ATTR(batt_type, S_IRUGO, ss_batt_ext_attrs_show, NULL),
+	__ATTR(batt_read_adj_soc, S_IRUGO, ss_batt_ext_attrs_show , NULL),
+	__ATTR(batt_read_raw_soc, S_IRUGO, ss_batt_ext_attrs_show , NULL),
+	__ATTR(batt_reset_soc, S_IWUGO, NULL, ss_batt_ext_attrs_store),
+	__ATTR(batt_vol_aver, S_IRUGO, ss_batt_ext_attrs_show, NULL),
 		/*for CTIA test*/
 #if defined(CONFIG_TARGET_LOCALE_USA)
 	__ATTR(call, S_IRUGO | (S_IWUSR | S_IWGRP), ss_batt_ext_attrs_show, ss_batt_ext_attrs_store),
