@@ -545,7 +545,7 @@ static void renesas_sdhi_cmd_done(
 			else
 				dmaengine_terminate_all(host->dma_tx);
 		}
-		if (__cancel_delayed_work(&host->timeout_wq)) {
+		if (cancel_delayed_work(&host->timeout_wq)) {
 			renesas_sdhi_data_done(host, host->cmd);
 		} else {
 			sdhi_write32(host, SDHI_INFO, 0);
@@ -635,7 +635,7 @@ static irqreturn_t renesas_sdhi_irq(int irq, void *dev_id)
 	}
 
 	if (status & SDHI_INFO_RW_END) {
-		if (__cancel_delayed_work(&host->timeout_wq)) {
+		if (cancel_delayed_work(&host->timeout_wq)) {
 			renesas_sdhi_data_done(host, host->cmd);
 		} else {
 			sdhi_write32(host, SDHI_INFO, 0);
@@ -663,7 +663,7 @@ static void renesas_sdhi_detect_work(struct work_struct *work)
 
 	dwflag = true;
 
-	flush_delayed_work_sync(&host->mmc->detect);
+	flush_delayed_work(&host->mmc->detect);
 	/* Ignore the detect interrupt if previous detect state
 	 * is same as new */
 	if (pdata->detect_irq) {
@@ -812,9 +812,9 @@ static void renesas_sdhi_request_dma(struct renesas_sdhi_host *host)
 		return;
 
 	tx = &host->dma_slave_tx;
-	tx->slave_id = pdata->slave_id_tx;
+	tx->shdma_slave.slave_id = pdata->slave_id_tx;
 	rx = &host->dma_slave_rx;
-	rx->slave_id = pdata->slave_id_rx;
+	rx->shdma_slave.slave_id = pdata->slave_id_rx;
 
 	if (!host->dma_tx && !host->dma_rx) {
 		dma_cap_mask_t mask;
@@ -1234,7 +1234,8 @@ static int sdhi_sysfs_init(struct renesas_sdhi_host *host)
 {
 	int ret;
 
-	sdhi_kobj = kobject_create_and_add("sdhi", kernel_kobj);
+	if (!sdhi_kobj)
+		sdhi_kobj = kobject_create_and_add("sdhi", kernel_kobj);
 	if (sdhi_kobj == NULL)
 		return -ENOMEM;
 
@@ -1282,6 +1283,7 @@ static const struct mmc_host_ops renesas_sdhi_ops = {
 	.start_signal_voltage_switch = renesas_sdhi_signal_voltage_switch,
 };
 
+#ifdef CONFIG_SEC_DEBUG
 	//Add sdcard detection value to sysfs
 extern struct class *sec_class;
 static struct device *sd_detection_cmd_dev;
@@ -1302,8 +1304,9 @@ static ssize_t sd_detection_cmd_show(struct device *dev,
 }
 
 static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
+#endif
 
-static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
+static int renesas_sdhi_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
 	struct renesas_sdhi_host *host;
@@ -1462,6 +1465,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		if (sysfs_ret)
 			printk(KERN_ERR "SYSFS initialization for SDHI:sdcard1 detection failed\n");
 	}
+#ifdef CONFIG_SEC_DEBUG
 	//Create sdcard detection value to sysfs
 	if (sd_detection_cmd_dev == NULL){
 		sd_detection_cmd_dev = device_create(sec_class, NULL, 0, NULL, "sdcard");
@@ -1471,6 +1475,7 @@ static int __devinit renesas_sdhi_probe(struct platform_device *pdev)
 		if (device_create_file(sd_detection_cmd_dev, &dev_attr_status) < 0)
 			printk("Fail to create sysfs file\n");
 	}
+#endif
 
 	/* irq */
 	for (i = 0; i < 3; i++) {
@@ -1538,7 +1543,7 @@ err1:
 	return ret;
 }
 
-static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
+static int renesas_sdhi_remove(struct platform_device *pdev)
 {
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
@@ -1670,7 +1675,7 @@ static const struct dev_pm_ops renesas_sdhi_dev_pm_ops = {
 
 static struct platform_driver renesas_sdhi_driver = {
 	.probe		= renesas_sdhi_probe,
-	.remove		= __devexit_p(renesas_sdhi_remove),
+	.remove		= renesas_sdhi_remove,
 	.driver		= {
 		.name	= "renesas_sdhi",
 		.owner	= THIS_MODULE,

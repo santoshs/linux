@@ -7,6 +7,7 @@
 
 #include <mach/common.h>
 #include <mach/r8a7373.h>
+#include <mach/gpio.h>
 #include <mach/irqs.h>
 
 #define WLAN_GPIO_EN	GPIO_PORT260
