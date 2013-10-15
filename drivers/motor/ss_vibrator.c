@@ -20,6 +20,7 @@
 #include <linux/wakelock.h>
 #endif /*CONFIG_HAS_WAKELOCK*/
 
+#include <mach/setup-u2vibrator.h>
 #include "../staging/android/timed_output.h"
 #include "../staging/android/timed_gpio.h"
 
@@ -128,8 +129,11 @@ static int vibrator_get_remaining_time(struct timed_output_dev *sdev)
 static int vibrator_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct platform_ss_vibrator_data *pdata;
 
-	vib_regulator = regulator_get(NULL, (const char *)(pdev->dev.platform_data));
+	pdata = pdev->dev.platform_data;
+	vib_regulator = regulator_get(NULL,
+				(const char *)(pdata->regulator_id));
 
 	/* Setup timed_output obj */
 	vibrator_timed_dev.name = "vibrator";
@@ -137,11 +141,7 @@ static int vibrator_probe(struct platform_device *pdev)
 	vibrator_timed_dev.get_time = vibrator_get_remaining_time;
 	is_vibrating = 0;
 
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AMETHYST)
-	vib_voltage = 2800000;
-#else
-	vib_voltage = 3000000;
-#endif
+	vib_voltage = pdata->voltage;
 
 #if defined(CONFIG_HAS_WAKELOCK)
 	wake_lock_init(&vib_wl, WAKE_LOCK_SUSPEND, __stringify(vib_wl));

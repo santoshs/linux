@@ -2,6 +2,10 @@
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 
+#ifdef CONFIG_VIBRATOR_SS
+#include <mach/setup-u2vibrator.h>
+#endif
+
 #ifdef CONFIG_VIBRATOR_ISA1000A
 #include <linux/isa1000a_haptic.h>
 
@@ -22,7 +26,7 @@ static int isa1000_enable(bool en)
 	return gpio_direction_output(GPIO_MOTOR_EN, en);
 }
 
-static struct platform_isa1000_vibrator_data isa1000_vibrator_data = {
+struct platform_isa1000_vibrator_data isa1000_vibrator_data = {
 	.gpio_en	= isa1000_enable,
 	.pwm_name	= "TPU0TO0",
 	.pwm_duty	= 542,
@@ -54,19 +58,24 @@ static void __init isa1000_vibrator_init(void)
 #endif
 
 #ifdef CONFIG_VIBRATOR_SS
+struct platform_ss_vibrator_data ss_vibrator_data = {
+	.regulator_id	= "vdd_motor_pmic",
+	.voltage	= DEFAULT_VIB_VOLTAGE,
+};
+
 struct platform_device ss_vibrator_device = {
 		.name = "vibrator",
 		.id = 0,
-		.dev =
-		{
-			.platform_data="vdd_motor_pmic",
+		.dev =	{
+			.platform_data = &ss_vibrator_data,
 		},
 };
 #endif
 
-void vibrator_init(void)
+void u2_vibrator_init(void)
 {
 #if defined(CONFIG_VIBRATOR_ISA1000A)
+	{
 		isa1000_vibrator_init();
 #endif
 

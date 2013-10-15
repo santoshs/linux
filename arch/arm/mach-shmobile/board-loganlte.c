@@ -617,7 +617,8 @@ static void __init board_init(void)
 
 	/* PA devices init */
 	spa_init();
-	vibrator_init();
+	ss_vibrator_data.voltage = 2800000;
+	u2_vibrator_init();
 
 	printk(KERN_DEBUG "%s\n", __func__);
 	crashlog_reset_log_write();
