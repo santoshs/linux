@@ -396,7 +396,7 @@ static int stm_probe(struct platform_device *pd)
 		return -ENXIO;
 
 	/* Unlock trace funnel */
-	__raw_writel(UNLOCK_MAGIC, fun + CSMR_LOCKACCESS);
+	__raw_writel(CS_LAR_KEY, fun + CSMR_LOCKACCESS);
 	CSTF_PORT_DISABLE(fun, 0);
 	CSTF_PRIO_SET(fun, 0, 0);
 	/* Re-enable Funnel */
@@ -405,7 +405,7 @@ static int stm_probe(struct platform_device *pd)
 
 	/* Unlock STM. STM is not relocked */
 	/* to allow STP synchronization writes to STM_SYNCR */
-	__raw_writel(UNLOCK_MAGIC, stm_ctrl + CSMR_LOCKACCESS);
+	__raw_writel(CS_LAR_KEY, stm_ctrl + CSMR_LOCKACCESS);
 	/* Disable STM for configuration */
 	tscr = __raw_readl(stm_ctrl + STM_TCSR);
 	__raw_writel(tscr & ~STM_TCSR_EN, stm_ctrl + STM_TCSR);
@@ -454,7 +454,7 @@ static int __exit stm_remove(struct platform_device *pd)
 	tscr = __raw_readl(stm_ctrl + STM_TCSR);
 	__raw_writel(tscr & ~STM_TCSR_EN, stm_ctrl + STM_TCSR);
 	/* Unlock trace funnel */
-	__raw_writel(UNLOCK_MAGIC, fun + CSMR_LOCKACCESS);
+	__raw_writel(CS_LAR_KEY, fun + CSMR_LOCKACCESS);
 	/* Disable port0 of trace funnel */
 	CSTF_PORT_DISABLE(fun, 0);
 	__raw_writel(0, fun + CSMR_LOCKACCESS);
