@@ -292,6 +292,9 @@ static void __init d2153_init_board_defaults(void)
 
 	/* VDD_MOTOR */
 	SET_LDO_APPLY_UV(D2153_LDO_16);
+
+	/* This is assumed with device tree, so always set it for consistency */
+	regulator_has_full_constraints();
 }
 
 #endif
