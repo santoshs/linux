@@ -612,17 +612,6 @@ static void __init board_init(void)
 #endif
 }
 
-#if 0 //commnted by preetam
-static void __init board_reserve(void)
-{
-	u2evm_ion_adjust();
-
-#if defined(CONFIG_SEC_DEBUG)
-	sec_debug_magic_init();
-#endif
-}
-#endif
-
 MACHINE_START(LOGANLTE, "loganlte")
 	.map_io         = r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,
