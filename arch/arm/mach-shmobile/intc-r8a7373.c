@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/irqchip.h>
 #include <linux/io.h>
 #include <linux/sh_intc.h>
 #include <linux/irqchip/arm-gic.h>
@@ -332,16 +333,17 @@ static int r8a7373_irq_set_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
-#ifndef CONFIG_OF
 void __init r8a7373_init_irq(void)
 {
-	void __iomem *gic_dist_base = GIC_DIST_BASE;
-	void __iomem *gic_cpu_base = GIC_CPU_BASE;
 	void __iomem *intevtsa = ioremap_nocache(0xffd20100, PAGE_SIZE);
 	int i;
 	BUG_ON(!intevtsa);
 
-	gic_init(0, 29, gic_dist_base, gic_cpu_base);
+#ifdef CONFIG_OF
+	irqchip_init();
+#else
+	gic_init(0, 29, GIC_DIST_BASE, GIC_CPU_BASE);
+#endif
 	gic_arch_extn.irq_set_wake = r8a7373_irq_set_wake;
 
 	/* Setup IRQC cascade_irq */
@@ -358,4 +360,3 @@ void __init r8a7373_init_irq(void)
 	init_FIQ(FIQ_START);
 #endif
 }
-#endif
