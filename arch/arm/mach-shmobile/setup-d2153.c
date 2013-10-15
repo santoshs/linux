@@ -1,6 +1,8 @@
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
+#include <mach/setup-u2audio.h>
+#include <linux/d2153/d2153_aad.h>
 
 #define mV_to_uV(v)                 ((v) * 1000)
 #define uV_to_mV(v)                 ((v) / 1000)
@@ -632,5 +634,10 @@ struct d2153_platform_data d2153_pdata = {
 		D2153_MCTL_MODE_INIT(D2153_LDO_AUD1, 0x56, D2153_REGULATOR_LPM_IN_DSM),	// LDO_AUD1 1.8
 		D2153_MCTL_MODE_INIT(D2153_LDO_AUD2, 0x56, D2153_REGULATOR_LPM_IN_DSM), // LDO_AUD2 3.3
 #endif
+	},
+	.audio = {
+		.fm34_device = DEVICE_NONE,
+		.debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS,
+		.aad_codec_detect_enable = false,
 	},
 };

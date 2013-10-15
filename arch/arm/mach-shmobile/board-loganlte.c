@@ -41,6 +41,7 @@
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
+#include <linux/d2153/d2153_aad.h>
 #endif
 #include <mach/dev-wifi.h>
 #include <linux/ktd259b_bl.h>
@@ -525,7 +526,21 @@ static void __init board_init(void)
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
-	u2audio_init(system_rev);
+	if (system_rev < BOARD_REV_0_1)
+		d2153_pdata.audio.fm34_device = DEVICE_EXIST;
+	else
+		d2153_pdata.audio.fm34_device = DEVICE_NONE;
+
+	if ((BOARD_REV_0_1 < system_rev) &&
+		(BOARD_REV_0_4 > system_rev)) {
+			d2153_pdata.audio.aad_codec_detect_enable = true;
+			d2153_pdata.audio.debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+			d2153_pdata.audio.debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
+	} else {
+			d2153_pdata.audio.aad_codec_detect_enable = false;
+			d2153_pdata.audio.debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+	}
+	u2audio_init();
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 
 #ifndef CONFIG_ARM_TZ
