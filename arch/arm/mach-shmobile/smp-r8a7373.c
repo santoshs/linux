@@ -43,7 +43,6 @@ static bool init_flag = false;
 #if 0
 static struct wake_lock smp_idle_wakelock;
 #endif
-static cpumask_t dead_cpus;
 
 static void __iomem *scu_base_addr(void)
 {
@@ -53,7 +52,7 @@ static void __iomem *scu_base_addr(void)
 static DEFINE_SPINLOCK(scu_lock);
 
 #ifdef CONFIG_HAVE_ARM_TWD
-static DEFINE_TWD_LOCAL_TIMER(twd_local_timer, PRIV_TIMERS_BASE, 29);
+static DEFINE_TWD_LOCAL_TIMER(twd_local_timer, 0xF0000600, 29);
 
 void __init r8a7373_register_twd(void)
 {
@@ -110,7 +109,7 @@ void __cpuinit r8a7373_secondary_init(unsigned int cpu)
 	}
 }
 
-int __cpuinit r8a7373_boot_secondary(unsigned int cpu)
+int __cpuinit r8a7373_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long status;
 	cpu = cpu_logical_map(cpu);
@@ -203,9 +202,6 @@ static void r8a7373_cpu_die(unsigned int cpu)
 	flush_cache_all();
 	dsb();
 
-	/* notify platform_cpu_kill() that hardware shutdown is finished */
-	cpumask_set_cpu(cpu, &dead_cpus);
-
 	/* disable gic cpu_if */
 	__raw_writel(0, GIC_CPU_BASE + GIC_CPU_CTRL);
 
@@ -221,7 +217,6 @@ static void r8a7373_cpu_die(unsigned int cpu)
 
 static int r8a7373_cpu_disable(unsigned int cpu)
 {
-	cpumask_clear_cpu(cpu, &dead_cpus);
 	/*
 	 * we don't allow CPU 0 to be shutdown (it is still too special
 	 * e.g. clock tick interrupts)

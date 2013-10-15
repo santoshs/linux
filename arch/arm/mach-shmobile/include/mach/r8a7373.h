@@ -792,7 +792,6 @@ extern struct smp_operations r8a7373_smp_ops;
 
 #define GIC_CPU_BASE		IO_ADDRESS(0xF0000100)
 #define GIC_DIST_BASE		IO_ADDRESS(0xF0001000)
-#define PRIV_TIMERS_BASE	IO_ADDRESS(0xF0000600)
 
 /* I2CDVM */
 #define ICCRDVM			IO_ADDRESS(0xE60A0004)
