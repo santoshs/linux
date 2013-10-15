@@ -343,6 +343,11 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 		I2C_BOARD_INFO("smb328a", SMB327B_ADDRESS),
 		.irq            = irqpin2irq(GPIO_CHG_INT),
 	},
+#elif defined(CONFIG_CHARGER_FAN5405)
+	{
+		I2C_BOARD_INFO("fan5405", FAN5405_ADDRESS),
+		.irq            = irqpin2irq(GPIO_CHG_INT),
+	},
 #endif
 
 };

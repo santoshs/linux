@@ -18,6 +18,7 @@ enum
 {
 	SPA_AGENT_SET_CHARGE,
 	SPA_AGENT_SET_CHARGE_CURRENT,
+	SPA_AGENT_SET_CHARGE_VOLTAGE,
 	SPA_AGENT_SET_FULL_CHARGE,
 	SPA_AGENT_GET_VOLTAGE,
 	SPA_AGENT_GET_TEMP,
@@ -33,6 +34,7 @@ typedef union
 {
 	int (*set_charge)(unsigned int en);
 	int (*set_charge_current)(unsigned int curr);
+	int (*set_charge_voltage)(unsigned int mvolt);
 	int (*set_full_charge)(unsigned int eoc);
 	int (*get_voltage)(unsigned int opt);
 	int (*get_temp)(unsigned int opt);

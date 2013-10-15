@@ -183,20 +183,20 @@ static int spa_agent_set_property(struct power_supply *ps,
 	int ret = 0, retval = 0;
 
 	pr_spa_agent_dbg(LEVEL3, "%s : agent set request = %d\n",
-						__func__, prop);
+			__func__, prop);
 
-	switch(prop)
-	{
+	switch (prop) {
 		case POWER_SUPPLY_PROP_STATUS:
 			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_SET_CHARGE);
 			{
-				int en=0;
-				if (propval->intval == POWER_SUPPLY_STATUS_CHARGING)
-					en=1;
+				int en = 0;
+				if (propval->intval ==
+						POWER_SUPPLY_STATUS_CHARGING)
+					en = 1;
 
-				if(spa_agent_fn[SPA_AGENT_SET_CHARGE].fn.set_charge)
-					retval =
+			if (spa_agent_fn[SPA_AGENT_SET_CHARGE].fn.set_charge)
+			retval =
 			spa_agent_fn[SPA_AGENT_SET_CHARGE].fn.set_charge(en);
 				else
 					ret = -ENODATA;
@@ -204,26 +204,43 @@ static int spa_agent_set_property(struct power_supply *ps,
 			break;
 		case POWER_SUPPLY_PROP_CURRENT_NOW:
 			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
-				__func__, SPA_AGENT_SET_CHARGE_CURRENT);
+					__func__, SPA_AGENT_SET_CHARGE_CURRENT);
 			{
-				int curr = propval->intval;
-				if(spa_agent_fn[SPA_AGENT_SET_CHARGE_CURRENT].fn.set_charge_current)
-					retval =
-			spa_agent_fn[SPA_AGENT_SET_CHARGE_CURRENT].fn.
-						set_charge_current(curr);
-				else
-					ret = -ENODATA;
+			int curr = propval->intval;
+			if (spa_agent_fn[SPA_AGENT_SET_CHARGE_CURRENT].fn.
+							set_charge_current)
+			retval =
+				spa_agent_fn[SPA_AGENT_SET_CHARGE_CURRENT].fn.
+					set_charge_current(curr);
+			else
+				ret = -ENODATA;
 			}
 			break;
+		case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_SET_CHARGE_VOLTAGE);
+			{
+			int mvolt = propval->intval;
+			if (spa_agent_fn[SPA_AGENT_SET_CHARGE_VOLTAGE].fn.
+							set_charge_voltage)
+			retval =
+				spa_agent_fn[SPA_AGENT_SET_CHARGE_VOLTAGE].fn.
+						set_charge_voltage(mvolt);
+			else
+				ret = -ENODATA;
+
+			}
+
 		case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_SET_FULL_CHARGE);
 			{
 				int eoc_current=propval->intval;
-				if(spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE].fn.set_full_charge)
+				if (spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE].fn.
+								set_full_charge)
 					retval =
-				spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE].
-					fn.set_full_charge(eoc_current);
+					spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE].
+						fn.set_full_charge(eoc_current);
 				else
 					ret = -ENODATA;
 			}
@@ -244,7 +261,7 @@ static int spa_agent_set_property(struct power_supply *ps,
 			break;
 	}
 	pr_spa_agent_dbg(LEVEL3, "%s : DONE !!  agent set request = %d\n",
-							__func__, prop);
+			__func__, prop);
 
 	return ret;
 }

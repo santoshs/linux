@@ -1,5 +1,5 @@
 /*
- * arch/arm/mach-shmobile/setup-u2spa.c
+ * arch/arm/mach-shmobile/board-amethyst-spa.c
  *
  * Device initialization for spa_power and spa_agent.c
  *
@@ -107,7 +107,7 @@ void spa_init(void)
 	gpio_pull_up_port(GPIO_PORT97);
 #endif
 
-#if defined(CONFIG_CHARGER_SMB328A)
+#if defined(CONFIG_CHARGER_FAN5405)
 	gpio_request(GPIO_PORT19, NULL);
 	gpio_direction_input(GPIO_PORT19);
 	gpio_pull_up_port(GPIO_PORT19);

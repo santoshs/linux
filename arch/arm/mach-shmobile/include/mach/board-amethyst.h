@@ -35,6 +35,10 @@
 #define CHARGER_I2C_SLAVE_ADDRESS (0xD4 >> 1)		//for smb 358
 #endif
 
+#if defined(CONFIG_CHARGER_FAN5405)
+#define FAN5405_ADDRESS (0xD5 >> 1)
+#endif
+
 #ifdef CONFIG_USE_MUIC
 #ifdef CONFIG_USB_SWITCH_TSU6712
 #define MUIC_I2C_ADDRESS (0x4A >> 1)

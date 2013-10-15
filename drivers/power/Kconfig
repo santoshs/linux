@@ -318,6 +318,15 @@ config CHARGER_SMB358
 	help
 	  Say Y here to enable support for SMB358 Battery Charge Interface.
 
+
+config CHARGER_FAN5405
+	tristate "FAN5405 charger driver"
+	help
+		Say Y here to enable support for
+		Faichild's FAN5405
+		battery charger interface.
+
+
 config CHARGER_LP8727
 	tristate "TI/National Semiconductor LP8727 charger driver"
 	depends on I2C

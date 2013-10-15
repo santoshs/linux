@@ -1500,14 +1500,17 @@ static void spa_fast_charging_work(struct work_struct *work)
 
 	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
 
-
 	value.intval = spa_power_iter->charger_info.charging_current;
 	ps->set_property(ps, POWER_SUPPLY_PROP_CURRENT_NOW, &value);
 
-	/* 2. eoc current*/
+	value.intval = spa_power_iter->charger_info.top_voltage;
+	ps->set_property(ps, POWER_SUPPLY_PROP_VOLTAGE_NOW, &value);
+
+	/* 2. eoc current */
+#if 0	/* Charging is monitored by Fuel gauge. Hence disabling this code */
 	value.intval = spa_power_iter->charger_info.eoc_current;
 	ps->set_property(ps, POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, &value);
-
+#endif
 	/*3. charging now.*/
 	value.intval = POWER_SUPPLY_STATUS_CHARGING;
 	ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);

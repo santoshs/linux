@@ -121,6 +121,11 @@ enum
 #endif
 };
 
+enum {
+	BATTERY_NOT_DETECTED,
+	BATTERY_DETECTED
+};
+
 /*
 	to be checked
 		low batt voltage

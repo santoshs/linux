@@ -111,8 +111,6 @@ extern int pmic_read_battery_status(int property);
 #endif
 
 #ifdef CONFIG_BATTERY_D2153
-extern void d2153_battery_start(void);
-extern int d2153_battery_read_status(int type);
 extern int d2153_battery_set_status(int type, int status);
 #endif
 
@@ -770,49 +768,6 @@ static int smb328a_set_full_charge (unsigned int eoc)
 	return ret;
 }
 
-static int smb328a_get_capacity (void)
-{
-	unsigned int bat_per;
-
-#ifdef CONFIG_BATTERY_D2153
-	bat_per = d2153_battery_read_status(D2153_BATTERY_SOC);
-#else
-
-#ifdef CONFIG_BATTERY_BQ27425
-	get_bq27425_battery_data(BQ27425_REG_SOC, &bat_per);
-#endif
-#endif
-	return bat_per;
-}
-
-static int smb328a_get_temp (unsigned int opt)
-{
-	int temp;
-
-#ifdef CONFIG_BATTERY_D2153
-	temp = d2153_battery_read_status(D2153_BATTERY_TEMP_ADC);
-#else
-
-#ifdef CONFIG_PMIC_INTERFACE
-	temp = pmic_get_temp_status();
-#else
-	temp = 30;
-#endif
-#endif
-	return temp;
-}
-
-static int smb328a_get_voltage (unsigned char opt)
-{
-#ifdef CONFIG_BATTERY_D2153
-	int volt;
-	volt = d2153_battery_read_status(D2153_BATTERY_AVG_VOLTAGE);
-#else
-	int volt=3800;
-#endif
-	return volt;
-}
-
 static int smb328a_get_batt_presence (unsigned int opt)
 {
 	if (smb328a_check_bat_missing(smb_charger->client))
@@ -821,16 +776,6 @@ static int smb328a_get_batt_presence (unsigned int opt)
 		return BAT_DETECTED;
 }
 
-static int smb328a_ctrl_fg (void *data)
-{
-	int ret = 0;
-
-#ifdef CONFIG_BATTERY_D2153
-	d2153_battery_set_status(D2153_RESET_SW_FG, 0);
-#endif
-	
-	return ret;
-}
 
 #ifdef CONFIG_USE_MUIC
 extern void muic_set_vbus(int vbus);
@@ -969,12 +914,8 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 	spa_agent_register(SPA_AGENT_SET_CHARGE, (void*)smb328a_set_charge, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_SET_CHARGE_CURRENT, (void*)smb328a_set_charge_current, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_SET_FULL_CHARGE, (void*)smb328a_set_full_charge, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_GET_CAPACITY, (void*)smb328a_get_capacity, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_GET_TEMP, (void*)smb328a_get_temp, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_GET_VOLTAGE, (void*)smb328a_get_voltage, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_GET_BATT_PRESENCE, (void*)smb328a_get_batt_presence, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_GET_CHARGER_TYPE, (void*)smb328a_get_charger_type, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_CTRL_FG, (void*)smb328a_ctrl_fg, "smb328a-charger");
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
 
@@ -988,10 +929,6 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 	smb328a_charger_function_conrol(client, 500);
 
 	smb328a_irq_init(client);
-
-#ifdef CONFIG_BATTERY_D2153
-	d2153_battery_start();
-#endif
 
 	return 0;
 }
