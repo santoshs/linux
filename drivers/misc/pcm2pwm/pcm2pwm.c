@@ -43,7 +43,7 @@
 /* function prototype */
 static int __init pcm2pwm_pf_init(void);
 static void __exit pcm2pwm_pf_exit(void);
-static int __devexit pcm2pwm_pf_remove(struct platform_device *pdev);
+static int pcm2pwm_pf_remove(struct platform_device *pdev);
 static int pcm2pwm_pf_probe(struct platform_device *pdev);
 static int pcm2pwm_pf_resume(struct platform_device *pdev);
 static int pcm2pwm_pf_suspend(struct platform_device *pdev, pm_message_t state);
@@ -86,7 +86,7 @@ enum pcm2pwm_dma_state {
 /* Structure */
 static struct platform_driver pcm2pwm_platform_driver = {
 	.probe		= pcm2pwm_pf_probe,
-	.remove		= __devexit_p(pcm2pwm_pf_remove),
+	.remove		= pcm2pwm_pf_remove,
 	.suspend	= pcm2pwm_pf_suspend,
 	.resume		= pcm2pwm_pf_resume,
 	.driver		= {
@@ -194,7 +194,7 @@ static void __exit pcm2pwm_pf_exit(void)
  * @pdev	: a pointer of struct platform_device
  * return: 0
  */
-static int __devexit pcm2pwm_pf_remove(struct platform_device *pdev)
+static int pcm2pwm_pf_remove(struct platform_device *pdev)
 {
 	cancel_work_sync(&dma_work);
 	pm_runtime_disable(&pdev->dev);

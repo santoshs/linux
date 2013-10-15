@@ -210,7 +210,7 @@ void __exit mtd_buf_exit(struct mtd_trace *mtd)
 
 }
 
-static int __devinit mtd_trace_probe(struct platform_device *pdev)
+static int mtd_trace_probe(struct platform_device *pdev)
 {
 	int error = 0;
 	struct mtd_trace *mtd;

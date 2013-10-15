@@ -2266,7 +2266,7 @@ static void stc311x_init_work(struct work_struct *work)
 #endif
 }
 
-static int __devinit stc311x_probe(struct i2c_client *client,
+static int stc311x_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
   struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
@@ -2316,7 +2316,7 @@ printk("stc311x_probe\n");
 	return 0;  
 }
 
-static int __devexit stc311x_remove(struct i2c_client *client)
+static int stc311x_remove(struct i2c_client *client)
 {
 	struct stc311x_chip *chip = i2c_get_clientdata(client);
 
@@ -2379,7 +2379,7 @@ static struct i2c_driver stc311x_i2c_driver = {
 		.name	= "stc3115",
 	},
 	.probe		= stc311x_probe,
-	.remove		= __devexit_p(stc311x_remove),
+	.remove		= stc311x_remove,
 	.suspend	= stc311x_suspend,    
 	.resume		= stc311x_resume,  
 	.id_table	= stc311x_id,

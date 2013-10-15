@@ -544,7 +544,7 @@ static struct attribute_group fac_attr_group = {
 };
 
 
-static int __devinit ist30xx_probe(struct i2c_client *		client,
+static int ist30xx_probe(struct i2c_client *		client,
 				   const struct i2c_device_id * id)
 {
 	int ret;
@@ -694,7 +694,7 @@ err_alloc_dev:
 }
 
 
-static int __devexit ist30xx_remove(struct i2c_client *client)
+static int ist30xx_remove(struct i2c_client *client)
 {
 	struct ist30xx_data *data = i2c_get_clientdata(client);
 
@@ -731,7 +731,7 @@ static const struct dev_pm_ops ist30xx_pm_ops = {
 static struct i2c_driver ist30xx_i2c_driver = {
 	.id_table	= ist30xx_idtable,
 	.probe		= ist30xx_probe,
-	.remove		= __devexit_p(ist30xx_remove),
+	.remove		= ist30xx_remove,
 	.driver		= {
 		.owner	= THIS_MODULE,
 		.name	= IST30XX_DEV_NAME,

@@ -63,11 +63,11 @@ static int maxhorizontalrate;
 
 static struct edid_tx *edid_global;
 
-static int __devinit edidA0_probe(struct i2c_client *client, const struct i2c_device_id *id);
-static int __devinit edid60_probe(struct i2c_client *client, const struct i2c_device_id *id);
+static int edidA0_probe(struct i2c_client *client, const struct i2c_device_id *id);
+static int edid60_probe(struct i2c_client *client, const struct i2c_device_id *id);
 
-static int __devexit edidA0_remove(struct i2c_client *client);
-static int __devexit edid60_remove(struct i2c_client *client);
+static int edidA0_remove(struct i2c_client *client);
+static int edid60_remove(struct i2c_client *client);
 
 static struct dtd edidreadvalues;
 struct dtd supported_dtds[] = {
@@ -103,7 +103,7 @@ static struct i2c_driver edidA0_driver =
 	},
 	.id_table	= edidA0_id,
 	.probe	= edidA0_probe,
-	.remove	= __devexit_p(edidA0_remove),
+	.remove	= edidA0_remove,
 	.command = NULL,
 };
 
@@ -116,7 +116,7 @@ static struct i2c_driver edid60_driver =
 	},
 	.id_table	= edid60_id,
 	.probe	= edid60_probe,
-	.remove	= __devexit_p(edid60_remove),
+	.remove	= edid60_remove,
 	.command = NULL,
 };
 
@@ -143,7 +143,7 @@ struct i2c_client* get_edidI2C_client(struct edid_platform_data *pdata, u8 devic
 *	output	=	None
 *	return	=	ret
 ****************************************************************************/
-static int __devinit edidA0_probe(struct i2c_client *client,
+static int edidA0_probe(struct i2c_client *client,
 								const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
@@ -170,7 +170,7 @@ static int __devinit edidA0_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int __devinit edid60_probe
+static int edid60_probe
 				(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
@@ -200,13 +200,13 @@ static int __devinit edid60_probe
 	return 0;
 }
 
-static int __devexit edidA0_remove(struct i2c_client *client)
+static int edidA0_remove(struct i2c_client *client)
 {
 	i2c_del_driver(&edidA0_driver);
 	return 0;
 }
 
-static int __devexit edid60_remove(struct i2c_client *client)
+static int edid60_remove(struct i2c_client *client)
 {
 	i2c_del_driver(&edid60_driver);
 	return 0;

@@ -246,6 +246,6 @@ int ist30xx_internal_suspend(struct ist30xx_data *data);
 int ist30xx_internal_resume(struct ist30xx_data *data);
 
 int ist30xx_factory_sysfs(void);
-int __devinit ist30xx_init_system(void);
+int ist30xx_init_system(void);
 
 #endif  // __IST30XX_H__

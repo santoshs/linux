@@ -1070,7 +1070,7 @@ static int __exit tusb1211_remove(struct platform_device *pdev)
  *     -ENOMEM: insufficient memory.
  *     -ENODEV: can not get resource (memory)
  */
-static int __devinit tusb1211_probe(struct platform_device *pdev)
+static int tusb1211_probe(struct platform_device *pdev)
 {
 	struct resource *res, *ires;
 	void __iomem *reg = NULL;

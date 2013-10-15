@@ -307,7 +307,7 @@ static struct miscdevice sh_mobile_wdt_miscdev = {
 	.fops = &sh_mobile_wdt_fops,
 };
 
-static int __devinit sh_mobile_wdt_probe(struct platform_device *pdev)
+static int sh_mobile_wdt_probe(struct platform_device *pdev)
 {
 	struct sh_mobile_wdt_pdata *wdt_pdata = pdev->dev.platform_data;
 	struct resource *res, *mem, *wdt_irq;
@@ -401,7 +401,7 @@ err1:
 	return ret;
 }
 
-static int __devexit sh_mobile_wdt_remove(struct platform_device *pdev)
+static int sh_mobile_wdt_remove(struct platform_device *pdev)
 {
 	struct resource *res, *wdt_irq;
 
@@ -462,7 +462,7 @@ static int sh_mobile_wdt_resume(struct platform_device *pdev)
 }
 static struct platform_driver sh_mobile_wdt_driver = {
 	.probe		= sh_mobile_wdt_probe,
-	.remove		= __devexit_p(sh_mobile_wdt_remove),
+	.remove		= sh_mobile_wdt_remove,
 	.shutdown	= sh_mobile_wdt_shutdown,
 	.suspend	= sh_mobile_wdt_suspend,
 	.resume		= sh_mobile_wdt_resume,

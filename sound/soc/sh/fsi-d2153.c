@@ -863,7 +863,7 @@ static struct snd_soc_card fsi_soc_card = {
 	.suspend_pre = fsi_d2153_suspend_pre,
 };
 
-static __devinit int fsi_d2153_driver_probe(struct platform_device *pdev)
+static int fsi_d2153_driver_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &fsi_soc_card;
 	struct fsi_d2153_priv *priv = NULL;
@@ -942,7 +942,7 @@ err_vclk4_clk:
 	return ret;
 }
 
-static int __devexit fsi_d2153_driver_remove(struct platform_device *pdev)
+static int fsi_d2153_driver_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct fsi_d2153_priv *priv =
@@ -967,7 +967,7 @@ static struct platform_driver fsi_d2153_driver = {
 		.pm = &snd_soc_pm_ops,
 	},
 	.probe = fsi_d2153_driver_probe,
-	.remove = __devexit_p(fsi_d2153_driver_remove),
+	.remove = fsi_d2153_driver_remove,
 };
 
 static int __init fsi_d2153_modinit(void)

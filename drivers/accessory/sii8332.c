@@ -62,17 +62,17 @@ daniel.lee@siliconimage.com
 	I2CReadModify(pdata, deviceID, offset, (1<<bitnumber), 0x00)
 #define NUM_OF_VIDEO_MODE (sizeof(VideoModeInfo)/sizeof(VideoModeInfo[0]))
 
-static int __devinit simg72_probe(struct i2c_client *client, const struct i2c_device_id *id);
-static int __devinit simg7A_probe(struct i2c_client *client, const struct i2c_device_id *id);
-static int __devinit simg92_probe(struct i2c_client *client, const struct i2c_device_id *id);
-static int __devinit simg9A_probe(struct i2c_client *client, const struct i2c_device_id *id);
-static int __devinit simgC8_probe(struct i2c_client *client, const struct i2c_device_id *id);
+static int simg72_probe(struct i2c_client *client, const struct i2c_device_id *id);
+static int simg7A_probe(struct i2c_client *client, const struct i2c_device_id *id);
+static int simg92_probe(struct i2c_client *client, const struct i2c_device_id *id);
+static int simg9A_probe(struct i2c_client *client, const struct i2c_device_id *id);
+static int simgC8_probe(struct i2c_client *client, const struct i2c_device_id *id);
 
-static int __devexit simg72_remove(struct i2c_client *client);
-static int __devexit simg7A_remove(struct i2c_client *client);
-static int __devexit simg92_remove(struct i2c_client *client);
-static int __devexit simg9A_remove(struct i2c_client *client);
-static int __devexit simgC8_remove(struct i2c_client *client);
+static int simg72_remove(struct i2c_client *client);
+static int simg7A_remove(struct i2c_client *client);
+static int simg92_remove(struct i2c_client *client);
+static int simg9A_remove(struct i2c_client *client);
+static int simgC8_remove(struct i2c_client *client);
 
 static int device_open;
 static struct device *hdmidev;
@@ -621,7 +621,7 @@ static struct i2c_driver simg72_driver =
 	},
 	.id_table	= SIMG72_id,
 	.probe	= simg72_probe,
-	.remove	= __devexit_p(simg72_remove),
+	.remove	= simg72_remove,
 	.command = NULL,
 };
 
@@ -634,7 +634,7 @@ static struct i2c_driver simg7A_driver =
 	},
 	.id_table	= SIMG7A_id,
 	.probe	= simg7A_probe,
-	.remove	= __devexit_p(simg7A_remove),
+	.remove	= simg7A_remove,
 	.command = NULL,
 };
 
@@ -647,7 +647,7 @@ static struct i2c_driver simg92_driver =
 	},
 	.id_table	= SIMG92_id,
 	.probe	= simg92_probe,
-	.remove	= __devexit_p(simg92_remove),
+	.remove	= simg92_remove,
 	.command = NULL,
 };
 
@@ -660,7 +660,7 @@ static struct i2c_driver simg9A_driver =
 	},
 	.id_table	= SIMG9A_id,
 	.probe	= simg9A_probe,
-	.remove	= __devexit_p(simg9A_remove),
+	.remove	= simg9A_remove,
 	.command = NULL,
 };
 
@@ -675,7 +675,7 @@ static struct i2c_driver simgC8_driver =
 	},
 	.id_table	= SIMGC8_id,
 	.probe	= simgC8_probe,
-	.remove	= __devexit_p(simgC8_remove),
+	.remove	= simgC8_remove,
 	.command = NULL,
 };
 
@@ -4831,7 +4831,7 @@ static irqreturn_t mhl_irq_thread(int irq, void *data)
 *	output	=	None
 *	return	=	ret
 ****************************************************************************/
-static int __devinit simg72_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int simg72_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct tx_page0 *page0;
@@ -4869,7 +4869,7 @@ static int __devinit simg72_probe(struct i2c_client *client, const struct i2c_de
 *	output	=	None
 *	return	=	ret
 ****************************************************************************/
-static int __devinit simg7A_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int simg7A_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct tx_page1 *page1;
@@ -4901,7 +4901,7 @@ static int __devinit simg7A_probe(struct i2c_client *client, const struct i2c_de
 *	output	=	None
 *	return	=	ret
 ****************************************************************************/
-static int __devinit simg92_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int simg92_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct tx_page2 *page2;
@@ -4935,7 +4935,7 @@ static int __devinit simg92_probe(struct i2c_client *client, const struct i2c_de
 *	output	=	None
 *	return	=	ret
 ****************************************************************************/
-static int __devinit simg9A_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int simg9A_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct tx_page3 *page3;
@@ -4968,7 +4968,7 @@ static int __devinit simg9A_probe(struct i2c_client *client, const struct i2c_de
 *	output	=	None
 *	return	=	ret
 ****************************************************************************/
-static int __devinit simgC8_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int simgC8_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
 	struct mhl_tx *mhl;
@@ -5236,31 +5236,31 @@ static int show_info(struct device *dev, struct device_attribute *attr, char *bu
 	return ret;
 }
 
-static int __devexit simg72_remove(struct i2c_client *client)
+static int simg72_remove(struct i2c_client *client)
 {
 	i2c_del_driver(&simg72_driver);
 	return 0;
 }
 
-static int __devexit simg7A_remove(struct i2c_client *client)
+static int simg7A_remove(struct i2c_client *client)
 {
 	i2c_del_driver(&simg7A_driver);
 	return 0;
 }
 
-static int __devexit simg92_remove(struct i2c_client *client)
+static int simg92_remove(struct i2c_client *client)
 {
 	i2c_del_driver(&simg92_driver);
 	return 0;
 }
 
-static int __devexit simg9A_remove(struct i2c_client *client)
+static int simg9A_remove(struct i2c_client *client)
 {
 	i2c_del_driver(&simg9A_driver);
 	return 0;
 }
 
-static int __devexit simgC8_remove(struct i2c_client *client)
+static int simgC8_remove(struct i2c_client *client)
 {
 	/* Free the Port for CLOCK */
 	/* struct mhl_tx *mhl = i2c_get_clientdata(client);*/

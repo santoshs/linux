@@ -368,7 +368,7 @@ static void __iomem *remap(struct platform_device *pd, int id)
 	return ret;
 }
 
-static int __devinit stm_probe(struct platform_device *pd)
+static int stm_probe(struct platform_device *pd)
 {
 	unsigned i;
 	unsigned int tscr;

@@ -153,7 +153,7 @@ static void __exit tpu_exit(void);
 static int tpu_suspend(struct platform_device *pdev, pm_message_t state);
 static int tpu_resume(struct platform_device *pdev);
 static int tpu_probe(struct platform_device *pdev);
-static int __devexit tpu_remove(struct platform_device *pdev);
+static int tpu_remove(struct platform_device *pdev);
 
 #ifdef	DEBUG_PWM
 static void pwm_create_debug_if(void);
@@ -188,7 +188,7 @@ static struct tpu_platdevice tpu_platform_device[TPU_MODULE_MAX] = {
 
 static struct platform_driver tpu_platform_driver = {
 	.probe   = tpu_probe,
-	.remove  = __devexit_p(tpu_remove),
+	.remove  = tpu_remove,
 	.suspend = tpu_suspend,
 	.resume  = tpu_resume,
 	.driver    = {
@@ -941,7 +941,7 @@ static int tpu_probe(struct platform_device *pdev)
  * return:
  *       0: successful
  */
-static int __devexit tpu_remove(struct platform_device *pdev)
+static int tpu_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 	return 0;

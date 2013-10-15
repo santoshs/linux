@@ -39,7 +39,7 @@ static void rt_cma_drv_exit(void);
 
 static struct platform_driver rt_cma_driver = {
 	.probe		= rt_cma_drv_probe,
-	.remove		= __devexit_p(rt_cma_drv_remove),
+	.remove		= rt_cma_drv_remove,
 	.driver		= {
 		.name	= "rt_cma_dev",
 		.owner	= THIS_MODULE,
@@ -109,7 +109,7 @@ int rt_cma_drv_free(struct page *pages, unsigned int size, int id)
 	return ret;
 }
 
-static int __devinit rt_cma_drv_probe(struct platform_device *pdev)
+static int rt_cma_drv_probe(struct platform_device *pdev)
 {
 	MSG_HIGH("[CMA DRV]IN |%s\n", __func__);
 	MSG_MED("[CMA DRV]   | id:%d\n", pdev->id);
@@ -132,7 +132,7 @@ static int __devinit rt_cma_drv_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit rt_cma_drv_remove(struct platform_device *pdev)
+static int rt_cma_drv_remove(struct platform_device *pdev)
 {
 	MSG_HIGH("[CMA DRV]IN |%s\n", __func__);
 	MSG_HIGH("[CMA DRV]OUT|%s\n", __func__);

@@ -2208,7 +2208,7 @@ static void d2153_battery_cmt_init_irq(void)
 /*
  * Name : d2153_battery_probe
  */
-static __devinit int d2153_battery_probe(struct platform_device *pdev)
+static int d2153_battery_probe(struct platform_device *pdev)
 {
 	struct d2153 *d2153 = platform_get_drvdata(pdev);
 	struct d2153_battery *pbat = &d2153->batt;
@@ -2364,7 +2364,7 @@ static int d2153_battery_resume(struct platform_device *pdev)
 /*
  * Name : d2153_battery_remove
  */
-static __devexit int d2153_battery_remove(struct platform_device *pdev)
+static int d2153_battery_remove(struct platform_device *pdev)
 {
 	struct d2153_battery *pbat = platform_get_drvdata(pdev);
 	struct d2153 *d2153 = pbat->pd2153;

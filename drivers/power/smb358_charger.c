@@ -707,7 +707,7 @@ static int smb358_irq_init(struct i2c_client *client)
 
 
 
-static int __devinit smb358_probe(struct i2c_client *client,
+static int smb358_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
@@ -763,7 +763,7 @@ static int __devinit smb358_probe(struct i2c_client *client,
 	return ret;
 }
 
-static int __devexit smb358_remove(struct i2c_client *client)
+static int smb358_remove(struct i2c_client *client)
 {
 
 	return 0;
@@ -786,7 +786,7 @@ static struct i2c_driver smb358_i2c_driver = {
 		.name = "smb358",
 	},
 	.probe = smb358_probe,
-	.remove = __devexit_p(smb358_remove),
+	.remove = smb358_remove,
 	.resume = smb358_resume,
 	.id_table = smb358_id,
 };

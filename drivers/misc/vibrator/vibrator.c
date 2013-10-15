@@ -62,8 +62,8 @@
 /*************************** FUNCTION PROTOTYPE  ****************************/
 static int __init init_vibrator(void);
 static void __exit exit_vibrator(void);
-static int __devinit vibrator_probe(struct platform_device *pdev);
-static int __devexit vibrator_remove(struct platform_device *pdev);
+static int vibrator_probe(struct platform_device *pdev);
+static int vibrator_remove(struct platform_device *pdev);
 
 
 
@@ -82,7 +82,7 @@ struct vibrator_single_request {
 
 static struct platform_driver vibrator_platform_driver = {
 	.probe   = vibrator_probe,
-	.remove  = __devexit_p(vibrator_remove),
+	.remove  = vibrator_remove,
 	.driver    = {
 		.name  = "vibrator-renesas-sh_mobile",
 		.owner = THIS_MODULE,
@@ -258,7 +258,7 @@ static void vibrator_enable(struct timed_output_dev *sdev, int timeout)
 	0: if no error
 	other value if error
 */
-static int __devinit vibrator_probe(struct platform_device *pdev)
+static int vibrator_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct task_struct *vib_thread;
@@ -1341,7 +1341,7 @@ static int vibrate_control_thread(void *arg)
 
 #endif
 
-static int __devexit vibrator_remove(struct platform_device *pdev)
+static int vibrator_remove(struct platform_device *pdev)
 {
 
 	return 0;

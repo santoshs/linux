@@ -163,7 +163,7 @@ static void ape5r_modify_register32(void __iomem *addr, unsigned long set, unsig
 }
 
 
-static int __devexit rmc_loader_remove(struct device *dev)
+static int rmc_loader_remove(struct device *dev)
 {
 	printk(KERN_ALERT "rmc_loader_remove()\n");
 	return 0;

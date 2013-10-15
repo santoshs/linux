@@ -1357,7 +1357,7 @@ static struct notifier_block smc_device_notifier = {
  *
  */
 
-static int __devinit smc_net_platform_device_probe(struct platform_device* platform_device)
+static int smc_net_platform_device_probe(struct platform_device* platform_device)
 {
     int                       ret_val  = SMC_DRIVER_OK;
     struct net_device*        ndevice  = NULL;

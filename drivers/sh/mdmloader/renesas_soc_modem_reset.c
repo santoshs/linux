@@ -338,7 +338,7 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int __devinit rmc_reset_probe(struct platform_device *pdev)
+static int rmc_reset_probe(struct platform_device *pdev)
 {
 	struct rmc_device_node *dev = &rmc_dev_node;
 	struct resource *res;
@@ -389,7 +389,7 @@ clean_up:
 }
 
 
-static int __devexit rmc_reset_remove(struct platform_device *pdev)
+static int rmc_reset_remove(struct platform_device *pdev)
 {
 	struct rmc_device_node *dev = &rmc_dev_node;
 	int  irq;
@@ -409,7 +409,7 @@ static int __devexit rmc_reset_remove(struct platform_device *pdev)
 }
 static struct platform_driver rmc_reset_driver = {
 	.probe		= rmc_reset_probe,
-	.remove		= __devexit_p(rmc_reset_remove),
+	.remove		= rmc_reset_remove,
 	.driver		= {
 		.name	= "rmc_wgm_reset_int",
 		.owner	= THIS_MODULE,

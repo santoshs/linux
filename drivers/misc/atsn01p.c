@@ -1478,7 +1478,7 @@ MODULE_DEVICE_TABLE(i2c, atsn01p_id);
 
 static struct i2c_driver atsn01p_driver = {
 	.probe = atsn01p_probe,
-	.remove = __devexit_p(atsn01p_remove),
+	.remove = atsn01p_remove,
 	.id_table = atsn01p_id,
 	.driver = {
 		.pm = &atsn01p_pm_ops,

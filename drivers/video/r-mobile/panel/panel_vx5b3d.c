@@ -2123,7 +2123,7 @@ static int i2c_quickvx_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int __devexit i2c_quickvx_remove(struct i2c_client *client)
+static int i2c_quickvx_remove(struct i2c_client *client)
 {
 	i2c_set_clientdata(client, NULL);
 	return 0;
@@ -2141,7 +2141,7 @@ static struct i2c_driver i2c_quickvx_driver = {
 	},
 	.id_table = i2c_quickvx_idtable,
 	.probe = i2c_quickvx_probe,
-	.remove		= __devexit_p(i2c_quickvx_remove),
+	.remove		= i2c_quickvx_remove,
 };
 
 

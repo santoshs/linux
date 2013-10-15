@@ -528,7 +528,7 @@ static void rmu2_cmt_init_irq(void)
  * output:
  * return:
  */
-static int __devinit rmu2_cmt_probe(struct platform_device *pdev)
+static int rmu2_cmt_probe(struct platform_device *pdev)
 {
 	printk(KERN_ALERT "START < %s >\n", __func__);
 
@@ -546,7 +546,7 @@ static int __devinit rmu2_cmt_probe(struct platform_device *pdev)
  * return:
  * 0:sucessful
  */
-static int __devexit rmu2_cmt_remove(struct platform_device *pdev)
+static int rmu2_cmt_remove(struct platform_device *pdev)
 {
 	printk(KERN_ALERT "START < %s >\n", __func__);
 

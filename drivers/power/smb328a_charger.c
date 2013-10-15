@@ -938,7 +938,7 @@ static int smb328a_irq_init(struct i2c_client *client)
 	return ret;
 }
 
-static int __devinit smb328a_probe(struct i2c_client *client,
+static int smb328a_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(client->dev.parent);
@@ -996,7 +996,7 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int __devexit smb328a_remove(struct i2c_client *client)
+static int smb328a_remove(struct i2c_client *client)
 {
 	struct smb328a_chip *chip = i2c_get_clientdata(client);
 	mutex_destroy(&smb_charger->i2c_mutex_lock);
@@ -1025,7 +1025,7 @@ static struct i2c_driver smb328a_i2c_driver = {
 		.name	= "smb328a",
 	},
 	.probe		= smb328a_probe,
-	.remove		= __devexit_p(smb328a_remove),
+	.remove		= smb328a_remove,
 	.suspend	= smb328a_suspend,
 	.resume		= smb328a_resume,
 	.id_table	= smb328a_id,

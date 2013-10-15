@@ -2661,7 +2661,7 @@ void d2153_codec_debug_proc_exit(void)
 }
 #endif /* CONFIG_PROC_FS */
 
-static int __devinit d2153_i2c_probe(struct i2c_client *client,
+static int d2153_i2c_probe(struct i2c_client *client,
 				     const struct i2c_device_id *id)
 {
 	struct d2153_codec_priv *d2153_codec;
@@ -2714,7 +2714,7 @@ static int __devinit d2153_i2c_probe(struct i2c_client *client,
 	return ret;
 }
 
-static int __devexit d2153_i2c_remove(struct i2c_client *client)
+static int d2153_i2c_remove(struct i2c_client *client)
 {
 #ifdef CONFIG_SND_SOC_D2153_AAD
 	struct d2153_codec_priv *d2153_codec = i2c_get_clientdata(client);
@@ -2755,7 +2755,7 @@ static struct i2c_driver d2153_i2c_driver = {
 		.owner = THIS_MODULE,
 	},
 	.probe		= d2153_i2c_probe,
-	.remove		= __devexit_p(d2153_i2c_remove),
+	.remove		= d2153_i2c_remove,
 	.shutdown       = d2153_i2c_shutdown,
 	.id_table	= d2153_i2c_id,
 };

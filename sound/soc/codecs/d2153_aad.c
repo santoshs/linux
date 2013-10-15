@@ -882,7 +882,7 @@ static void d2153_aad_button_monitor_timer_work(struct work_struct *work)
 	}
 }
 
-static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
+static int d2153_aad_i2c_probe(struct i2c_client *client,
 					 const struct i2c_device_id *id)
 {
 	struct d2153_aad_priv *d2153_aad;
@@ -1013,7 +1013,7 @@ static int __devinit d2153_aad_i2c_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int __devexit d2153_aad_i2c_remove(struct i2c_client *client)
+static int d2153_aad_i2c_remove(struct i2c_client *client)
 {
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 	struct d2153 *d2153_pmic = d2153_aad->d2153_codec->d2153_pmic;
@@ -1041,7 +1041,7 @@ static struct i2c_driver d2153_aad_i2c_driver = {
 		.owner = THIS_MODULE,
 	},
 	.probe		= d2153_aad_i2c_probe,
-	.remove		= __devexit_p(d2153_aad_i2c_remove),
+	.remove		= d2153_aad_i2c_remove,
 	.id_table	= d2153_aad_i2c_id,
 };
 

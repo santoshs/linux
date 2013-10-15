@@ -425,7 +425,7 @@ out:
 	return res;
 }
 
-static int __devexit hscd_remove(struct i2c_client *client)
+static int hscd_remove(struct i2c_client *client)
 {
         printk(KERN_INFO "[HSCD] [%s]\n",__FUNCTION__);    
         hscd_activate(0, 0, atomic_read(&delay));

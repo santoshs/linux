@@ -1209,7 +1209,7 @@ static void mpu6500_input_early_resume(struct early_suspend *h)
 
 
 
-static int __devinit mpu6500_input_initialize(struct mpu6500_input_data *data, const struct mpu6500_input_cfg
+static int mpu6500_input_initialize(struct mpu6500_input_data *data, const struct mpu6500_input_cfg
 					      *cfg)
 {
 	int result;
@@ -2098,7 +2098,7 @@ static struct device_attribute *accel_sensor_attrs[] = {
 	NULL,
 };
 
-static int __devinit mpu6500_input_register_input_device(struct
+static int mpu6500_input_register_input_device(struct
 							 mpu6500_input_data
 							 *data)
 {
@@ -2235,7 +2235,7 @@ static void mpu6050_work_func_gyro(struct work_struct *work)
 }
 #endif
 
-static int __devinit mpu6500_input_probe(struct i2c_client *client,
+static int mpu6500_input_probe(struct i2c_client *client,
 					 const struct i2c_device_id *id)
 {
 	struct mpu6k_input_platform_data *pdata =
@@ -2346,7 +2346,7 @@ err_free_mem:
 	return error;
 }
 
-static int __devexit mpu6500_input_remove(struct i2c_client *client)
+static int mpu6500_input_remove(struct i2c_client *client)
 {
 	struct mpu6500_input_data *data = i2c_get_clientdata(client);
 	if (data == NULL)
@@ -2425,7 +2425,7 @@ static struct i2c_driver mpu6500_input_driver = {
 	.class = I2C_CLASS_HWMON,
 	.id_table = mpu6500_input_id,
 	.probe = mpu6500_input_probe,
-	.remove = __devexit_p(mpu6500_input_remove),
+	.remove = mpu6500_input_remove,
 };
 
 static int __init mpu6500_init(void)

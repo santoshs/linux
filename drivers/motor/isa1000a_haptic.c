@@ -169,7 +169,7 @@ static int isa1000a_haptic_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int __devexit isa1000a_haptic_remove(struct platform_device *pdev)
+static int isa1000a_haptic_remove(struct platform_device *pdev)
 {
 	t_vib_desc *vib_iter = platform_get_drvdata(pdev);
 	timed_output_dev_unregister(&vib_iter->timed_dev);

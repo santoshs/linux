@@ -170,7 +170,7 @@ error:
 	return ret;
 }
 
-static int __devexit vibrator_remove(struct platform_device *pdev)
+static int vibrator_remove(struct platform_device *pdev)
 {
 	timed_output_dev_unregister(&vibrator_timed_dev);
 
@@ -196,7 +196,7 @@ static int vibrator_resume(struct platform_device *pdev)
 
 static struct platform_driver vibrator_driver = {
 	.probe		= vibrator_probe,
-	.remove		= __devexit_p(vibrator_remove),
+	.remove		= vibrator_remove,
 	.suspend		= vibrator_suspend,
 	.resume		=  vibrator_resume,
 	.driver		= {

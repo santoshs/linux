@@ -178,6 +178,6 @@ int ist30xx_internal_resume(struct ist30xx_data *data);
 
 void touchkey_led_on(struct ist30xx_data *data, bool on);
 
-int __devinit ist30xx_init_system(void);
+int ist30xx_init_system(void);
 
 #endif  // __IST30XX_H__

@@ -4042,7 +4042,7 @@ static struct i2c_driver zinitix_touch_driver = {
 	},
 };
 
-static int __devinit zinitix_touch_init(void)
+static int zinitix_touch_init(void)
 {
 
 #if TOUCH_I2C_REGISTER_HERE

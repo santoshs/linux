@@ -3583,7 +3583,7 @@ static void sh_mobile_rcu_late_resume(struct early_suspend *h)
 }
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
-static int __devinit sh_mobile_rcu_probe(struct platform_device *pdev)
+static int sh_mobile_rcu_probe(struct platform_device *pdev)
 {
 	struct sh_mobile_rcu_dev *pcdev;
 	struct resource *res;
@@ -3851,7 +3851,7 @@ exit:
 	return err;
 }
 
-static int __devexit sh_mobile_rcu_remove(struct platform_device *pdev)
+static int sh_mobile_rcu_remove(struct platform_device *pdev)
 {
 	struct soc_camera_host *soc_host = to_soc_camera_host(&pdev->dev);
 	struct sh_mobile_rcu_dev *pcdev = container_of(soc_host,
@@ -3990,7 +3990,7 @@ static struct platform_driver sh_mobile_rcu_driver = {
 		.pm	= &sh_mobile_rcu_dev_pm_ops,
 	},
 	.probe		= sh_mobile_rcu_probe,
-	.remove		= __devexit_p(sh_mobile_rcu_remove),
+	.remove		= sh_mobile_rcu_remove,
 };
 
 static int __init sh_mobile_rcu_init(void)

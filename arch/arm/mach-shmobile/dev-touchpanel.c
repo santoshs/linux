@@ -57,7 +57,7 @@ static struct i2c_board_info i2c4_devices_zinitix[] = {
 	},
 };
 
-static int __devinit tsp_detector_probe(struct i2c_client *client,
+static int tsp_detector_probe(struct i2c_client *client,
 		const struct i2c_device_id * id)
 {
 	int ret=0;

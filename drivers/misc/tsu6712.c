@@ -1740,7 +1740,7 @@ static void tsu6712_init_func(struct work_struct *work)
 static struct kobject *usb_kobj;
 #define USB_FS	"usb_atparser"
 
-static int __devinit tsu6712_probe(struct i2c_client *client,
+static int tsu6712_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
 	struct tsu6712_usbsw *usbsw;
@@ -1857,7 +1857,7 @@ fail1:
 	return ret;
 }
 
-static int __devexit tsu6712_remove(struct i2c_client *client)
+static int tsu6712_remove(struct i2c_client *client)
 {
 	struct tsu6712_usbsw *usbsw = i2c_get_clientdata(client);
 
@@ -1898,7 +1898,7 @@ static struct i2c_driver tsu6712_i2c_driver = {
 		.name = "tsu6712",
 	},
 	.probe = tsu6712_probe,
-	.remove = __devexit_p(tsu6712_remove),
+	.remove = tsu6712_remove,
 	.suspend = tsu6712_suspend,
 	.resume = tsu6712_resume,
 	.id_table = tsu6712_id,

@@ -510,7 +510,7 @@ static int rmu2_rwdt_start(void)
  * output:
  * return:
  */
-static int __devinit rmu2_rwdt_probe(struct platform_device *pdev)
+static int rmu2_rwdt_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	u8 reg8;
@@ -684,7 +684,7 @@ ioremap_err:
  * return:
  *		0:sucessful
  */
-static int __devexit rmu2_rwdt_remove(struct platform_device *pdev)
+static int rmu2_rwdt_remove(struct platform_device *pdev)
 {
 	RWDT_DEBUG("START < %s >\n", __func__);
 

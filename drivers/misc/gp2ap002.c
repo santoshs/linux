@@ -744,7 +744,7 @@ FREE_GP2A_DATA:
 	return ret;
 }	
 
-static int __devexit gp2a_prox_remove(struct i2c_client *client)
+static int gp2a_prox_remove(struct i2c_client *client)
 {	
   	debug("%s called",__func__); 
 	gp2a_prox_mode(0);

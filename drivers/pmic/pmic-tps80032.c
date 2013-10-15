@@ -6304,7 +6304,7 @@ static int tps80032_remove_subdevs(struct tps80032_data *data)
  *        = 0: Normal operation
  *        < 0: Error occurs
  */
-static int __devinit tps80032_add_subdevs(struct tps80032_data *data,
+static int tps80032_add_subdevs(struct tps80032_data *data,
 				struct tps80032_platform_data *pdata)
 {
 	struct tps80032_subdev_info *subdev;
