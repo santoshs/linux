@@ -23,6 +23,10 @@
 extern struct ion_platform_data u2evm_ion_data;
 extern struct platform_device u2evm_ion_device;
 
+#if defined(CONFIG_ION)
 int u2evm_ion_adjust(void);
+#else
+static inline void u2evm_ion_adjust(void) {}
+#endif
 
 #endif /* __ASM_ARCH_BOARD_U2EVM_ION_H */

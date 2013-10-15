@@ -716,6 +716,7 @@ DT_MACHINE_START(U2_LOGANLTE, "LoganLTE")
 	.init_machine   = board_init,
 	.init_time	= u2_timers_init,
 	.restart        = board_restart,
+	.reserve        = board_reserve,
 	.dt_compat	= logan_compat_dt,
 MACHINE_END
 #else  /* CONFIG_OF */
