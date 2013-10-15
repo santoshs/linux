@@ -1922,7 +1922,7 @@ static const struct pinmux_func pinmux_func_gpios[] = {
 /* In R-Mobile U2, we don't have Function 6 and 7 supported */
 #undef PORTCR
 #define PORTCR(nr, reg)	\
-	{ PINMUX_CFG_REG("PORT" nr "CR", reg, 8, 4) {		\
+	{ PINMUX_CFG_REG_VAR("PORT" nr "CR", reg, 8, 2, 2, 4) {	\
 		_PCRH(PORT##nr##_IN, 0, 0, PORT##nr##_OUT),	\
 		PORT##nr##_FN0, PORT##nr##_FN1,	PORT##nr##_FN2,	\
 		PORT##nr##_FN3,	PORT##nr##_FN4, PORT##nr##_FN5}	\
