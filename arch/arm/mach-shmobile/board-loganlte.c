@@ -396,7 +396,7 @@ static const struct pinctrl_map loganlte_pinctrl_map[] = {
 #ifdef CONFIG_OF
 	PIN_MAP_MUX_GROUP_DEFAULT("e682e000.i2c", "pfc-r8a7373",
 				  "i2c7_data", "i2c7"),
-	PIN_MAP_CONFIGS_GROUP_DEFAULT("e682e000.i2c7", "pfc-r8a7373",
+	PIN_MAP_CONFIGS_GROUP_DEFAULT("e682e000.i2c", "pfc-r8a7373",
 				      "i2c7_data", pin_pullup_conf),
 #else
 	PIN_MAP_MUX_GROUP_DEFAULT("i2c-sh_mobile.7", "pfc-r8a7373",
