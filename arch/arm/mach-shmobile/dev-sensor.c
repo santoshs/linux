@@ -149,15 +149,9 @@ static struct mpu6k_input_platform_data mpu6k_pdata = {
 #define ACCEL_INT_GPIO_PIN 109
 static struct k3dh_platform_data k3dh_platform_data = {
 	.orientation = {
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AMETHYST)
 	0, -1, 0,
 	1, 0, 0,
 	0, 0, 1
-#else
-	-1, 0, 0,
-	0, -1, 0,
-	0, 0, 1
-#endif
         },
 	.irq_gpio = ACCEL_INT_GPIO_PIN,
 };
@@ -166,15 +160,9 @@ static struct k3dh_platform_data k3dh_platform_data = {
 #if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A)
 static struct hscd_i2c_platform_data hscd_i2c_platform_data = {
 	.orientation = {
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AMETHYST)
 	-1, 0, 0,
 	0, 1, 0,
 	0, 0, -1
-#else
-	1, 0, 0,
-	0, 1, 0,
-	0, 0, 1
-#endif
         },
 };
 #endif
