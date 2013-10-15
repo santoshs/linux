@@ -253,6 +253,7 @@ static struct regulator_init_data d2153_ldo8 = {
 // LDO9
 __weak struct regulator_consumer_supply d2153_ldo9_supplies[] = {
 	REGULATOR_SUPPLY("vlcd_1v8", NULL),	// VLDO_1V8
+	REGULATOR_SUPPLY("vtsp_1v8", NULL),     // vtsp_1v8
 };
 
 static struct regulator_init_data d2153_ldo9 = {
