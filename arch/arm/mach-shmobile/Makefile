@@ -121,8 +121,6 @@ obj-$(CONFIG_U2_SDHI)	+= setup-u2sdhi.o
 
 # gpio_key and keysc
 obj-$(CONFIG_U2_GPIOKEY)	+= setup-u2gpio_key.o
-# setup-u2tps80032
-obj-$(CONFIG_PMIC_INTERFACE)	+= setup-u2tps80032.o
 # WiFi objects
 obj-$(CONFIG_ARCH_SHMOBILE)	+= dev-wifi.o
 

@@ -134,8 +134,6 @@ source "drivers/hwspinlock/Kconfig"
 
 source "drivers/clocksource/Kconfig"
 
-source "drivers/pmic/Kconfig"
-
 source "drivers/iommu/Kconfig"
 
 source "drivers/remoteproc/Kconfig"

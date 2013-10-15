@@ -753,6 +753,93 @@ static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attrib
 
 #endif
 
+#if defined(CONFIG_EOS2_RMTA_CTRL)
+static ssize_t charging_status_show(struct kobject *kobj,
+					struct kobj_attribute *attr, char *buf)
+{
+	int ret = 0;
+	struct power_supply *ps;
+	union power_supply_propval value;
+	struct spa_power_desc *spa_power_iter = g_spa_power;
+	printk(KERN_INFO "%s called\n", __func__);
+	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
+	ret = ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
+	if (ret != 0)
+		return sprintf(buf, "%d\n", ret);
+	else
+		return sprintf(buf, "%d\n", value.intval);
+}
+
+static ssize_t charging_status_store(struct kobject *kobj,
+		struct kobj_attribute  *attr,
+		const char *buf, size_t count)
+{
+	int charging_enable = 0, ret = 0;
+	struct power_supply *ps;
+	union power_supply_propval value;
+	struct spa_power_desc *spa_power_iter = g_spa_power;
+
+	sscanf(buf, "%d", &charging_enable);
+	printk(KERN_INFO "%s: Charging is forcefully %s\n", __func__,
+				charging_enable ? "enabled" : "disabled");
+
+	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
+	switch (charging_enable) {
+	case 0:
+		value.intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		ret = ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
+		break;
+	case 1:
+		value.intval = POWER_SUPPLY_STATUS_CHARGING;
+		ret = ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
+		break;
+	default:
+		break;
+	}
+	if (ret != 0)
+		printk(KERN_INFO "%s:set propery error\n", __func__);
+
+	return count;
+}
+
+static struct kobj_attribute charging_status_attribute = __ATTR(charging_status,
+		S_IRUGO | S_IWUSR, charging_status_show,
+		charging_status_store);
+
+static struct attribute *charger_attributes[] = {
+	&charging_status_attribute.attr,
+	NULL,
+};
+
+static const struct attribute_group charger_group = {
+	.attrs = charger_attributes,
+};
+
+static struct kobject *charger_kobj;
+static int rmta_sysfs_init(void)
+{
+	int retval;
+
+	printk(KERN_INFO "Creating charger sysfs entries ... ");
+	charger_kobj = kobject_create_and_add("rmta_control", kernel_kobj);
+	if (!charger_kobj) {
+		printk(KERN_ERR"[FAILED]\n");
+		return -ENOMEM;
+	}
+
+	retval = sysfs_create_group(charger_kobj, &charger_group);
+	if (retval)
+		kobject_put(charger_kobj);
+	return retval;
+}
+
+static void rmta_sysfs_exit(void)
+{
+	kobject_put(charger_kobj);
+}
+
+#endif
+
 #if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
 static void spa_back_charging_work(struct work_struct *work)
 {
@@ -2105,11 +2192,18 @@ static int __init spa_power_init(void)
 {
 	int ret = 0;
 	ret = platform_driver_register(&spa_power_driver);
+#ifdef CONFIG_EOS2_RMTA_CTRL
+	if (ret == 0)
+		ret = rmta_sysfs_init();
+#endif
 	return ret;
 }
 
 static void __exit spa_power_exit(void)
 {
+#ifdef CONFIG_EOS2_RMTA_CTRL
+	rmta_sysfs_exit();
+#endif
 	platform_driver_unregister(&spa_power_driver);
 }
 

@@ -668,14 +668,6 @@ config RMU2_CMT15
 	select FIQ
 	select FIQ_GLUE
 
-config EOS2_RMTA_CTRL
-	tristate "eos2_rmta_ctrl"
-	help
-        This enables the sysfs entry under /sys/kernel/rmta_control.
-
-        It can be used to echo appropriate values to charging_status variable.
-        0 indicates charging diabled, 1 indicates charging enabled.
-
 config RWDT_CMT15_TEST
 	bool "CMT15 Test"
 	default n

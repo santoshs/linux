@@ -23,7 +23,6 @@
 #include <mach/r8a7373.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
-#include <linux/pmic/pmic-ncp6914.h>
 #include <mach/common.h>
 #include <media/sh_mobile_csi2.h>
 #include <media/sh_mobile_rcu.h>

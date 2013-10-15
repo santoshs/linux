@@ -17,7 +17,6 @@
 #include <linux/gpio_keys.h>
 #include <linux/usb/r8a66597.h>
 #include <mach/setup-u2usb.h>
-#include <linux/mfd/tps80031.h>
 #include <linux/dma-mapping.h>
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
@@ -407,11 +406,7 @@ static struct r8a66597_platdata usbhs_func_data = {
 	.on_chip	= 1,
 	.buswait	= 5,
 	.max_bufnum	= 0xff,
-#ifdef CONFIG_PMIC_INTERFACE
-	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS,
-#else  /* CONFIG_PMIC_INTERFACE */
-	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
-#endif /* CONFIG_PMIC_INTERFACE */
+	.vbus_irq	= ENT_TPS80031_IRQ_BASE,
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
 	.usb_gpio_setting_info  = r8a66597_gpio_setting_info,
 	.dmac		= 1,
@@ -466,12 +461,6 @@ struct platform_device usbhs_func_device = {
 #ifdef CONFIG_USB_R8A66597_HCD
 static void usb_host_port_power(int port, int power)
 {
-#ifdef CONFIG_PMIC_INTERFACE
-	if (power)
-		pmic_set_vbus(1);
-	else
-		pmic_set_vbus(0);
-#endif
 	return;
 }
 static struct r8a66597_platdata usb_host_data = {
