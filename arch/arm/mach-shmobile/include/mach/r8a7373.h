@@ -488,9 +488,6 @@ void cpg_init_sbsc_clock_change(struct shared_area *sh);
 
 void cpg_set_lpclkcr_mode(u32 mode);
 
-#define R8A7373_IRQC_BASE       512
-#define R8A7373_IRQC_IRQ(irq)   ((irq) + R8A7373_IRQC_BASE)
-
 struct r8a7373_pm_domain {
        struct generic_pm_domain genpd;
        struct dev_power_governor *gov;

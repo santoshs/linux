@@ -16,12 +16,6 @@
 #define IRQPIN_BASE		2000
 #define irq_pin(nr)		((nr) + IRQPIN_BASE)
 
-#ifdef CONFIG_ARCH_R8A7373
-/* IRQ pin */
-#define IRQPIN_IRQ_BASE		512
-#define irqpin2irq(nr)		(int)(IRQPIN_IRQ_BASE + (nr))
-#endif
-
 #define FIQ_START	0
 
 #endif /* __ASM_MACH_IRQS_H */

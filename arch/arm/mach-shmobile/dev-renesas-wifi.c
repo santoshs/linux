@@ -186,8 +186,8 @@ static int u2_wifi_power(int on)
 static struct resource bcmdhd_res[] = {
 	{
 	.name = "bcmdhd_wlan_irq",
-	.start = irqpin2irq(42),
-	.end = irqpin2irq(42),
+	.start = irq_pin(42),
+	.end = irq_pin(42),
 	.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
 	}
 };

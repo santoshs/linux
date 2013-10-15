@@ -20,7 +20,6 @@
 #include <mach/common.h>
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
-#include <linux/sh_intc.h>
 #define IRQC0_INTREQ_STS0	(IRQC0_BASE + 0x000)	/* R */
 #define IRQC0_INTEN_STS0	(IRQC0_BASE + 0x004)	/* R/WC1 */
 #define IRQC0_INTEN_SET0	(IRQC0_BASE + 0x008)	/* W */
@@ -39,7 +38,7 @@
 
 static void irqc_irq_mask(struct irq_data *d)
 {
-	u32 irqpin = d->irq - R8A7373_IRQC_BASE;
+	u32 irqpin = d->irq - IRQPIN_BASE;
 	void __iomem *reg;
 
 	reg = (irqpin >= 32) ? IRQC1_INTEN_STS0 : IRQC0_INTEN_STS0;
@@ -48,7 +47,7 @@ static void irqc_irq_mask(struct irq_data *d)
 
 static void irqc_irq_unmask(struct irq_data *d)
 {
-	u32 irqpin = d->irq - R8A7373_IRQC_BASE;
+	u32 irqpin = d->irq - IRQPIN_BASE;
 	void __iomem *reg;
 
 	reg = (irqpin >= 32) ? IRQC1_INTEN_SET0 : IRQC0_INTEN_SET0;
@@ -57,7 +56,7 @@ static void irqc_irq_unmask(struct irq_data *d)
 
 static void irqc_irq_ack(struct irq_data *d)
 {
-	u32 irqpin = d->irq - R8A7373_IRQC_BASE;
+	u32 irqpin = d->irq - IRQPIN_BASE;
 	void __iomem *reg;
 
 	reg = (irqpin >= 32) ? IRQC1_DETECT_STATUS : IRQC0_DETECT_STATUS;
@@ -66,7 +65,7 @@ static void irqc_irq_ack(struct irq_data *d)
 
 static int irqc_set_irq_type(struct irq_data *d, unsigned int type)
 {
-	u32 irqpin = d->irq - R8A7373_IRQC_BASE;
+	u32 irqpin = d->irq - IRQPIN_BASE;
 	u32 __iomem *reg;
 	struct irq_chip *chip = irq_get_chip(d->irq);
 
@@ -105,7 +104,7 @@ static int irqc_set_irq_type(struct irq_data *d, unsigned int type)
 
 static int irqc_set_irq_wake(struct irq_data *d, unsigned int on)
 {
-	u32 irqpin = d->irq - R8A7373_IRQC_BASE;
+	u32 irqpin = d->irq - IRQPIN_BASE;
 	void __iomem *reg;
 
 	if (on)
@@ -129,7 +128,7 @@ static struct irq_chip irqc_chip = {
 static void irqc_demux(unsigned int irq, struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_get_chip(irq);
-	u32 irqpin_irq = R8A7373_IRQC_BASE + irq - gic_spi(0);
+	u32 irqpin_irq = IRQPIN_BASE + irq - gic_spi(0);
 
 	chained_irq_enter(chip, desc);
 	generic_handle_irq(irqpin_irq);
@@ -158,14 +157,14 @@ static void setup_irqc_irq(void)
 		irqc1++;
 	}
 
-	ret = irq_alloc_descs(R8A7373_IRQC_BASE, R8A7373_IRQC_BASE, 64, -1);
-	if (ret != R8A7373_IRQC_BASE) {
+	ret = irq_alloc_descs(IRQPIN_BASE, IRQPIN_BASE, 64, -1);
+	if (ret != IRQPIN_BASE) {
 		pr_err("IRQC: unable to allocate 64 irqs: %d\n", ret);
 		return;
 	}
 	pr_info("IRQC: Providing IRQ%u-%u\n", ret, ret + 63);
 
-	for (i = R8A7373_IRQC_BASE; i < R8A7373_IRQC_BASE + 64; i++) {
+	for (i = IRQPIN_BASE; i < IRQPIN_BASE + 64; i++) {
 		irq_set_chip_and_handler_name(i, &irqc_chip, handle_level_irq, "level");
 		set_irq_flags(i, IRQF_VALID);
 	}
@@ -183,7 +182,7 @@ int r8a7373_irqc_set_debounce(int irq, unsigned debounce)
 	u32 val, interval, count;
 	u32 __iomem *reg;
 
-	irq -= R8A7373_IRQC_BASE;
+	irq -= IRQPIN_BASE;
 	if (irq > 63)
 		return -ENOSYS;
 

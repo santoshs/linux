@@ -38,7 +38,7 @@ static struct i2c_client *tsp_detector_i2c_client;
 static struct i2c_board_info i2c4_devices_melfas[] = {
 	{
 		I2C_BOARD_INFO("sec_touch", 0x48),
-		.irq = irqpin2irq(32),
+		.irq = irq_pin(32),
 	},
 };
 #endif
@@ -46,14 +46,14 @@ static struct i2c_board_info i2c4_devices_melfas[] = {
 static struct i2c_board_info i2c4_devices_imagis[] = {
 	{
 		I2C_BOARD_INFO("IST30XX", 0xA0>>1),
-		.irq = irqpin2irq(32),
+		.irq = irq_pin(32),
 	},
 };
 
 static struct i2c_board_info i2c4_devices_zinitix[] = {
 	{
 		I2C_BOARD_INFO("zinitix_touch", 0x20),
-		.irq = irqpin2irq(32),
+		.irq = irq_pin(32),
 	},
 };
 

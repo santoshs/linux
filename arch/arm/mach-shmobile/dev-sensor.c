@@ -177,7 +177,7 @@ static struct gp2ap002_platform_data gp2ap002_platform_data = {
 	.power_on = gp2ap002_power_onoff,
 	.led_on = gp2ap002_led_onoff,
 	.irq_gpio = PROXI_INT_GPIO_PIN,
-	.irq = irqpin2irq(47),
+	.irq = irq_pin(47),
 };
 #endif
 
@@ -234,7 +234,7 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 	{
 		I2C_BOARD_INFO("mpu6050_input", 0x68),
 		.platform_data = &mpu6k_pdata,
-		.irq =  irqpin2irq(46),
+		.irq =  irq_pin(46),
 	},
 #endif
 
@@ -242,7 +242,7 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 	{
 		I2C_BOARD_INFO("mpu6500_input", 0x62), /*dummy address*/
 		.platform_data = &mpu6k_pdata,
-		.irq =  irqpin2irq(46),
+		.irq =  irq_pin(46),
 	},
 #endif
 
@@ -299,7 +299,7 @@ static struct atsn10p_platform_data atsn10p_pdata = {
 static struct i2c_board_info __initdata i2c0_devices[] = {
 	{
 		I2C_BOARD_INFO("atsn01p", 0x48 >> 1),
-		.irq = irqpin2irq(63),
+		.irq = irq_pin(63),
 		.platform_data = &atsn10p_pdata,
 	},
 };

@@ -108,7 +108,7 @@ static struct pn547_i2c_platform_data PN547_pdata = {
 struct i2c_board_info PN547_info[] __initdata = {
 {
 	I2C_BOARD_INFO("pn547", 0x2b),
-	.irq = irqpin2irq(NFC_IRQ_GPIO),
+	.irq = irq_pin(NFC_IRQ_GPIO),
 	.platform_data = &PN547_pdata,
  	},
 };

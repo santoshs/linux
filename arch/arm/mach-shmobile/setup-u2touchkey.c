@@ -90,7 +90,7 @@ static struct i2c_board_info i2c_touchkey[] = {
 	{
 		I2C_BOARD_INFO("sec_touchkey", 0x20),
 		.platform_data = &touchkey_pdata,
-		.irq = R8A7373_IRQC_IRQ(43),
+		.irq = irq_pin(43),
 	},
 
 };

@@ -34,7 +34,7 @@ static struct pn544_i2c_platform_data pn544_pdata = {
 static struct i2c_board_info pn544_info[] __initdata = {
 	{
 		I2C_BOARD_INFO("pn544", 0x2b),
-		.irq = irqpin2irq(NFC_IRQ_GPIO),
+		.irq = irq_pin(NFC_IRQ_GPIO),
 		.platform_data = &pn544_pdata,
 	},
 };

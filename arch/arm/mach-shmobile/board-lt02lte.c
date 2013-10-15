@@ -272,7 +272,7 @@ static struct i2c_board_info __initdata i2c0_devices_d2153[] = {
 		/* for D2153 PMIC driver */
 		I2C_BOARD_INFO("d2153", D2153_PMIC_I2C_ADDR),
 		.platform_data = &d2153_pdata,
-		.irq = irqpin2irq(28),
+		.irq = irq_pin(28),
 	},
 #endif /* CONFIG_MFD_D2153 */
 };
@@ -300,20 +300,20 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 	{
 		I2C_BOARD_INFO(MUIC_NAME, MUIC_I2C_ADDRESS),
 			.platform_data = NULL,
-			.irq		   = R8A7373_IRQC_IRQ(GPIO_MUS_INT),
+			.irq		   = irq_pin(GPIO_MUS_INT),
 	},
 #endif
 #if defined(CONFIG_CHARGER_SMB328A)
 	{
 		I2C_BOARD_INFO("smb328a", SMB327B_ADDRESS),
-		.irq            = irqpin2irq(GPIO_CHG_INT),
+		.irq            = irq_pin(GPIO_CHG_INT),
 	},
 #endif
 #if defined(CONFIG_RT8973)
 	{
 		I2C_BOARD_INFO("rt8973", 0x28>>1),
 		.platform_data = NULL,
-		.irq = irqpin2irq(GPIO_MUS_INT),
+		.irq = irq_pin(GPIO_MUS_INT),
 	},
 #endif
 #if defined(CONFIG_STC3115_FUELGAUGE)
@@ -325,7 +325,7 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 #if defined(CONFIG_CHARGER_SMB358)
 	{
 		I2C_BOARD_INFO("smb358", CHARGER_I2C_SLAVE_ADDRESS),
-		.irq            = irqpin2irq(GPIO_CHG_INT),
+		.irq            = irq_pin(GPIO_CHG_INT),
 	},
 #endif
 };
@@ -338,7 +338,7 @@ static struct platform_device *plat_devices[] __initdata = {
 static struct i2c_board_info i2c4_devices_zinitix[] = {
 	{
 		I2C_BOARD_INFO("zinitix_touch", 0x40>>1),
-		.irq = irqpin2irq(32),
+		.irq = irq_pin(32),
 	},
 };
 
@@ -520,7 +520,7 @@ static void __init board_init(void)
 		gpio_request(GPIO_PORT327, NULL);
 		gpio_direction_input(GPIO_PORT327);
 		gpio_pull_off_port(GPIO_PORT327);
-		irq_set_irq_type(irqpin2irq(50), IRQ_TYPE_EDGE_BOTH);
+		irq_set_irq_type(irq_pin(50), IRQ_TYPE_EDGE_BOTH);
 		gpio_set_debounce(GPIO_PORT327, 1000);	/* 1msec */
 		gpio_free(GPIO_PORT327);
 		gpio_request(GPIO_FN_SDHICD0, NULL);
@@ -567,7 +567,7 @@ static void __init board_init(void)
 	gpio_pull_up_port(GPIO_PORT28);
 
 #if defined(CONFIG_MFD_D2153)
-	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
+	irq_set_irq_type(irq_pin(28), IRQ_TYPE_LEVEL_LOW);
 #endif /* CONFIG_MFD_D2153 */
 
 
