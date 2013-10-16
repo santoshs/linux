@@ -120,7 +120,7 @@
 #define SD_CLK_CMD_DELAY   200     /* microseconds */
 static unsigned int wakeup_from_suspend_sd;
 
-unsigned int check_booting;
+static unsigned int check_booting;
 
 /* sdcard1_detect_state variable used to detect the state of the SD card */
 static int sdcard1_detect_state;
@@ -463,15 +463,15 @@ static void renesas_sdhi_data_done(
 	struct renesas_sdhi_host *host, struct mmc_command *cmd)
 {
 	struct mmc_data *data = host->data;
-	enum dma_transfer_direction dir;
+	enum dma_data_direction dir_data;
 	u32 val;
 
 	if (data) {
 		if (!host->force_pio) {
-			dir = (host->data->flags & MMC_DATA_READ) ?
-				DMA_DEV_TO_MEM : DMA_MEM_TO_DEV;
+			dir_data = (host->data->flags & MMC_DATA_READ) ?
+				DMA_FROM_DEVICE : DMA_TO_DEVICE;
 			dma_unmap_sg(mmc_dev(host->mmc), host->sg_ptr,
-						host->sg_len, dir);
+						host->sg_len, dir_data);
 		}
 		if (!host->data->error)
 			host->data->bytes_xfered = data->blocks * data->blksz;
@@ -914,7 +914,8 @@ static void renesas_sdhi_start_dma(
 	struct renesas_sdhi_host *host, struct mmc_data *data)
 {
 	struct scatterlist *sg = host->sg_ptr, *sg_tmp;
-	enum dma_transfer_direction dir;
+	enum dma_data_direction dir_data;
+	enum dma_transfer_direction dir_transfer;
 	int count, i;
 	struct dma_async_tx_descriptor *desc = NULL;
 	struct dma_chan *chan;
@@ -935,23 +936,26 @@ static void renesas_sdhi_start_dma(
 	sdhi_dma_enable(host, true);
 
 	if (data->flags & MMC_DATA_READ) {
-		dir = DMA_DEV_TO_MEM;
+		dir_data = DMA_FROM_DEVICE;
+		dir_transfer = DMA_DEV_TO_MEM;
 		chan = host->dma_rx;
 	} else {
-		dir = DMA_MEM_TO_DEV;
+		dir_data = DMA_TO_DEVICE;
+		dir_transfer = DMA_MEM_TO_DEV;
 		chan = host->dma_tx;
 	}
 
 	if (host->pdata->flags & RENESAS_SDHI_DMA_SLAVE_CONFIG)
 		renesas_sdhi_config_dma(host, sg->length, sg->offset);
 
-	count = dma_map_sg(chan->device->dev, data->sg, data->sg_len, dir);
+	count = dma_map_sg(chan->device->dev, data->sg, data->sg_len, dir_data);
 	if (count <= 0) {
 		dev_err(&host->pdev->dev, "%s(): dma_map_sg error\n", __func__);
 		goto force_pio;
 	}
 
-	desc = dmaengine_prep_slave_sg(chan, data->sg, count, dir, DMA_CTRL_ACK);
+	desc = dmaengine_prep_slave_sg(chan, data->sg, count,
+					dir_transfer, DMA_CTRL_ACK);
 	if (desc) {
 		desc->callback = renesas_sdhi_dma_callback;
 		desc->callback_param = host;
@@ -1581,7 +1585,7 @@ static int __devexit renesas_sdhi_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 #define CHANNEL_SDHI1	1
 #define OFF		0
-int renesas_sdhi_suspend(struct device *dev)
+static int renesas_sdhi_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
@@ -1619,7 +1623,7 @@ int renesas_sdhi_suspend(struct device *dev)
 	return ret;
 }
 
-int renesas_sdhi_resume(struct device *dev)
+static int renesas_sdhi_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
