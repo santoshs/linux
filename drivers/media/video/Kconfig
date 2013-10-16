@@ -1144,6 +1144,24 @@ config SOC_CAMERA_OV5645_TUNING
 	  The LED flash has been implemented in the driver
 	  Added new function to support exp time
 
+config SOC_CAMERA_HM2056
+        tristate "hm2056 camera support"
+        depends on SOC_CAMERA && I2C
+        help
+          This driver supports HM2056 cameras from Omnivision
+          This supports auto focus
+          The LED flash has been implemented in the driver
+          Added new function to support exp time
+
+config SOC_CAMERA_HM2056_TUNING
+        tristate "hm2056 tuning support"
+        depends on SOC_CAMERA_HM2056 && I2C
+        help
+          This driver supports HM2056 tuning cameras from Omnivision
+          This supports auto focus
+          The LED flash has been implemented in the driver
+          Added new function to support exp time
+
 config MX1_VIDEO
 	bool
 

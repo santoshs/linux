@@ -46,5 +46,8 @@ int SR130PC20_power(struct device *dev, int power_on);
 #if defined(CONFIG_SOC_CAMERA_OV5645)
 int OV5645_power(struct device *dev, int power_on);
 #endif
+#if defined(CONFIG_SOC_CAMERA_OV5645)
+int HM2056_power(struct device *dev, int power_on);
+#endif
 
 #endif /* __ASM_ARCH_CAMERA_H */
