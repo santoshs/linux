@@ -472,7 +472,6 @@ config BCM4334_BT
 
 config BCM4330_MODULE
         bool "Enable BCM4330 driver on Renesas Baseband"
-        depends on (BOARD_VERSION_LOGANLTE || BOARD_VERSION_AMETHYST)
  	default y
 
 config BT_BCM43241
