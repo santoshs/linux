@@ -38,9 +38,6 @@
 #include <mach/poweroff.h>
 #include <mach/sbsc.h>
 
-#include <linux/platform_data/leds-renesas-tpu.h>
-#include <linux/tpu_pwm.h>
-#include <linux/tpu_pwm_board.h>
 #include<linux/led_backlight-cntrl.h>
 
 #ifdef CONFIG_MFD_D2153
@@ -49,7 +46,6 @@
 #include <linux/d2153/d2153_battery.h>
 #endif
 #include <mach/dev-wifi.h>
-#include <linux/ktd259b_bl.h>
 #include <mach/setup-u2spa.h>
 #include <mach/setup-u2vibrator.h>
 #include <linux/proc_fs.h>
@@ -168,16 +164,6 @@ static int proc_read_board_rev(char *page, char **start, off_t off,
 	return count;
 }
 
-static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
-	.gpio_port = GPIO_PORT47,
-};
-
-static struct platform_device led_backlight_device = {
-	.name = "ktd253ehd_led",
-	.dev  = {
-		.platform_data  = &ktd253ehd_led_info,
-	},
-};
 
 #if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
 #define BCMBT_VREG_GPIO       (GPIO_PORT268)
@@ -291,52 +277,15 @@ static struct i2c_board_info __initdata i2c0_devices_d2153[] = {
 #endif /* CONFIG_MFD_D2153 */
 };
 
-static struct platform_led_backlight_data led_backlight_data_1 = {
+static struct platform_led_backlight_data led_backlight_data = {
         .max_brightness = 255,
 };
 
-static struct platform_device led_backlight_device_1 = {
+static struct platform_device led_backlight_device = {
 	.name = "panel",
 	.id   = -1,
 	.dev  = {
-                .platform_data = &led_backlight_data_1,
-        },
-};
-
-static struct led_renesas_tpu_config led_renesas_tpu30_pdata = {
-        .name           = "LCD_BACKLIGHT_LED",
-        .pin_gpio_fn    = GPIO_FN_TPU0TO3,
-        .pin_gpio       = GPIO_PORT163,
-        .channel_offset = 0x10,
-        .timer_bit = 0,
-        .max_brightness = 1000,
-};
-
-static struct resource tpu30_resources[] = {
-        [0] = {
-                .name   = "TPU30",
-                .start  = 0xe6630010,
-                .end    = 0xe6630035,
-                .flags  = IORESOURCE_MEM,
-        },
-};
-
-static struct platform_device leds_tpu30_device = {
-        .name = "leds-renesas-tpu",
-        .id = 30,
-        .dev = {
-                .platform_data  = &led_renesas_tpu30_pdata,
-        },
-        .num_resources  = ARRAY_SIZE(tpu30_resources),
-        .resource       = tpu30_resources,
-};
-
-
-static struct platform_device bcm_backlight_devices = {
-	.name = "panel",
-	.id   = -1,
-	.dev  = {
-		.platform_data = &leds_tpu30_device,
+		.platform_data = &led_backlight_data,
 	},
 };
 
@@ -397,26 +346,6 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 #endif
 
 };
-
-/* Rhea Ray specific platform devices */
-static struct platform_device *plat_devices[] __initdata = {
-	&bcm_backlight_devices,
-};
-
-#if 0
-static struct led_regulator_platform_data key_backlight_data = {
-	.name   = "button-backlight",
-};
-
-static struct platform_device key_backlight_device = {
-	.name = "leds-regulator",
-	.id   = 0,
-	.dev  = {
-		.platform_data = &key_backlight_data,
-	},
-};
-#endif
-
 
 static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
@@ -698,9 +627,6 @@ static void __init board_init(void)
 #endif
 
 	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
-	platform_add_devices(plat_devices,
-					ARRAY_SIZE(plat_devices));
-	platform_device_register(&led_backlight_device_1);
 	/* PA devices init */
 	spa_init();
 	vibrator_init(u2_board_rev);

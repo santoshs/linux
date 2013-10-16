@@ -43,7 +43,6 @@
 static int  set_backlight_brightness(struct backlight_device *bd);
 static int control_led_backlight(int value);
 static __init int led_dev_init(void);
-extern int tpu_status(void);
 /* Macro */
 
 #define TPU_CHANNEL "TPU0TO3"
@@ -53,10 +52,6 @@ extern int tpu_status(void);
 #define CLK_SOURCE_CP_DIV4 1 /* CP/4 */
 #define CLK_SOURCE_CP_DIV16 2 /* CP/16 */
 #define CLK_SOURCE_CP_DIV64 3 /* CP/64 */
-
-static void tpu_work_handler(struct work_struct *work);
-static struct workqueue_struct *wq = 0;
-static DECLARE_DELAYED_WORK(tpu_work, tpu_work_handler);
 
 /* Global variables */
 static struct wake_lock wakelock;
@@ -140,32 +135,15 @@ static struct backlight_ops led_backlight_ops = {
         .update_status  = set_backlight_brightness,
 };
 
-/* tpu_work_handler mangeing a backlight controle*/
-static void tpu_work_handler(struct work_struct *work)
-{
-	int ret = tpu_status();
-	int onesec = 0;
-	printk(" : tpu work handler for lcd back light\n");
-	if(ret == 1)
-		control_led_backlight(backlight_brightness);
-	else
-	{
-		onesec = msecs_to_jiffies(200);
-		queue_delayed_work(wq, &tpu_work, onesec);
-	}
-}
-
 /*probe*/
 static int __init led_probe(struct platform_device *pdev)
 {
 	struct platform_led_backlight_data *data = pdev->dev.platform_data;      
 	struct backlight_device *bl;
         struct backlight_properties props;
-	static unsigned long onesec;
 	memset(&props, 0, sizeof(struct backlight_properties));
         props.max_brightness = data->max_brightness;
         props.type = BACKLIGHT_PLATFORM;
-
 	bl = backlight_device_register(pdev->name, &pdev->dev,
 			pdev, &led_backlight_ops, &props);
         if (IS_ERR(bl)) {
@@ -174,9 +152,7 @@ static int __init led_probe(struct platform_device *pdev)
         }
 	bl->props.max_brightness = data->max_brightness;
 	platform_set_drvdata(pdev, bl);
-	onesec = msecs_to_jiffies(200);
-        wq = create_singlethread_workqueue("tpu_work_queue");
-        queue_delayed_work(wq, &tpu_work, onesec);
+	control_led_backlight(backlight_brightness);
 	return 0;
 }
 
@@ -197,10 +173,11 @@ static struct platform_driver led_drv = {
  */
 static __init int led_dev_init(void)
 {
+	printk(" led_init\n");
 	wake_lock_init(&wakelock, WAKE_LOCK_SUSPEND, "led_wakelock");
 	return platform_driver_probe(&led_drv, led_probe);
 }
 
-module_init(led_dev_init);
+late_initcall(led_dev_init);
 MODULE_DESCRIPTION("led device");
 MODULE_LICENSE("GPL");

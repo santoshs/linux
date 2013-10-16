@@ -160,14 +160,11 @@ static void pwm_create_debug_if(void);
 static void pwm_delete_debug_if(void);
 #endif	/* DEBUG_PWM */
 
-int tpu_status(void);
-
 /* Global variable */
 static struct workqueue_struct *tpu_work_queue;
 static struct wake_lock tpu_wakelock;
 static int tpu_suspend_state;
 static int tpu_open_counter;
-int tpu_status_val;
 
 static struct tpu_platdevice tpu_platform_device[TPU_MODULE_MAX] = {
 	[TPU_MODULE_0] = {
@@ -220,13 +217,6 @@ static struct tpu_device_info device_info[] = {
 		.dev_state = TPU_DEVICE_DISABLE,
 	},
 };
-
-/* send a tpu status to lcd */
-int tpu_status(void)
-{
-	return tpu_status_val;
-} 
-EXPORT_SYMBOL(tpu_status);
 
 /*
 * add_to_workqueue: Top-half processing of work-queue(This function will select corresponding function then add to work queue).
@@ -942,7 +932,6 @@ static int tpu_probe(struct platform_device *pdev)
 	tpu_platform_device[pdev->id].pdev = pdev;
 	platform_set_drvdata(pdev, &tpu_platform_device[pdev->id]);
 	pm_runtime_enable(&pdev->dev);
-	tpu_status_val = 1;
 	return 0;
 }
 
