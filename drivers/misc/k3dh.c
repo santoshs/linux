@@ -59,9 +59,7 @@
 #define ACC_ENABLED 1
 
  /* For movement recognition*/
-#if defined(CONFIG_MACH_LOGANLTE) ||  defined(CONFIG_MACH_AMETHYST)
 #define USES_MOVEMENT_RECOGNITION
-#endif
 
 #if defined(USES_MOVEMENT_RECOGNITION)
 #define DEFAULT_CTRL3_SETTING		0x60 /* INT enable */

@@ -344,7 +344,7 @@ static int S5K4ECGX_s_ctrl(struct v4l2_ctrl *ctrl)
 	return 0;
 }
 
-struct v4l2_ctrl_ops S5K4ECGX_ctrl_ops = {
+static struct v4l2_ctrl_ops S5K4ECGX_ctrl_ops = {
 	.s_ctrl = S5K4ECGX_s_ctrl,
 };
 

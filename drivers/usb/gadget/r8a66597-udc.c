@@ -96,7 +96,7 @@ void usb_drv_str_read(unsigned char *val)
 	*val = __raw_readw(USB_SPRDAT);
 }
 
-void usb_drv_str_write(unsigned char *val)
+static void usb_drv_str_write(unsigned char *val)
 {
 	u8 value= *val;
 	__raw_writew(0x0000, USB_SPADDR);		/* set HSUSB.SPADDR */
@@ -105,7 +105,7 @@ void usb_drv_str_write(unsigned char *val)
 	__raw_writew(USB_SPWR, USB_SPCTRL);		/* set HSUSB.SPCTRL */
 	mdelay(1);
 }
-#endif //USB_DRVSTR_DBG
+#endif /* USB_DRVSTR_DBG */
 
 static void disable_controller(struct r8a66597 *r8a66597);
 static void irq_ep0_write(struct r8a66597_ep *ep, struct r8a66597_request *req);
@@ -2546,7 +2546,7 @@ static int r8a66597_vbus_draw(struct usb_gadget *gadget, unsigned mA)
 	return r8a66597_set_vbus_draw(gadget_to_r8a66597(gadget), mA);
 }
 
-void usb_reinitialize(struct r8a66597 *r8a66597)
+static void usb_reinitialize(struct r8a66597 *r8a66597)
 {
 	u16 bwait = r8a66597->pdata->buswait ? : 0xf;
 	udc_log("%s: \n", __func__);

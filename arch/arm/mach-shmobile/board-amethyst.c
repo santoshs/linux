@@ -90,9 +90,9 @@
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 #include <linux/nfc/pn547.h>
 #endif
-#if defined(CONFIG_SAMSUNG_SENSOR)
+
 #include <mach/dev-sensor.h>
-#endif
+
 #if defined(CONFIG_BCMI2CNFC) || defined(CONFIG_PN547_NFC)  || defined(CONFIG_NFC_PN547)
 #include <mach/dev-nfc.h>
 #endif
@@ -115,42 +115,30 @@
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinconf-generic.h>
 
-static int unused_gpios_logan_rev1[] = {
-				GPIO_PORT4, GPIO_PORT27, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
-				GPIO_PORT140, GPIO_PORT141, GPIO_PORT142, GPIO_PORT198,
-				GPIO_PORT200, GPIO_PORT201, GPIO_PORT219, GPIO_PORT224,
-				GPIO_PORT225, GPIO_PORT226, GPIO_PORT227, GPIO_PORT228,
-				GPIO_PORT229, GPIO_PORT230, GPIO_PORT231, GPIO_PORT232,
-				GPIO_PORT233, GPIO_PORT234, GPIO_PORT235, GPIO_PORT236,
-				GPIO_PORT237, GPIO_PORT238, GPIO_PORT239, GPIO_PORT240,
-				GPIO_PORT241, GPIO_PORT242, GPIO_PORT243, GPIO_PORT244,
-				GPIO_PORT245, GPIO_PORT246, GPIO_PORT247, GPIO_PORT248,
-				GPIO_PORT249, GPIO_PORT250, GPIO_PORT251, GPIO_PORT252,
-				GPIO_PORT253, GPIO_PORT254, GPIO_PORT255, GPIO_PORT256,
-				GPIO_PORT257, GPIO_PORT258, GPIO_PORT259, GPIO_PORT271,
-				GPIO_PORT275, GPIO_PORT276, GPIO_PORT277, GPIO_PORT294,
-				GPIO_PORT295, GPIO_PORT296, GPIO_PORT297, GPIO_PORT298,
-				GPIO_PORT299, GPIO_PORT311, GPIO_PORT312, GPIO_PORT325
-};
-
-static int unused_gpios_logan_rev2[] = {
-				GPIO_PORT4, GPIO_PORT21, GPIO_PORT26, GPIO_PORT27, GPIO_PORT36,
-				GPIO_PORT44, GPIO_PORT46, GPIO_PORT86, GPIO_PORT87,
-				GPIO_PORT104, GPIO_PORT140, GPIO_PORT141, GPIO_PORT142,
-				GPIO_PORT198, GPIO_PORT199, GPIO_PORT200, GPIO_PORT201,
-				GPIO_PORT202, GPIO_PORT219, GPIO_PORT224, GPIO_PORT225,
-				GPIO_PORT226, GPIO_PORT227, GPIO_PORT228, GPIO_PORT229,
-				GPIO_PORT230, GPIO_PORT231, GPIO_PORT232, GPIO_PORT233,
-				GPIO_PORT234, GPIO_PORT235, GPIO_PORT236, GPIO_PORT237,
-				GPIO_PORT238, GPIO_PORT239, GPIO_PORT240, GPIO_PORT241,
-				GPIO_PORT242, GPIO_PORT243, GPIO_PORT244, GPIO_PORT245,
-				GPIO_PORT246, GPIO_PORT247, GPIO_PORT248, GPIO_PORT249,
-				GPIO_PORT250, GPIO_PORT251, GPIO_PORT252, GPIO_PORT253,
-				GPIO_PORT254, GPIO_PORT255, GPIO_PORT256, GPIO_PORT257,
-				GPIO_PORT258, GPIO_PORT259, GPIO_PORT271, GPIO_PORT275,
-				GPIO_PORT276, GPIO_PORT277, GPIO_PORT294, GPIO_PORT295,
-				GPIO_PORT296, GPIO_PORT297, GPIO_PORT298, GPIO_PORT299,
-				GPIO_PORT311, GPIO_PORT312, GPIO_PORT325,
+static int unused_gpios_amethyst[] = {
+	GPIO_PORT3, GPIO_PORT6, GPIO_PORT8, GPIO_PORT10,
+	GPIO_PORT14, GPIO_PORT17, GPIO_PORT18, GPIO_PORT23,
+	GPIO_PORT26, GPIO_PORT29, GPIO_PORT33, GPIO_PORT34,
+	GPIO_PORT35, GPIO_PORT36, GPIO_PORT80, GPIO_PORT81,
+	GPIO_PORT82, GPIO_PORT83, GPIO_PORT86, GPIO_PORT87,
+	GPIO_PORT88, GPIO_PORT89, GPIO_PORT219, GPIO_PORT90,
+	GPIO_PORT275, GPIO_PORT276, GPIO_PORT277, GPIO_PORT311,
+	GPIO_PORT312, GPIO_PORT140, GPIO_PORT198, GPIO_PORT199,
+	GPIO_PORT200, GPIO_PORT201, GPIO_PORT271, GPIO_PORT294,
+	GPIO_PORT295, GPIO_PORT296, GPIO_PORT297, GPIO_PORT298,
+	GPIO_PORT299, GPIO_PORT44, GPIO_PORT46, GPIO_PORT47,
+	GPIO_PORT102, GPIO_PORT103, GPIO_PORT104, GPIO_PORT105,
+	GPIO_PORT325, GPIO_PORT72, GPIO_PORT73, GPIO_PORT74,
+	GPIO_PORT75, GPIO_PORT141, GPIO_PORT142, GPIO_PORT224,
+	GPIO_PORT225, GPIO_PORT226, GPIO_PORT227, GPIO_PORT228,
+	GPIO_PORT229, GPIO_PORT230, GPIO_PORT231, GPIO_PORT232,
+	GPIO_PORT233, GPIO_PORT234, GPIO_PORT235, GPIO_PORT236,
+	GPIO_PORT237, GPIO_PORT238, GPIO_PORT239, GPIO_PORT240,
+	GPIO_PORT241, GPIO_PORT242, GPIO_PORT243, GPIO_PORT244,
+	GPIO_PORT245, GPIO_PORT246, GPIO_PORT247, GPIO_PORT248,
+	GPIO_PORT249, GPIO_PORT250, GPIO_PORT251, GPIO_PORT252,
+	GPIO_PORT253, GPIO_PORT254, GPIO_PORT255, GPIO_PORT256,
+	GPIO_PORT257, GPIO_PORT258, GPIO_PORT259,
 };
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
@@ -475,13 +463,8 @@ static void __init board_init(void)
 	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 
 	/* Init unused GPIOs */
-	if (u2_board_rev <= BOARD_REV_0_1) {
-		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
-			unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
-	} else {
-		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev2); inx++)
-			unused_gpio_port_init(unused_gpios_logan_rev2[inx]);
-	}
+	for (inx = 0; inx < ARRAY_SIZE(unused_gpios_amethyst); inx++)
+		unused_gpio_port_init(unused_gpios_amethyst[inx]);
 
 	/* Bluetooth UART settings (ttySC4) */
 
@@ -505,7 +488,6 @@ static void __init board_init(void)
 	gpio_request(GPIO_FN_KEYIN1, NULL);
 	gpio_request(GPIO_FN_KEYIN2, NULL);
 	gpio_request(GPIO_FN_KEYIN3, NULL);
-	gpio_request(GPIO_FN_KEYIN4, NULL);
 	gpio_request(GPIO_FN_KEYIN5, NULL);
 	gpio_request(GPIO_FN_KEYIN6, NULL);
 
@@ -513,7 +495,6 @@ static void __init board_init(void)
 	gpio_pull_up_port(GPIO_PORT45);
 	gpio_pull_up_port(GPIO_PORT46);
 	gpio_pull_up_port(GPIO_PORT47);
-	gpio_pull_up_port(GPIO_PORT48);
 	gpio_pull_up_port(GPIO_PORT96);
 	gpio_pull_up_port(GPIO_PORT97);
 #endif
@@ -533,10 +514,6 @@ static void __init board_init(void)
 	/* Disable GPIO Enable at initialization */
 
 	/* ===== CWS GPIO ===== */
-
-#if defined(CONFIG_RENESAS_NFC)
-	nfc_gpio_init();
-#endif
 
 	gpio_direction_none_port(GPIO_PORT309);
 
@@ -646,12 +623,8 @@ static void __init board_init(void)
 	d2153_init_board_defaults();
 	i2c_register_board_info(0, i2c0_devices_d2153,
 					ARRAY_SIZE(i2c0_devices_d2153));
-/* GPS Init */
-#if defined(CONFIG_RENESAS_GPS)
-	gps_gpio_init();
-#endif
 
-#if defined(CONFIG_SAMSUNG_SENSOR)
+#if defined (CONFIG_AMETHYST_SENSOR)
 	board_sensor_init();
 #endif
 
@@ -733,6 +706,6 @@ MACHINE_START(U2EVM, "u2evm")
 	.init_machine   = board_init,
 	.init_time	= u2_timers_init,
 	.restart        = board_restart,
-	.reserve        = r8a7373_reserve
+	.reserve        = r8a7373_reserve,
 MACHINE_END
 #endif

@@ -164,7 +164,8 @@ obj-$(CONFIG_SAMSUNG_MHL)	+= dev-edid.o
 obj-$(CONFIG_SAMSUNG_MHL)	+= dev-mhl-sii8332.o
 
 # Sensor
-obj-$(CONFIG_SAMSUNG_SENSOR)	+= dev-sensor.o
+obj-$(CONFIG_AMETHYST_SENSOR)	+= dev-sensor.o
+obj-$(CONFIG_SAMSUNG_SENSOR)   += dev-sensor.o
 
 # rcu
 obj-$(CONFIG_VIDEO_SH_MOBILE_RCU) += setup-u2rcu.o

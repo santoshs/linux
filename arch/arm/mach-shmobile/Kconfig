@@ -591,6 +591,12 @@ config SAMSUNG_SENSOR
 	---help---
 	  support Samsung Sensor Driver
 
+config AMETHYST_SENSOR
+	bool "Enable Amethyst sensor Driver"
+	default n
+	--- help---
+	 support Amethyst sensor Driver
+
 config FLASH_MIC2871
 	bool "Enable MIC2871 driver"
 	default n

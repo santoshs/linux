@@ -44,6 +44,12 @@
 
 #define r8a66597_has_dmac(r8a66597)	(r8a66597->pdata->dmac)
 
+#if USB_DRVSTR_DBG
+void tusb_drive_event(int event, unsigned char *val);
+#endif
+
+void send_usb_insert_event(int isConnected);
+
 struct r8a66597_pipe_info {
 	u16	pipe;
 	u16	epnum;
