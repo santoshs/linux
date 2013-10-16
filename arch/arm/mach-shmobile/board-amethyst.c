@@ -37,6 +37,12 @@
 #include <mach/board-amethyst-config.h>
 #include <mach/poweroff.h>
 #include <mach/sbsc.h>
+
+#include <linux/platform_data/leds-renesas-tpu.h>
+#include <linux/tpu_pwm.h>
+#include <linux/tpu_pwm_board.h>
+#include<linux/led_backlight-cntrl.h>
+
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
@@ -151,6 +157,7 @@ static int unused_gpios_amethyst[] = {
 };
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
+
 
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
@@ -284,17 +291,52 @@ static struct i2c_board_info __initdata i2c0_devices_d2153[] = {
 #endif /* CONFIG_MFD_D2153 */
 };
 
-static struct platform_ktd259b_backlight_data bcm_ktd259b_backlight_data = {
-	.max_brightness = 255,
-	.dft_brightness = 143,
-	.ctrl_pin = 47,
+static struct platform_led_backlight_data led_backlight_data_1 = {
+        .max_brightness = 255,
 };
+
+static struct platform_device led_backlight_device_1 = {
+	.name = "panel",
+	.id   = -1,
+	.dev  = {
+                .platform_data = &led_backlight_data_1,
+        },
+};
+
+static struct led_renesas_tpu_config led_renesas_tpu30_pdata = {
+        .name           = "LCD_BACKLIGHT_LED",
+        .pin_gpio_fn    = GPIO_FN_TPU0TO3,
+        .pin_gpio       = GPIO_PORT163,
+        .channel_offset = 0x10,
+        .timer_bit = 0,
+        .max_brightness = 1000,
+};
+
+static struct resource tpu30_resources[] = {
+        [0] = {
+                .name   = "TPU30",
+                .start  = 0xe6630010,
+                .end    = 0xe6630035,
+                .flags  = IORESOURCE_MEM,
+        },
+};
+
+static struct platform_device leds_tpu30_device = {
+        .name = "leds-renesas-tpu",
+        .id = 30,
+        .dev = {
+                .platform_data  = &led_renesas_tpu30_pdata,
+        },
+        .num_resources  = ARRAY_SIZE(tpu30_resources),
+        .resource       = tpu30_resources,
+};
+
 
 static struct platform_device bcm_backlight_devices = {
 	.name = "panel",
 	.id   = -1,
 	.dev  = {
-		.platform_data = &bcm_ktd259b_backlight_data,
+		.platform_data = &leds_tpu30_device,
 	},
 };
 
@@ -657,7 +699,7 @@ static void __init board_init(void)
 	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	platform_add_devices(plat_devices,
 					ARRAY_SIZE(plat_devices));
-
+	platform_device_register(&led_backlight_device_1);
 	/* PA devices init */
 	spa_init();
 	vibrator_init(u2_board_rev);
