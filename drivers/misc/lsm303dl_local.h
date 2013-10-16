@@ -1,4 +1,4 @@
-/* include/linux/lsm303dl.h
+/* drivers/misc/lsm303dl_local.h
  *
  * Copyright (C) 2012 Renesas Mobile Corporation.
  *
@@ -25,14 +25,15 @@
 ************************************************/
 /*#define LSM303DL_LOG*/
 #ifdef LSM303DL_LOG
-	#define lsm303dl_log(fmt, ...)	printk(KERN_DEBUG "%s(%d): " \
+	#define lsm303dl_log(fmt, ...)	pr_debug("%s(%d): " \
 			fmt, __func__, __LINE__, ## __VA_ARGS__)
 #else
 	#define lsm303dl_log(x...) do { } while (0)
 #endif
 
-/*For debug only*/
-/*#define KOTA_ENV */
+#define lsm303dl_err(fmt, ...)  pr_err("%s(%d): " \
+			fmt, __func__, __LINE__, ## __VA_ARGS__)
+
 
 /************************************************
 *	Accelerometer definition section	    *
@@ -139,9 +140,13 @@
 #define LSM303DL_MAG_NAME			"lsm303dl_mag"
 
 /*interrupt enable_flag*/
-#define ACCEL_INTERRUPT_ENABLED			0
-#define MAG_HARD_IRON_CALIBRATION		1
-#define RUNTIME_PM				0
+/*#define ACCEL_INTERRUPT_ENABLED*/
+
+/*for magnetometer hard iron Caliration */
+#define MAG_HARD_IRON_CALIBRATION
+
+/* to enable runtime PM */
+/*#define RUNTIME_PM*/
 
 /************************************************
 *	Exported function definition section	*

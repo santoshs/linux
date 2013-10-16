@@ -110,6 +110,18 @@
 #include <linux/spa_power.h>
 #endif
 
+#if defined(CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)
+#include <linux/tmd2771.h>
+#endif
+
+#if defined(CONFIG_SENSOR_LSM303DL)
+#include <linux/lsm303dl.h>
+#endif
+
+#if defined(CONFIG_SENSOR_L3GD20)
+#include <linux/l3gd20.h>
+#endif
+
 #include <mach/sbsc.h>
 
 static int unused_gpios_amethyst[] = {
@@ -230,6 +242,36 @@ struct fm34_platform_data fm34_data = {
 	.gpio_bp = GPIO_PORT46,
 };
 
+#if defined(CONFIG_SENSOR_L3GD20)
+static struct lsm303dl_platform_data lsm303dl_platdata = {
+
+};
+#endif
+
+#if defined(CONFIG_SENSOR_LSM303DL)
+static struct platform_device lsm303dl_device = {
+	.name           = "lsm303dl",
+	.dev            = {
+	.platform_data  = &lsm303dl_platdata,
+	},
+};
+
+static struct lsm303dl_acc_port_info lsm303dl_acc_platdata = {
+	.lsm303dl_acc_port = GPIO_PORT110,
+};
+
+static struct lsm303dl_mag_port_info lsm303dl_mag_platdata = {
+	.lsm303dl_mag_port = GPIO_PORT109,
+};
+#endif
+
+#if defined(CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)
+static struct tmd2771_platform_data taos_platdata = {
+	.tmd2771_port = GPIO_PORT108,
+
+};
+#endif
+
 /* I2C */
 static struct i2c_board_info __initdata i2c0_devices_d2153[] = {
 #if defined(CONFIG_MFD_D2153)
@@ -254,6 +296,40 @@ static struct platform_device bcm_backlight_devices = {
 	.dev  = {
 		.platform_data = &bcm_ktd259b_backlight_data,
 	},
+};
+
+static struct i2c_board_info __initdata i2c2_devices[] = {
+
+#if defined(CONFIG_SENSOR_L3GD20)
+	{
+		I2C_BOARD_INFO("l3gd20", GYRO_SLAVE_ADDRESS),
+	},
+#endif
+
+#if defined(CONFIG_SENSOR_LSM303DL)
+	{
+		I2C_BOARD_INFO("lsm303dl_acc", ACC_SLAVE_ADDRESS),
+		.platform_data = &lsm303dl_acc_platdata,
+		.irq = R8A7373_IRQC_IRQ(ACC_INT),
+		.flags = IORESOURCE_IRQ | IRQ_TYPE_EDGE_FALLING,
+	},
+
+	{
+		I2C_BOARD_INFO("lsm303dl_mag", MAG_SLAVE_ADDRESS),
+		.platform_data = &lsm303dl_mag_platdata,
+		.irq = R8A7373_IRQC_IRQ(MAG_INT),
+		.flags = IORESOURCE_IRQ | IRQ_TYPE_EDGE_FALLING,
+	},
+#endif
+
+#if defined(CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)
+	{
+		I2C_BOARD_INFO("tmd2771", PROXIMITY_SLAVE_ADDRESS),
+		.platform_data = &taos_platdata,
+		.irq = R8A7373_IRQC_IRQ(ALS_INT),
+		.flags = IORESOURCE_IRQ | IRQ_TYPE_EDGE_FALLING,
+	},
+#endif
 };
 
 static struct i2c_board_info __initdata i2c3_devices[] = {
@@ -544,9 +620,11 @@ static void __init board_init(void)
 	i2c_register_board_info(0, i2c0_devices_d2153,
 					ARRAY_SIZE(i2c0_devices_d2153));
 
-#if defined (CONFIG_AMETHYST_SENSOR)
-	board_sensor_init();
+#if defined(CONFIG_SENSOR_L3GD20)
+	platform_device_register(&lsm303dl_device);
 #endif
+
+	i2c_register_board_info(2, i2c2_devices, ARRAY_SIZE(i2c2_devices));
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */

@@ -1,4 +1,4 @@
-/* drivers/sensor/accelerometer/lsm303dl/lsm303dl_i2c_acc.c
+/* drivers/misc/lsm303dl_i2c_acc.c
  *
  * Copyright (C) 2012 Renesas Mobile Corporation.
  *
@@ -30,13 +30,18 @@
 /************************************************
 *	Global variable definition section		*
 ************************************************/
-static struct lsm303dl_acc_data *lsm303dl_acc_info ;
-static struct i2c_client *acc_client ;
+static struct lsm303dl_acc_data *lsm303dl_acc_info;
+static struct i2c_client *acc_client;
+
+#if defined RUNTIME_PM
 static struct regulator *accm_regltr_18v;
 static struct regulator *accm_regltr_3v;
+#endif
 
 /* Hard-coded GPIO removal for accelerometer */
+#ifdef ACCEL_INTERRUPT_ENABLED
 static struct lsm303dl_acc_port_info *pinfo;
+#endif
 
 /*Output data rate looked-up table*/
 static const struct lsm303dl_output_rate odr_table_acc[] = {
@@ -90,7 +95,7 @@ static int lsm303dl_acc_i2c_read(u8 reg, u8 *val, int len)
 
 	/*Check input value*/
 	if ((NULL == val) || (NULL == acc_client)) {
-		printk("Read buffer is NULL\n");
+		lsm303dl_err("Read buffer is NULL\n");
 		return -EINVAL;
 	}
 
@@ -121,7 +126,7 @@ static int lsm303dl_acc_i2c_read(u8 reg, u8 *val, int len)
 	} while ((ret != 2) && (++tries < LSM303DL_I2C_RETRIES));
 
 	if (ret != 2) {
-		printk("Read transfer error\n");
+		lsm303dl_err("Read transfer error\n");
 		ret = -EIO;
 	} else {
 		ret = 0;
@@ -146,14 +151,14 @@ static int lsm303dl_acc_i2c_write(u8 reg, u8 *val, int len)
 
 	/*Check input value*/
 	if ((NULL == val) || (NULL == acc_client)) {
-		printk("Write buffer is NULL\n");
+		lsm303dl_err("Write buffer is NULL\n");
 		return -EINVAL;
 	}
 
 	/*Allocate internal buffer*/
 	data = kzalloc(len + 1, GFP_KERNEL);
 	if (NULL == data) {
-		printk("Allocate internal buffer error\n");
+		lsm303dl_err("Allocate internal buffer error\n");
 		return -EIO;
 	}
 
@@ -181,7 +186,7 @@ static int lsm303dl_acc_i2c_write(u8 reg, u8 *val, int len)
 	} while ((ret != 1) && (++tries < LSM303DL_I2C_RETRIES));
 
 	if (ret != 1) {
-		printk("Write transfer error\n");
+		lsm303dl_err("Write transfer error\n");
 		ret = -EIO;
 	} else {
 		ret = 0;
@@ -206,14 +211,14 @@ static int lsm303dl_acc_set_hpf(u8 val)
 
 	if ((val < HPF_RESET_READ_FILTER) ||
 			(val > HPF_AUTORESET_ON_INTERRUPT)) {
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 
 	/*Read the content of CTRL_REG2_A register*/
 	ret = lsm303dl_acc_i2c_read(CTRL_REG2_A, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to read data from Accelerometer\n");
+		lsm303dl_err("Fail to read data from Accelerometer\n");
 		return ret;
 	}
 
@@ -227,7 +232,7 @@ static int lsm303dl_acc_set_hpf(u8 val)
 	/*Write new value to CTRL_REG2_A register*/
 	ret = lsm303dl_acc_i2c_write(CTRL_REG2_A, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to write data to Accelerometer\n");
+		lsm303dl_err("Fail to write data to Accelerometer\n");
 		return ret;
 	}
 
@@ -248,14 +253,14 @@ static int lsm303dl_acc_set_high_res(u8 val)
 	u8		current_setting		= 0;
 
 	if ((val != ACC_ENABLE) && (val != ACC_DISABLE)) {
-		printk("Invalid input argument (val = %d)\n", val);
+		lsm303dl_err("Invalid input argument (val = %d)\n", val);
 		return -EINVAL;
 	}
 
 	/*Read the content of CTRL_REG4_A register*/
 	ret = lsm303dl_acc_i2c_read(CTRL_REG4_A, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to read data from Accelerometer\n");
+		lsm303dl_err("Fail to read data from Accelerometer\n");
 		return ret;
 	}
 
@@ -268,7 +273,7 @@ static int lsm303dl_acc_set_high_res(u8 val)
 	/*Write new value to CTRL_REG4_A register*/
 	ret = lsm303dl_acc_i2c_write(CTRL_REG4_A, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to write data to Accelerometer\n");
+		lsm303dl_err("Fail to write data to Accelerometer\n");
 		return ret;
 	}
 
@@ -289,14 +294,14 @@ static int lsm303dl_acc_set_sensitivity(u8 val)
 	u8		current_setting		= 0;
 
 	if ((val < ACC_SENSITIVITY_EXTREME) || (val > ACC_SENSITIVITY_LOW)) {
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 
 	/*Read the content of CTRL_REG4_A register*/
 	ret = lsm303dl_acc_i2c_read(CTRL_REG4_A, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to read data from Accelerometer\n");
+		lsm303dl_err("Fail to read data from Accelerometer\n");
 		return ret;
 	}
 
@@ -311,7 +316,7 @@ static int lsm303dl_acc_set_sensitivity(u8 val)
 	/*Write new value to CTRL_REG4_A register*/
 	ret = lsm303dl_acc_i2c_write(CTRL_REG4_A, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to write data to Accelerometer\n");
+		lsm303dl_err("Fail to write data to Accelerometer\n");
 		return ret;
 	}
 
@@ -323,7 +328,7 @@ static int lsm303dl_acc_set_sensitivity(u8 val)
 		reg_value = thres_lsb_val[val];
 		ret = lsm303dl_acc_i2c_write(INT1_THS_A, &reg_value, 1);
 		if (ret < 0) {
-			printk("Cannot configure for INT1_THS_A reg\n");
+			lsm303dl_err("Cannot configure for INT1_THS_A reg\n");
 			return ret;
 		}
 #endif
@@ -346,14 +351,14 @@ static int lsm303dl_acc_power_status(u8 val)
 	u8		current_odr			= 0;
 
 	if ((val != ACC_NORMAL) && (val != ACC_STANDBY)) {
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 
 	/*Read the content of CTRL_REG1_A register*/
 	ret = lsm303dl_acc_i2c_read(CTRL_REG1_A, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to read data from Accelerometer\n");
+		lsm303dl_err("Fail to read data from Accelerometer\n");
 		return ret;
 	}
 
@@ -372,7 +377,7 @@ static int lsm303dl_acc_power_status(u8 val)
 	/*Write new value to CTRL_REG1_A register*/
 	ret = lsm303dl_acc_i2c_write(CTRL_REG1_A, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to write data to Accelerometer\n");
+		lsm303dl_err("Fail to write data to Accelerometer\n");
 		return ret;
 	}
 
@@ -398,7 +403,7 @@ int lsm303dl_acc_set_odr(u32 val)
 	u8		odr			= 0;
 
 	if (NULL == lsm303dl_acc_info)	{
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 
@@ -408,7 +413,7 @@ int lsm303dl_acc_set_odr(u32 val)
 	/*Power down Accelerometer*/
 	ret = lsm303dl_acc_power_status(ACC_STANDBY);
 	if (ret < 0) {
-		printk("Fail to power down Accel\n");
+		lsm303dl_err("Fail to power down Accel\n");
 		return -EIO;
 	}
 
@@ -426,7 +431,7 @@ int lsm303dl_acc_set_odr(u32 val)
 	/*Read the content of CTRL_REG1_A register*/
 	ret = lsm303dl_acc_i2c_read(CTRL_REG1_A, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to read data from Accelerometer\n");
+		lsm303dl_err("Fail to read data from Accelerometer\n");
 		return -EIO;
 	}
 
@@ -435,7 +440,7 @@ int lsm303dl_acc_set_odr(u32 val)
 	/*Write new value to CTRL_REG1_A register*/
 	ret = lsm303dl_acc_i2c_write(CTRL_REG1_A, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to write data to Accelerometer\n");
+		lsm303dl_err("Fail to write data to Accelerometer\n");
 		return -EIO;
 	}
 
@@ -446,7 +451,7 @@ int lsm303dl_acc_set_odr(u32 val)
 	ret = lsm303dl_acc_power_status(ACC_NORMAL);
 
 	if (ret < 0) {
-		printk("Fail to power on Accel\n");
+		lsm303dl_err("Fail to power on Accel\n");
 		return -EIO;
 	}
 
@@ -469,20 +474,20 @@ int lsm303dl_acc_activate(u8 val)
 		return -EINVAL;
 
 	if (NULL == lsm303dl_acc_info) {
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 
 	if (ACC_ENABLE == val) {
 
 		/*Power on Accelerometer*/
-		ret = lsm303dl_acc_power_status (ACC_NORMAL);
+		ret = lsm303dl_acc_power_status(ACC_NORMAL);
 
 		return ret;
 	} else {
 
 		/*Power down Accelerometer*/
-		ret = lsm303dl_acc_power_status (ACC_STANDBY);
+		ret = lsm303dl_acc_power_status(ACC_STANDBY);
 
 		return ret;
 	}
@@ -501,28 +506,28 @@ int lsm303dl_acc_hw_init(u8 *val)
 	int ret = 0;
 
 	if ((NULL == val) | (NULL == lsm303dl_acc_info)) {
-		printk("Input value is NULL\n");
+		lsm303dl_err("Input value is NULL\n");
 		return -EINVAL;
 	}
 
 	/*Set high pass filter*/
 	ret = lsm303dl_acc_set_hpf(val[0]);
 	if (ret < 0) {
-		printk("Fail to set high pass filter for Accelerom\n");
+		lsm303dl_err("Fail to set high pass filter for Accelerom\n");
 		return ret;
 	}
 
 	/*Set sensitivity*/
 	ret = lsm303dl_acc_set_sensitivity(val[1]);
 	if (ret < 0) {
-		printk("Fail to set sensitivity for Accelerometer\n");
+		lsm303dl_err("Fail to set sensitivity for Accelerometer\n");
 		return ret;
 	}
 
 	/*Set high resolution output mode*/
 	ret = lsm303dl_acc_set_high_res(val[2]);
 	if (ret < 0) {
-		printk("Fail to set high resolution output mode Accel\n");
+		lsm303dl_err("Fail to set high resolution output mode Accel\n");
 		return ret;
 	}
 
@@ -545,7 +550,7 @@ int lsm303dl_acc_get_data(s16 *data)
 	u8		idx		= 0;
 
 	if (NULL == lsm303dl_acc_info) {
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 
@@ -554,7 +559,7 @@ int lsm303dl_acc_get_data(s16 *data)
 	wake_lock(&lsm303dl_acc_info->wakelock);
 
 	if (NULL == data) {
-		printk("Input value is NULL\n");
+		lsm303dl_err("Input value is NULL\n");
 		ret = -EINVAL;
 		goto err;
 	}
@@ -562,7 +567,7 @@ int lsm303dl_acc_get_data(s16 *data)
 	/*Get x, y and z axis value from Accelerometer*/
 	ret = lsm303dl_acc_i2c_read(OUT_X_L_A, reg_value, 6);
 	if (ret < 0) {
-		printk("Fail to read data from Accelerometer\n");
+		lsm303dl_err("Fail to read data from Accelerometer\n");
 		goto err;
 	}
 
@@ -591,11 +596,12 @@ EXPORT_SYMBOL(lsm303dl_acc_get_data);
  *	output	=	None
  *	return	=	IRQ_HANDLED
  *************************************************************************/
+#ifdef ACCEL_INTERRUPT_ENABLED
 static irqreturn_t lsm303dl_acc_isr(int irq, void *dev)
 {
 	if (irq != -1) {
 		disable_irq_nosync(irq);
-		queue_work(lsm303dl_acc_info->irq1_workqueue, \
+		queue_work(lsm303dl_acc_info->irq1_workqueue,
 				&lsm303dl_acc_info->irq1_work);
 	}
 	return IRQ_HANDLED;
@@ -624,6 +630,7 @@ static void lsm303dl_acc_irq_work_func(struct work_struct *work)
 	enable_irq(lsm303dl_acc_info->irq1);
 	mutex_unlock(&lsm303dl_acc_info->lock);
 }
+#endif
 
 /*************************************************************************
  *   name    =       lsm303dl_acc_power_on_off
@@ -636,17 +643,19 @@ int lsm303dl_acc_power_on_off(bool flag)
 {
 
 #ifdef RUNTIME_PM
+	int ret;
+
 	if (!accm_regltr_3v) {
-		printk("Error: accm_regltr_3v is unavailable\n");
+		lsm303dl_err("Error: accm_regltr_3v is unavailable\n");
 		return -1;
 	}
 
 	if ((flag == 1)) {
 		lsm303dl_log("\n LDO on %s ", __func__);
-		regulator_enable(accm_regltr_3v);
+		ret = regulator_enable(accm_regltr_3v);
 	} else if ((flag == 0)) {
 		lsm303dl_log("\n LDO off %s ", __func__);
-		regulator_disable(accm_regltr_3v);
+		ret = regulator_disable(accm_regltr_3v);
 	}
 #endif
 	return 0;
@@ -664,17 +673,19 @@ EXPORT_SYMBOL(lsm303dl_acc_power_on_off);
 int lsm303dl_acc_cs_power_on_off(bool flag)
 {
 #ifdef RUNTIME_PM
+	int ret;
+
 	if (!accm_regltr_18v) {
-		printk("Error: accm_regltr_18v is unavailable\n");
+		lsm303dl_err("Error: accm_regltr_18v is unavailable\n");
 		return -1;
 	}
 
 	if ((flag == 1)) {
 		lsm303dl_log("\n LDO on %s ", __func__);
-		regulator_enable(accm_regltr_18v);
+		ret = regulator_enable(accm_regltr_18v);
 	} else if ((flag == 0)) {
 		lsm303dl_log("\n LDO on %s ", __func__);
-		regulator_disable(accm_regltr_18v);
+		ret = regulator_disable(accm_regltr_18v);
 	}
 #endif
 	return 0;
@@ -733,32 +744,32 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 	lsm303dl_log("%s: Accelrometer - Setting up regulators\n", __func__);
 	accm_regltr_18v = regulator_get(NULL, "sensor_acc_18v");
 	if (IS_ERR_OR_NULL(accm_regltr_18v)) {
-		printk("%s: Failed to acquire 1.8V regulator\n", __func__);
+		lsm303dl_err("Failed to acquire 1.8V regulator");
 		return -ENODEV;
 	}
 	accm_regltr_3v = regulator_get(NULL, "sensor_acc_3v");
 	if (IS_ERR_OR_NULL(accm_regltr_3v)) {
-		printk("%s: Failed to acquire 3V regulator\n", __func__);
+		lsm303dl_err("Failed to acquire 3V regulator");
 		return -ENODEV;
 	}
 
 	regulator_set_voltage(accm_regltr_18v, 1800000, 1800000);
 	regulator_set_voltage(accm_regltr_3v, 3000000, 3000000);
-	regulator_enable(accm_regltr_18v);
-	regulator_enable(accm_regltr_3v);
+	ret = regulator_enable(accm_regltr_18v);
+	ret = regulator_enable(accm_regltr_3v);
 #endif
 /* PM runtime regulator setup*/
 
 # ifdef ACCEL_INTERRUPT_ENABLED
 	/* Hard-coded GPIO removal for accelerometer */
 	pinfo = client->dev.platform_data;
-	lsm303dl_log("lsm303dl_acc_i2c_probe::GPIO PORT = %x\n", \
+	lsm303dl_log("lsm303dl_acc_i2c_probe::GPIO PORT = %x\n",
 						pinfo->lsm303dl_acc_port);
 
 	/* Hard-coded GPIO removal for accelerometer */
 	ret = gpio_request(pinfo->lsm303dl_acc_port, NULL);
 	if (ret < 0) {
-		printk("Can't request GPIO_PORT110 for Accelerometer\n");
+		lsm303dl_err("Can't request GPIO_PORT110 for Accelerometer\n");
 		ret = -ENOTSUPP;
 	}
 
@@ -766,7 +777,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 	/* Hard-coded GPIO removal for accelerometer */
 	ret = gpio_direction_input(pinfo->lsm303dl_acc_port);
 	if (ret < 0) {
-		printk("Can't set direction of GPIO_PORT110 for Accel\n");
+		lsm303dl_err("Can't set direction of GPIO_PORT110 for Accel\n");
 		ret = -ENOTSUPP;
 		goto handle_gpio;
 	}
@@ -775,7 +786,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 	/*Check functionalities of I2C adapter*/
 	ret = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
 	if (ret == 0) {
-		printk("Accelerometer I2C is malfunction\n");
+		lsm303dl_err("Accelerometer I2C is malfunction\n");
 		return -EIO;
 	}
 
@@ -783,8 +794,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 	lsm303dl_acc_info = kzalloc(sizeof(struct lsm303dl_acc_data),
 						GFP_KERNEL);
 	if (NULL == lsm303dl_acc_info) {
-		printk("Can't allocate memmory for lsm303dl_acc_data \
-				struct\n");
+		lsm303dl_err("Can't allocate memmory for lsm303dl_acc_data struct\n");
 		return -ENOMEM;
 	}
 
@@ -809,7 +819,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 	reg_default[0] = 0x28;
 	ret = lsm303dl_acc_i2c_write(CTRL_REG1_A, reg_default, 1);
 	if (ret < 0) {
-		printk("Cannot configure for CTRL_REG1_A\n");
+		lsm303dl_err("Cannot configure for CTRL_REG1_A\n");
 		ret = -EIO;
 		goto hw_init_err;
 	}
@@ -818,7 +828,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 	reg_default[0] = 0x3F;
 	ret = lsm303dl_acc_i2c_write(FIFO_CTRL_REG_A, reg_default, 1);
 	if (ret < 0) {
-		printk("Cannot configure for FIFO_CTRL_REG_A\n");
+		lsm303dl_err("Cannot configure for FIFO_CTRL_REG_A\n");
 		ret = -EIO;
 		goto hw_init_err;
 	}
@@ -832,8 +842,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 
 		ret = lsm303dl_acc_i2c_write(CTRL_REG2_A, reg_default, 5);
 		if (ret < 0) {
-			printk("Can't configure for \
-				CTRL_REG2_A->CTRL_REG6_A reg\n");
+			lsm303dl_err("Can't configure for CTRL_REG2_A->CTRL_REG6_A reg\n");
 			ret = -EIO;
 			goto hw_init_err;
 		}
@@ -841,7 +850,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 		reg_default[0] = 0x00; /*INT1_CFG_A*/
 		ret = lsm303dl_acc_i2c_write(INT1_CFG_A, reg_default, 1);
 		if (ret < 0) {
-			printk("Can't configure for INT1_CFG_A reg\n");
+			lsm303dl_err("Can't configure for INT1_CFG_A reg\n");
 			ret = -EIO;
 			goto hw_init_err;
 		}
@@ -850,8 +859,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 		reg_default[1] = 0x30; /*INT1_DURATION_A*/
 		ret = lsm303dl_acc_i2c_write(INT1_THS_A, reg_default, 2);
 		if (ret < 0) {
-			printk("Can't configure for INT1_THS_A & \
-					INT1_DURATION_A\n");
+			lsm303dl_err("Can't configure for INT1_THS_A & INT1_DURATION_A\n");
 			ret = -EIO;
 			goto hw_init_err;
 		}
@@ -860,8 +868,7 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 	/*Initialize Accelerometer default setting*/
 	ret = lsm303dl_acc_hw_init((u8 *)&lsm303dl_acc_setting_default[0]);
 	if (ret < 0) {
-		printk("Can't initialize Accelerometer \
-					default setting\n");
+		lsm303dl_err("Can't initialize Accelerometer default setting\n");
 		ret = -EIO;
 		goto hw_init_err;
 	}
@@ -869,24 +876,22 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 #ifdef ACCEL_INTERRUPT_ENABLED
 
 		/*Create work queue for handling bottom-half interrupt*/
-		lsm303dl_acc_info->irq1_workqueue = \
+		lsm303dl_acc_info->irq1_workqueue =
 			create_singlethread_workqueue("lsm303dl_acc_wq");
 		if (NULL == lsm303dl_acc_info->irq1_workqueue) {
-			printk("Can't create work queue struct \
-							for Accel\n");
+			lsm303dl_err("Can't create work queue struct for Accel\n");
 			ret = -ENOMEM;
 			goto hw_init_err;
 		}
 
-		INIT_WORK(&lsm303dl_acc_info->irq1_work, \
+		INIT_WORK(&lsm303dl_acc_info->irq1_work,
 			lsm303dl_acc_irq_work_func);
 
 		/*Register Accelerometer interrupt handler*/
-		ret = request_irq(client->irq, lsm303dl_acc_isr, 0, \
+		ret = request_irq(client->irq, lsm303dl_acc_isr, 0,
 					"lsm303dl_acc_int", lsm303dl_acc_info);
 		if (ret < 0) {
-			printk("Can't register \
-					Accel interrupt handler\n");
+			lsm303dl_err("Can't register Accel interrupt handler\n");
 			ret = -EIO;
 			goto req_irq_err;
 		}
@@ -898,12 +903,14 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 	mutex_unlock(&lsm303dl_acc_info->lock);
 	return 0;
 
+#ifdef ACCEL_INTERRUPT_ENABLED
 req_irq_err:
 	destroy_workqueue(lsm303dl_acc_info->irq1_workqueue);
 
 handle_gpio:
 	/* Hard-coded GPIO removal for accelerometer */
 	gpio_free(pinfo->lsm303dl_acc_port);
+#endif
 
 hw_init_err:
 	mutex_unlock(&lsm303dl_acc_info->lock);
@@ -967,7 +974,7 @@ static const struct i2c_device_id lsm303dl_acc_id[] = {
 /****************************************************
 *	Power management structure definition		*
 *****************************************************/
-static struct dev_pm_ops lsm303dl_acc_pm_ops = {
+static const struct dev_pm_ops lsm303dl_acc_pm_ops = {
 	.suspend = lsm303dl_acc_suspend,
 	.resume = lsm303dl_acc_resume,
 };
@@ -1003,8 +1010,7 @@ static int __init lsm303dl_acc_init(void)
 	/*Register accelerometer driver to I2C core*/
 	ret = i2c_add_driver(&acc_driver);
 	if (ret < 0) {
-		printk("Cannot register \
-			accelerometer driver to I2C core\n");
+		lsm303dl_err("Cannot register accelerometer driver to I2C core\n");
 		ret = -ENOTSUPP;
 		goto handle_error;
 	}
