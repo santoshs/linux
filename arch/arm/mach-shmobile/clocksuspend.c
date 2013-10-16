@@ -29,6 +29,7 @@
 #include <mach/r8a7373.h>
 #include <mach/pm.h>
 #include <mach/sbsc.h>
+#include <memlog/memlog.h>
 
 #ifdef pr_fmt
 #undef pr_fmt
