@@ -35,6 +35,10 @@
 #define POSNEG0_RW_32B			0x0120
 /* THS 1 Interrupt polarity setting register */
 #define POSNEG1_RW_32B			0x0220
+/* THS 0 Edge/Level setting register */
+#define EDGELEVEL0_RW_32B		0x0124
+/* THS 1 Edge/Level  setting register */
+#define EDGELEVEL1_RW_32B		0x0224
 /* THS0 chattering restraint ON/OFF setting register */
 #define FILONOFF0_RW_32B		0x0128
 /* THS1 chattering restraint ON/OFF setting register */
@@ -134,26 +138,30 @@
 /* Mask pattern */
 #define CTEMP_MASK					0x0000003F
 
-/* THS0/1 Interrupt control register - INTCTLR0 bit definition */
-/* Bit value definition of CTEM3/2/1/0 */
-/* Set CTEMP to lower than actual value base on formular
-  ((The_interrupt_temperature + 65) / 5) - 1 */
-#define	CTEMP3_HEX				0x1F000000	/* 90oC */
-#define	CTEMP2_HEX				0x001E0000	/* 85oC */
-#define	CTEMP1_HEX				0x00001D00	/* 80oC */
-#define	CTEMP0_HEX				0x0000001B	/* 70oC */
-
-/* Other values */
+/* Decimal temperature values */
 #define	CTEMP3_DEC				95	/* 95oC */
 #define	CTEMP2_DEC				90	/* 90oC */
 #define	CTEMP1_DEC				85	/* 85oC */
 #define	CTEMP0_DEC				75	/* 75oC */
 
+/* Set CTEMP to lower than actual value base on formular
+ *    ((The_interrupt_temperature + 65) / 5) - 1 */
+/* Converting Register value to actual temperature */
+#define REG2TEMP(rtemp) 	(((rtemp + 1) * 5) - 65)
+/* Converting actual temperature to register value */
+#define TEMP2REG(temp)		(((temp + 65) / 5) - 1)
+
+/* THS0/1 Interrupt control register - INTCTLR0 bit definition */
+/* Bit value definition of CTEM3/2/1/0 */
+#define CTEMP3_HEX		(TEMP2REG(CTEMP3_DEC) << (3*8))
+#define CTEMP2_HEX      (TEMP2REG(CTEMP2_DEC) << (2*8))
+#define CTEMP1_HEX      (TEMP2REG(CTEMP1_DEC) << (1*8))
+#define CTEMP0_HEX      (TEMP2REG(CTEMP0_DEC) << (0*8))
+
 /* THS CPG clock supply register */
 /*#define SMSTPCR5		0xE6150144
 #define MMSTPCR5		0xE6150164*/
 #define THS_CLK_SUPPLY_BIT	0x00400000
-
 
 /*Export struct thermal_sensor */
 extern struct thermal_sensor *ths;
