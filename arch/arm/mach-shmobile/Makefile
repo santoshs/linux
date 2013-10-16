@@ -77,6 +77,7 @@ obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
 obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
 obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte.o
+obj-$(CONFIG_MACH_AMETHYST)	+= board-amethyst.o
 
 obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
 obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
@@ -120,6 +121,7 @@ obj-$(CONFIG_MACH_U2EVM)	+= setup-u2spa.o
 obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte-spa.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte-spa.o
 obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte-spa.o
+obj-$(CONFIG_MACH_AMETHYST)	+= board-amethyst-spa.o
 endif
 
 # common timer setup
@@ -139,6 +141,7 @@ obj-y						+= gpio.o
 obj-$(CONFIG_MFD_D2153)	+= setup-d2153.o
 ifeq ($(CONFIG_REGULATOR_D2153),y)
 obj-$(CONFIG_MACH_LOGANLTE) += loganlte-ldoconfig.o
+obj-$(CONFIG_MACH_AMETHYST) += loganlte-ldoconfig.o
 endif
 
 #setup-audio

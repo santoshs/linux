@@ -38,14 +38,16 @@ struct proc_dir_entry *root_device;
 
 /* Proc sub entries */
 /* device entries */
-#if defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_LOGANLTE) || \
+	defined(CONFIG_MACH_AMETHYST)
 struct proc_dir_entry *fm34_entry;
 #elif defined(CONFIG_MACH_LT02LTE)
 struct proc_dir_entry *tpa2026_entry;
 #endif
 
 /* Proc read handler */
-#if defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_LOGANLTE) || \
+	defined(CONFIG_MACH_AMETHYST)
 static int proc_read_u2audio_device_none(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
@@ -97,7 +99,8 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 	int res;
 	int debounce_ms;
 
-#if defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_LOGANLTE) || \
+	defined(CONFIG_MACH_AMETHYST)
 	if ((BOARD_REV_0_1 < u2_board_rev) &&
 		(BOARD_REV_0_4 > u2_board_rev)) {
 		d2153_pdata.audio.aad_codec_detect_enable = true;
@@ -162,26 +165,29 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 
 void u2audio_init(unsigned int u2_board_rev)
 {
-#if defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_LOGANLTE) || \
+	defined(CONFIG_MACH_AMETHYST)
 	u8 fm34_device;
-#endif /* CONFIG_MACH_LOGANLTE */
+#endif
 
 	u2audio_gpio_init();
 
-#if defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_LOGANLTE) || \
+	defined(CONFIG_MACH_AMETHYST)
 	if (u2_board_rev < BOARD_REV_0_1)
 		fm34_device = DEVICE_EXIST;
 	else
 		fm34_device = DEVICE_NONE;
 
-#endif /* CONFIG_MACH_LOGANLTE */
+#endif
 
 	root_audio = proc_mkdir("audio", NULL);
 	if (NULL != root_audio) {
 		/* Create device entries */
 		root_device = proc_mkdir("device", root_audio);
 		if (NULL != root_device) {
-#if defined(CONFIG_MACH_LOGANLTE)
+#if defined(CONFIG_MACH_LOGANLTE) || \
+	defined(CONFIG_MACH_AMETHYST)
 			fm34_entry = create_proc_entry("fm34",
 				S_IRUGO, root_device);
 			if (NULL != fm34_entry) {

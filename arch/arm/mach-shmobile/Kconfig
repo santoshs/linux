@@ -220,6 +220,13 @@ config MACH_LT02LTE
 	help
 	  Select this to support lt02lte board.
 
+config MACH_AMETHYST
+	bool "U2 based Amethyst board support"
+	select ARCH_REQUIRE_GPIOLIB
+	depends on ARCH_R8A7373
+	help
+	  Select this to support amethyst board.
+
 config MACH_U2USB
 	bool "U2USB board"
 	select ARCH_REQUIRE_GPIOLIB
@@ -264,7 +271,7 @@ config MEMORY_START
 				MACH_ARMADILLO800EVA || MACH_APE6EVM || \
 				MACH_LAGER
 	default "0x41000000" if MACH_KOTA2
-	default "0x49000000" if MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE
+	default "0x49000000" if MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE || MACH_AMETHYST
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -277,7 +284,7 @@ config MEMORY_SIZE
 	default "0x40000000" if MACH_APE6EVM
 	default "0x20000000" if MACH_AG5EVM || MACH_BONITO || \
 				MACH_ARMADILLO800EVA || MACH_U2EVM || MACH_GARDALTE || \
-				MACH_LOGANLTE || MACH_LT02LTE
+				MACH_LOGANLTE || MACH_LT02LTE || MACH_AMETHYST
 	default "0x1e000000" if MACH_KOTA2
 	default "0x10000000" if MACH_AP4EVB || MACH_MACKEREL
 	default "0x04000000"
@@ -523,6 +530,11 @@ config BOARD_VERSION_LT02LTE
 	help
 	  Board revision number
 
+config BOARD_VERSION_AMETHYST
+	bool "board_revision"
+	help
+	  Board revision number
+
 #
 # GPS devices
 #
@@ -557,7 +569,7 @@ config BCM4334_BT
 
 config BCM4330_MODULE
         bool "Enable BCM4330 driver on Renesas Baseband"
-        depends on BOARD_VERSION_LOGANLTE
+        depends on (BOARD_VERSION_LOGANLTE || BOARD_VERSION_AMETHYST)
  	default y
 
 config BT_BCM43241

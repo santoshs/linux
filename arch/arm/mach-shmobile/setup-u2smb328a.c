@@ -89,7 +89,7 @@ static struct platform_device spa_power_device_d2153 = {
 int spa_power_init(void)
 {
 #if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || \
-	defined(CONFIG_MACH_LT02LTE)
+	defined(CONFIG_MACH_LT02LTE) || defined(CONFIG_MACH_AMETHYST)
 	return platform_device_register(&spa_power_device_d2153);
 #endif
 }
