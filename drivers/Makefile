@@ -137,7 +137,6 @@ obj-$(CONFIG_HYPERV)		+= hv/
 obj-$(CONFIG_PM_DEVFREQ)	+= devfreq/
 
 obj-$(CONFIG_NEW_SENSORS)	+= sensors/
-obj-y				+= pmic/
 
 obj-$(CONFIG_SMECO)		+= smeco/
 

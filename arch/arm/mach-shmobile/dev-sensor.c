@@ -27,14 +27,6 @@
 #include <linux/pm.h>
 #include <linux/regulator/consumer.h>
 
-#ifdef CONFIG_PMIC_INTERFACE
-#include <linux/pmic/pmic-tps80032.h>
-#include <linux/mfd/tps80031.h>
-#include <linux/pmic/pmic.h>
-#include <mach/setup-u2tps80032.h>
-#include <linux/regulator/tps80031-regulator.h>
-#endif
-
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
