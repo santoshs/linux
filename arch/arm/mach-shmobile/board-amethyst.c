@@ -381,6 +381,10 @@ static unsigned long pin_pullup_conf[] = {
 static const struct pinctrl_map loganlte_pinctrl_map[] = {
 	PIN_MAP_MUX_GROUP_DEFAULT("sh-sci.0", "pfc-r8a7373",
 				  "scifa0_data", "scifa0"),
+	PIN_MAP_MUX_GROUP_DEFAULT("renesas-mmcif.0", "pfc-r8a7373",
+				  "mmc0_data8", "mmc0"),
+	PIN_MAP_MUX_GROUP_DEFAULT("renesas-mmcif.0", "pfc-r8a7373",
+				  "mmc0_ctrl", "mmc0"),
 #ifdef CONFIG_OF
 	PIN_MAP_MUX_GROUP_DEFAULT("e682e000.i2c", "pfc-r8a7373",
 				  "i2c7_data", "i2c7"),
@@ -498,17 +502,8 @@ static void __init board_init(void)
 	gpio_pull_up_port(GPIO_PORT96);
 	gpio_pull_up_port(GPIO_PORT97);
 #endif
-	/* MMC0 */
-	gpio_request(GPIO_FN_MMCCLK0, NULL);
-	gpio_request(GPIO_FN_MMCD0_0, NULL);
-	gpio_request(GPIO_FN_MMCD0_1, NULL);
-	gpio_request(GPIO_FN_MMCD0_2, NULL);
-	gpio_request(GPIO_FN_MMCD0_3, NULL);
-	gpio_request(GPIO_FN_MMCD0_4, NULL);
-	gpio_request(GPIO_FN_MMCD0_5, NULL);
-	gpio_request(GPIO_FN_MMCD0_6, NULL);
-	gpio_request(GPIO_FN_MMCD0_7, NULL);
-	gpio_request(GPIO_FN_MMCCMD0, NULL);
+
+	/* MMC RESET - does anyone use this? */
 	gpio_request(GPIO_FN_MMCRST, NULL);
 
 	/* Disable GPIO Enable at initialization */

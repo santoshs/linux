@@ -1477,6 +1477,66 @@ IRQC_PINS_MUX(272, 58);
 IRQC_PINS_MUX(290, 51);
 IRQC_PINS_MUX(296, 62);
 IRQC_PINS_MUX(327, 50);
+/* - MMCIF0 ----------------------------------------------------------------- */
+static const unsigned int mmc0_data1_pins[] = {
+	/* D[0] */
+	300,
+};
+static const unsigned int mmc0_data1_mux[] = {
+	MMCD0_0_MARK,
+};
+static const unsigned int mmc0_data4_pins[] = {
+	/* D[0:3] */
+	300, 301, 302, 303,
+};
+static const unsigned int mmc0_data4_mux[] = {
+	MMCD0_0_MARK, MMCD0_1_MARK, MMCD0_2_MARK, MMCD0_3_MARK,
+};
+static const unsigned int mmc0_data8_pins[] = {
+	/* D[0:7] */
+	300, 301, 302, 303, 304, 305, 306, 307,
+};
+static const unsigned int mmc0_data8_mux[] = {
+	MMCD0_0_MARK, MMCD0_1_MARK, MMCD0_2_MARK, MMCD0_3_MARK,
+	MMCD0_4_MARK, MMCD0_5_MARK, MMCD0_6_MARK, MMCD0_7_MARK,
+};
+static const unsigned int mmc0_ctrl_pins[] = {
+	/* CMD, CLK */
+	308, 309,
+};
+static const unsigned int mmc0_ctrl_mux[] = {
+	MMCCMD0_MARK, MMCCLK0_MARK,
+};
+/* - MMCIF1 ----------------------------------------------------------------- */
+static const unsigned int mmc1_data1_pins[] = {
+	/* D[0] */
+	256,
+};
+static const unsigned int mmc1_data1_mux[] = {
+	MMCD1_0_MARK,
+};
+static const unsigned int mmc1_data4_pins[] = {
+	/* D[0:3] */
+	256, 255, 254, 253,
+};
+static const unsigned int mmc1_data4_mux[] = {
+	MMCD1_0_MARK, MMCD1_1_MARK, MMCD1_2_MARK, MMCD1_3_MARK,
+};
+static const unsigned int mmc1_data8_pins[] = {
+	/* D[0:7] */
+	256, 255, 254, 253, 252, 251, 250, 249,
+};
+static const unsigned int mmc1_data8_mux[] = {
+	MMCD1_0_MARK, MMCD1_1_MARK, MMCD1_2_MARK, MMCD1_3_MARK,
+	MMCD1_4_MARK, MMCD1_5_MARK, MMCD1_6_MARK, MMCD1_7_MARK,
+};
+static const unsigned int mmc1_ctrl_pins[] = {
+	/* CMD, CLK */
+	257, 248,
+};
+static const unsigned int mmc1_ctrl_mux[] = {
+	MMCCMD1_MARK, MMCCLK1_MARK,
+};
 /* - SCIFA0 ------------------------------------------------------------*/
 static const unsigned int scifa0_data_pins[] = {
 	/* SCIFA0_RXD, SCIFA0_TXD */
@@ -1579,6 +1639,14 @@ static const struct sh_pfc_pin_group pinmux_groups[] = {
 	SH_PFC_PIN_GROUP(irqc_irq61),
 	SH_PFC_PIN_GROUP(irqc_irq62),
 	SH_PFC_PIN_GROUP(irqc_irq63),
+	SH_PFC_PIN_GROUP(mmc0_data1),
+	SH_PFC_PIN_GROUP(mmc0_data4),
+	SH_PFC_PIN_GROUP(mmc0_data8),
+	SH_PFC_PIN_GROUP(mmc0_ctrl),
+	SH_PFC_PIN_GROUP(mmc1_data1),
+	SH_PFC_PIN_GROUP(mmc1_data4),
+	SH_PFC_PIN_GROUP(mmc1_data8),
+	SH_PFC_PIN_GROUP(mmc1_ctrl),
 	SH_PFC_PIN_GROUP(scifa0_data),
 	SH_PFC_PIN_GROUP(scifa0_clk),
 	SH_PFC_PIN_GROUP(scifa0_ctrl),
@@ -1652,6 +1720,20 @@ static const char * const irqc_groups[] = {
 	"irqc_irq63",
 };
 
+static const char * const mmc0_groups[] = {
+	"mmc0_data1",
+	"mmc0_data4",
+	"mmc0_data8",
+	"mmc0_ctrl",
+};
+
+static const char * const mmc1_groups[] = {
+	"mmc1_data1",
+	"mmc1_data4",
+	"mmc1_data8",
+	"mmc1_ctrl",
+};
+
 static const char * const scifa0_groups[] = {
 	"scifa0_data",
 	"scifa0_clk",
@@ -1664,6 +1746,8 @@ static const char * const i2c7_groups[] = {
 
 static const struct sh_pfc_function pinmux_functions[] = {
 	SH_PFC_FUNCTION(irqc),
+	SH_PFC_FUNCTION(mmc0),
+	SH_PFC_FUNCTION(mmc1),
 	SH_PFC_FUNCTION(scifa0),
 	SH_PFC_FUNCTION(i2c7),
 };
