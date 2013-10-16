@@ -18,6 +18,7 @@
 #include <linux/gpio.h>
 #include <linux/memblock.h>
 #include <linux/bug.h>
+#include <linux/seq_file.h>
 #if defined(CONFIG_ARCH_R8A7373)
 #include <mach/r8a7373.h>
 #endif
@@ -32,27 +33,24 @@
 #endif	/* CONFIG_MFD_D2153 */
 #include <mach/board.h>
 
-/* Proc root entries */
-struct proc_dir_entry *root_audio;
-struct proc_dir_entry *root_device;
-
-/* Proc sub entries */
-/* device entries */
-struct proc_dir_entry *fm34_entry;
-
 /* Proc read handler */
-static int proc_read_u2audio_device_none(char *page, char **start, off_t off,
-		int count, int *eof, void *data)
+static int proc_read_u2audio_device(struct seq_file *file, void *v)
 {
-	count = snprintf(page, count, "%d", 0);
-	return count;
+	int device_exist_p = d2153_pdata.audio.fm34_device ? DEVICE_EXIST :
+							     DEVICE_NONE;
+
+	return seq_printf(file, "%d", device_exist_p);
 }
-static int proc_read_u2audio_device_exist(char *page, char **start, off_t off,
-		int count, int *eof, void *data)
+
+static int proc_open_u2audio(struct inode *inode, struct file *file)
 {
-	count = snprintf(page, count, "%d", 1);
-	return count;
+	return single_open(file, proc_read_u2audio_device, NULL);
 }
+
+static const struct file_operations proc_u2audio_ops = {
+	.open	= proc_open_u2audio,
+	.read	= seq_read,
+};
 
 void u2audio_gpio_init(void)
 {
@@ -133,6 +131,8 @@ void u2audio_codec_aad_init(void)
 
 void u2audio_init(void)
 {
+	struct proc_dir_entry *root_audio;
+	struct proc_dir_entry *root_device;
 
 	u2audio_gpio_init();
 
@@ -140,21 +140,9 @@ void u2audio_init(void)
 	if (NULL != root_audio) {
 		/* Create device entries */
 		root_device = proc_mkdir("device", root_audio);
-		if (NULL != root_device) {
-			fm34_entry = create_proc_entry("fm34",
-				S_IRUGO, root_device);
-			if (NULL != fm34_entry) {
-				if (!d2153_pdata.audio.fm34_device)
-					fm34_entry->read_proc =
-						proc_read_u2audio_device_none;
-				else
-					fm34_entry->read_proc =
-						proc_read_u2audio_device_exist;
-			} else {
-				printk(KERN_ERR "%s Failed create_proc_entry fm34\n",
-					__func__);
-			}
-		}
+		if (NULL != root_device)
+			proc_create("fm34", S_IRUGO, root_device,
+				    &proc_u2audio_ops);
 	} else {
 		printk(KERN_ERR "%s Failed proc_mkdir\n", __func__);
 	}
