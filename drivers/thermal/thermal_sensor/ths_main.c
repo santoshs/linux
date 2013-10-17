@@ -65,7 +65,7 @@
 /* ths_wait_wq: Work_queue used to wait power domain to be turned off
    during early suspend */
 struct workqueue_struct *ths_wait_wq;
-static DECLARE_DEFERRED_WORK(ths_work, NULL);
+static DECLARE_DEFERRABLE_WORK(ths_work, NULL);
 
 /* early_suspend_try: Number of attempt to early suspend ths device */
 static int early_suspend_try = EARLY_SUSPEND_MAX_TRY;
