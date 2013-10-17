@@ -42,7 +42,7 @@
 #include <linux/switch.h> /* AT-ISI Separation */
 #include <linux/tsu6712.h>
 #include <linux/interrupt.h>
-
+#include <mach/setup-u2usb.h>
 
 MODULE_AUTHOR("david RMC");
 MODULE_DESCRIPTION("Phonet TTY line discipline");
@@ -563,7 +563,7 @@ out:
 
 /* AT-ISI Message Separation Starts */
 
-extern ssize_t ld_set_manualsw(struct device *dev,
+ssize_t ld_set_manualsw(struct device *dev,
 			       struct device_attribute *attr,
 			       const char *buf, size_t count);
 
@@ -613,7 +613,8 @@ static void ld_phonet_ldisc_receive
 			if (room >= count)
 				tty->ops->write(tty, cp, count);
 #endif
-			ret = ld_set_switch_buf(NULL, NULL, cp, count);
+			if (MUIC_IS_PRESENT)
+				ret = ld_set_switch_buf(NULL, NULL, cp, count);
 			if (UART_AT_MODE == ret) {
 				ld_uart_switch_work->at_modechan02_mode \
 					 = LD_SWITCH_ATSTART_RESP;
@@ -853,11 +854,12 @@ static void ld_uart_switch_function(struct work_struct *work)
 	struct ld_uart_switch_work_t *at_mode_work;
 	at_mode_work = (struct ld_uart_switch_work_t *)work;
 	set_current_state(TASK_INTERRUPTIBLE);
-	if (at_mode_work->at_modechan02_mode ==  LD_SWITCH_ATSTART_RESP)
-		ld_set_manualsw(NULL, NULL, "AT+ATSTART", 10);
-	else
-		ld_set_manualsw(NULL, NULL, "AT+MODECHAN=0,2", 15);
-
+	if (MUIC_IS_PRESENT) {
+		if (at_mode_work->at_modechan02_mode ==  LD_SWITCH_ATSTART_RESP)
+			ld_set_manualsw(NULL, NULL, "AT+ATSTART", 10);
+		else
+			ld_set_manualsw(NULL, NULL, "AT+MODECHAN=0,2", 15);
+	}
 	ld_uart_switch_work->at_modechan02_mode = 0;
 	return;
 }

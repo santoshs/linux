@@ -19,6 +19,7 @@
 #include <mach/setup-u2usb.h>
 #include <linux/mfd/tps80031.h>
 #include <linux/dma-mapping.h>
+#include <linux/module.h>
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
 #endif
@@ -537,6 +538,14 @@ struct platform_device tusb1211_device = {
 	.resource = tusb1211_resource,
 };
 #endif /*CONFIG_USB_OTG*/
+
+unsigned int muic_is_present(void)
+{
+	unsigned int is_muic = 0;
+	/* implement switch present logic here */
+	return is_muic;
+}
+EXPORT_SYMBOL_GPL(muic_is_present);
 
 void __init USBGpio_init(void)
 {

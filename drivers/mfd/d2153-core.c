@@ -37,8 +37,10 @@
 #include <linux/d2153/hwmon.h>
 #include <linux/d2153/core.h>
 
+#include <mach/setup-u2usb.h>
 #include <mach/common.h>
 
+#define BIT3		(ulong)(0x00000008)
 //#define D2153_REG_DEBUG
 /* #define D2153_SUPPORT_I2C_HIGH_SPEED */
 #define D2153_AUD_LDO_FOR_ESD
@@ -397,6 +399,74 @@ static irqreturn_t d2153_system_event_handler(int irq, void *data)
 {
 	/* todo DLG export the event?? */
 	return IRQ_HANDLED;
+}
+/*
+ *  * d2153_VBUS_STATUS_handler
+  *   */
+static void d2153_vbus_event_handler(void)
+{
+	/* Register of DA9066AA where VBUS is connected */
+	int ret;
+	static int vbus_status;
+	char gpio_ta;
+	struct d2153 *d2153 = d2153_dev_info;
+
+	ret = d2153->read_dev(d2153, GPIO_TA_ADDR, sizeof(char), &gpio_ta);
+	printk(KERN_INFO "D2153_VBUS_WORK %d\n", gpio_ta);
+	if (ret)
+		printk(KERN_ERR "D2153 i2c read failed on VBUS work");
+
+	if (gpio_ta & TA_TYPE_HIGH) {
+		gpio_ta &= TA_TYPE_LOW;
+		ret = d2153->write_dev(d2153, GPIO_TA_ADDR, sizeof(char),
+				&gpio_ta);
+		vbus_status = 1;
+		send_usb_insert_event(vbus_status);
+		if (ret)
+			printk(KERN_ERR
+				"D2153 i2c write failed on VBUS work");
+	} else {
+		if (vbus_status) {
+			gpio_ta |= TA_TYPE_HIGH;
+			ret = d2153->write_dev(d2153, GPIO_TA_ADDR, 
+				sizeof(char), &gpio_ta);
+			vbus_status = 0;
+			send_usb_insert_event(vbus_status);
+			if (ret)
+				printk(KERN_ERR
+					"D2153 i2c write failed on VBUS work");
+		}
+	}
+}
+
+/*
+ *  * d2153_VBUS_handler -  Used for USB connectivity
+ *   */
+
+static irqreturn_t d2153_vbus_handler(int irq, void *data)
+{
+	d2153_vbus_event_handler();
+	return IRQ_HANDLED;
+}
+
+/*
+ *  * d2153_usb_event_init
+ *   */
+static void d2153_usb_event_init(struct d2153 *d2153)
+{
+	u8 reg;
+	u8 ret;
+
+	d2153_register_irq(d2153, D2153_IRQ_ETA,
+		d2153_vbus_handler, 0, "usb vbus", d2153);
+
+	ret = d2153_reg_read(d2153, D2153_STATUS_C_REG, &reg);
+       	if ((reg & BIT3) == BIT3) {
+		/* Waiting for SPA event to be up during bootup with USB */
+		msleep(5000);
+		printk(KERN_INFO "SPA events triggered little late \n");
+		d2153_vbus_event_handler();
+	}
 }
 
 /*
@@ -823,6 +893,9 @@ int d2153_device_init(struct d2153 *d2153, int irq,
 #ifdef CONFIG_PROC_FS
 //	d2153_debug_proc_init(d2153);
 #endif
+
+	if (!MUIC_IS_PRESENT)
+		d2153_usb_event_init(d2153);
 
 	INIT_DELAYED_WORK(&d2153->vdd_fault_work, init_vdd_fault_work);
 	/* Start a dealyed work for setting VDD_FAULT level */

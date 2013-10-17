@@ -613,8 +613,20 @@ static void __init board_init(void)
 	}
 #endif
 
-	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
-
+	if (MUIC_IS_PRESENT) {
+		i2c_register_board_info(3, i2c3_devices, 
+						ARRAY_SIZE(i2c3_devices));
+	} else {
+		int i;
+		for (i = 0; i < sizeof(i2c3_devices)
+					/sizeof(struct i2c_board_info); i++) {
+			if (!(strcmp(i2c3_devices[i].type, "tsu6712") == 0) &&
+			!(strcmp(i2c3_devices[i].type, "rt8973") == 0)) {
+				i2c_register_board_info(3, &i2c3_devices[i],
+								 1);
+			}
+		}
+	}
 
 	board_tsp_init();
 
