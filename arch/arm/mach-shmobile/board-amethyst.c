@@ -381,9 +381,9 @@ static unsigned long pin_pullup_conf[] = {
 static const struct pinctrl_map loganlte_pinctrl_map[] = {
 	PIN_MAP_MUX_GROUP_DEFAULT("sh-sci.0", "pfc-r8a7373",
 				  "scifa0_data", "scifa0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas-mmcif.0", "pfc-r8a7373",
+	PIN_MAP_MUX_GROUP_DEFAULT("renesas_mmcif.0", "pfc-r8a7373",
 				  "mmc0_data8", "mmc0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas-mmcif.0", "pfc-r8a7373",
+	PIN_MAP_MUX_GROUP_DEFAULT("renesas_mmcif.0", "pfc-r8a7373",
 				  "mmc0_ctrl", "mmc0"),
 #ifdef CONFIG_OF
 	PIN_MAP_MUX_GROUP_DEFAULT("e682e000.i2c", "pfc-r8a7373",
