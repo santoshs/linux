@@ -38,6 +38,12 @@ typedef enum
 	SPA_ACC_MAX,
 } SPA_ACC_INFO_T;
 
+enum cable_type_t {
+	CABLE_TYPE_NONE,
+	CABLE_TYPE_USB,
+	CABLE_TYPE_AC
+};
+
 #define ADC_RUNNING_AVG_SHIFT	4
 #define ADC_RUNNING_AVG_SIZE	(1 << ADC_RUNNING_AVG_SHIFT)
 

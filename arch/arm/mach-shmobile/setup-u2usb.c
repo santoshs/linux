@@ -543,6 +543,12 @@ unsigned int muic_is_present(void)
 {
 	unsigned int is_muic = 0;
 	/* implement switch present logic here */
+#ifdef CONFIG_MACH_AMETHYST
+	is_muic = 0;
+#endif
+#ifdef CONFIG_MACH_LOGANLTE
+	is_muic = 1;
+#endif
 	return is_muic;
 }
 EXPORT_SYMBOL_GPL(muic_is_present);

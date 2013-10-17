@@ -50,12 +50,6 @@ enum {
 	SWITCH_PORT_ALL_OPEN,
 };
 
-enum cable_type_t{
-   CABLE_TYPE_NONE,
-   CABLE_TYPE_USB,
-   CABLE_TYPE_AC
-};
-
 extern void tsu6712_manual_switching(int path);
 extern void tsu6712_otg_detach(void);
 extern void tsu6712_otg_set_autosw_pda(void);

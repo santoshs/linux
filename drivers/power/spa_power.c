@@ -77,13 +77,7 @@ static unsigned int spa_log_offset=0;
 #define SPA_PROBE_STATUS_READY	1
 static unsigned char probe_status = SPA_PROBE_STATUS_BEGIN;
 
-typedef enum {
-	CABLE_TYPE_USB,
-	CABLE_TYPE_AC,
-	CABLE_TYPE_NONE
-} CABLE_TYPE;
-
-static CABLE_TYPE cable_status;
+static enum cable_type_t cable_status;
 
 int get_cable_type(void)
 {
@@ -1664,7 +1658,6 @@ int spa_event_handler(int evt, void *data)
 	spa_evt_log[(spa_evt_idx++)%255].evt=evt;
 	spa_evt_log[(spa_evt_idx)%255].data = (int)data;
 
-	if(!MUIC_IS_PRESENT)
 		switch ((int)data) {
 		case POWER_SUPPLY_TYPE_BATTERY:
 			cable_status =  CABLE_TYPE_NONE;
