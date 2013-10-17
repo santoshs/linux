@@ -24,13 +24,10 @@
 #include <linux/gpio.h>
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
-#include <mach/r8a7373.h>
 #include <mach/setup-u2usb.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
-#include <asm/mach/map.h>
-#include <asm/mach/time.h>
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
 #include <mach/board.h>
@@ -39,10 +36,7 @@
 #include <mach/sbsc.h>
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
-#include <linux/d2153/pmic.h>
-#include <linux/d2153/d2153_battery.h>
 #endif
-#include <mach/dev-wifi.h>
 #include <linux/ktd259b_bl.h>
 #include <mach/setup-u2spa.h>
 #include <mach/setup-u2vibrator.h>
@@ -73,7 +67,6 @@
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
-#include <linux/leds-regulator.h>
 #if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
 #include <linux/broadcom/bcmbt_rfkill.h>
 #endif
@@ -82,9 +75,6 @@
 #endif
 #ifdef CONFIG_BCM_BZHW
 #include <linux/broadcom/bcm_bzhw.h>
-#endif
-#if defined(CONFIG_BCMI2CNFC)
-#include <linux/bcmi2cnfc.h>
 #endif
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 #include <linux/nfc/pn547.h>
@@ -102,15 +92,6 @@
 #include <mach/setup-u2stm.h>
 #endif
 
-#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
-#include <linux/platform_data/rtmusc.h>
-#endif
-
-#if defined(CONFIG_SEC_CHARGING_FEATURE)
-#include <linux/spa_power.h>
-#endif
-
-#include <mach/sbsc.h>
 
 static int unused_gpios_logan_rev1[] = {
 				GPIO_PORT4, GPIO_PORT27, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
