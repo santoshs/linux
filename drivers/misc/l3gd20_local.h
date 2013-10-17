@@ -37,7 +37,7 @@
 #endif
 
 /* runtime pm flag */
-/*#define RUNTIME_PM*/
+#define RUNTIME_PM
 
 /* I2C info */
 #define L3GD20_I2C_RETRIES			5

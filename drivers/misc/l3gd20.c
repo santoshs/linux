@@ -477,14 +477,14 @@ static int l3gd20_i2c_probe(struct i2c_client *client,
 
 #ifdef RUNTIME_PM
 	l3gd20_log("%s: Gyro - preparing regulators\n", __func__);
-	gyro_regltr_18v = regulator_get(NULL, "sensor_gyro_18v");
+	gyro_regltr_18v = regulator_get(NULL, "sensor_1v8");
 	if (IS_ERR_OR_NULL(gyro_regltr_18v)) {
 		pr_err("%s: Gyro - failed to get regulator\n", __func__);
 		return -EBUSY;
 	}
 	regulator_set_voltage(gyro_regltr_18v, 1800000, 1800000);
 	ret = regulator_enable(gyro_regltr_18v);
-	gyro_regltr_3v = regulator_get(NULL, "sensor_gyro_3v");
+	gyro_regltr_3v = regulator_get(NULL, "sensor_3v");
 	if (IS_ERR_OR_NULL(gyro_regltr_3v)) {
 		pr_err("%s: Gyro - failed to get regulator\n", __func__);
 		return -EBUSY;

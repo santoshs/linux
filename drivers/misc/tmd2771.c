@@ -143,7 +143,7 @@ MODULE_PARM_DESC(debug,
 #define CHIP_ID                         0x3d
 
 /*uncomment for runtime_pm */
-/*#define RUNTIME_PM */
+#define RUNTIME_PM
 
 /*uncomment to support user calibration*/
 /*#define TMD2771_USER_CALIBRATION*/
@@ -1408,7 +1408,7 @@ static int taos_probe(struct i2c_client *clientp,
 
 #ifdef RUNTIME_PM
 	pr_taos(INFO, "%s: Proxy amlite setting up regulators\n", __func__);
-	prxamlite_regltr_3v = regulator_get(NULL, "sensor_proxy_amlite_3v");
+	prxamlite_regltr_3v = regulator_get(NULL, "sensor_3v");
 	if (IS_ERR_OR_NULL(prxamlite_regltr_3v)) {
 		pr_taos(ERROR, "%s: Proxy amlite_3v Failed to get regulator\n",
 			__func__);
@@ -1417,7 +1417,7 @@ static int taos_probe(struct i2c_client *clientp,
 	regulator_set_voltage(prxamlite_regltr_3v, 3000000, 3000000);
 	regulator_enable(prxamlite_regltr_3v);
 
-	prxamlite_regltr_18v = regulator_get(NULL, "sensor_proxy_amlite_18v");
+	prxamlite_regltr_18v = regulator_get(NULL, "sensor_1v8");
 	if (IS_ERR_OR_NULL(prxamlite_regltr_18v)) {
 		pr_taos(ERROR, "%s: Proxy amlite_18v Failed to get regulator\n",
 			__func__);
