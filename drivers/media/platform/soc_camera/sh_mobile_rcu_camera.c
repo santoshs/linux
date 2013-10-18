@@ -139,7 +139,7 @@ static spinlock_t lock_log;
 #define RCU_IPMMU_IMTTBR	(0x14)
 #define RCU_IPMMU_IMTTBCR	(0x18)
 
-#define RCU_POWAREA_MNG_ENABLE
+//#define RCU_POWAREA_MNG_ENABLE
 
 #ifdef RCU_POWAREA_MNG_ENABLE
 #include <rtapi/system_pwmng.h>
@@ -3099,6 +3099,7 @@ static int sh_mobile_rcu_init_videobuf(struct vb2_queue *q,
 	return vb2_queue_init(q);
 }
 
+#if 0
 static int sh_mobile_rcu_get_ctrl(struct soc_camera_device *icd,
 				  struct v4l2_control *ctrl)
 {
@@ -3130,6 +3131,7 @@ static bool is_state_rear_flash(void)
 {
 	return rear_flash_state;
 }
+#endif
 
 void sh_mobile_rcu_flash(int led)
 {
@@ -3249,6 +3251,7 @@ void sh_mobile_rcu_event_time_data(unsigned short id, unsigned int data)
 	return;
 }
 
+#if 0
 static int sh_mobile_rcu_send_command(struct i2c_client *client,
 	struct sh_mobile_rcu_snd_cmd *snd_cmd)
 {
@@ -3530,6 +3533,7 @@ static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
 	}
 	return -ENOIOCTLCMD;
 }
+#endif
 
 static struct soc_camera_host_ops sh_mobile_rcu_host_ops = {
 	.owner		= THIS_MODULE,
@@ -3539,8 +3543,9 @@ static struct soc_camera_host_ops sh_mobile_rcu_host_ops = {
 	.put_formats	= sh_mobile_rcu_put_formats,
 	.set_fmt	= sh_mobile_rcu_set_fmt,
 	.try_fmt	= sh_mobile_rcu_try_fmt,
-	.set_ctrl	= sh_mobile_rcu_set_ctrl,
-	.get_ctrl	= sh_mobile_rcu_get_ctrl,
+// XXX sh_mobile_rcu - set/get_ctrl need to be reworked
+//	.set_ctrl	= sh_mobile_rcu_set_ctrl,
+//	.get_ctrl	= sh_mobile_rcu_get_ctrl,
 	.poll		= sh_mobile_rcu_poll,
 	.querycap	= sh_mobile_rcu_querycap,
 	.set_bus_param	= sh_mobile_rcu_set_bus_param,
