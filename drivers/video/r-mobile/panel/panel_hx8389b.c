@@ -1842,7 +1842,6 @@ static int HX8389b_panel_probe(struct fb_info *info,
 
 	/* GPIO control */
 	gpio_request(reset_gpio, NULL);
-	gpio_direction_output(reset_gpio, 0);
 
 	/* fb parent device info to platform_device */
 	pdev = to_platform_device(info->device);

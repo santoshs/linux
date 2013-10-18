@@ -505,7 +505,6 @@ static void __init board_init(void)
 
 	/* BACKLIGHT */
 	gpio_request(GPIO_PORT47, NULL);
-	gpio_direction_output(GPIO_PORT47, 0);
 
 	USBGpio_init();
 

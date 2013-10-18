@@ -109,7 +109,6 @@ static int cyttsp4_hw_power(int on, int use_irq, int irq_gpio)
 	int ret = 0;
 	
 	static struct regulator *reg_l31;
-	static struct regulator *reg_lvs6;
 
 	pr_info("[TSP] power %s\n", on ? "on" : "off");
 
@@ -132,15 +131,6 @@ static int cyttsp4_hw_power(int on, int use_irq, int irq_gpio)
 		}
 	}
 
-	if (!reg_lvs6) {
-		reg_lvs6 = regulator_get(NULL, "vtsp_1v8");
-		if (IS_ERR(reg_lvs6)) {
-			pr_err("%s: could not get 8917_lvs6, rc = %ld\n",
-				__func__, PTR_ERR(reg_lvs6));
-			return -1;
-		}
-	}
-
 	if (on) {
 		ret = regulator_enable(reg_l31);
 		if (ret) {
@@ -150,13 +140,6 @@ static int cyttsp4_hw_power(int on, int use_irq, int irq_gpio)
 		}
 		pr_info("%s: tsp 3.3V on is finished.\n", __func__);
 
-		ret = regulator_enable(reg_lvs6);
-		if (ret) {
-			pr_err("%s: enable lvs6 failed, rc=%d\n",
-				__func__, ret);
-			return -1;
-		}
-		pr_info("%s: tsp 1.8V on is finished.\n", __func__);
 		/* Delay for tsp chip is ready for i2c before enable irq */
 		msleep(20);
 		/* Enable the IRQ */
@@ -185,20 +168,6 @@ static int cyttsp4_hw_power(int on, int use_irq, int irq_gpio)
 		}
 		pr_info("%s: tsp 3.3V off is finished.\n", __func__);
 
-
-        if (regulator_is_enabled(reg_lvs6))
-                ret = regulator_disable(reg_lvs6);
-        else
-            printk(KERN_ERR
-                "%s: rugulator LVS6(1.8V) is disabled\n",
-                    __func__);
-
-        if (ret) {
-            pr_err("%s: enable lvs6 failed, rc=%d\n",
-                __func__, ret);
-            return -1;
-        }
-        pr_info("%s: tsp 1.8V off is finished.\n", __func__);
 
         /* Delay for 100 msec */
         msleep(100);
