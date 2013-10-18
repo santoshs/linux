@@ -593,14 +593,14 @@ static int lsm303dl_mag_i2c_probe(struct i2c_client *client,
 #ifdef RUNTIME_PM
 
 	lsm303dl_log("Magnetometer setting up regulator supplies");
-	mag_regltr_18v = regulator_get(NULL, "sensor_mag_18v");
+	mag_regltr_18v = regulator_get(NULL, "sensor_1v8");
 	if (IS_ERR_OR_NULL(mag_regltr_18v)) {
 		lsm303dl_err("%s: Failed to get 1.8V regulator\n", __func__);
 		return -EBUSY;
 	}
 	regulator_set_voltage(mag_regltr_18v, 1800000, 1800000);
 	ret = regulator_enable(mag_regltr_18v);
-	mag_regltr_3v = regulator_get(NULL, "sensor_mag_3v");
+	mag_regltr_3v = regulator_get(NULL, "sensor_3v");
 	if (IS_ERR_OR_NULL(mag_regltr_3v)) {
 		lsm303dl_err("%s: Failed to get 3V regulator\n", __func__);
 		return -EBUSY;

@@ -742,12 +742,12 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 
 #ifdef RUNTIME_PM
 	lsm303dl_log("%s: Accelrometer - Setting up regulators\n", __func__);
-	accm_regltr_18v = regulator_get(NULL, "sensor_acc_18v");
+	accm_regltr_18v = regulator_get(NULL, "sensor_1v8");
 	if (IS_ERR_OR_NULL(accm_regltr_18v)) {
 		lsm303dl_err("Failed to acquire 1.8V regulator");
 		return -ENODEV;
 	}
-	accm_regltr_3v = regulator_get(NULL, "sensor_acc_3v");
+	accm_regltr_3v = regulator_get(NULL, "sensor_3v");
 	if (IS_ERR_OR_NULL(accm_regltr_3v)) {
 		lsm303dl_err("Failed to acquire 3V regulator");
 		return -ENODEV;

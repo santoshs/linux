@@ -146,7 +146,7 @@
 #define MAG_HARD_IRON_CALIBRATION
 
 /* to enable runtime PM */
-/*#define RUNTIME_PM*/
+#define RUNTIME_PM
 
 /************************************************
 *	Exported function definition section	*
