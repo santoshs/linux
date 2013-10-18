@@ -284,9 +284,6 @@ static int S5K4ECGX_g_chip_ident(struct v4l2_subdev *sd,
 static int S5K4ECGX_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
 {
-/*	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);*/
-
 	cfg->type = V4L2_MBUS_CSI2;
 	cfg->flags = V4L2_MBUS_CSI2_2_LANE |
 		V4L2_MBUS_CSI2_CHANNEL_0 |
@@ -352,12 +349,12 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
 {
 	struct S5K4ECGX *priv;
-	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+	struct soc_camera_subdev_desc *sdesc = soc_camera_i2c_to_desc(client);
 	int ret = 0;
 
 	dev_dbg(&client->dev, "%s():\n", __func__);
 
-	if (!icl) {
+	if (!sdesc) {
 		dev_err(&client->dev, "S5K4ECGX: missing platform data!\n");
 		return -EINVAL;
 	}
@@ -452,11 +449,11 @@ static int S5K4ECGX_probe(struct i2c_client *client,
 static int S5K4ECGX_remove(struct i2c_client *client)
 {
 	struct S5K4ECGX *priv = to_S5K4ECGX(client);
-	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+	struct soc_camera_subdev_desc *sdesc = soc_camera_i2c_to_desc(client);
 
 	v4l2_device_unregister_subdev(&priv->subdev);
-	if (icl->free_bus)
-		icl->free_bus(icl);
+	if (sdesc->free_bus)
+		sdesc->free_bus(sdesc);
 	v4l2_ctrl_handler_free(&priv->hdl);
 	kfree(priv);
 

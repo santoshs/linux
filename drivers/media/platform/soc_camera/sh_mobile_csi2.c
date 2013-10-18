@@ -620,10 +620,6 @@ static int sh_csi2_remove(struct platform_device *pdev)
 {
 	struct sh_csi2 *priv = platform_get_drvdata(pdev);
 
-	if (!res) {
-		printk(KERN_ERR "platform_get_resource is NULL.\n");
-		return -ENOMEM;
-	}
 	if (priv->workqueue) {
 		flush_workqueue(priv->workqueue);
 		destroy_workqueue(priv->workqueue);

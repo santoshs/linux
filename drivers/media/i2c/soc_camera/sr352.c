@@ -330,9 +330,6 @@ static int SR352_g_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 static int SR352_g_mbus_config(struct v4l2_subdev *sd,
 				struct v4l2_mbus_config *cfg)
 {
-/*	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);*/
-
 	cfg->type = V4L2_MBUS_CSI2;
 	cfg->flags = V4L2_MBUS_CSI2_1_LANE |
 		V4L2_MBUS_CSI2_CHANNEL_0 |
@@ -382,12 +379,12 @@ static int SR352_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
 {
 	struct SR352 *priv;
-	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+	struct soc_camera_subdev_desc *sdesc = soc_camera_i2c_to_desc(client);
 	int ret = 0;
 
 	dev_dbg(&client->dev, "%s():\n", __func__);
 
-	if (!icl) {
+	if (!sdesc) {
 		dev_err(&client->dev, "SR352: missing platform data!\n");
 		return -EINVAL;
 	}
@@ -465,11 +462,11 @@ static int SR352_probe(struct i2c_client *client,
 static int SR352_remove(struct i2c_client *client)
 {
 	struct SR352 *priv = to_SR352(client);
-	struct soc_camera_link *icl = soc_camera_i2c_to_link(client);
+	struct soc_camera_subdev_desc *sdesc = soc_camera_i2c_to_desc(client);
 
 	v4l2_device_unregister_subdev(&priv->subdev);
-	if (icl->free_bus)
-		icl->free_bus(icl);
+	if (sdesc->free_bus)
+		sdesc->free_bus(sdesc);
 	v4l2_ctrl_handler_free(&priv->hdl);
 	kfree(priv);
 
