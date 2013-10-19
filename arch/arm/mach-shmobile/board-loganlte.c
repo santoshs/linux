@@ -155,14 +155,23 @@ static int unused_gpios_logan_rev2[] = {
 
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
-static int proc_read_board_rev(char *page, char **start, off_t off,
-		int count, int *eof, void *data)
+static int board_rev_proc_show(struct seq_file *s, void *v)
 {
-	unsigned int u2_board_rev = 0;
-	u2_board_rev = u2_get_board_rev();
-	count = snprintf(page, count, "%x", u2_board_rev);
-	return count;
+	seq_printf(s, "%x", u2_get_board_rev());
+
+	return 0;
 }
+
+static int board_rev_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, board_rev_proc_show, NULL);
+}
+
+static const struct file_operations board_rev_ops = {
+	.open = board_rev_proc_open,
+	.read = seq_read,
+	.release = single_release,
+};
 
 static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
 	.gpio_port = GPIO_PORT47,
@@ -454,10 +463,8 @@ static void __init board_init(void)
 	/* set board version */
 	u2_board_rev = u2_get_board_rev();
 
-#if 0 /*create_proc_read_entry needs to be adapted to 3.10 */
-	create_proc_read_entry("board_revision", 0444, NULL,
-				proc_read_board_rev, NULL);
-#endif
+	if (!proc_create("board_revision", 0444, NULL, &board_rev_ops))
+		pr_warn("creation of /proc/board_revision failed\n");
 
 	r8a7373_add_standard_devices();
 
