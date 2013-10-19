@@ -277,8 +277,7 @@ static struct portn_gpio_setting_info sdhi0_gpio_setting_info[] = {
 struct renesas_sdhi_platdata sdhi0_info = {
 	.caps			= 0,
 	.flags			= RENESAS_SDHI_SDCLK_OFFEN |
-					RENESAS_SDHI_WP_DISABLE |
-					RENESAS_SDHI_DMA_SLAVE_CONFIG,
+				  RENESAS_SDHI_WP_DISABLE,
 	.slave_id_tx		= SHDMA_SLAVE_SDHI0_TX,
 	.slave_id_rx		= SHDMA_SLAVE_SDHI0_RX,
 	.set_pwr		= sdhi0_set_pwr,
