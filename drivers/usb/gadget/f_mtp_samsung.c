@@ -499,8 +499,8 @@ static int mtpg_open(struct inode *ip, struct file *fp)
 
 	the_mtpg->error = 0;
 
-	DBG(the_mtpg->cdev, "%s(): stop_cpufreq\n", __func__);
 	ret = stop_cpufreq();
+	DBG(the_mtpg->cdev, "%s(): stop_cpufreq\n", __func__);
 	if (ret) {
 			dfs_started = 1;
 			ERROR(the_mtpg->cdev, "%s(): error<%d>! stop_cpufreq\n",
