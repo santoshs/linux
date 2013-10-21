@@ -316,6 +316,7 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 	struct i2c_client *client = d2153_codec->aad_i2c_client;
 	struct d2153_aad_priv *d2153_aad = i2c_get_clientdata(client);
 	struct regulator *regulator;
+	int ret;
 	#define D2153_LDO_AUD_RECHECK
 #ifdef D2153_LDO_AUD_RECHECK
 	unsigned char regval = 0;
@@ -328,7 +329,7 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		if (IS_ERR(regulator))
 			return -1;
 		regulator_set_voltage(regulator, 1800000, 1800000);
-		regulator_enable(regulator);
+		ret = regulator_enable(regulator);
 #ifdef D2153_LDO_AUD_RECHECK
 		d2153_reg_read(d2153_codec->d2153_pmic, 0x5E, &regval);
 		if (regval == 0x00) {
@@ -343,7 +344,7 @@ int d2153_codec_power(struct snd_soc_codec *codec, int on)
 		if (IS_ERR(regulator))
 			return -1;
 		regulator_set_voltage(regulator, 2700000, 2700000);
-		regulator_enable(regulator);
+		ret = regulator_enable(regulator);
 		regulator_put(regulator);
 
 		msleep(10);
