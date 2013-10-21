@@ -383,7 +383,8 @@ void lsm303dl_acc_report_values(void)
 		 *to input core that value report is completed */
 
 		/* sync is removed from kernel 3.10 */
-		lsm303dl_info->input_dev->sync = 0;
+		/*lsm303dl_info->input_dev->sync = 0;*/
+
 		input_event(lsm303dl_info->input_dev, EV_SYN,
 					SYN_REPORT, LSM303DL_ACC_REPORT_ID);
 		input_sync(lsm303dl_info->input_dev);
@@ -418,7 +419,8 @@ void lsm303dl_mag_report_values(void)
 		 *to input core that value report is completed */
 
 		/* sync is removed from Kernel 3.10 */
-		lsm303dl_info->input_dev->sync = 0;
+		/*lsm303dl_info->input_dev->sync = 0;*/
+
 		input_event(lsm303dl_info->input_dev, EV_SYN, SYN_REPORT,
 					LSM303DL_MAG_REPORT_ID);
 

@@ -653,9 +653,14 @@ int lsm303dl_acc_power_on_off(bool flag)
 	if ((flag == 1)) {
 		lsm303dl_log("\n LDO on %s ", __func__);
 		ret = regulator_enable(accm_regltr_3v);
+		if (ret)
+			lsm303dl_err("Error:Accel 3v regulator enable failed\n");
+
 	} else if ((flag == 0)) {
 		lsm303dl_log("\n LDO off %s ", __func__);
 		ret = regulator_disable(accm_regltr_3v);
+		if (ret)
+			lsm303dl_err("Error:Accel 3v Regulator diable failed\n");
 	}
 #endif
 	return 0;
@@ -683,9 +688,13 @@ int lsm303dl_acc_cs_power_on_off(bool flag)
 	if ((flag == 1)) {
 		lsm303dl_log("\n LDO on %s ", __func__);
 		ret = regulator_enable(accm_regltr_18v);
+		if (ret)
+			lsm303dl_err("Error:Accel 1v8 regulator enable failed\n");
 	} else if ((flag == 0)) {
 		lsm303dl_log("\n LDO on %s ", __func__);
 		ret = regulator_disable(accm_regltr_18v);
+		if (ret)
+			lsm303dl_err("Error:Accel 1v8 regulator disable failed\n");
 	}
 #endif
 	return 0;
@@ -756,7 +765,12 @@ static int lsm303dl_acc_i2c_probe(struct i2c_client *client,
 	regulator_set_voltage(accm_regltr_18v, 1800000, 1800000);
 	regulator_set_voltage(accm_regltr_3v, 3000000, 3000000);
 	ret = regulator_enable(accm_regltr_18v);
+	if (ret)
+		lsm303dl_err("Error:Accel 1v8 Regulator Enable failed\n");
+
 	ret = regulator_enable(accm_regltr_3v);
+	if (ret)
+		lsm303dl_err("Error:Accel 3v Regulator Enable failed\n");
 #endif
 /* PM runtime regulator setup*/
 

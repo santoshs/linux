@@ -282,7 +282,7 @@ static struct i2c_driver taos_driver = {
 		   },
 	.id_table = taos_idtable,
 	.probe = taos_probe,
-	.remove = __devexit_p(taos_remove),
+	.remove = taos_remove,
 };
 
 /* per-device data */
@@ -1008,6 +1008,8 @@ static struct early_suspend taos_early_suspend_desc = {
 #ifdef RUNTIME_PM
 static int tmd2771_power_on_off(bool flag)
 {
+	int ret;
+
 	if (!prxamlite_regltr_3v) {
 		pr_taos(ERROR, "prxamlite_regltr_3v is unavailable\n");
 		return -1;
@@ -1015,10 +1017,14 @@ static int tmd2771_power_on_off(bool flag)
 
 	if ((flag == 1)) {
 		pr_taos(INFO, "\n LDO on %s ", __func__);
-		regulator_enable(prxamlite_regltr_3v);
+		ret = regulator_enable(prxamlite_regltr_3v);
+		if (ret)
+			pr_taos(ERROR, "Proxy 3v Regulator-enable failed\n");
 	} else if ((flag == 0)) {
 		pr_taos(INFO, "\n LDO off %s ", __func__);
-		regulator_disable(prxamlite_regltr_3v);
+		ret = regulator_disable(prxamlite_regltr_3v);
+		if (ret)
+			pr_taos(ERROR, "Proxy 3v Regulator disable failed\n");
 	}
 	return 0;
 }
@@ -1028,6 +1034,8 @@ static int tmd2771_power_on_off(bool flag)
 #ifdef RUNTIME_PM
 static int tmd2771_cs_power_on_off(bool flag)
 {
+	int ret;
+
 	if (!prxamlite_regltr_18v) {
 		pr_taos(ERROR, "prxamlite_regltr_18v is unavailable\n");
 		return -1;
@@ -1035,10 +1043,14 @@ static int tmd2771_cs_power_on_off(bool flag)
 
 	if ((flag == 1)) {
 		pr_taos(INFO, "\n LDO on %s ", __func__);
-		regulator_enable(prxamlite_regltr_18v);
+		ret = regulator_enable(prxamlite_regltr_18v);
+		if (ret)
+			pr_taos(ERROR, "Proxy 1v8 Regulator enable failed\n");
 	} else if ((flag == 0)) {
 		pr_taos(INFO, "\n LDO off %s ", __func__);
-		regulator_disable(prxamlite_regltr_18v);
+		ret = regulator_disable(prxamlite_regltr_18v);
+		if (ret)
+			pr_taos(ERROR, "Proxy 1v8 Regulator disable failed\n");
 	}
 	return 0;
 }
@@ -1415,7 +1427,9 @@ static int taos_probe(struct i2c_client *clientp,
 		return 0;
 	}
 	regulator_set_voltage(prxamlite_regltr_3v, 3000000, 3000000);
-	regulator_enable(prxamlite_regltr_3v);
+	ret = regulator_enable(prxamlite_regltr_3v);
+	if (ret)
+		pr_taos(ERROR, "Proximity 3v Regulator Enable Failed\n");
 
 	prxamlite_regltr_18v = regulator_get(NULL, "sensor_1v8");
 	if (IS_ERR_OR_NULL(prxamlite_regltr_18v)) {
@@ -1424,7 +1438,9 @@ static int taos_probe(struct i2c_client *clientp,
 		return 0;
 	}
 	regulator_set_voltage(prxamlite_regltr_18v, 1800000, 1800000);
-	regulator_enable(prxamlite_regltr_18v);
+	ret = regulator_enable(prxamlite_regltr_18v);
+	if (ret)
+		pr_taos(ERROR, "Proximity 1v8 Regulator enable failed\n");
 #endif
 
 	if (!i2c_check_functionality(clientp->adapter,
@@ -1744,7 +1760,7 @@ err_i2c_check_function:
 	return ret;
 }
 
-static int __devexit taos_remove(struct i2c_client *client)
+static int taos_remove(struct i2c_client *client)
 {
 	int ret = 0;
 

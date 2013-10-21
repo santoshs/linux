@@ -421,9 +421,13 @@ static int l3gd20_power_on_off(bool flag)
 	if ((flag == 1)) {
 		l3gd20_log("\n LDO on %s ", __func__);
 		ret = regulator_enable(gyro_regltr_3v);
+		if (ret)
+			pr_err("Error: Gyro 3v Regulator Enable failed\n");
 	} else if ((flag == 0)) {
 		l3gd20_log("\n LDO off %s ", __func__);
 		ret = regulator_disable(gyro_regltr_3v);
+		if (ret)
+			pr_err("Error: Gyro 3v Regulator disable failed\n");
 	}
 	return 0;
 }
@@ -449,9 +453,13 @@ static int l3gd20_cs_power_on_off(bool flag)
 	if ((flag == 1)) {
 		l3gd20_log("\n LDO on %s ", __func__);
 		ret = regulator_enable(gyro_regltr_18v);
+		if (ret)
+			pr_err("Error: Gyro 1v8 Regulator enable failed\n");
 	} else if ((flag == 0)) {
 		l3gd20_log("\n LDO off %s ", __func__);
 		ret = regulator_disable(gyro_regltr_18v);
+		if (ret)
+			pr_err("Error: Gyro 1v8 Regulator disable failed\n");
 	}
 	return 0;
 }
@@ -484,6 +492,8 @@ static int l3gd20_i2c_probe(struct i2c_client *client,
 	}
 	regulator_set_voltage(gyro_regltr_18v, 1800000, 1800000);
 	ret = regulator_enable(gyro_regltr_18v);
+	if (ret)
+		pr_err("Error: Gyro 1v8 regulator enable failed");
 	gyro_regltr_3v = regulator_get(NULL, "sensor_3v");
 	if (IS_ERR_OR_NULL(gyro_regltr_3v)) {
 		pr_err("%s: Gyro - failed to get regulator\n", __func__);
@@ -491,6 +501,8 @@ static int l3gd20_i2c_probe(struct i2c_client *client,
 	}
 	regulator_set_voltage(gyro_regltr_3v, 3000000, 3000000);
 	ret = regulator_enable(gyro_regltr_3v);
+	if (ret)
+		pr_err("Error Gyro 3v regulator enable failed");
 #endif
 	/* Check I2C functionality */
 	err = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
