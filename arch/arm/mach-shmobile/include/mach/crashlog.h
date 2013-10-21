@@ -23,13 +23,6 @@
 
 #include <mach/memory-r8a7373.h>
 
-#define RMC_LOCAL_VERSION "150612"              /* ddmmyy (release time)*/
-
-#define TMPLOG_ADDRESS	(SDRAM_CRASHLOG_START_ADDR + 0x200)
-#define TMPLOG_END_ADDRESS     (TMPLOG_ADDRESS + 0x40000)
-#define TMPLOG_TOTAL_SIZE      (TMPLOG_END_ADDRESS - TMPLOG_ADDRESS)
-
-
 #define CRASHLOG_R_LOCAL_VER_LOCATE             (SDRAM_CRASHLOG_START_ADDR + 0)
 #define CRASHLOG_R_LOCAL_VER_LENGTH             32
 
@@ -39,35 +32,14 @@
 #define CRASHLOG_LOGCAT_RADIO_LOCATE	(SDRAM_CRASHLOG_START_ADDR + 0x50)
 #define CRASHLOG_LOGCAT_SYSTEM_LOCATE	(SDRAM_CRASHLOG_START_ADDR + 0x60)
 
-extern unsigned long log_buf_address;
-extern unsigned long log_buf_len_address;
-extern unsigned long log_end_address;
-extern unsigned long logged_chars_address;
+#if 1 /*TODO: replace with config option */
+extern void set_log_info(unsigned long store_addr,
+		unsigned long buffer_addr, unsigned long buffer_size_addr,
+		unsigned long w_off_add, unsigned long head_addr);
+#else
+static inline void set_log_info(unsigned long store_addr,
+		unsigned long buffer_addr, unsigned long buffer_size_addr,
+		unsigned long w_off_add, unsigned long head_addr){}
+#endif
 
-extern unsigned long log_main_buffer_address;
-extern unsigned long log_main_size_address;
-extern unsigned long log_main_w_off_address;
-extern unsigned long log_main_head_address;
-
-extern unsigned long log_events_buffer_address;
-extern unsigned long log_events_size_address;
-extern unsigned long log_events_w_off_address;
-extern unsigned long log_events_head_address;
-
-extern unsigned long log_radio_buffer_address;
-extern unsigned long log_radio_size_address;
-extern unsigned long log_radio_w_off_address;
-extern unsigned long log_radio_head_address;
-
-extern unsigned long log_system_buffer_address;
-extern unsigned long log_system_size_address;
-extern unsigned long log_system_w_off_address;
-extern unsigned long log_system_head_address;
-
-extern void crashlog_kmsg_init(void);
-extern void crashlog_logcat_init(void);
-
-void crashlog_r_local_ver_write(char *soft_version);
-void crashlog_reset_log_write(void);
-void crashlog_init_tmplog(void);
 #endif /* __ARCH_SHMOBILE_CRASHLOG_H__ */

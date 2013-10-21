@@ -102,7 +102,7 @@ obj-$(CONFIG_SMP)		+= $(smp-y)
 obj-$(CONFIG_ARCH_R8A7373)	+= ramdefrag/
 
 # crashlog
-#obj-y += crashlog.o
+obj-y += crashlog.o
 
 obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec-reboot.o
 obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o

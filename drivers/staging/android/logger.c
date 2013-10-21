@@ -33,6 +33,8 @@
 
 #include <asm/ioctls.h>
 
+#include <mach/crashlog.h>
+
 /**
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
  * @buffer:	The actual ring buffer
@@ -804,6 +806,43 @@ out_free_buffer:
 	return ret;
 }
 
+static inline void crashlog_set_log_info(void)
+{
+	struct logger_log *log;
+	unsigned char *buffer;
+	unsigned long store_addr = 0;
+
+	list_for_each_entry(log, &log_list, logs) {
+		if (strcmp(log->misc.name, LOGGER_LOG_MAIN) == 0)
+			store_addr = CRASHLOG_LOGCAT_MAIN_LOCATE;
+		else if (strcmp(log->misc.name, LOGGER_LOG_EVENTS) == 0)
+			store_addr = CRASHLOG_LOGCAT_EVENT_LOCATE;
+		else if (strcmp(log->misc.name, LOGGER_LOG_RADIO) == 0)
+			store_addr = CRASHLOG_LOGCAT_RADIO_LOCATE;
+		else if (strcmp(log->misc.name, LOGGER_LOG_SYSTEM) == 0)
+			store_addr = CRASHLOG_LOGCAT_SYSTEM_LOCATE;
+		else
+			continue;
+
+		/* log buffer needs to be physically contiguous */
+		buffer = kmalloc(log->size, GFP_KERNEL);
+		if (buffer == NULL) {
+			pr_err("Failed to allocate physically contiguous %s\n",
+					log->misc.name);
+			continue;
+		}
+
+		vfree(log->buffer);
+		log->buffer = buffer;
+
+		set_log_info(store_addr,
+				virt_to_phys(log->buffer),
+				virt_to_phys(&log->size),
+				virt_to_phys(&log->w_off),
+				virt_to_phys(&log->head));
+	}
+}
+
 static int __init logger_init(void)
 {
 	int ret;
@@ -824,6 +863,7 @@ static int __init logger_init(void)
 	if (unlikely(ret))
 		goto out;
 
+	crashlog_set_log_info();
 out:
 	return ret;
 }
