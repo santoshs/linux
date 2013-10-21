@@ -86,6 +86,24 @@ static void identity_mapping_add(pgd_t *pgd, const char *text_start,
 	} while (pgd++, addr = next, addr != end);
 }
 
+static void identity_mapping_add_phys(pgd_t *pgd, phys_addr_t addr,
+				 phys_addr_t end, unsigned long prot)
+{
+	unsigned long next;
+
+	prot |= PMD_TYPE_SECT | PMD_SECT_AP_WRITE | PMD_SECT_AF;
+
+	if (cpu_architecture() <= CPU_ARCH_ARMv5TEJ && !cpu_is_xscale())
+		prot |= PMD_BIT4;
+
+	pgd += pgd_index(addr);
+	do {
+		next = pgd_addr_end(addr, end);
+		idmap_add_pud(pgd, addr, next, prot);
+	} while (pgd++, addr = next, addr != end);
+}
+
+
 extern char  __idmap_text_start[], __idmap_text_end[];
 
 static int __init init_static_idmap(void)
@@ -109,8 +127,8 @@ static int __init init_static_idmap(void)
 
 	pr_info("Setting up static identity map for 0x%p - 0x%p\n",
 		(void *)idmap_start, (void *)idmap_end);
-	identity_mapping_add(idmap_pgd, (char const *)idmap_start,
-			     (char const *)idmap_end, 0);
+	identity_mapping_add_phys(idmap_pgd, idmap_start,
+			     idmap_end, 0);
 
 #endif
 	/* Flush L1 for the hardware to see this page table content */
