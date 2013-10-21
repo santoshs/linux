@@ -1516,21 +1516,18 @@ rtn:
 /**
  * @brief	execute process read function.
  *
- * @param[in]	page	write position.
- * @param[in]	start	unused.
- * @param[in]	offset	unused.
- * @param[in]	count	maximum write length.
- * @param[in]	eof	unused.
- * @param[in]	data	unused.
+ * @param[in]	file    unused.
+ * @param[in]	buf	userspace buffer read to.
+ * @param[in]	size	maximum number of bytes to read.
+ * @param[in]	ppos	current position in the buffer.
  *
- * @retval	len	write length.
  */
-static int vcd_read_exec_proc(char *page, char **start, off_t offset,
-					int count, int *eof, void *data)
+static int vcd_read_exec_proc(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos)
 {
-	int len = 0;
+	size_t len;
 	int result = 0;
-
+	char page[10];
 	/* semaphore start */
 	down(&g_vcd_semaphore);
 
@@ -1546,7 +1543,7 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 	/* execute control function */
 	result = vcd_ctrl_get_result();
 
-	len = snprintf(page, count, "%d\n", result);
+	len = snprintf(page, sizeof(page), "%d\n", result);
 
 	vcd_pr_if_amhal("[ -> AMHAL] [%d]\n", result);
 
@@ -1562,22 +1559,22 @@ rtn:
 	/* semaphore end */
 	up(&g_vcd_semaphore);
 
-	return len;
+	return simple_read_from_buffer(buf, size, ppos, page, len);
 }
 
 
 /**
  * @brief	execute process write function.
  *
- * @param[in]	filp	unused.
+ * @param[in]	file	unused.
  * @param[in]	buffer	user data.
  * @param[in]	len	length of data.
- * @param[in]	data	unused.
+ * @param[in]	ppos	unused.
  *
  * @retval	len	read length.
  */
-static int vcd_write_exec_proc(struct file *filp, const char *buffer,
-					unsigned long len, void *data)
+static int vcd_write_exec_proc(struct file *file, const char __user *buffer,
+				size_t len, loff_t *ppos)
 {
 	int ret = VCD_ERR_NONE;
 	unsigned char proc_buf[VCD_PROC_BUF_SIZE] = {0};
@@ -1595,7 +1592,7 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 
 	/* buffer size check */
 	if (VCD_PROC_BUF_SIZE <= len) {
-		vcd_pr_err("size over len[%ld].\n", len);
+		vcd_pr_err("size over len[%d].\n", len);
 		goto rtn;
 	}
 
@@ -1651,7 +1648,7 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 		break;
 	}
 
-	vcd_pr_end_if_user("len[%ld].\n", len);
+	vcd_pr_end_if_user("len[%d].\n", len);
 
 rtn:
 	/* semaphore end */
@@ -1664,43 +1661,40 @@ rtn:
 /**
  * @brief	log level read function.
  *
- * @param[in]	page	write position.
- * @param[in]	start	unused.
- * @param[in]	offset	unused.
- * @param[in]	count	maximum write length.
- * @param[in]	eof	unused.
- * @param[in]	data	unused.
+ * @param[in]   file    unused.
+ * @param[in]   buf     userspace buffer read to.
+ * @param[in]   size    maximum number of bytes to read.
+ * @param[in]   ppos    current position in the buffer.
  *
- * @retval	len	write length.
  */
-static int vcd_read_log_level(char *page, char **start, off_t offset,
-					int count, int *eof, void *data)
+static int vcd_read_log_level(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos)
 {
-	int len = 0;
-
+	size_t len;
+	char page[50];
 	vcd_pr_start_interface_function();
 
 #ifdef __PRINT_VCD__
-	len = snprintf(page, count, "0x%x\n", g_vcd_log_level);
+	len = sprintf(page, "0x%x\n", g_vcd_log_level);
 #endif /* __PRINT_VCD__ */
 
 	vcd_pr_end_interface_function("len[%d].\n", len);
-	return len;
+	return simple_read_from_buffer(buf, size, ppos, page, len);
 }
 
 
 /**
  * @brief	log level write function.
  *
- * @param[in]	filp	unused.
- * @param[in]	buffer	user data.
- * @param[in]	len	length of data.
- * @param[in]	data	unused.
- *
+ * @param[in]   file    unused.
+ * @param[in]   buffer  user data.
+ * @param[in]   len     length of data.
+ * @param[in]   ppos    unused.
+
  * @retval	len	read length.
  */
-static int vcd_write_log_level(struct file *filp, const char *buffer,
-						unsigned long len, void *data)
+static int vcd_write_log_level(struct file *file, const char __user *buffer,
+				size_t len, loff_t *ppos)
 {
 	int ret = VCD_ERR_NONE;
 	unsigned char proc_buf[VCD_PROC_BUF_SIZE] = {0};
@@ -1714,7 +1708,7 @@ static int vcd_write_log_level(struct file *filp, const char *buffer,
 
 	/* buffer size check */
 	if (VCD_PROC_BUF_SIZE <= len) {
-		vcd_pr_err("size over len[%ld].\n", len);
+		vcd_pr_err("size over len[%d].\n", len);
 		goto rtn;
 	}
 
@@ -1743,7 +1737,7 @@ static int vcd_write_log_level(struct file *filp, const char *buffer,
 
 rtn:
 	vcd_pr_interface_info("g_vcd_log_level[0x%x].\n", g_vcd_log_level);
-	vcd_pr_end_interface_function("len[%ld].\n", len);
+	vcd_pr_end_interface_function("len[%d].\n", len);
 	return len;
 }
 
@@ -1751,17 +1745,15 @@ rtn:
 /**
  * @brief	exec func read function.
  *
- * @param[in]	page	write position.
- * @param[in]	start	unused.
- * @param[in]	offset	unused.
- * @param[in]	count	maximum write length.
- * @param[in]	eof	unused.
- * @param[in]	data	unused.
+ * @param[in]   file    unused.
+ * @param[in]   buf     userspace buffer read to.
+ * @param[in]   size    maximum number of bytes to read.
+ * @param[in]   ppos    current position in the buffer.
  *
  * @retval	len	write length.
  */
-static int vcd_read_exec_func(char *page, char **start, off_t offset,
-					int count, int *eof, void *data)
+static int vcd_read_exec_func(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos)
 {
 	int len = 0;
 
@@ -1777,23 +1769,23 @@ static int vcd_read_exec_func(char *page, char **start, off_t offset,
 /**
  * @brief	exec func write function.
  *
- * @param[in]	filp	unused.
- * @param[in]	buffer	user data.
- * @param[in]	len	length of data.
- * @param[in]	data	unused.
+ * @param[in]   file    unused.
+ * @param[in]   buffer  user data.
+ * @param[in]   len     length of data.
+ * @param[in]   ppos    unused.
  *
  * @retval	count	read length.
  */
-static int vcd_write_exec_func(struct file *filp, const char *buffer,
-					unsigned long len, void *data)
+static int vcd_write_exec_func(struct file *file, const char __user *buffer,
+				size_t len, loff_t *ppos)
 {
 	int ret = VCD_ERR_NONE;
 	unsigned char proc_buf[VCD_PROC_BUF_SIZE] = {0};
 	unsigned int write_func = 0;
 
 	vcd_pr_start_interface_function(
-		"filp[%p],buffer[%p],len[%ld],data[%p].\n",
-		filp, buffer, len, data);
+		"filp[%p],buffer[%p],len[%d].\n",
+		file, buffer, len);
 
 #ifndef __VCD_DEBUG__
 	goto rtn;
@@ -1801,7 +1793,7 @@ static int vcd_write_exec_func(struct file *filp, const char *buffer,
 
 	/* buffer size check */
 	if (VCD_PROC_BUF_SIZE <= len) {
-		vcd_pr_err("size over len[%ld].\n", len);
+		vcd_pr_err("size over len[%d].\n", len);
 		goto rtn;
 	}
 
@@ -1822,11 +1814,27 @@ static int vcd_write_exec_func(struct file *filp, const char *buffer,
 	vcd_debug_execute(write_func);
 
 rtn:
-	vcd_pr_end_interface_function("len[%ld].\n", len);
+	vcd_pr_end_interface_function("len[%d].\n", len);
 	return len;
 }
 
+static const struct file_operations proc_fops = {
+	.read           = vcd_read_exec_proc,
+	.write		= vcd_write_exec_proc,
+	.llseek         = default_llseek,
+};
 
+static const struct file_operations log_fops = {
+	.read           = vcd_read_log_level,
+	.write          = vcd_write_log_level,
+	.llseek         = default_llseek,
+};
+
+static const struct file_operations func_fops = {
+	.read           = vcd_read_exec_func,
+	.write          = vcd_write_exec_func,
+	.llseek         = default_llseek,
+};
 /**
  * @brief	debug execute function.
  *
@@ -2144,34 +2152,32 @@ static int vcd_create_proc_entry(void)
 	g_vcd_parent = proc_mkdir(VCD_DRIVER_NAME, NULL);
 	if (NULL != g_vcd_parent) {
 		/* create file for execute process */
-		exec_proc = create_proc_entry(VCD_PROC_FILE_NAME_EXEC_PROC,
-				(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent);
-		if (NULL != exec_proc) {
-			exec_proc->read_proc  = vcd_read_exec_proc;
-			exec_proc->write_proc = vcd_write_exec_proc;
-		} else {
+		exec_proc = proc_create_data(VCD_PROC_FILE_NAME_EXEC_PROC,
+			(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent, &proc_fops, NULL);
+		if (NULL != exec_proc)
+			printk(KERN_INFO" exec proc succesful\n");
+		 else {
 			vcd_pr_always_err("create failed for exec.\n");
 			ret = VCD_ERR_SYSTEM;
 			goto rm_dir;
 		}
 		/* create file for log level */
-		log_level = create_proc_entry(VCD_PROC_FILE_NAME_LOG_LEVEL,
-				(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent);
-		if (NULL != log_level) {
-			log_level->read_proc  = vcd_read_log_level;
-			log_level->write_proc = vcd_write_log_level;
-		} else {
+		log_level = proc_create_data(VCD_PROC_FILE_NAME_LOG_LEVEL,
+			(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent, &log_fops, NULL);
+		if (NULL != log_level)
+			printk(KERN_INFO" log proc succesful\n");
+		else {
 			vcd_pr_always_err("create failed for log level.\n");
 			ret = VCD_ERR_SYSTEM;
 			goto rm_exec_proc;
 		}
 		/* create file for execute function */
-		exec_func = create_proc_entry(VCD_PROC_FILE_NAME_EXEC_FUNC,
-				(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent);
-		if (NULL != exec_func) {
-			exec_func->read_proc  = vcd_read_exec_func;
-			exec_func->write_proc = vcd_write_exec_func;
-		} else {
+		exec_func = proc_create_data(VCD_PROC_FILE_NAME_EXEC_FUNC,
+			(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent, &func_fops, NULL);
+
+		if (NULL != exec_func)
+			 printk(KERN_INFO" exec proc func succesful\n");
+		 else {
 			vcd_pr_always_err("create failed for exec func.\n");
 			ret = VCD_ERR_SYSTEM;
 			goto rm_log_proc;
