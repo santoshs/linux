@@ -714,18 +714,17 @@ static int fsi_dma_init(struct fsi_priv *fsi,
 	io->is_fm = 0;
 
 	param = &io->dma_param;
-	param->dma_dev = NULL;
 
 	dai = fsi_get_dai(substream);
 
 	if (is_play == 1 && fsi_is_port_a(fsi) == 1)
-		param->slave_id = SHDMA_SLAVE_FSI2A_TX;
+		param->shdma_slave.slave_id = SHDMA_SLAVE_FSI2A_TX;
 	if (is_play == 0 && fsi_is_port_a(fsi) == 1)
-		param->slave_id = SHDMA_SLAVE_FSI2A_RX;
+		param->shdma_slave.slave_id = SHDMA_SLAVE_FSI2A_RX;
 	if (is_play == 1 && fsi_is_port_a(fsi) == 0)
-		param->slave_id = SHDMA_SLAVE_FSI2B_TX;
+		param->shdma_slave.slave_id = SHDMA_SLAVE_FSI2B_TX;
 	if (is_play == 0 && fsi_is_port_a(fsi) == 0)
-		param->slave_id = SHDMA_SLAVE_FSI2B_RX;
+		param->shdma_slave.slave_id = SHDMA_SLAVE_FSI2B_RX;
 
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
@@ -757,14 +756,13 @@ static int fsi_dma_init_in_fm(
 	io->is_fm = 1;
 
 	param = &io->dma_param;
-	param->dma_dev = NULL;
 
 	dai = fsi_get_dai(substream);
 
 	if (is_play)
-		param->slave_id = SHDMA_SLAVE_SCUW_FFD_TX;
+		param->shdma_slave.slave_id = SHDMA_SLAVE_SCUW_FFD_TX;
 	else
-		param->slave_id = SHDMA_SLAVE_SCUW_CPUFIFO_2_RX;
+		param->shdma_slave.slave_id = SHDMA_SLAVE_SCUW_CPUFIFO_2_RX;
 
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
@@ -840,7 +838,6 @@ static int fsi_dma_get_pos(int is_play, struct fsi_priv *fsi)
 {
 	unsigned int  addr;
 	struct fsi_stream *io = fsi_get_stream(fsi, is_play);
-
 	struct sh_dmae_regs hw;
 
 	sh_dmae_aquire_desc_config(io->dma_chan, &hw);
@@ -1933,6 +1930,9 @@ static int fsi_pcm_new(struct snd_soc_pcm_runtime *rtd)
 		PREALLOC_BUFFER, PREALLOC_BUFFER_MAX);
 }
 
+static const struct snd_soc_component_driver fsi_soc_component = {
+	.name           = "sh_fsi2",
+};
 /************************************************************************
 
 
@@ -2093,8 +2093,15 @@ static int fsi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "cannot snd soc register\n");
 		goto exit_reg_plt;
 	}
-	return snd_soc_register_dais(&pdev->dev, &fsi_soc_dai[pdev->id], 1);
-
+	ret = snd_soc_register_component(&pdev->dev, &fsi_soc_component,
+				&fsi_soc_dai[pdev->id], 1);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "cannot snd component register\n");
+		goto exit_snd_soc;
+	}
+	return ret;
+exit_snd_soc:
+	snd_soc_unregister_platform(&pdev->dev);
 exit_reg_plt:
 #ifndef USE_DMA
 	if (0 == pdev->id)
@@ -2127,7 +2134,7 @@ static int fsi_remove(struct platform_device *pdev)
 	clk_put(master->clks.fsi);
 	clk_put(master->clks.clkgen);
 
-	snd_soc_unregister_dais(&pdev->dev, 1);
+	snd_soc_unregister_component(&pdev->dev);
 	snd_soc_unregister_platform(&pdev->dev);
 
 #ifndef USE_DMA

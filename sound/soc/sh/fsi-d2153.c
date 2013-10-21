@@ -839,7 +839,7 @@ static struct snd_soc_dai_link fsi_dai_link[] = {
 	{
 		.name = "fsia d2153",
 		.stream_name = "Hifi",
-		.cpu_dai_name	= "fsia-dai",
+		.cpu_dai_name	= "sh_fsi2.0",
 		.codec_name = "d2153-codec.0-0018",
 		.platform_name = "sh_fsi2.0",
 		.codec_dai_name = "d2153-aif1",
@@ -849,7 +849,7 @@ static struct snd_soc_dai_link fsi_dai_link[] = {
 	{
 		.name = "fsib Wireless Transciever",
 		.stream_name = "Wireless Transciever",
-		.cpu_dai_name	= "fsib-dai",
+		.cpu_dai_name	= "sh_fsi2.1",
 		.codec_name = "sh_fsi_wireless_transciever.0",
 		.platform_name = "sh_fsi2.1",
 		.codec_dai_name = "sh_fsi_wireless_transciever",
@@ -928,6 +928,7 @@ static int fsi_d2153_driver_probe(struct platform_device *pdev)
 		sndp_log_err("snd_soc_register_card failed (%d)\n", ret);
 		goto err_snd_soc_register_card;
 	}
+
 	return 0;
 
 err_snd_soc_register_card:

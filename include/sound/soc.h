@@ -811,7 +811,7 @@ struct snd_soc_platform_driver {
 		struct snd_soc_dai *);
 
 	/* platform stream pcm ops */
-	const struct snd_pcm_ops *ops;
+	struct snd_pcm_ops *ops; /* To modify soundpath logical driver */
 
 	/* platform stream compress ops */
 	const struct snd_compr_ops *compr_ops;

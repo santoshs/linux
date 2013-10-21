@@ -2395,7 +2395,7 @@ static int d2153codec_i2c_write_device(struct d2153_codec_priv *d2153_codec,char
 static int d2153_codec_ioctl_open(struct inode *inode, struct file *file)
 {
 	dlg_info("%s\n", __func__);
-	file->private_data = PDE(inode)->data;
+	file->private_data = PDE_DATA(inode);
 	return 0;
 }
 
@@ -2652,7 +2652,6 @@ void d2153_codec_debug_proc_init(struct d2153_codec_priv *d2153_codec)
 	struct proc_dir_entry *entry;
 
 	entry = proc_create_data("codec0", S_IRWXUGO, NULL, &d2153_codec_ops, d2153_codec);
-		dlg_crit("\nD2153.c: proc_create_data() = %p; name=\"%s\"\n", entry, (entry?entry->name:""));
 }
 
 void d2153_codec_debug_proc_exit(void)
