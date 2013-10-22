@@ -143,6 +143,7 @@ void vcd_stop_fw_only_sound(void);
 void vcd_codec_type_ind(unsigned int codec_type);
 void vcd_udata_ind(void);
 void vcd_start_clkgen(void);
+void vcd_stop_clkgen(void);
 void vcd_wait_path(void);
 void vcd_voip_ul_callback(unsigned int buf_size);
 void vcd_voip_dl_callback(unsigned int buf_size);

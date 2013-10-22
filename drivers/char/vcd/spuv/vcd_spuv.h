@@ -250,9 +250,9 @@ struct vcd_spuv_info {
 
 struct vcd_spuv_set_binary_info {
 	unsigned int binary_kind;
-	unsigned int top_logical_address;
+	void *top_logical_address;
 	unsigned int top_physical_address;
-	unsigned int write_address;
+	void *write_address;
 	unsigned int total_size;
 	unsigned int max_size;
 };
@@ -280,6 +280,7 @@ int vcd_spuv_set_binary_main(unsigned int write_size);
 int vcd_spuv_set_binary_postprocessing(void);
 int vcd_spuv_get_msg_buffer(void);
 int vcd_spuv_get_async_area(void);
+int vcd_spuv_free_async_area(unsigned int);
 int vcd_ctrl_free_async_area(unsigned int adr);
 int vcd_spuv_start_vcd(void);
 int vcd_spuv_stop_vcd(void);

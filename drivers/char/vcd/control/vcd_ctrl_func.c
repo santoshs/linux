@@ -20,8 +20,8 @@
 /*
  * global variable declaration
  */
-unsigned int g_vcd_ctrl_active_feature;
-DEFINE_SPINLOCK(g_vcd_ctrl_lock);
+static unsigned int g_vcd_ctrl_active_feature;
+static DEFINE_SPINLOCK(g_vcd_ctrl_lock);
 
 /* ========================================================================= */
 /* Control internal public functions                                         */

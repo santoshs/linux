@@ -33,32 +33,32 @@
 /*
  * global variable declaration
  */
-DEFINE_SEMAPHORE(g_vcd_semaphore);
-void (*g_vcd_complete_buffer)(void);
-void (*g_vcd_beginning_buffer)(void);
-void (*g_vcd_voip_ul_callback)(unsigned int buf_size);
-void (*g_vcd_voip_dl_callback)(unsigned int buf_size);
-void (*g_vcd_start_fw)(void);
-void (*g_vcd_stop_fw)(void);
-void (*g_vcd_start_fw_pt)(void);
-void (*g_vcd_stop_fw_pt)(void);
-void (*g_vcd_codec_type_ind)(unsigned int codec_type);
-void (*g_vcd_start_clkgen)(void);
-void (*g_vcd_stop_clkgen)(void);
-void (*g_vcd_start_clkgen_pt)(void);
-void (*g_vcd_stop_clkgen_pt)(void);
-void (*g_vcd_wait_path)(void);
+static DEFINE_SEMAPHORE(g_vcd_semaphore);
+static void (*g_vcd_complete_buffer)(void);
+static void (*g_vcd_beginning_buffer)(void);
+static void (*g_vcd_voip_ul_callback)(unsigned int buf_size);
+static void (*g_vcd_voip_dl_callback)(unsigned int buf_size);
+static void (*g_vcd_start_fw)(void);
+static void (*g_vcd_stop_fw)(void);
+static void (*g_vcd_start_fw_pt)(void);
+static void (*g_vcd_stop_fw_pt)(void);
+static void (*g_vcd_codec_type_ind)(unsigned int codec_type);
+static void (*g_vcd_start_clkgen)(void);
+static void (*g_vcd_stop_clkgen)(void);
+static void (*g_vcd_start_clkgen_pt)(void);
+static void (*g_vcd_stop_clkgen_pt)(void);
+static void (*g_vcd_wait_path)(void);
 static struct proc_dir_entry *g_vcd_parent;
 unsigned int g_vcd_log_level = VCD_LOG_ERROR;
 
-struct vcd_async_wait  g_vcd_async_wait;
-struct libvcd_status_async_map *g_vcd_status_async_map;
+static struct vcd_async_wait  g_vcd_async_wait;
+static struct libvcd_status_async_map *g_vcd_status_async_map;
 
-int g_vcd_debug_call_kind;
-int g_vcd_debug_mode;
+static int g_vcd_debug_call_kind;
+static int g_vcd_debug_mode;
 
-int g_vcd_is_call_clkgen;
-int g_vcd_is_start_vcd;
+static int g_vcd_is_call_clkgen;
+static int g_vcd_is_start_vcd;
 
 /*
  * table declaration
@@ -1273,7 +1273,7 @@ rtn:
 static int vcd_set_voip_callback(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_voip_callback option = {0};
+	struct vcd_voip_callback option = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1306,7 +1306,7 @@ rtn:
 static int vcd_watch_fw(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_watch_fw_info info = {0};
+	struct vcd_watch_fw_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1342,7 +1342,7 @@ rtn:
 static int vcd_watch_fw_pt(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_watch_fw_info info = {0};
+	struct vcd_watch_fw_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1378,7 +1378,7 @@ rtn:
 static int vcd_watch_clkgen(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_watch_clkgen_info info = {0};
+	struct vcd_watch_clkgen_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1414,7 +1414,7 @@ rtn:
 static int vcd_watch_clkgen_pt(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_watch_clkgen_info info = {0};
+	struct vcd_watch_clkgen_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1450,7 +1450,7 @@ rtn:
 static int vcd_watch_codec_type(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_watch_codec_type_info info = {0};
+	struct vcd_watch_codec_type_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1485,7 +1485,7 @@ rtn:
 static int vcd_set_wait_path(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_wait_path_info info = {0};
+	struct vcd_wait_path_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1848,11 +1848,11 @@ static int vcd_debug_execute(unsigned int command)
 	struct vcd_execute_command args = {0};
 	struct vcd_record_option record_option = {0};
 	struct vcd_playback_option playback_option = {0};
-	struct vcd_record_buffer_info record_buf_info = { {0} };
-	struct vcd_playback_buffer_info playback_buf_info = { {0} };
-	struct vcd_watch_fw_info watch_fw_info = {0};
-	struct vcd_watch_clkgen_info watch_clkgen_info = {0};
-	struct vcd_watch_codec_type_info watch_codec_type_info = {0};
+	struct vcd_record_buffer_info record_buf_info = { {NULL} };
+	struct vcd_playback_buffer_info playback_buf_info = { {NULL} };
+	struct vcd_watch_fw_info watch_fw_info = {NULL};
+	struct vcd_watch_clkgen_info watch_clkgen_info = {NULL};
+	struct vcd_watch_codec_type_info watch_codec_type_info = {NULL};
 	unsigned int temp_log_level = VCD_LOG_NONE;
 
 	vcd_pr_start_interface_function("command[%d].\n", command);
