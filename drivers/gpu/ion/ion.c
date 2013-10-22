@@ -420,12 +420,10 @@ static int ion_handle_add(struct ion_client *client, struct ion_handle *handle)
 	struct ion_handle *entry;
 
 	do {
-		int id;
-		rc = idr_pre_get(&client->idr, GFP_KERNEL);
-		if (!rc)
-			return -ENOMEM;
-		rc = idr_get_new_above(&client->idr, handle, 1, &id);
-		handle->id = id;
+		idr_preload(GFP_KERNEL);
+		rc = idr_alloc(&client->idr, handle, 0, 0, GFP_NOWAIT);
+		idr_preload_end();
+		handle->id = rc;
 	} while (rc == -EAGAIN);
 
 	if (rc < 0)
@@ -768,7 +766,6 @@ void ion_client_destroy(struct ion_client *client)
 		ion_handle_destroy(&handle->ref);
 	}
 
-	idr_remove_all(&client->idr);
 	idr_destroy(&client->idr);
 
 	down_write(&dev->lock);
