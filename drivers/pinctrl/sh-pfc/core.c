@@ -14,6 +14,7 @@
 #include <linux/bitops.h>
 #include <linux/err.h>
 #include <linux/errno.h>
+#include <linux/hwspinlock.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
 #include <linux/kernel.h>
@@ -164,9 +165,11 @@ static void sh_pfc_config_reg_helper(struct sh_pfc *pfc,
 	}
 }
 
-static void sh_pfc_write_config_reg(struct sh_pfc *pfc,
-				    const struct pinmux_cfg_reg *crp,
-				    unsigned long field, unsigned long value)
+#define HWLOCK_TIMEOUT	1000 /* in msecs */
+
+static int sh_pfc_write_config_reg(struct sh_pfc *pfc,
+				   const struct pinmux_cfg_reg *crp,
+				   unsigned long field, unsigned long value)
 {
 	void __iomem *mapped_reg;
 	unsigned long mask, pos, data;
@@ -180,6 +183,15 @@ static void sh_pfc_write_config_reg(struct sh_pfc *pfc,
 	mask = ~(mask << pos);
 	value = value << pos;
 
+	if (pfc->hwlock) {
+		int ret = hwspin_lock_timeout(pfc->hwlock, HWLOCK_TIMEOUT);
+		if (ret < 0) {
+			dev_err(pfc->dev, "GPIO HWLOCK time out: %s %s\n",
+							__FILE__, __func__);
+			return ret;
+		}
+	}
+
 	data = sh_pfc_read_raw_reg(mapped_reg, crp->reg_width);
 	data &= mask;
 	data |= value;
@@ -190,6 +202,11 @@ static void sh_pfc_write_config_reg(struct sh_pfc *pfc,
 			~data);
 
 	sh_pfc_write_raw_reg(mapped_reg, crp->reg_width, data);
+
+	if (pfc->hwlock)
+		hwspin_unlock(pfc->hwlock);
+
+	return 0;
 }
 
 static int sh_pfc_get_config_reg(struct sh_pfc *pfc, pinmux_enum_t enum_id,
@@ -342,7 +359,9 @@ int sh_pfc_config_mux(struct sh_pfc *pfc, unsigned mark, int pinmux_type)
 		if (ret < 0)
 			return ret;
 
-		sh_pfc_write_config_reg(pfc, cr, field, value);
+		ret = sh_pfc_write_config_reg(pfc, cr, field, value);
+		if (ret < 0)
+			return ret;
 	}
 
 	return 0;
@@ -371,6 +390,8 @@ static int sh_pfc_probe(struct platform_device *pdev)
 		return ret;
 
 	spin_lock_init(&pfc->lock);
+	if (pfc->info->ops && pfc->info->ops->request_hwspinlock)
+		pfc->hwlock = pfc->info->ops->request_hwspinlock(pfc);
 
 	pinctrl_provide_dummies();
 

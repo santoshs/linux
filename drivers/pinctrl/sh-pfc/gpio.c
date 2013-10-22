@@ -11,7 +11,6 @@
 
 #include <linux/device.h>
 #include <linux/gpio.h>
-#include <linux/hwspinlock.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/pinctrl/consumer.h>
@@ -282,10 +281,6 @@ static int gpio_pin_setup(struct sh_pfc_chip *chip)
  * Function GPIOs
  */
 
-static struct hwspinlock *gpio_hwlock;
-
-#define HWLOCK_TIMEOUT	1000 /* in msecs */
-
 static int gpio_function_request(struct gpio_chip *gc, unsigned offset)
 {
 	static bool __print_once;
@@ -304,21 +299,9 @@ static int gpio_function_request(struct gpio_chip *gc, unsigned offset)
 	if (mark == 0)
 		return -EINVAL;
 
-	if (gpio_hwlock) {
-		ret = hwspin_lock_timeout_irqsave(gpio_hwlock, HWLOCK_TIMEOUT,
-									&flags);
-		if (ret < 0) {
-			printk(KERN_ERR "\nGPIO HWLOCK time out: %s %s\n",
-							__FILE__, __func__);
-			return -EINVAL;
-		}
-	} else
-		spin_lock_irqsave(&pfc->lock, flags);
+	spin_lock_irqsave(&pfc->lock, flags);
 	ret = sh_pfc_config_mux(pfc, mark, PINMUX_TYPE_FUNCTION);
-	if (gpio_hwlock)
-		hwspin_unlock_irqrestore(gpio_hwlock, &flags);
-	else
-		spin_unlock_irqrestore(&pfc->lock, flags);
+	spin_unlock_irqrestore(&pfc->lock, flags);
 
 	return ret;
 }
@@ -455,12 +438,4 @@ int sh_pfc_unregister_gpiochip(struct sh_pfc *pfc)
 	err = gpiochip_remove(&pfc->func->gpio_chip);
 
 	return ret < 0 ? ret : err;
-}
-
-void pinmux_hwspinlock_init(struct hwspinlock *hwlock)
-{
-	gpio_hwlock = hwlock;
-
-	pr_info("Registered hwspinlock id %d as gpio_hwlock\n",
-		hwspin_lock_get_id(hwlock));
 }

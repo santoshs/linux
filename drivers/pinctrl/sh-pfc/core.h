@@ -28,6 +28,7 @@ struct sh_pfc {
 	struct device *dev;
 	const struct sh_pfc_soc_info *info;
 	spinlock_t lock;
+	struct hwspinlock *hwlock;
 
 	unsigned int num_windows;
 	struct sh_pfc_window *window;

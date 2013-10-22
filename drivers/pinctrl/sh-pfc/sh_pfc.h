@@ -130,11 +130,13 @@ struct pinmux_range {
 };
 
 struct sh_pfc;
+struct hwspinlock;
 
 struct sh_pfc_soc_operations {
 	unsigned int (*get_bias)(struct sh_pfc *pfc, unsigned int pin);
 	void (*set_bias)(struct sh_pfc *pfc, unsigned int pin,
 			 unsigned int bias);
+	struct hwspinlock *(*request_hwspinlock)(struct sh_pfc *pfc);
 };
 
 struct sh_pfc_soc_info {
@@ -174,9 +176,6 @@ struct sh_pfc_soc_info {
 };
 
 enum { GPIO_CFG_REQ, GPIO_CFG_FREE };
-
-struct hwspinlock;
-void pinmux_hwspinlock_init(struct hwspinlock *hwlock);
 
 /* helper macro for port */
 #define PORT_1(fn, pfx, sfx) fn(pfx, sfx)
