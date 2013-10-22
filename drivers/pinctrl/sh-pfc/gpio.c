@@ -182,9 +182,9 @@ static void gpio_pin_set_value(struct sh_pfc_chip *chip, unsigned offset,
 
 	if (reg->info->set_reg && reg->info->clr_reg) {
 		if (value)
-			gpio_write_set_reg(chip, reg->info, pos);
+			gpio_write_set_reg(chip, reg->info, 1 << pos);
 		else
-			gpio_write_clr_reg(chip, reg->info, pos);
+			gpio_write_clr_reg(chip, reg->info, 1 << pos);
 		return;
 	}
 
