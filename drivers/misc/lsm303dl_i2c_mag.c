@@ -508,9 +508,13 @@ int lsm303dl_mag_power_on_off(bool flag)
 	if ((flag == 1)) {
 		lsm303dl_log("\n LDO on %s ", __func__);
 		ret = regulator_enable(mag_regltr_3v);
+		if (ret)
+			lsm303dl_err("Error: Mag 3v Regulator enable failed\n");
 	} else if ((flag == 0)) {
 		lsm303dl_log("\n LDO off %s ", __func__);
 		ret = regulator_disable(mag_regltr_3v);
+		if (ret)
+			lsm303dl_err("Error: Mag 3v Regulator disable failed\n");
 	}
 #endif
 
@@ -539,9 +543,13 @@ int lsm303dl_mag_cs_power_on_off(bool flag)
 	if ((flag == 1)) {
 		lsm303dl_log("\n LDO on %s ", __func__);
 		ret = regulator_enable(mag_regltr_18v);
+		if (ret)
+			lsm303dl_err("Error: Mag 1v8 Regulator enable failed\n");
 	} else if ((flag == 0)) {
 		lsm303dl_log("\n LDO off %s ", __func__);
 		ret = regulator_disable(mag_regltr_18v);
+		if (ret)
+			lsm303dl_err("Error: Mag 1v8 Regulator disable failed\n");
 	}
 #endif
 
@@ -600,6 +608,9 @@ static int lsm303dl_mag_i2c_probe(struct i2c_client *client,
 	}
 	regulator_set_voltage(mag_regltr_18v, 1800000, 1800000);
 	ret = regulator_enable(mag_regltr_18v);
+	if (ret)
+		lsm303dl_err("Error: Mag 1v8 regulator enable failed\n");
+
 	mag_regltr_3v = regulator_get(NULL, "sensor_3v");
 	if (IS_ERR_OR_NULL(mag_regltr_3v)) {
 		lsm303dl_err("%s: Failed to get 3V regulator\n", __func__);
@@ -607,6 +618,8 @@ static int lsm303dl_mag_i2c_probe(struct i2c_client *client,
 	}
 	regulator_set_voltage(mag_regltr_3v, 3000000, 3000000);
 	ret = regulator_enable(mag_regltr_3v);
+	if (ret)
+		lsm303dl_err("Error: Mag 3v regulator enable failed\n");
 #endif
 /* Runtime PM regulator setup */
 
