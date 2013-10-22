@@ -456,12 +456,9 @@ static void __init board_init(void)
 
 	r8a7373_add_standard_devices();
 
-	r8a7373_hwlock_gpio = hwspin_lock_request_specific(SMGPIO);
+	/* r8a7373_hwlock_gpio request has moved to pfc-r8a7373.c */
 	r8a7373_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
 	r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
-#if 0 /* pinmux_hwspinlock_init not defined any header*/
-	pinmux_hwspinlock_init(r8a7373_hwlock_gpio);
-#endif
 
 	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
 	{

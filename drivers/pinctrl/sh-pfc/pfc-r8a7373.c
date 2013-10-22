@@ -22,6 +22,7 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/pinctrl/pinconf-generic.h>
+#include <linux/hwspinlock.h>
 #include <mach/irqs.h>
 #include <mach/r8a7373.h>
 
@@ -2535,9 +2536,21 @@ static void r8a7373_pinmux_set_bias(struct sh_pfc *pfc, unsigned int pin,
 	iowrite8(value, addr);
 }
 
+static struct hwspinlock *r8a7373_request_hwspinlock(struct sh_pfc *pfc)
+{
+	/*
+	 * There is currently one external user who wants this lock
+	 * (soundpath), so export it in the same way we have up until now.
+	 */
+	if (!r8a7373_hwlock_gpio)
+		r8a7373_hwlock_gpio = hwspin_lock_request_specific(SMGPIO);
+	return r8a7373_hwlock_gpio;
+}
+
 static const struct sh_pfc_soc_operations r8a7373_pinmux_ops = {
 	.get_bias = r8a7373_pinmux_get_bias,
 	.set_bias = r8a7373_pinmux_set_bias,
+	.request_hwspinlock = r8a7373_request_hwspinlock,
 };
 
 

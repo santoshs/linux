@@ -1268,11 +1268,14 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 	&smc_netdevice0,
 	&smc_netdevice1,
 #endif
+	&sgx_device,
+	&mtd_device,
+};
+
+static struct platform_device *r8a7373_hwsem_devices[] __initdata = {
 	&hwsem0_device,
 	&hwsem1_device,
 	&hwsem2_device,
-	&sgx_device,
-	&mtd_device,
 };
 
 static const struct resource pfc_resources[] = {
@@ -1281,6 +1284,10 @@ static const struct resource pfc_resources[] = {
 
 void __init r8a7373_pinmux_init(void)
 {
+	/* We need hwspinlocks ready now for the pfc driver */
+	platform_add_devices(r8a7373_hwsem_devices,
+			ARRAY_SIZE(r8a7373_hwsem_devices));
+
 	platform_device_register_simple("pfc-r8a7373", -1, pfc_resources,
 					ARRAY_SIZE(pfc_resources));
 }
