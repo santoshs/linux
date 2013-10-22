@@ -24,25 +24,21 @@
 #include <mach/board.h>
 #include <mach/setup-u2ion.h>
 
-struct ion_platform_data u2evm_ion_data = {
-#ifdef CONFIG_ION_R_MOBILE_USE_VIDEO_HEAP
-	.nr = 3,
-#else
-	.nr = 2,
-#endif
-	.heaps = {
-		{
+
+
+struct ion_platform_heap u2_ion_heap[] = {
+	[0] = {
 			.type = ION_HEAP_TYPE_SYSTEM,
 			.id = ION_HEAP_SYSTEM_ID,
 			.name = "system",
 		},
-		{
+	[1] = {
 			.type = ION_HEAP_TYPE_SYSTEM_CONTIG,
 			.id = ION_HEAP_SYSTEM_CONTIG_ID,
 			.name = "system-contig",
 		},
 #ifdef CONFIG_ION_R_MOBILE_USE_VIDEO_HEAP
-		{
+	[2] = {
 			.type = ION_HEAP_TYPE_CARVEOUT,
 			.id = ION_HEAP_VIDEO_ID,
 			.name = "video",
@@ -50,7 +46,11 @@ struct ion_platform_data u2evm_ion_data = {
 			.size = ION_HEAP_VIDEO_SIZE,
 		},
 #endif
-	},
+};
+
+struct ion_platform_data u2evm_ion_data = {
+	.nr = ARRAY_SIZE(u2_ion_heap),
+	.heaps = u2_ion_heap,
 };
 
 struct platform_device u2evm_ion_device = {
