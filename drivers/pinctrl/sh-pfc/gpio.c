@@ -236,7 +236,7 @@ static int gpio_pin_to_irq(struct gpio_chip *gc, unsigned offset)
 	for (i = 0; i < pfc->info->gpio_irq_size; i++) {
 		unsigned short *gpios = pfc->info->gpio_irq[i].gpios;
 
-		for (k = 0; gpios[k]; k++) {
+		for (k = 0; gpios[k] != 0xFFFF; k++) {
 			if (gpios[k] == offset)
 				return pfc->info->gpio_irq[i].irq;
 		}

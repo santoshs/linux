@@ -121,7 +121,7 @@ struct pinmux_irq {
 };
 
 #define PINMUX_IRQ(irq_nr, ids...)			   \
-	{ .irq = irq_nr, .gpios = (unsigned short []) { ids, 0 } }	\
+	{ .irq = irq_nr, .gpios = (unsigned short []) { ids, 0xFFFF } }	\
 
 struct pinmux_range {
 	pinmux_enum_t begin;
