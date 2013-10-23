@@ -45,7 +45,7 @@ static int backlight_pin;
 
 static DEFINE_SPINLOCK(bl_ctrl_lock);
 
-int real_level = 17;
+int real_level = 1;
 EXPORT_SYMBOL(real_level);
 
 static int backlight_mode=1;
@@ -134,8 +134,7 @@ struct brt_value brt_table_ktd[] = {
    { 230,  10 },
    { 235,  9 },
    { 240,  8 },
-   { MAX_BRIGHTNESS_VALUE,  3 },
-
+	{ MAX_BRIGHTNESS_VALUE, 6 },
 };
 
 
