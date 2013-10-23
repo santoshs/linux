@@ -1160,19 +1160,12 @@ static pinmux_enum_t pinmux_data[] = {
 		.configs = cfgs,		\
 	}
 
-#define __O		(SH_PFC_PIN_CFG_OUTPUT)
 #define __I		(SH_PFC_PIN_CFG_INPUT)
-#define __PU		(SH_PFC_PIN_CFG_PULL_UP)
-#define __PD		(SH_PFC_PIN_CFG_PULL_DOWN)
 #define __IO		(SH_PFC_PIN_CFG_INPUT | SH_PFC_PIN_CFG_OUTPUT)
 #define __PUD		(SH_PFC_PIN_CFG_PULL_DOWN | SH_PFC_PIN_CFG_PULL_UP)
 
-#define R8A7373_PIN_O(pin)		R8A7373_PIN(pin, __O)
-#define R8A7373_PIN_I(pin)		R8A7373_PIN(pin, __O)
-#define R8A7373_PIN_I_PU(pin)		R8A7373_PIN(pin, __I | __PU)
-#define R8A7373_PIN_O_PU(pin)		R8A7373_PIN(pin, __O | __PU)
-#define R8A7373_PIN_I_PD(pin)		R8A7373_PIN(pin, __I | __PD)
-#define R8A7373_PIN_O_PD(pin)		R8A7373_PIN(pin, __O | __PD)
+#define R8A7373_PIN_IO(pin)		R8A7373_PIN(pin, __IO)
+#define R8A7373_PIN_I_PU_PD(pin)	R8A7373_PIN(pin, __I | __PUD)
 #define R8A7373_PIN_IO_PU_PD(pin)	R8A7373_PIN(pin, __IO | __PUD)
 
 static struct sh_pfc_pin pinmux_pins[] = {
@@ -1272,13 +1265,13 @@ static struct sh_pfc_pin pinmux_pins[] = {
 	R8A7373_PIN_IO_PU_PD(129),
 	R8A7373_PIN_IO_PU_PD(130),
 	R8A7373_PIN_IO_PU_PD(131),
-	R8A7373_PIN_IO_PU_PD(133),
-	R8A7373_PIN_IO_PU_PD(134),
-	R8A7373_PIN_IO_PU_PD(135),
-	R8A7373_PIN_IO_PU_PD(136),
+	R8A7373_PIN_I_PU_PD(133),
+	R8A7373_PIN_I_PU_PD(134),
+	R8A7373_PIN_I_PU_PD(135),
+	R8A7373_PIN_I_PU_PD(136),
 	R8A7373_PIN_IO_PU_PD(137),
 	R8A7373_PIN_IO_PU_PD(138),
-	R8A7373_PIN_O(139),
+	R8A7373_PIN_IO(139),
 	R8A7373_PIN_IO_PU_PD(140),
 	R8A7373_PIN_IO_PU_PD(141),
 	R8A7373_PIN_IO_PU_PD(142),
@@ -2346,7 +2339,7 @@ static struct pinmux_data_reg pinmux_data_regs[] = {
 			PORT71_DATA, PORT70_DATA, PORT69_DATA, PORT68_DATA,
 			PORT67_DATA, PORT66_DATA, PORT65_DATA, PORT64_DATA}
 	},
-	{ PORT_DATA_REG("PORTD127_096DR", 0xe605400c, 32) {
+	{ PORT_DATA_REG("PORTL127_096DR", 0xe605400c, 32) {
 			0, 0, 0, 0,
 			0, 0, 0, 0,
 			0, 0, 0, 0,
@@ -2406,7 +2399,7 @@ static struct pinmux_data_reg pinmux_data_regs[] = {
 			PORT295_DATA, PORT294_DATA, PORT293_DATA, PORT292_DATA,
 			PORT291_DATA, PORT290_DATA, PORT289_DATA, PORT288_DATA}
 	},
-	{ PORT_DATA_REG("PORTU351_320DR", 0xe6056010, 32) {
+	{ PORT_DATA_REG("PORTR351_320DR", 0xe6056010, 32) {
 			0, 0, 0, 0,
 			0, 0, 0, 0,
 			0, 0, 0, 0,
@@ -2419,77 +2412,77 @@ static struct pinmux_data_reg pinmux_data_regs[] = {
 	{ },
 };
 
-static struct pinmux_irq pinmux_irqs[] = {
-	PINMUX_IRQ(irq_pin(0), PORT0_FN0),
-	PINMUX_IRQ(irq_pin(1), PORT1_FN0),
-	PINMUX_IRQ(irq_pin(2), PORT2_FN0),
-	PINMUX_IRQ(irq_pin(3), PORT3_FN0),
-	PINMUX_IRQ(irq_pin(4), PORT4_FN0),
-	PINMUX_IRQ(irq_pin(5), PORT5_FN0),
-	PINMUX_IRQ(irq_pin(6), PORT6_FN0),
-	PINMUX_IRQ(irq_pin(7), PORT7_FN0),
-	PINMUX_IRQ(irq_pin(8), PORT8_FN0),
-	PINMUX_IRQ(irq_pin(9), PORT9_FN0),
-	PINMUX_IRQ(irq_pin(10), PORT10_FN0),
-	PINMUX_IRQ(irq_pin(11), PORT11_FN0),
-	PINMUX_IRQ(irq_pin(12), PORT12_FN0),
-	PINMUX_IRQ(irq_pin(13), PORT13_FN0),
-	PINMUX_IRQ(irq_pin(14), PORT14_FN0),
-	PINMUX_IRQ(irq_pin(15), PORT15_FN0),
-	PINMUX_IRQ(irq_pin(16), PORT16_FN0),
-	PINMUX_IRQ(irq_pin(17), PORT17_FN0),
-	PINMUX_IRQ(irq_pin(18), PORT18_FN0),
-	PINMUX_IRQ(irq_pin(19), PORT19_FN0),
-	PINMUX_IRQ(irq_pin(20), PORT20_FN0),
-	PINMUX_IRQ(irq_pin(21), PORT21_FN0),
-	PINMUX_IRQ(irq_pin(22), PORT22_FN0),
-	PINMUX_IRQ(irq_pin(23), PORT23_FN0),
-	PINMUX_IRQ(irq_pin(24), PORT24_FN0),
-	PINMUX_IRQ(irq_pin(25), PORT25_FN0),
-	PINMUX_IRQ(irq_pin(26), PORT26_FN0),
-	PINMUX_IRQ(irq_pin(27), PORT27_FN0),
-	PINMUX_IRQ(irq_pin(28), PORT28_FN0),
-	PINMUX_IRQ(irq_pin(29), PORT29_FN0),
-	PINMUX_IRQ(irq_pin(30), PORT30_FN0),
-	PINMUX_IRQ(irq_pin(31), PORT31_FN0),
-	PINMUX_IRQ(irq_pin(32), PORT32_FN0),
-	PINMUX_IRQ(irq_pin(33), PORT33_FN0),
-	PINMUX_IRQ(irq_pin(34), PORT34_FN0),
-	PINMUX_IRQ(irq_pin(35), PORT35_FN0),
-	PINMUX_IRQ(irq_pin(36), PORT36_FN0),
-	PINMUX_IRQ(irq_pin(37), PORT37_FN0),
-	PINMUX_IRQ(irq_pin(38), PORT38_FN0),
-	PINMUX_IRQ(irq_pin(39), PORT39_FN0),
-	PINMUX_IRQ(irq_pin(59), PORT75_FN0),
-	PINMUX_IRQ(irq_pin(40), PORT96_FN0),
-	PINMUX_IRQ(irq_pin(41), PORT97_FN0),
-	PINMUX_IRQ(irq_pin(42), PORT98_FN0),
-	PINMUX_IRQ(irq_pin(43), PORT104_FN0),
-	PINMUX_IRQ(irq_pin(44), PORT105_FN0),
-	PINMUX_IRQ(irq_pin(45), PORT106_FN0),
-	PINMUX_IRQ(irq_pin(46), PORT107_FN0),
-	PINMUX_IRQ(irq_pin(47), PORT108_FN0),
-	PINMUX_IRQ(irq_pin(48), PORT109_FN0),
-	PINMUX_IRQ(irq_pin(49), PORT110_FN0),
-	PINMUX_IRQ(irq_pin(63), PORT199_FN0),
-	PINMUX_IRQ(irq_pin(60), PORT202_FN0),
-	PINMUX_IRQ(irq_pin(61), PORT214_FN0),
-	PINMUX_IRQ(irq_pin(52), PORT224_FN0),
-	PINMUX_IRQ(irq_pin(53), PORT225_FN0),
-	PINMUX_IRQ(irq_pin(54), PORT226_FN0),
-	PINMUX_IRQ(irq_pin(55), PORT227_FN0),
-	PINMUX_IRQ(irq_pin(56), PORT258_FN0),
-	PINMUX_IRQ(irq_pin(57), PORT259_FN0),
-	PINMUX_IRQ(irq_pin(58), PORT272_FN0),
-	PINMUX_IRQ(irq_pin(51), PORT290_FN0),
-	PINMUX_IRQ(irq_pin(62), PORT296_FN0),
-	PINMUX_IRQ(irq_pin(50), PORT327_FN0),
+static const struct pinmux_irq pinmux_irqs[] = {
+	PINMUX_IRQ(irq_pin(0), 0),
+	PINMUX_IRQ(irq_pin(1), 1),
+	PINMUX_IRQ(irq_pin(2), 2),
+	PINMUX_IRQ(irq_pin(3), 3),
+	PINMUX_IRQ(irq_pin(4), 4),
+	PINMUX_IRQ(irq_pin(5), 5),
+	PINMUX_IRQ(irq_pin(6), 6),
+	PINMUX_IRQ(irq_pin(7), 7),
+	PINMUX_IRQ(irq_pin(8), 8),
+	PINMUX_IRQ(irq_pin(9), 9),
+	PINMUX_IRQ(irq_pin(10), 10),
+	PINMUX_IRQ(irq_pin(11), 11),
+	PINMUX_IRQ(irq_pin(12), 12),
+	PINMUX_IRQ(irq_pin(13), 13),
+	PINMUX_IRQ(irq_pin(14), 14),
+	PINMUX_IRQ(irq_pin(15), 15),
+	PINMUX_IRQ(irq_pin(16), 16),
+	PINMUX_IRQ(irq_pin(17), 17),
+	PINMUX_IRQ(irq_pin(18), 18),
+	PINMUX_IRQ(irq_pin(19), 19),
+	PINMUX_IRQ(irq_pin(20), 20),
+	PINMUX_IRQ(irq_pin(21), 21),
+	PINMUX_IRQ(irq_pin(22), 22),
+	PINMUX_IRQ(irq_pin(23), 23),
+	PINMUX_IRQ(irq_pin(24), 24),
+	PINMUX_IRQ(irq_pin(25), 25),
+	PINMUX_IRQ(irq_pin(26), 26),
+	PINMUX_IRQ(irq_pin(27), 27),
+	PINMUX_IRQ(irq_pin(28), 28),
+	PINMUX_IRQ(irq_pin(29), 29),
+	PINMUX_IRQ(irq_pin(30), 30),
+	PINMUX_IRQ(irq_pin(31), 31),
+	PINMUX_IRQ(irq_pin(32), 32),
+	PINMUX_IRQ(irq_pin(33), 33),
+	PINMUX_IRQ(irq_pin(34), 34),
+	PINMUX_IRQ(irq_pin(35), 35),
+	PINMUX_IRQ(irq_pin(36), 36),
+	PINMUX_IRQ(irq_pin(37), 37),
+	PINMUX_IRQ(irq_pin(38), 38),
+	PINMUX_IRQ(irq_pin(39), 39),
+	PINMUX_IRQ(irq_pin(59), 75),
+	PINMUX_IRQ(irq_pin(40), 96),
+	PINMUX_IRQ(irq_pin(41), 97),
+	PINMUX_IRQ(irq_pin(42), 98),
+	PINMUX_IRQ(irq_pin(43), 104),
+	PINMUX_IRQ(irq_pin(44), 105),
+	PINMUX_IRQ(irq_pin(45), 106),
+	PINMUX_IRQ(irq_pin(46), 107),
+	PINMUX_IRQ(irq_pin(47), 108),
+	PINMUX_IRQ(irq_pin(48), 109),
+	PINMUX_IRQ(irq_pin(49), 110),
+	PINMUX_IRQ(irq_pin(63), 199),
+	PINMUX_IRQ(irq_pin(60), 202),
+	PINMUX_IRQ(irq_pin(61), 214),
+	PINMUX_IRQ(irq_pin(52), 224),
+	PINMUX_IRQ(irq_pin(53), 225),
+	PINMUX_IRQ(irq_pin(54), 226),
+	PINMUX_IRQ(irq_pin(55), 227),
+	PINMUX_IRQ(irq_pin(56), 258),
+	PINMUX_IRQ(irq_pin(57), 259),
+	PINMUX_IRQ(irq_pin(58), 272),
+	PINMUX_IRQ(irq_pin(51), 290),
+	PINMUX_IRQ(irq_pin(62), 296),
+	PINMUX_IRQ(irq_pin(50), 327),
 };
 
 static const unsigned int r8a7373_portcr_offsets[] = {
 	0x00000000, 0x00000000, 0x00000000, 0x00000000,
 	0x00001000, 0x00002000, 0x00002000, 0x00002000,
-	0x00002000,0x00002000,
+	0x00002000, 0x00002000, 0x00002000,
 };
 
 #define PORTCR_PULMD_OFF (0 << 6)
