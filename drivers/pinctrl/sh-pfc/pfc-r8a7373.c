@@ -2517,11 +2517,22 @@ static unsigned int r8a7373_pinmux_get_bias(struct sh_pfc *pfc,
 	}
 }
 
+#define HWLOCK_TIMEOUT 1000
+
 static void r8a7373_pinmux_set_bias(struct sh_pfc *pfc, unsigned int pin,
 							unsigned int bias)
 {
 	void __iomem *addr;
 	u32 value;
+
+	if (pfc->hwlock) {
+		int ret = hwspin_lock_timeout(pfc->hwlock, HWLOCK_TIMEOUT);
+		if (ret < 0) {
+			dev_err(pfc->dev, "GPIO HWLOCK time out: %s %s\n",
+							__FILE__, __func__);
+			return;
+		}
+	}
 
 	addr = pfc->window->virt + r8a7373_portcr_offsets[pin >> 5] + pin;
 	value = ioread8(addr) & ~PORTCR_PULMD_MASK;
@@ -2536,6 +2547,9 @@ static void r8a7373_pinmux_set_bias(struct sh_pfc *pfc, unsigned int pin,
 	}
 
 	iowrite8(value, addr);
+
+	if (pfc->hwlock)
+		hwspin_unlock(pfc->hwlock);
 }
 
 static struct hwspinlock *r8a7373_request_hwspinlock(struct sh_pfc *pfc)
