@@ -25,6 +25,7 @@
 #include <linux/string.h>
 #include <linux/parser.h>
 #include <linux/io.h>
+#include <linux/compaction.h>
 #include <mach/memory-r8a7373.h>
 
 #ifdef CONFIG_SHMOBILE_RAM_DEFRAG
@@ -199,7 +200,7 @@ static int defrag_cmd(char *para, int size)
 	MSG("Defraging...");
 	do_gettimeofday(&beforetime);
 #ifndef CONFIG_SHMOBILE_RAM_DEFRAG
-	ret = compact_nodes();
+	compact_nodes();
 #else
 	ret = defrag();
 #endif /* CONFIG_SHMOBILE_RAM_DEFRAG */
