@@ -150,7 +150,6 @@ int mhi_sock_rcv_unicast(
 	u8                  l3proto,
 	u32                 l3length)
 {
-	struct hlist_node  *hnode;
 	struct sock        *sknode;
 	struct mhi_sock	   *msk;
 
@@ -158,7 +157,7 @@ int mhi_sock_rcv_unicast(
 
 	spin_lock(&mhi_sock_lock);
 	{
-		sk_for_each(sknode, hnode, &mhi_sock_list) {
+		sk_for_each(sknode, &mhi_sock_list) {
 			msk = mhi_sk(sknode);
 			if ((msk->sk_l3proto == MHI_L3_ANY ||
 			     msk->sk_l3proto == l3proto) &&
@@ -183,7 +182,6 @@ int mhi_sock_rcv_multicast(
 	u8                  l3proto,
 	u32                 l3length)
 {
-	struct hlist_node  *hnode;
 	struct sock        *sknode;
 	struct mhi_sock	   *msk;
 	struct sk_buff     *clone;
@@ -193,7 +191,7 @@ int mhi_sock_rcv_multicast(
 
 	spin_lock(&mhi_sock_lock);
 	{
-		sk_for_each(sknode, hnode, &mhi_sock_list) {
+		sk_for_each(sknode, &mhi_sock_list) {
 			msk = mhi_sk(sknode);
 			if ((msk->sk_l3proto == MHI_L3_ANY ||
 			     msk->sk_l3proto == l3proto) &&

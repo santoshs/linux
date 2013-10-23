@@ -300,7 +300,7 @@ static irqreturn_t rmc_interrupt_handler(int irq, void *dev_id)
 
 #if defined(CONFIG_PMIC_TPS80032_POW)
 	tps80032_handle_modem_reset();
-#elif defined(CONFIG_BATTERY_D2153)
+#elif defined(CONFIG_MFD_D2153)
 	d2153_handle_modem_reset();
 #else
 #error PMIC modem reset not defined!!!

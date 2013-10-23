@@ -301,13 +301,12 @@ static const struct file_operations l2mux_proc_fops = {
 /*call this function to init the l2mux write statistic*/
 void init_l2mux_stat(void)
 {
-	l2mux_sinf.proc_entry = create_proc_entry("l2mux_mhi", 0644, NULL);
+	l2mux_sinf.proc_entry = proc_create("l2mux_mhi", 0644, NULL, &l2mux_proc_fops);
 
 	if (l2mux_sinf.proc_entry == NULL)
 		DPRINTK("cannot create proc file l2mux_mhi\n");
 	else {
 
-		l2mux_sinf.proc_entry->proc_fops = &l2mux_proc_fops;
 		l2mux_sinf.l2mux_stat_id = 0;
 		l2mux_sinf.previous_stat_counter = 0;
 		l2mux_sinf.l2mux_total_stat_counter = 0;
