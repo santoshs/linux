@@ -923,6 +923,7 @@ extern void r8a7373_reserve(void);
 extern void r8a7373_add_standard_devices(void);
 extern void r8a7373_avoid_a2slpowerdown_afterL2sync(void);
 extern void r8a7373_clock_init(void);
+extern void r8a7373_irqc_init(void);
 extern void r8a7373_pinmux_init(void);
 extern void r8a7373_pm_init(void);
 extern void r8a7373_register_twd(void);

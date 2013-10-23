@@ -1297,6 +1297,9 @@ void __init r8a7373_add_standard_devices(void)
 #ifdef CONFIG_OF
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 #endif
+	/* Consider changing to upstream renesas_irqc driver */
+	r8a7373_irqc_init();
+
 	platform_add_devices(r8a7373_early_devices,
 			ARRAY_SIZE(r8a7373_early_devices));
 

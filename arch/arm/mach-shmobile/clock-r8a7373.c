@@ -1053,6 +1053,8 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("i2c-sh_mobile.3", &mstp_clks[MSTP411]), /* IIC3 */
 	CLKDEV_DEV_ID("e6826000.i2c", &mstp_clks[MSTP411]), /* IIC3 */
 	CLKDEV_DEV_ID("sh_keysc.0", &mstp_clks[MSTP403]), /* KEYSC */
+	CLKDEV_DEV_ID("renesas_irqc.0", &mstp_clks[MSTP507]), /* IRQC */
+	CLKDEV_DEV_ID("renesas_irqc.1", &mstp_clks[MSTP507]), /* IRQC */
 	/* PCM2PWM */
 	CLKDEV_DEV_ID("pcm2pwm-renesas-sh_mobile.1", &mstp_clks[MSTP523]),
 	/* Thermal Sensor */

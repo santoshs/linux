@@ -8,6 +8,7 @@
  * published by the Free Software Foundation.
  */
 #include <linux/kernel.h>
+#include <linux/clk.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
@@ -364,16 +365,25 @@ static int r8a7373_irq_set_wake(struct irq_data *d, unsigned int on)
 
 void __init r8a7373_init_irq(void)
 {
-	void __iomem *intevtsa = ioremap_nocache(0xffd20100, PAGE_SIZE);
-	int i;
-	BUG_ON(!intevtsa);
-
 #ifdef CONFIG_OF
 	irqchip_init();
 #else
 	gic_init(0, 29, GIC_DIST_BASE, GIC_CPU_BASE);
 #endif
 	gic_arch_extn.irq_set_wake = r8a7373_irq_set_wake;
+}
+
+void __init r8a7373_irqc_init(void)
+{
+	void __iomem *intevtsa = ioremap_nocache(0xffd20100, PAGE_SIZE);
+	struct clk *clk;
+	int i;
+	BUG_ON(!intevtsa);
+
+	/* Make sure the IRQC clock stays on */
+	clk = clk_get_sys("renesas_irqc.0", NULL);
+	if (!IS_ERR(clk))
+		clk_enable(clk);
 
 	/* Setup IRQC cascade_irq */
 	setup_irqc_irq();
