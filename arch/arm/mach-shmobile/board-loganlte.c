@@ -406,6 +406,12 @@ static const struct pinctrl_map loganlte_pinctrl_map[] = {
 				  "mmc0_data8", "mmc0"),
 	PIN_MAP_MUX_GROUP_DEFAULT("renesas_mmcif.0", "pfc-r8a7373",
 				  "mmc0_ctrl", "mmc0"),
+	PIN_MAP_MUX_GROUP_DEFAULT("renesas_sdhi.0", "pfc-r8a7373",
+				  "sdhi0_data4", "sdhi0"),
+	PIN_MAP_MUX_GROUP_DEFAULT("renesas_sdhi.0", "pfc-r8a7373",
+				  "sdhi0_ctrl", "sdhi0"),
+	PIN_MAP_MUX_GROUP_DEFAULT("renesas_sdhi.0", "pfc-r8a7373",
+				  "sdhi0_cd", "sdhi0"),
 #ifdef CONFIG_OF
 	PIN_MAP_MUX_GROUP_DEFAULT("e682e000.i2c", "pfc-r8a7373",
 				  "i2c7_data", "i2c7"),
