@@ -2545,6 +2545,18 @@ static void r8a7373_pinmux_set_bias(struct sh_pfc *pfc, unsigned int pin,
 		hwspin_unlock(pfc->hwlock);
 }
 
+static int r8a7373_get_debounce(struct sh_pfc *pfc, unsigned int pin,
+				unsigned int *debounce)
+{
+	return r8a7373_irqc_get_debounce(sh_pfc_pin_to_irq(pfc, pin), debounce);
+}
+
+static int r8a7373_set_debounce(struct sh_pfc *pfc, unsigned int pin,
+				unsigned int debounce)
+{
+	return r8a7373_irqc_set_debounce(sh_pfc_pin_to_irq(pfc, pin), debounce);
+}
+
 static struct hwspinlock *r8a7373_request_hwspinlock(struct sh_pfc *pfc)
 {
 	/*
@@ -2559,6 +2571,8 @@ static struct hwspinlock *r8a7373_request_hwspinlock(struct sh_pfc *pfc)
 static const struct sh_pfc_soc_operations r8a7373_pinmux_ops = {
 	.get_bias = r8a7373_pinmux_get_bias,
 	.set_bias = r8a7373_pinmux_set_bias,
+	.get_debounce = r8a7373_get_debounce,
+	.set_debounce = r8a7373_set_debounce,
 	.request_hwspinlock = r8a7373_request_hwspinlock,
 };
 

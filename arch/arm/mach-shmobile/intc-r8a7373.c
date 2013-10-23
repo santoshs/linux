@@ -178,14 +178,14 @@ enum {
 	IRQC_INTERVAL_8MS
 };
 
-int r8a7373_irqc_set_debounce(int irq, unsigned debounce)
+int r8a7373_irqc_set_debounce(int irq, unsigned int debounce)
 {
 	u32 val, interval, count;
 	u32 __iomem *reg;
 
 	irq -= IRQPIN_BASE;
-	if (irq > 63)
-		return -ENOSYS;
+	if (irq < 0 || irq > 63)
+		return -EINVAL;
 
 	debounce = (debounce + 999) / 1000;
 	if (debounce <= 0x3f) {
@@ -216,6 +216,35 @@ int r8a7373_irqc_set_debounce(int irq, unsigned debounce)
 		__raw_writel(val | (0 << 31) | (interval << 22) | (count << 16)
 					, reg);
 	}
+	return 0;
+}
+
+int r8a7373_irqc_get_debounce(int irq, unsigned int *debounce)
+{
+	u32 val, interval, count;
+	u32 __iomem *reg;
+
+	irq -= IRQPIN_BASE;
+	if (irq < 0 || irq > 63)
+		return -EINVAL;
+
+	reg = (irq >= 32) ? IRQC1_CONFIG_00 : IRQC0_CONFIG_00;
+	reg += (irq & 0x1f);
+
+	val = __raw_readl(reg);
+	if (val & BIT(31)) {
+		interval = (val >> 22) & 3;
+		count = (val >> 16) & 0x3F;
+		switch (interval) {
+		case IRQC_INTERVAL_1MS: *debounce = count * 1000; break;
+		case IRQC_INTERVAL_2MS: *debounce = count * 2000; break;
+		case IRQC_INTERVAL_4MS: *debounce = count * 4000; break;
+		case IRQC_INTERVAL_8MS: *debounce = count * 8000; break;
+		}
+	} else {
+		*debounce = 0;
+	}
+
 	return 0;
 }
 

@@ -357,7 +357,8 @@ enum {
 	GPIO_FN_ASEBRK_PU,
 };
 
-extern int r8a7373_irqc_set_debounce(int irq, unsigned debounce);
+extern int r8a7373_irqc_set_debounce(int irq, unsigned int debounce);
+extern int r8a7373_irqc_get_debounce(int irq, unsigned int *debounce);
 extern void __iomem *sbsc_sdmracr1a;
 
 /*
