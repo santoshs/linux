@@ -27,39 +27,6 @@
 #include <mach/crashlog.h>
 #include <mach/r8a7373.h>
 
-#ifndef CONFIG_IRQ_TRACE
-char *tmplog_nocache_address;
-#endif
-
-void crashlog_r_local_ver_write(char *soft_version)
-{
-	void __iomem *adr = 0;
-	void __iomem *adr_bak = 0;
-	char	version_name[CRASHLOG_R_LOCAL_VER_LENGTH];
-	int	revision_version_length;
-	unsigned char i;
-
-	adr = ioremap(CRASHLOG_R_LOCAL_VER_LOCATE,
-				CRASHLOG_R_LOCAL_VER_LENGTH);
-	adr_bak = adr;
-	if (adr) {
-		revision_version_length = strlen(linux_banner);
-		snprintf(soft_version, CRASHLOG_R_LOCAL_VER_LENGTH, "%s %s",
-				RMC_LOCAL_VERSION,
-				(linux_banner + revision_version_length - 25));
-
-		strncpy(version_name, RMC_LOCAL_VERSION,
-				CRASHLOG_R_LOCAL_VER_LENGTH);
-
-		for (i = 0 ; i < CRASHLOG_R_LOCAL_VER_LENGTH ; i++) {
-			__raw_writeb(version_name[i], adr);
-			adr++;
-		}
-
-		iounmap(adr_bak);
-	}
-}
-
 void crashlog_reset_log_write()
 {
 	void __iomem *adr = NULL;
@@ -142,39 +109,4 @@ void crashlog_reset_log_write()
 	/*Developer option to debug Reset Log*/
 	/*	reg = __raw_readb(STBCHR3);*/
 	/*	__raw_writeb((reg | APE_RESETLOG_DEBUG), STBCHR3);*/
-}
-
-void crashlog_init_tmplog(void)
-{
-#ifndef CONFIG_IRQ_TRACE
-	if (request_mem_region(TMPLOG_ADDRESS, TMPLOG_TOTAL_SIZE,
-					"tmplog-nocache")) {
-		tmplog_nocache_address = (char __force *)
-				ioremap_nocache(TMPLOG_ADDRESS,
-						TMPLOG_TOTAL_SIZE);
-		memcpy(tmplog_nocache_address, "CrashLog Temporary Area" , 24);
-	}
-
-	/* write STBCHR3 for debug*/
-	/*	reg = __raw_readb(STBCHR3);*/
-	/*	__raw_writeb((reg | APE_RESETLOG_TMPLOG_END), STBCHR3); */
-#else
-	void __iomem *adr;
-	void __iomem *tmp;
-	u8 reg = 0;
-
-	if (tmplog_nocache_address == 0) {
-		/* Request Trace Log Memory region for I/O remapping */
-		request_mem_region(TMPLOG_ADDRESS, TMPLOG_TOTAL_SIZE,
-							 "tmplog-nocache");
-		tmp = ioremap_nocache(TMPLOG_ADDRESS, TMPLOG_TOTAL_SIZE);
-		for (adr = tmp; adr < (tmp+TMPLOG_TOTAL_SIZE); adr += 4)
-			__raw_writel((unsigned int __force)adr+0x10000000, adr);
-		tmplog_nocache_address = (char __force *)tmp;
-	}
-	reg = __raw_readb(STBCHR3);
-	/* Set bit APE_RESETLOG_TRACELOG of STBCHR3 for tracelog */
-	__raw_writeb((reg | APE_RESETLOG_TRACELOG), STBCHR3);
-#endif /* CONFIG_IRQ_TRACE */
-	return;
 }

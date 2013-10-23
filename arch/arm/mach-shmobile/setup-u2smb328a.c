@@ -62,7 +62,6 @@ struct spa_power_data spa_power_pdata_d2153 = {
 	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb_d2153),
 };
 /*EXPORT_SYMBOL(spa_power_pdata_d2153);*/
-#if !defined(CONFIG_MACH_LT02LTE)
 struct spa_power_data spa_power_pdata = {
 	.charger_name = "smb328a-charger",
 	.eoc_current = 100,
@@ -77,7 +76,6 @@ struct spa_power_data spa_power_pdata = {
 	.batt_temp_tb = &batt_temp_tb[0],
 	.batt_temp_tb_len = ARRAY_SIZE(batt_temp_tb),
 };
-#endif
 /*EXPORT_SYMBOL(spa_power_pdata);*/
 
 static struct platform_device spa_power_device_d2153 = {
@@ -88,9 +86,6 @@ static struct platform_device spa_power_device_d2153 = {
 
 int spa_power_init(void)
 {
-#if defined(CONFIG_MACH_GARDALTE) || defined(CONFIG_MACH_LOGANLTE) || \
-	defined(CONFIG_MACH_LT02LTE) || defined(CONFIG_MACH_AMETHYST)
 	return platform_device_register(&spa_power_device_d2153);
-#endif
 }
 #endif

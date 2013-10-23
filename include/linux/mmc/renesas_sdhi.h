@@ -35,6 +35,11 @@ struct renesas_sdhi_platdata {
 	/* DMA */
 	unsigned int            slave_id_tx;
 	unsigned int            slave_id_rx;
+
+	/* gpio for card detect */
+	unsigned int			card_detect_gpio;
+	/* gpio for power control */
+	unsigned int			pwr_gpio;
 	u16			dma_en_val;	/* default:0x0002 */
 	u16			dma_alignment;	/* default:2 */
 	u32			dma_min_size;	/* default:8 */
@@ -45,6 +50,13 @@ struct renesas_sdhi_platdata {
 
 	/* Gpio setting */
 	u32			port_cnt;
+
+	/* Export card status to sysfs */
+	bool		card_stat_sysfs;
+
+	/* Restore the power status after suspend resume */
+	bool		suspend_pwr_ctrl;
+
 	struct portn_gpio_setting_info	*gpio_setting_info;
 
 	void (*detect_int)(struct platform_device *pdev);

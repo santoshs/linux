@@ -27,7 +27,7 @@
 #include <linux/spinlock_types.h>
 #include <linux/atomic.h>
 #include <linux/hwspinlock.h>
-
+#include <mach/common.h>
 #ifdef CONFIG_PM_HAS_SECURE
 #include "../../../../../drivers/sec_hal/rt/inc/sec_hal_rt.h"
 #include "../../../../../drivers/sec_hal/exports/sec_hal_pm.h"
@@ -263,19 +263,18 @@ static inline uint32_t sec_hal_coma_entry(uint32_t mode, uint32_t freq,
 
 #define ES_REV_2X	(ES_REV_2_0 | ES_REV_2_1 | ES_REV_2_2)
 #define ES_REV_ALL	(ES_REV_2X)
-extern unsigned int system_rev;
 
 /*
  * Helper functions for getting chip revision
  */
 static inline int shmobile_chip_rev(void)
 {
-	switch (system_rev & CHIP_VERSION_MASK) {
-	case CHIP_VERSION_ES2_0:
+	switch (shmobile_rev()) {
+	case U2_VERSION_2_0:
 		return ES_REV_2_0;
-	case CHIP_VERSION_ES2_1:
+	case U2_VERSION_2_1:
 		return ES_REV_2_1;
-	case CHIP_VERSION_ES2_2:
+	case U2_VERSION_2_2:
 		return ES_REV_2_2;
 	default:
 		break;

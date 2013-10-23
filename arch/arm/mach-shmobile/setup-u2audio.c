@@ -18,6 +18,7 @@
 #include <linux/gpio.h>
 #include <linux/memblock.h>
 #include <linux/bug.h>
+#include <linux/seq_file.h>
 #if defined(CONFIG_ARCH_R8A7373)
 #include <mach/r8a7373.h>
 #endif
@@ -32,35 +33,24 @@
 #endif	/* CONFIG_MFD_D2153 */
 #include <mach/board.h>
 
-/* Proc root entries */
-struct proc_dir_entry *root_audio;
-struct proc_dir_entry *root_device;
-
-/* Proc sub entries */
-/* device entries */
-#if defined(CONFIG_MACH_LOGANLTE) || \
-	defined(CONFIG_MACH_AMETHYST)
-struct proc_dir_entry *fm34_entry;
-#elif defined(CONFIG_MACH_LT02LTE)
-struct proc_dir_entry *tpa2026_entry;
-#endif
-
 /* Proc read handler */
-#if defined(CONFIG_MACH_LOGANLTE) || \
-	defined(CONFIG_MACH_AMETHYST)
-static int proc_read_u2audio_device_none(char *page, char **start, off_t off,
-		int count, int *eof, void *data)
+static int proc_read_u2audio_device(struct seq_file *file, void *v)
 {
-	count = snprintf(page, count, "%d", 0);
-	return count;
+	int device_exist_p = d2153_pdata.audio.fm34_device ? DEVICE_EXIST :
+							     DEVICE_NONE;
+
+	return seq_printf(file, "%d", device_exist_p);
 }
-#endif
-static int proc_read_u2audio_device_exist(char *page, char **start, off_t off,
-		int count, int *eof, void *data)
+
+static int proc_open_u2audio(struct inode *inode, struct file *file)
 {
-	count = snprintf(page, count, "%d", 1);
-	return count;
+	return single_open(file, proc_read_u2audio_device, NULL);
 }
+
+static const struct file_operations proc_u2audio_ops = {
+	.open	= proc_open_u2audio,
+	.read	= seq_read,
+};
 
 void u2audio_gpio_init(void)
 {
@@ -94,35 +84,11 @@ void u2audio_codec_micbias_level_init(void)
 #endif	/* D2153_DEFAULT_SET_MICBIAS */
 
 #ifdef CONFIG_SND_SOC_D2153_AAD
-void u2audio_codec_aad_init(unsigned int u2_board_rev)
+void u2audio_codec_aad_init(void)
 {
 	int res;
-	int debounce_ms;
 
-#if defined(CONFIG_MACH_LOGANLTE) || \
-	defined(CONFIG_MACH_AMETHYST)
-	if ((BOARD_REV_0_1 < u2_board_rev) &&
-		(BOARD_REV_0_4 > u2_board_rev)) {
-		d2153_pdata.audio.aad_codec_detect_enable = true;
-		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
-		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
-	} else {
-		d2153_pdata.audio.aad_codec_detect_enable = false;
-		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
-	}
-#elif defined(CONFIG_MACH_LT02LTE)
-	if (BOARD_REV_0_1 < u2_board_rev) {
-		d2153_pdata.audio.aad_codec_detect_enable = true;
-		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
-		debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
-	} else {
-		d2153_pdata.audio.aad_codec_detect_enable = false;
-		debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
-	}
-#else
-	return;	/* not supported */
-#endif
-	d2153_pdata.audio.aad_jack_debounce_ms = debounce_ms;
+	d2153_pdata.audio.aad_jack_debounce_ms = d2153_pdata.audio.debounce_ms;
 	d2153_pdata.audio.aad_jackout_debounce_ms =
 						D2153_AAD_JACKOUT_DEBOUNCE_MS;
 	d2153_pdata.audio.aad_button_debounce_ms =
@@ -163,55 +129,20 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 }
 #endif	/* CONFIG_SND_SOC_D2153_AAD */
 
-void u2audio_init(unsigned int u2_board_rev)
+void u2audio_init(void)
 {
-#if defined(CONFIG_MACH_LOGANLTE) || \
-	defined(CONFIG_MACH_AMETHYST)
-	u8 fm34_device;
-#endif
+	struct proc_dir_entry *root_audio;
+	struct proc_dir_entry *root_device;
 
 	u2audio_gpio_init();
-
-#if defined(CONFIG_MACH_LOGANLTE) || \
-	defined(CONFIG_MACH_AMETHYST)
-	if (u2_board_rev < BOARD_REV_0_1)
-		fm34_device = DEVICE_EXIST;
-	else
-		fm34_device = DEVICE_NONE;
-
-#endif
 
 	root_audio = proc_mkdir("audio", NULL);
 	if (NULL != root_audio) {
 		/* Create device entries */
 		root_device = proc_mkdir("device", root_audio);
-		if (NULL != root_device) {
-#if defined(CONFIG_MACH_LOGANLTE) || \
-	defined(CONFIG_MACH_AMETHYST)
-			fm34_entry = create_proc_entry("fm34",
-				S_IRUGO, root_device);
-			if (NULL != fm34_entry) {
-				if (!fm34_device)
-					fm34_entry->read_proc =
-						proc_read_u2audio_device_none;
-				else
-					fm34_entry->read_proc =
-						proc_read_u2audio_device_exist;
-			} else {
-				printk(KERN_ERR "%s Failed create_proc_entry fm34\n",
-					__func__);
-			}
-#elif defined(CONFIG_MACH_LT02LTE)
-			tpa2026_entry = create_proc_entry("tpa2026",
-				S_IRUGO, root_device);
-			if (NULL != tpa2026_entry)
-				tpa2026_entry->read_proc =
-					proc_read_u2audio_device_exist;
-			else
-				printk(KERN_ERR "%s Failed create_proc_entry tpa2026\n",
-					__func__);
-#endif
-		}
+		if (NULL != root_device)
+			proc_create("fm34", S_IRUGO, root_device,
+				    &proc_u2audio_ops);
 	} else {
 		printk(KERN_ERR "%s Failed proc_mkdir\n", __func__);
 	}
@@ -221,7 +152,7 @@ void u2audio_init(unsigned int u2_board_rev)
 #endif	/* D2153_DEFAULT_SET_MICBIAS */
 
 #ifdef CONFIG_SND_SOC_D2153_AAD
-	u2audio_codec_aad_init(u2_board_rev);
+	u2audio_codec_aad_init();
 #endif	/* CONFIG_SND_SOC_D2153_AAD */
 
 	return;
@@ -238,7 +169,7 @@ void u2vcd_reserve(void)
 	/* At least in MP523x VOCODER has to be in the 1st 256 megabytes - it can' be beyond that */
 
 	ret = memblock_remove(SDRAM_VOCODER_START_ADDR, (SDRAM_VOCODER_END_ADDR-SDRAM_VOCODER_START_ADDR)+1);
-	pr_alert("u2vcd_reserve %d - VOCODER memblock allocation: 0x%x-0x%x\n", ret, 
+	pr_alert("u2vcd_reserve %d - VOCODER memblock allocation: 0x%x-0x%x\n", ret,
 			SDRAM_VOCODER_START_ADDR,
 			SDRAM_VOCODER_END_ADDR);
 	BUG_ON(ret<0);

@@ -23,7 +23,6 @@
 #include <linux/regulator/machine.h>
 #include <linux/bq27425.h>
 #include <linux/tsu6712.h>
-#include <linux/pmic/pmic.h>
 #include <linux/spa_power.h>
 #include <linux/spa_agent.h>
 #include <linux/wakelock.h>
@@ -93,22 +92,12 @@ struct smb328a_chip {
 
 static struct smb328a_chip *smb_charger = NULL;
 
-struct i2c_client *smb328a_chip_client(void)
-{
-	return smb_charger->client;
-}
-
-int smb328a_chip_status(void)
+static int smb328a_get_charge_status(void)
 {
 	return smb_charger->charger_status;
 }
 
 static bool FullChargeSend;
-
-#ifdef CONFIG_PMIC_INTERFACE
-extern int pmic_get_temp_status(void);
-extern int pmic_read_battery_status(int property);
-#endif
 
 #ifdef CONFIG_BATTERY_D2153
 extern void d2153_battery_start(void);
@@ -792,12 +781,7 @@ static int smb328a_get_temp (unsigned int opt)
 #ifdef CONFIG_BATTERY_D2153
 	temp = d2153_battery_read_status(D2153_BATTERY_TEMP_ADC);
 #else
-
-#ifdef CONFIG_PMIC_INTERFACE
-	temp = pmic_get_temp_status();
-#else
 	temp = 30;
-#endif
 #endif
 	return temp;
 }
@@ -974,6 +958,7 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 	spa_agent_register(SPA_AGENT_GET_VOLTAGE, (void*)smb328a_get_voltage, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_GET_BATT_PRESENCE, (void*)smb328a_get_batt_presence, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_GET_CHARGER_TYPE, (void*)smb328a_get_charger_type, "smb328a-charger");
+	spa_agent_register(SPA_AGENT_GET_CHARGE_STATE, (void *)smb328a_get_charge_status, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_CTRL_FG, (void*)smb328a_ctrl_fg, "smb328a-charger");
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
