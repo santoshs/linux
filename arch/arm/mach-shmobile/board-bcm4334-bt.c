@@ -60,9 +60,9 @@ struct bcm_bt_lpm {
 static int bcm4334_bt_rfkill_set_power(void *data, bool blocked)
 {
 	// rfkill_ops callback. Turn transmitter on when blocked is false
-	static int rfkill_pwr_init = 1; 
+	static int rfkill_pwr_init = 1;
 	printk(KERN_DEBUG "%s: %s\n", __func__, (blocked ? "off" : "on" ));
-	
+
 	if (!blocked) {
 #if defined (CONFIG_BCM4330_MODULE) || defined (CONFIG_BCM4330)
 		gpio_set_value(BT_RESET_GPIO, 1);
@@ -157,7 +157,7 @@ static irqreturn_t host_wake_isr(int irq, void *dev)
 	irq_set_irq_type(irq, host_wake ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH);
 
 //  printk("Yang host_wake_isr bt_lpm.uport : 0x%p\n", bt_lpm.uport);
-  
+
 	if (!bt_lpm.uport) {
 		bt_lpm.host_wake = host_wake;
 		return IRQ_HANDLED;
@@ -216,12 +216,12 @@ static int bcm_bt_lpm_init(struct platform_device *pdev)
 	gpio_direction_input(BT_HOST_WAKE_GPIO);
 
 	*((volatile u8 *)BT_WAKE_GPIO_CR) = 0x10; /* Config BT IRQ with output*/
-	
+
 	snprintf(bt_lpm.wake_lock_name, sizeof(bt_lpm.wake_lock_name),
 			"BTLowPower");
 	wake_lock_init(&bt_lpm.wake_lock, WAKE_LOCK_SUSPEND,
 			 bt_lpm.wake_lock_name);
-			 
+
 	printk("%s: Done\n", __func__);
 
 	return 0;
@@ -279,7 +279,7 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 	rfkill_set_states(bt_rfkill, true, false);
 	bcm4334_bt_rfkill_set_power(NULL, true);
 
-#ifdef BT_LPM_ENABLE	
+#ifdef BT_LPM_ENABLE
 	ret = bcm_bt_lpm_init(pdev);
 	if (ret) {
 		rfkill_unregister(bt_rfkill);
@@ -293,7 +293,7 @@ static int bcm4334_bluetooth_probe(struct platform_device *pdev)
 	}
 #endif
 	printk(KERN_ALERT "%s: Done\n", __func__);
-	
+
 	return ret;
 }
 
@@ -335,9 +335,9 @@ int bcm4430_bluetooth_suspend(struct platform_device *pdev, pm_message_t state)
 int bcm4430_bluetooth_resume(struct platform_device *pdev)
 {
 	int irq = gpio_to_irq(BT_HOST_WAKE_GPIO);
-	
+
 	printk(KERN_ALERT "%s: Enter\n", __func__);
-	
+
 	enable_irq(irq);
 	return 0;
 }

@@ -78,9 +78,9 @@ obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
 obj-$(CONFIG_RENESAS_BT)	+= dev-renesas-bt.o
 
 # BT object
-obj-$(CONFIG_BT_BCM4330)		+= board-bluetooth-bcm4330.o
-obj-$(CONFIG_BT_BCM4334)		+= board-bluetooth-bcm4334.o
-obj-$(CONFIG_BT_BCM43241)		+= board-bluetooth-bcm43241.o
+obj-$(CONFIG_BT_BCM4330)		+= board-bcm4334-bt.o
+obj-$(CONFIG_BT_BCM4334)		+= board-bcm4334-bt.o
+obj-$(CONFIG_BT_BCM43241)		+= board-bcm4334-bt.o
 obj-$(CONFIG_BCM4334_BT)		+= board-bcm4334-bt.o
 
 # Framework support

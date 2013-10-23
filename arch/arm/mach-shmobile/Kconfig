@@ -414,11 +414,11 @@ config BT_CSR8811
 
 config BT_BCM4330
 	bool "Enable BCM4330 driver"
-	default n
+	default y
 
 config BT_BCM4334
 	bool "Enable BCM4334 driver"
-	default n
+	default y
 	help
 	  Adds BCM4334 RFKILL driver for Broadcom BCM4334 chipset
 
@@ -430,7 +430,7 @@ config BCM4334_BT
 
 config BCM4330_MODULE
         bool "Enable BCM4330 driver on Renesas Baseband"
-        depends on (BOARD_VERSION_LOGANLTE || BOARD_VERSION_AMETHYST)
+        depends on (MACH_LOGANLTE || MACH_AMETHYST)
  	default y
 
 config BT_BCM43241
