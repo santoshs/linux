@@ -282,6 +282,9 @@ static bool sh_pfc_pinconf_validate(struct sh_pfc *pfc, unsigned int _pin,
 	case PIN_CONFIG_BIAS_PULL_DOWN:
 		return pin->configs & SH_PFC_PIN_CFG_PULL_DOWN;
 
+	case PIN_CONFIG_INPUT_DEBOUNCE:
+		return pin->configs & SH_PFC_PIN_CFG_INPUT;
+
 	default:
 		return false;
 	}
@@ -294,7 +297,8 @@ static int sh_pfc_pinconf_get(struct pinctrl_dev *pctldev, unsigned _pin,
 	struct sh_pfc *pfc = pmx->pfc;
 	enum pin_config_param param = pinconf_to_config_param(*config);
 	unsigned long flags;
-	unsigned int bias;
+	unsigned int bias, debounce;
+	int ret;
 
 	if (!sh_pfc_pinconf_validate(pfc, _pin, param))
 		return -ENOTSUPP;
@@ -316,6 +320,30 @@ static int sh_pfc_pinconf_get(struct pinctrl_dev *pctldev, unsigned _pin,
 		*config = 0;
 		break;
 
+	case PIN_CONFIG_INPUT_DEBOUNCE:
+		if (!pfc->info->ops || !pfc->info->ops->get_debounce)
+			return -ENOTSUPP;
+
+		spin_lock_irqsave(&pfc->lock, flags);
+		ret = pfc->info->ops->get_debounce(pfc, _pin, &debounce);
+		spin_unlock_irqrestore(&pfc->lock, flags);
+
+		/*
+		 * The convention appears to be that "disabled" returns
+		 * -EINVAL or -ENOTSUPP.
+		 */
+		if (ret == 0 && debounce == 0)
+			ret = -EINVAL;
+
+		/*
+		 * Remaining question is - should we be packing our output?
+		 * pinconf_generic_dump_group and samsung_pinconf_rw seem to
+		 * think yes. But pcs_pinconf_get seems to think no.
+		 */
+		*config = pinconf_to_config_packed(param, debounce);
+
+		return ret;
+
 	default:
 		return -ENOTSUPP;
 	}
@@ -329,7 +357,9 @@ static int sh_pfc_pinconf_set(struct pinctrl_dev *pctldev, unsigned _pin,
 	struct sh_pfc_pinctrl *pmx = pinctrl_dev_get_drvdata(pctldev);
 	struct sh_pfc *pfc = pmx->pfc;
 	enum pin_config_param param = pinconf_to_config_param(config);
+	u16 argument = pinconf_to_config_argument(config);
 	unsigned long flags;
+	int ret;
 
 	if (!sh_pfc_pinconf_validate(pfc, _pin, param))
 		return -ENOTSUPP;
@@ -346,6 +376,20 @@ static int sh_pfc_pinconf_set(struct pinctrl_dev *pctldev, unsigned _pin,
 		spin_unlock_irqrestore(&pfc->lock, flags);
 
 		break;
+
+	case PIN_CONFIG_INPUT_DEBOUNCE:
+		if (!pfc->info->ops || !pfc->info->ops->set_debounce)
+			return -ENOTSUPP;
+
+		/*
+		 * Note that units are unspecified in 3.10, but are specified
+		 * as microseconds in 3.11.
+		 */
+		spin_lock_irqsave(&pfc->lock, flags);
+		ret = pfc->info->ops->set_debounce(pfc, _pin, argument);
+		spin_unlock_irqrestore(&pfc->lock, flags);
+
+		return ret;
 
 	default:
 		return -ENOTSUPP;

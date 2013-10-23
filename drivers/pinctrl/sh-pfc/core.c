@@ -97,6 +97,23 @@ int sh_pfc_get_pin_index(struct sh_pfc *pfc, unsigned int pin)
 	return -EINVAL;
 }
 
+int sh_pfc_pin_to_irq(struct sh_pfc *pfc, unsigned int pin)
+{
+	int i, k;
+
+	for (i = 0; i < pfc->info->gpio_irq_size; i++) {
+		unsigned short *gpios = pfc->info->gpio_irq[i].gpios;
+
+		for (k = 0; gpios[k] != 0xFFFF; k++) {
+			if (gpios[k] == pin)
+				return pfc->info->gpio_irq[i].irq;
+		}
+	}
+
+	return -ENOSYS;
+}
+
+
 static int sh_pfc_enum_in_range(pinmux_enum_t enum_id,
 				const struct pinmux_range *r)
 {

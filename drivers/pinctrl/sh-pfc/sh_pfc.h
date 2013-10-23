@@ -136,6 +136,10 @@ struct sh_pfc_soc_operations {
 	unsigned int (*get_bias)(struct sh_pfc *pfc, unsigned int pin);
 	void (*set_bias)(struct sh_pfc *pfc, unsigned int pin,
 			 unsigned int bias);
+	int (*get_debounce)(struct sh_pfc *pfc, unsigned int pin,
+			    unsigned int *debounce);
+	int (*set_debounce)(struct sh_pfc *pfc, unsigned int pin,
+			    unsigned int debounce);
 	struct hwspinlock *(*request_hwspinlock)(struct sh_pfc *pfc);
 };
 
@@ -171,8 +175,6 @@ struct sh_pfc_soc_info {
 	unsigned int gpio_irq_size;
 
 	unsigned long unlock_reg;
-
-	int (*set_debounce)(int irq, unsigned debounce);
 };
 
 enum { GPIO_CFG_REQ, GPIO_CFG_FREE };

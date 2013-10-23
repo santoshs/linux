@@ -228,21 +228,26 @@ static void gpio_pin_set(struct gpio_chip *gc, unsigned offset, int value)
 	gpio_pin_set_value(gpio_to_pfc_chip(gc), offset, value);
 }
 
-static int gpio_pin_to_irq(struct gpio_chip *gc, unsigned offset)
+static int gpio_pin_set_debounce(struct gpio_chip *gc,
+				 unsigned offset, unsigned debounce)
 {
 	struct sh_pfc *pfc = gpio_to_pfc(gc);
-	int i, k;
+	unsigned long flags;
+	int ret;
 
-	for (i = 0; i < pfc->info->gpio_irq_size; i++) {
-		unsigned short *gpios = pfc->info->gpio_irq[i].gpios;
+	if (!pfc->info->ops || !pfc->info->ops->set_debounce)
+		return -ENOSYS;
 
-		for (k = 0; gpios[k] != 0xFFFF; k++) {
-			if (gpios[k] == offset)
-				return pfc->info->gpio_irq[i].irq;
-		}
-	}
+	spin_lock_irqsave(&pfc->lock, flags);
+	ret = pfc->info->ops->set_debounce(pfc, offset, debounce);
+	spin_unlock_irqrestore(&pfc->lock, flags);
 
-	return -ENOSYS;
+	return ret;
+}
+
+static int gpio_pin_to_irq(struct gpio_chip *gc, unsigned offset)
+{
+	return sh_pfc_pin_to_irq(gpio_to_pfc(gc), offset);
 }
 
 static int gpio_pin_setup(struct sh_pfc_chip *chip)
@@ -265,6 +270,7 @@ static int gpio_pin_setup(struct sh_pfc_chip *chip)
 	gc->direction_input = gpio_pin_direction_input;
 	gc->get = gpio_pin_get;
 	gc->direction_output = gpio_pin_direction_output;
+	gc->set_debounce = gpio_pin_set_debounce;
 	gc->set = gpio_pin_set;
 	gc->to_irq = gpio_pin_to_irq;
 

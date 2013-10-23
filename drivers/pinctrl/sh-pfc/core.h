@@ -53,6 +53,7 @@ void sh_pfc_write_raw_reg(void __iomem *mapped_reg, unsigned long reg_width,
 			  unsigned long data);
 
 int sh_pfc_get_pin_index(struct sh_pfc *pfc, unsigned int pin);
+int sh_pfc_pin_to_irq(struct sh_pfc *pfc, unsigned int pin);
 int sh_pfc_config_mux(struct sh_pfc *pfc, unsigned mark, int pinmux_type);
 
 extern const struct sh_pfc_soc_info r8a7373_pinmux_info;
