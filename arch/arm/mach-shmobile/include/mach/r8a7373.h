@@ -527,6 +527,7 @@ extern struct smp_operations r8a7373_smp_ops;
 #define SMGP001_DFS		SMGP001
 #define SMGP100_DFS_ZS	SMGP100
 #define SMGP101_VCD		SMGP101
+#define CMCNT0          IO_ADDRESS(0xE6130014)
 #define CMCSR3		IO_ADDRESS(0xe6130310)
 #define CMCNT3		IO_ADDRESS(0xe6130314)
 #define CMCOR3		IO_ADDRESS(0xe6130318)
