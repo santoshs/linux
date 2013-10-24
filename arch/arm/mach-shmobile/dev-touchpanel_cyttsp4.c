@@ -237,51 +237,48 @@ static int cyttsp4_irq_stat(struct cyttsp4_core_platform_data *pdata,
 	return gpio_get_value(pdata->irq_gpio);
 }
 
+static struct regulator *keyled_regulator;
+static int touchkey_regulator_cnt;
+
 static int cyttsp4_led_power_onoff(int on)
 {
 #if defined(CONFIG_MACH_WILCOXLTE)
-	static struct regulator *reg_l36;
-    int ret = 0;
-	pr_info("[TSP] %s keylight [%d]\n", __func__, on);
+	int ret;
 
-		reg_l36 = regulator_get(NULL, "8917_l36");
-		if (IS_ERR(reg_l36)) {
-			pr_err("%s: could not get 8917_l36, rc = %ld\n",
-				__func__, PTR_ERR(reg_l36));
+	if (keyled_regulator == NULL) {
+		printk(KERN_INFO" %s, %d\n", __func__, __LINE__);
+		keyled_regulator = regulator_get(NULL, "key_led");
+		if (IS_ERR(keyled_regulator)) {
+			printk(KERN_DEBUG"can not get KEY_LED_3.3V\n");
 			return -1;
 		}
-		ret = regulator_set_voltage(reg_l36, 3300000, 3300000);
+	ret = regulator_set_voltage(keyled_regulator, 3300000, 3300000);
+	printk(KERN_INFO"regulator_set_voltage ret = %d\n", ret);
+
+	}
+
+	if (on) {
+		printk(KERN_INFO"Touchkey On\n");
+		ret = regulator_enable(keyled_regulator);
 		if (ret) {
-			pr_err("%s: unable to set l36 voltage to 3.3V\n",
-				__func__);
-			return -1;
+			pr_err("can not enable KEY_LED_3.3V, ret=%d\n", ret);
+		} else {
+			touchkey_regulator_cnt++;
+			printk(KERN_DEBUG"regulator_enable ret = %d, cnt=%d\n",
+				ret, touchkey_regulator_cnt);
 		}
 
-	if (on == 1) {
-/*		if (!regulator_is_enabled(reg_l36)) {*/
-			ret = regulator_enable(reg_l36);
-			if (ret) {
-				pr_err("%s: enable l36 failed, rc=%d\n",
-					__func__, ret);
-				return -1;
-			}
-			pr_info("%s: keyled 3.3V on is finished.\n", __func__);
-/*		}
-		else
-			pr_info("%s: keyled 3.3V is already on.\n", __func__);*/
 	} else {
-		if (regulator_is_enabled(reg_l36))
-			ret = regulator_disable(reg_l36);
-		else
-			printk(KERN_ERR
-				"%s: rugulator is(L36(3.3V) disabled\n",
-					__func__);
+		printk(KERN_INFO"Touchkey Off\n");
+		ret = regulator_disable(keyled_regulator);
 		if (ret) {
-			pr_err("%s: disable l36 failed, rc=%d\n",
-				__func__, ret);
-			return -1;
+			pr_err("can not disabled KEY_LED_3.3V ret=%d\n", ret);
+		} else {
+			touchkey_regulator_cnt--;
+			printk(KERN_DEBUG"regulator_disable ret= %d, cnt=%d\n",
+				ret, touchkey_regulator_cnt);
 		}
-		pr_info("%s: keyled 3.3V off is finished.\n", __func__);
+
 	}
 #endif
 	return 0;
