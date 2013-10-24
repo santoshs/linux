@@ -334,7 +334,7 @@ static struct i2c_board_info i2c_cameras[] = {
 
 struct soc_camera_link camera_links[] = {
 	{
-		.bus_idi		= 0,
+		.bus_id			= 0,
 		.board_info		= &i2c_cameras[0],
 		.i2c_adapter_id = 1,
 		.module_name	= "S5K4ECGX",

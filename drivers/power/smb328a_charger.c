@@ -92,11 +92,6 @@ struct smb328a_chip {
 
 static struct smb328a_chip *smb_charger = NULL;
 
-static int smb328a_get_charge_status(void)
-{
-	return smb_charger->charger_status;
-}
-
 static bool FullChargeSend;
 
 #ifdef CONFIG_BATTERY_D2153
