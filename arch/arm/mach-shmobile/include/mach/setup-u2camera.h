@@ -25,6 +25,10 @@
  */
 
 extern struct platform_device camera_devices[];
+int OV5645_power(struct device *dev, int power_on);
+int HM2056_power(struct device *dev, int power_on);
+int S5K4ECGX_power(struct device *dev, int power_on);
+int SR030PC50_power(struct device *dev, int power_on);
 
 int camera_init(void);
 int main_cam_led(int light, int mode);

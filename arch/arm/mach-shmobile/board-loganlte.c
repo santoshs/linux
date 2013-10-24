@@ -112,11 +112,6 @@
 #endif
 
 #include <mach/sbsc.h>
-#include <media/soc_camera.h>
-#include <media/sh_mobile_csi2.h>
-#include <media/sh_mobile_rcu.h>
-#include <media/sr030pc50.h>
-#include <media/s5k4ecgx.h>
 
 static int unused_gpios_logan_rev1[] = {
 				GPIO_PORT4, GPIO_PORT27, GPIO_PORT33, GPIO_PORT36, GPIO_PORT104,
@@ -320,83 +315,6 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
 		I2C_BOARD_INFO(FM34_MODULE_NAME, 0x60),
 		.platform_data = &fm34_data,
-	},
-};
-
-#if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
-	defined(CONFIG_SOC_CAMERA_SR030PC50) /* Select by board Rev */
-struct i2c_board_info i2c_cameras[] = {
-	{
-		I2C_BOARD_INFO("S5K4ECGX", 0x56),
-	},
-	{
-		I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
-	},
-};
-struct soc_camera_link camera_links[] = {
-	{
-		.bus_id			= 0,
-		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id	= 1,
-		.module_name	= "S5K4ECGX",
-		.power			= S5K4ECGX_power,
-	},
-	{
-		.bus_id			= 1,
-		.board_info		= &i2c_cameras[1],
-		.i2c_adapter_id	= 1,
-		.module_name	= "SR030PC50",
-		.power			= SR030PC50_power,
-	},
-};
-#else	/* Select by board Rev */
-struct i2c_board_info i2c_cameras[] = {
-#if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
-	{
-		I2C_BOARD_INFO("S5K4ECGX", 0x56),
-	},
-#endif
-#if defined(CONFIG_SOC_CAMERA_SR030PC50)
-	{
-		I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
-	},
-#endif
-};
-struct soc_camera_link camera_links[] = {
-#if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
-	{
-		.bus_id			= 0,
-		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id	= 1,
-		.module_name	= "S5K4ECGX",
-		.power			= S5K4ECGX_power,
-	},
-#endif
-#if defined(CONFIG_SOC_CAMERA_SR030PC50)
-	{
-		.bus_id			= 1,
-		.board_info		= &i2c_cameras[1],
-		.i2c_adapter_id	= 1,
-		.module_name	= "SR030PC50",
-		.power			= SR030PC50_power,
-	},
-#endif
-};
-#endif	/* Select by board Rev */
-struct platform_device camera_devices[] = {
-		{
-		.name   = "soc-camera-pdrv",
-		.id             = 0,
-		.dev    = {
-		.platform_data = &camera_links[0],
-		},
-	},
-	{
-		.name   = "soc-camera-pdrv",
-		.id     =       1,
-		.dev    = {
-		.platform_data = &camera_links[1],
-		},
 	},
 };
 
@@ -638,10 +556,6 @@ static void __init board_init(void)
 
 	camera_init();
 
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
-	printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
-	csi20_info.clients[0].lanes = 0x3;
 	gpio_key_init(stm_select,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
