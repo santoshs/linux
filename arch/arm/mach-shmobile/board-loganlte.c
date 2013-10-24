@@ -34,6 +34,8 @@
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
 #include <mach/board.h>
+#include <media/soc_camera.h>
+#include <media/soc_camera_platform.h>
 #include <mach/board-loganlte-config.h>
 #include <mach/poweroff.h>
 #include <mach/sbsc.h>
@@ -320,6 +322,33 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
+
+static struct i2c_board_info i2c_cameras[] = {
+    {
+        I2C_BOARD_INFO("S5K4ECGX", 0x56),
+    },
+    {
+        I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
+    },
+};
+
+struct soc_camera_link camera_links[] = {
+    {
+        .bus_id                 = 0,
+        .board_info             = &i2c_cameras[0],
+        .i2c_adapter_id = 1,
+        .module_name    = "S5K4ECGX",
+        .power                  = S5K4ECGX_power,
+    },
+    {
+        .bus_id                 = 1,
+        .board_info             = &i2c_cameras[1],
+        .i2c_adapter_id = 1,
+        .module_name    = "SR030PC50",
+        .power                  = SR030PC50_power,
+    },
+};
+EXPORT_SYMBOL(camera_links);
 
 void board_restart(char mode, const char *cmd)
 {

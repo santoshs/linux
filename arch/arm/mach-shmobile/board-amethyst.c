@@ -34,6 +34,8 @@
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
 #include <mach/board.h>
+#include <media/soc_camera.h>
+#include <media/soc_camera_platform.h>
 #include <mach/board-amethyst-config.h>
 #include <mach/poweroff.h>
 #include <mach/sbsc.h>
@@ -356,6 +358,33 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
 
+static struct i2c_board_info i2c_cameras[] = {
+    {
+        I2C_BOARD_INFO("OV5645", 0x20),
+    },
+    {
+        I2C_BOARD_INFO("HM2056", 0x28), /* TODO::HYCHO (0x61>>1) */
+    },
+};
+
+struct soc_camera_link camera_links[] = {
+    {
+        .bus_id                 = 0,
+        .board_info             = &i2c_cameras[0],
+        .i2c_adapter_id = 1,
+        .module_name    = "OV5645",
+        .power                  = OV5645_power,
+    },
+    {
+        .bus_id                 = 1,
+        .board_info             = &i2c_cameras[1],
+        .i2c_adapter_id = 1,
+        .module_name    = "HM2056",
+        .power                  = HM2056_power,
+    },
+};
+EXPORT_SYMBOL(camera_links);
+
 void board_restart(char mode, const char *cmd)
 {
 	printk(KERN_INFO "%s\n", __func__);
@@ -549,7 +578,7 @@ static void __init board_init(void)
 	gpio_request(GPIO_PORT30, NULL);
 	gpio_direction_output(GPIO_PORT30, 1);
 	gpio_pull_up_port(GPIO_PORT30);
-	
+
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
@@ -610,7 +639,7 @@ static void __init board_init(void)
 #endif
 
 	if (MUIC_IS_PRESENT) {
-		i2c_register_board_info(3, i2c3_devices, 
+		i2c_register_board_info(3, i2c3_devices,
 						ARRAY_SIZE(i2c3_devices));
 	} else {
 		int i;
