@@ -257,10 +257,6 @@ int tsp_debug_option = TSP_DEBUG_OPTION;
 #define DATA_OFFSET			0x03
 #define CY_CORE_COMMAND_TIMEOUT		1000
 
-static struct regulator *keyled_regulator;
-static int touchkey_regulator_cnt;
-
-
 #if 0
 static int cyttsp4_configure_ram(struct cyttsp4_core_data * cd)
 {
@@ -4637,76 +4633,6 @@ static void remove_sysfs_interfaces(struct device *dev)
 extern struct class *sec_class;
 #endif
 
-static void touchkey_led_on(struct cyttsp4_core_data *data, bool on)
-{
-	int ret;
-
-	if (keyled_regulator == NULL) {
-		printk(KERN_INFO" %s, %d\n", __func__, __LINE__);
-		keyled_regulator = regulator_get(NULL, "key_led");
-		if (IS_ERR(keyled_regulator)) {
-			printk(KERN_DEBUG"can not get KEY_LED_3.3V\n");
-			return;
-		}
-	ret = regulator_set_voltage(keyled_regulator, 3300000, 3300000);
-	printk(KERN_INFO"regulator_set_voltage ret = %d\n", ret);
-
-	}
-
-	if (on) {
-		printk(KERN_INFO"Touchkey On\n");
-		ret = regulator_enable(keyled_regulator);
-		if (ret) {
-			pr_err("can not enable KEY_LED_3.3V, ret=%d\n", ret);
-		} else {
-			touchkey_regulator_cnt++;
-			printk(KERN_DEBUG"regulator_enable ret = %d, cnt=%d\n",
-				ret, touchkey_regulator_cnt);
-		}
-
-	} else {
-		printk(KERN_INFO"Touchkey Off\n");
-		ret = regulator_disable(keyled_regulator);
-		if (ret) {
-			pr_err("can not disabled KEY_LED_3.3V ret=%d\n", ret);
-		} else {
-			touchkey_regulator_cnt--;
-			printk(KERN_DEBUG"regulator_disable ret= %d, cnt=%d\n",
-				ret, touchkey_regulator_cnt);
-		}
-
-	}
-}
-
-
-static int current_intensity;
-static void key_led_set(struct led_classdev *led_cdev,
-	 enum led_brightness value)
-{
-	struct cyttsp4_core_data *data = container_of(led_cdev,
-						 struct cyttsp4_core_data, led);
-
-	mutex_lock(&data->touchkey_led_lock);
-
-	data->led_brightness = value;
-
-	printk(KERN_INFO"%s, data->led_brightness=%d\n",
-			__func__, data->led_brightness);
-
-	if (value != 0 && current_intensity == 0)
-		touchkey_led_on(data, 1);
-	else if (value == 0 && current_intensity != 0)
-		touchkey_led_on(data, 0);
-	else
-		printk(KERN_INFO"%s, new value=%d, prev value=%d\n",
-			 __func__, value, current_intensity);
-
-	current_intensity = value;
-
-	mutex_unlock(&data->touchkey_led_lock);
-}
-
-
 static int cyttsp4_core_probe(struct cyttsp4_core *core)
 {
 	struct cyttsp4_core_data *cd;
@@ -4850,18 +4776,6 @@ static int cyttsp4_core_probe(struct cyttsp4_core *core)
 	if (retval)
 		dev_err(cd->dev, "Failed to create sysfs group\n");
 #endif
-
-	/*key led ++*/
-	cd->led.name = "button-backlight";
-	cd->led.brightness = LED_OFF;
-	cd->led.max_brightness = LED_FULL;
-	cd->led.brightness_set = key_led_set;
-
-	retval = led_classdev_register(dev, &cd->led);
-	if (retval)
-		dev_err(dev, "fail to register led_classdev (%d).\n", retval);
-	/*key led --*/
-
 
 #ifdef SEC_TSP_INFO_SHOW
 	sec_touchscreen =

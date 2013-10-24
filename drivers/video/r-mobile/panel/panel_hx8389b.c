@@ -545,8 +545,10 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{ MIPI_DSI_DCS_LONG_WRITE,  setVCOM,  sizeof(setVCOM) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  SleepOut,  sizeof(SleepOut) },
 	{ MIPI_DSI_DELAY,           NULL,      120              },
+	{ MIPI_DSI_BLACK,           NULL,      0                },
 	{ MIPI_DSI_DCS_SHORT_WRITE, DisplayOn,    sizeof(DisplayOn)   },
 	{ MIPI_DSI_DELAY,           NULL,      10              },
+	{ MIPI_DSI_BLACK,           NULL,      0                },
 	{ MIPI_DSI_DCS_LONG_WRITE,  wrdisbv,  sizeof(wrdisbv) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  wrctrld,  sizeof(wrctrld) },
 	{ MIPI_DSI_DCS_LONG_WRITE,  wrcabc,  sizeof(wrcabc) },
@@ -1399,16 +1401,15 @@ static void mipi_display_reset(void)
 	}
 
 	regulator_enable(power_ldo_1v8);
-	usleep_range(1000, 1000);
 	regulator_enable(power_ldo_3v);
 
 	gpio_direction_output(reset_gpio, 0);
 
-	usleep_range(10000, 10000);
+	usleep_range(2000, 2000);
 
 	gpio_direction_output(reset_gpio, 1);
 
-	usleep_range(50000, 50000);
+	usleep_range(5500, 5500);
 
 out:
 	power_supplied = true;
@@ -1736,7 +1737,6 @@ retry:
 
 	is_dsi_read_enabled = 1;
 
-	msleep(120);
 	retry_count_dsi = HX8389b_INIT_RETRY_COUNT;
 	do {
 		ret = panel_dsi_read(MIPI_DSI_DCS_READ, 0x04, 4, &read_data[0]);
