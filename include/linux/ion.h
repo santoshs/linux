@@ -155,10 +155,12 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 /**
  * r_mobile_ion_client_create() - creates a new platform-specific ion client
  *
+ * heap_type_mask is ignored; it remains for module backwards-compatibility.
  * name is the same as ion_client_create, return values
  * are the same as ion_client_create.
  */
-struct ion_client *r_mobile_ion_client_create(const char *name);
+struct ion_client *r_mobile_ion_client_create(unsigned int heap_type_mask,
+					      const char *name);
 
 /**
  * ion_client_destroy() -  free's a client and all it's handles

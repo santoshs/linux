@@ -41,7 +41,8 @@ static struct ion_heap **heaps;
 static void *rtmem;
 static struct rt_heap *rt_heaps;
 
-struct ion_client *r_mobile_ion_client_create(const char *name)
+struct ion_client *r_mobile_ion_client_create(unsigned int heap_type_mask,
+					      const char *name)
 {
 	return ion_client_create(idev, name);
 }
