@@ -39,17 +39,10 @@
 
 #include "pm-r8a7373.h"
 
+#ifdef IDLE_WAKELOCK_THING
 static bool init_flag = false;
-#if 0
 static struct wake_lock smp_idle_wakelock;
 #endif
-
-static void __iomem *scu_base_addr(void)
-{
-	return SCU_BASE;
-}
-
-static DEFINE_SPINLOCK(scu_lock);
 
 #ifdef CONFIG_HAVE_ARM_TWD
 static DEFINE_TWD_LOCAL_TIMER(twd_local_timer, 0xF0000600, 29);
@@ -60,61 +53,31 @@ void __init r8a7373_register_twd(void)
 }
 #endif
 
-static unsigned int __init r8a7373_get_core_count(void)
-{
-	void __iomem *scu_base = scu_base_addr();
-
-	return scu_get_core_count(scu_base);
-}
-
 static void __init r8a7373_smp_init_cpus(void)
 {
-	unsigned int ncores = r8a7373_get_core_count();
-	unsigned int i;
+	shmobile_scu_base = ioremap(SCU_BASE_PHYS, PAGE_SIZE);
 
-	if (ncores > nr_cpu_ids) {
-		pr_warn("SMP: %u cores greater than maximum (%u), clipping\n",
-			ncores, nr_cpu_ids);
-		ncores = nr_cpu_ids;
-	}
-
-	for (i = 0; i < ncores; i++)
-		set_cpu_possible(i, true);
+	shmobile_smp_init_cpus(scu_get_core_count(shmobile_scu_base));
 }
 
-static void modify_scu_cpu_psr(unsigned long set, unsigned long clr)
-{
-	void __iomem *scu_base = scu_base_addr();
-	unsigned long tmp;
-
-	spin_lock(&scu_lock);
-	tmp = __raw_readl(scu_base + 8);
-	tmp &= ~clr;
-	tmp |= set;
-	spin_unlock(&scu_lock);
-
-	/* disable cache coherency after releasing the lock */
-	__raw_writel(tmp, scu_base + 8);
-}
-
+#ifdef IDLE_WAKELOCK_THING
 void __cpuinit r8a7373_secondary_init(unsigned int cpu)
 {
 	if (init_flag) {
-#if 0
 		/* merge: TODO: remove wakelock??*/
 		wake_unlock(&smp_idle_wakelock);
-#endif
 	} else {
 		init_flag = true;
 	}
 }
+#endif
 
 int __cpuinit r8a7373_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long status;
 	cpu = cpu_logical_map(cpu);
 
-#if 0
+#ifdef IDLE_WAKELOCK_THING
 	/* XXX Idle wake locks don't exist any more - if this is necessary,
 	 * find a replacement.
 	 */
@@ -126,9 +89,7 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	}
 #endif
 
-	/* enable cache coherency */
 	status = (__raw_readl(SCPUSTR) >> (4 * cpu)) & 3;
-
 	if (status == 3) {
 		__raw_writel(1 << cpu, WUPCR); /* wake up */
 	} else if (status == 0) {
@@ -146,19 +107,16 @@ int __cpuinit r8a7373_boot_secondary(unsigned int cpu, struct task_struct *idle)
 
 void __init r8a7373_smp_prepare_cpus(unsigned int max_cpus)
 {
-	int cpu = cpu_logical_map(0);
-
-	scu_enable(scu_base_addr());
+	scu_enable(shmobile_scu_base);
 
 	__raw_writel(0, SBAR2);
 
-	/* Map the reset vector (in headsmp.S) */
+	/* Map the reset vector (in headsmp-scu.S) */
 	__raw_writel(0, APARMBAREA);      /* 4k */
-	__raw_writel(virt_to_phys(shmobile_secondary_vector), SBAR);
+	__raw_writel(virt_to_phys(shmobile_secondary_vector_scu), SBAR);
 
-	/* enable cache coherency on all CPU */
-	for (cpu = 0; cpu < max_cpus; cpu++)
-		modify_scu_cpu_psr(0, 3 << (cpu_logical_map(cpu) * 8));
+	/* enable cache coherency on booting CPU */
+	scu_power_mode(shmobile_scu_base, SCU_PM_NORMAL);
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -229,7 +187,9 @@ struct smp_operations r8a7373_smp_ops  __initdata = {
 	.smp_init_cpus		= r8a7373_smp_init_cpus,
 	.smp_prepare_cpus	= r8a7373_smp_prepare_cpus,
 	.smp_boot_secondary	= r8a7373_boot_secondary,
+#ifdef IDLE_WAKELOCK_THING
 	.smp_secondary_init	= r8a7373_secondary_init,
+#endif
 #ifdef CONFIG_HOTPLUG_CPU
 	.cpu_kill		= r8a7373_cpu_kill,
 	.cpu_die		= r8a7373_cpu_die,
