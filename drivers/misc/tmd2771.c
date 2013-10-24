@@ -1572,9 +1572,13 @@ static int taos_probe(struct i2c_client *clientp,
 		ret = -EIO;
 		goto err_write_ctr_reg;
 	}
-	if (clientp->dev.platform_data)
+	if (clientp->dev.platform_data) {
 		pdata = clientp->dev.platform_data;
-	else {
+		taos_cfgp = pdata->cfg_data;
+		val = pdata->tmd2771_port;
+		als_ps_int = gpio_to_irq(val);
+		als_ps_gpio_inr = val;
+	} else {
 		if (taos_datap->client->irq)
 			val = taos_datap->client->irq;
 		else {
