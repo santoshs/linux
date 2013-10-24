@@ -359,29 +359,29 @@ static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
 
 static struct i2c_board_info i2c_cameras[] = {
-    {
-        I2C_BOARD_INFO("OV5645", 0x20),
-    },
-    {
-        I2C_BOARD_INFO("HM2056", 0x28), /* TODO::HYCHO (0x61>>1) */
-    },
+	{
+		I2C_BOARD_INFO("OV5645", 0x20),
+	},
+	{
+		I2C_BOARD_INFO("HM2056", 0x28), /* TODO::HYCHO (0x61>>1) */
+	},
 };
 
 struct soc_camera_link camera_links[] = {
-    {
-        .bus_id                 = 0,
-        .board_info             = &i2c_cameras[0],
-        .i2c_adapter_id = 1,
-        .module_name    = "OV5645",
-        .power                  = OV5645_power,
-    },
-    {
-        .bus_id                 = 1,
-        .board_info             = &i2c_cameras[1],
-        .i2c_adapter_id = 1,
-        .module_name    = "HM2056",
-        .power                  = HM2056_power,
-    },
+	{
+		.bus_id			= 0,
+		.board_info		= &i2c_cameras[0],
+		.i2c_adapter_id	= 1,
+		.module_name	= "OV5645",
+		.power			= OV5645_power,
+	},
+	{
+		.bus_id			= 1,
+		.board_info		= &i2c_cameras[1],
+		.i2c_adapter_id = 1,
+		.module_name	= "HM2056",
+		.power			= HM2056_power,
+	},
 };
 EXPORT_SYMBOL(camera_links);
 
