@@ -802,7 +802,7 @@ void vcd_spuv_func_set_hpb_register(void)
 		0,
 		SPUV_FUNC_RW_32_HPB_HPBCTRL2);
 
-	if ((system_rev & 0xFFFF) <= 0x3E10) {
+	if (shmobile_is_older(U2_VERSION_2_1)) {
 		vcd_spuv_func_modify_register(
 			VCD_SPUV_FUNC_HPBCTRL2_DMSENMSH,
 			0,

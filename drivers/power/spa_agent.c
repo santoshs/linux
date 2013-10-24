@@ -108,71 +108,85 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 	propval->intval = 0;
 
 	switch(prop) {
-		case POWER_SUPPLY_PROP_STATUS:
+
+	case POWER_SUPPLY_PROP_STATUS:
+		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_GET_CHARGE_STATE);
+		if (spa_agent_fn[SPA_AGENT_GET_CHARGE_STATE].fn.get_charge_state)
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_CHARGE_STATE].fn.get_charge_state();
+		else
 			ret = -ENODATA;
-			break;
-		case POWER_SUPPLY_PROP_TYPE:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_GET_CHARGER_TYPE);
-			if(spa_agent_fn[SPA_AGENT_GET_CHARGER_TYPE].fn.get_charger_type)
-				propval->intval = spa_agent_fn[SPA_AGENT_GET_CHARGER_TYPE].fn.get_charger_type();
-			else
-			{
-				propval->intval = POWER_SUPPLY_TYPE_BATTERY;
-				ret = -ENODATA;
-			}
-			break;
-		case POWER_SUPPLY_PROP_TEMP:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_GET_TEMP);
-			if(spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp)
-				propval->intval = spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp(0);
-			else
-				ret = -ENODATA;
-			break;
-		case POWER_SUPPLY_PROP_BATT_TEMP_ADC:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_GET_TEMP);
-			if(spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp)
-				propval->intval = spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp(1);
-			else
-				ret = -ENODATA;
-			break;
-		case POWER_SUPPLY_PROP_CAPACITY:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_GET_CAPACITY);
-			if(spa_agent_fn[SPA_AGENT_GET_CAPACITY].fn.get_capacity)
-				propval->intval = spa_agent_fn[SPA_AGENT_GET_CAPACITY].fn.get_capacity();
-			else
-				ret = -ENODATA;
-			break;
-		case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_GET_VOLTAGE);
-			if(spa_agent_fn[SPA_AGENT_GET_VOLTAGE].fn.get_voltage)
-				propval->intval = spa_agent_fn[SPA_AGENT_GET_VOLTAGE].fn.get_voltage(0);
-			else
-				ret = -ENODATA;
-			break;
-		case POWER_SUPPLY_PROP_PRESENT:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_GET_BATT_PRESENCE);
-			if(spa_agent_fn[SPA_AGENT_GET_BATT_PRESENCE].fn.get_batt_presence)
-				propval->intval = spa_agent_fn[SPA_AGENT_GET_BATT_PRESENCE].fn.get_batt_presence(0);
-			else
-			{
-				propval->intval = 1;
-				ret = -ENODATA;
-			}
-			break;
-		case POWER_SUPPLY_PROP_CURRENT_NOW:
-			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d \n", __func__, SPA_AGENT_GET_CURRENT);
-			if(spa_agent_fn[SPA_AGENT_GET_CURRENT].fn.get_current)
-				propval->intval = spa_agent_fn[SPA_AGENT_GET_CURRENT].fn.get_current(1); // eoc check
-			else
-				ret = -ENODATA;
-			break;
-		case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		default:
+
+		break;
+	case POWER_SUPPLY_PROP_TYPE:
+		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_GET_CHARGER_TYPE);
+		if (spa_agent_fn[SPA_AGENT_GET_CHARGER_TYPE].fn.get_charger_type)
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_CHARGER_TYPE].fn.get_charger_type();
+		else {
+			propval->intval = POWER_SUPPLY_TYPE_BATTERY;
 			ret = -ENODATA;
-			break;
+		}
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_GET_TEMP);
+		if (spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp)
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp(0);
+		else
+			ret = -ENODATA;
+		break;
+	case POWER_SUPPLY_PROP_BATT_TEMP_ADC:
+		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_GET_TEMP);
+		if (spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp)
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp(1);
+		else
+			ret = -ENODATA;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_GET_CAPACITY);
+		if (spa_agent_fn[SPA_AGENT_GET_CAPACITY].fn.get_capacity)
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_CAPACITY].fn.get_capacity();
+		else
+			ret = -ENODATA;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_GET_VOLTAGE);
+		if (spa_agent_fn[SPA_AGENT_GET_VOLTAGE].fn.get_voltage)
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_VOLTAGE].fn.get_voltage(0);
+		else
+			ret = -ENODATA;
+		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_GET_BATT_PRESENCE);
+		if (spa_agent_fn[SPA_AGENT_GET_BATT_PRESENCE].fn.get_batt_presence)
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_BATT_PRESENCE].fn.get_batt_presence(0);
+		else {
+			propval->intval = 1;
+			ret = -ENODATA;
+		}
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, SPA_AGENT_GET_CURRENT);
+		if (spa_agent_fn[SPA_AGENT_GET_CURRENT].fn.get_current)
+			/* eoc check */
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_CURRENT].fn.get_current(1);
+		else
+			ret = -ENODATA;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+	default:
+		ret = -ENODATA;
+		break;
 	}
 
-	pr_spa_agent_dbg(LEVEL3, "%s : DONE !!  agent get request = %d \n", __func__, prop);
+	pr_spa_agent_dbg(LEVEL3, "%s : DONE !!  agent get request = %d\n",
+							__func__, prop);
 	return ret;
 }
 

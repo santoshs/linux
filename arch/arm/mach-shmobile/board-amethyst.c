@@ -44,6 +44,7 @@
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
+#include <linux/d2153/d2153_aad.h>
 #endif
 #include <mach/dev-wifi.h>
 #include <mach/setup-u2spa.h>
@@ -125,6 +126,11 @@
 #endif
 
 #include <mach/sbsc.h>
+#include <media/soc_camera.h>
+#include <media/sh_mobile_csi2.h>
+#include <media/sh_mobile_rcu.h>
+#include <media/sr030pc50.h>
+#include <media/s5k4ecgx.h>
 
 static int unused_gpios_amethyst[] = {
 	GPIO_PORT3, GPIO_PORT6, GPIO_PORT8, GPIO_PORT10,
@@ -158,9 +164,7 @@ void (*shmobile_arch_reset)(char mode, const char *cmd);
 static int proc_read_board_rev(char *page, char **start, off_t off,
 		int count, int *eof, void *data)
 {
-	unsigned int u2_board_rev = 0;
-	u2_board_rev = u2_get_board_rev();
-	count = snprintf(page, count, "%x", u2_board_rev);
+	count = snprintf(page, count, "%x", system_rev);
 	return count;
 }
 
@@ -359,6 +363,90 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 	},
 };
 
+#if defined(CONFIG_SOC_CAMERA_S5K4ECGX) && \
+	defined(CONFIG_SOC_CAMERA_SR030PC50) /* Select by board Rev */
+struct i2c_board_info i2c_cameras[] = {
+	{
+		I2C_BOARD_INFO("S5K4ECGX", 0x56),
+	},
+	{
+		I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
+	},
+};
+
+struct soc_camera_link camera_links[] = {
+	{
+		.bus_id			= 0,
+		.board_info		= &i2c_cameras[0],
+		.i2c_adapter_id	= 1,
+		.module_name	= "S5K4ECGX",
+		.power			= S5K4ECGX_power,
+	},
+	{
+		.bus_id			= 1,
+		.board_info		= &i2c_cameras[1],
+		.i2c_adapter_id	= 1,
+		.module_name	= "SR030PC50",
+		.power			= SR030PC50_power,
+	},
+};
+#else	/* Select by board Rev */
+struct i2c_board_info i2c_cameras[] = {
+	/* Rear Camera */
+#if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
+	{
+		I2C_BOARD_INFO("S5K4ECGX", 0x56),
+	},
+#endif
+	/* Front Camera */
+#if defined(CONFIG_SOC_CAMERA_SR030PC50)
+	{
+		I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
+	},
+#endif
+};
+
+struct soc_camera_link camera_links[] = {
+	/* Rear Camera */
+#if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
+	{
+		.bus_id			= 0,
+		.board_info		= &i2c_cameras[0],
+		.i2c_adapter_id	= 1,
+		.module_name	= "S5K4ECGX",
+		.power			= S5K4ECGX_power,
+	},
+#endif
+	/* Front Camera */
+#if defined(CONFIG_SOC_CAMERA_SR030PC50)
+	{
+		.bus_id			= 1,
+		.board_info		= &i2c_cameras[1],
+		.i2c_adapter_id	= 1,
+		.module_name	= "SR030PC50",
+		.power			= SR030PC50_power,
+	},
+#endif
+};
+#endif	/* Select by board Rev */
+
+struct platform_device camera_devices[] = {
+		{
+		.name   = "soc-camera-pdrv",
+		.id             = 0,
+		.dev    = {
+		.platform_data = &camera_links[0],
+		},
+	},
+	{
+		.name   = "soc-camera-pdrv",
+		.id     =       1,
+		.dev    = {
+		.platform_data = &camera_links[1],
+		},
+	},
+};
+
 
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
@@ -376,10 +464,9 @@ static void __init board_init(void)
 	int inx = 0;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-	unsigned int u2_board_rev = 0;
 	u8 reg8 = __raw_readb(STBCHRB3);
 
-	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
+	if ((reg8 & 0x80) && !shmobile_is_older(U2_VERSION_2_2)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
 				__func__, __raw_readl(PLL3CR));
@@ -408,9 +495,6 @@ static void __init board_init(void)
 #endif
 	r8a7373_pinmux_init();
 
-	/* set board version */
-	u2_board_rev = u2_get_board_rev();
-
 	create_proc_read_entry("board_revision", 0444, NULL,
 				proc_read_board_rev, NULL);
 
@@ -421,15 +505,14 @@ static void __init board_init(void)
 	r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 	pinmux_hwspinlock_init(r8a7373_hwlock_gpio);
 
-	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
+	if (!shmobile_is_older(U2_VERSION_2_0)) {
 		__raw_writew(0x0022, GPIO_DRVCR_SD0);
 		__raw_writew(0x0022, GPIO_DRVCR_SIM1);
 		__raw_writew(0x0022, GPIO_DRVCR_SIM2);
 	}
 	shmobile_arch_reset = board_restart;
 
-	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
+	printk(KERN_INFO "%s hw rev : %d\n", __func__, system_rev);
 
 	/* Init unused GPIOs */
 	for (inx = 0; inx < ARRAY_SIZE(unused_gpios_amethyst); inx++)
@@ -565,7 +648,10 @@ static void __init board_init(void)
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
-	u2audio_init(u2_board_rev);
+	d2153_pdata.audio.fm34_device = DEVICE_NONE;
+	d2153_pdata.audio.aad_codec_detect_enable = false;
+	d2153_pdata.audio.debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+	u2audio_init();
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 
 #ifndef CONFIG_ARM_TZ
@@ -582,7 +668,12 @@ static void __init board_init(void)
 
 	camera_init();
 
-	gpio_key_init(stm_select, u2_board_rev,
+	/* Camera ES version convert */
+	camera_links[0].priv = &csi20_info;
+	camera_links[1].priv = &csi21_info;
+	printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
+	csi20_info.clients[0].lanes = 0x3;
+	gpio_key_init(stm_select,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
 			devices_stm_sdhi1,
@@ -608,7 +699,7 @@ static void __init board_init(void)
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if (u2_board_rev == BOARD_REV_0_0 || u2_board_rev > BOARD_REV_0_4) {
+	if (system_rev == BOARD_REV_0_0 || system_rev > BOARD_REV_0_4) {
 		int i;
 		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
 			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {
@@ -646,21 +737,18 @@ static void __init board_init(void)
 	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	/* PA devices init */
 	spa_init();
-	vibrator_init(u2_board_rev);
+	ss_vibrator_data.voltage = 2800000;
+	u2_vibrator_init();
 
 	printk(KERN_DEBUG "%s\n", __func__);
-#ifdef CONFIG_MMC_OOPS
-	crashlog_r_local_ver_write(mmcoops_info.soft_version);
-#endif
 	crashlog_reset_log_write();
-	crashlog_init_tmplog();
 
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 	pn547_device_i2c_register();
 #endif
 }
 
-MACHINE_START(U2EVM, "u2evm")
+MACHINE_START(AMETHYST, "amethyst")
 	.map_io         = r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,
 	.init_early     = r8a7373_init_early,

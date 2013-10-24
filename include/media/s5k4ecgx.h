@@ -1,5 +1,5 @@
 /*
- * Driver for NCP6914
+ * Driver for Samsung S5K4ECGX Camera
  *
  * Copyright (C) 2012 Renesas Mobile Corp.
  * All rights reserved.
@@ -9,16 +9,12 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef _LINUX_PMIC_NCP6914_H
-#define _LINUX_PMIC_NCP6914_H
+#ifndef __S5K4ECGX_H__
+#define __S5K4ECGX_H__
 
-struct NCP6914_platform_data {
-	unsigned int subpmu_pwron_gpio;
-};
+#include <linux/device.h>
 
+int S5K4ECGX_power(struct device *dev, int power_on);
 
-int subPMIC_PowerOn(int opt);
-int subPMIC_PowerOff(int opt);
-int subPMIC_PinOnOff(int pin, int on_off);
+#endif /* __SR030PC50_H__ */
 
-#endif
