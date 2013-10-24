@@ -51,7 +51,6 @@ int g_fm34_curt_band;
 static struct proc_dir_entry *g_fm34_parent;
 unsigned int g_fm34_log_level = FM34_LOG_ALL;
 static bool g_fm34_is_vclk4_enable;
-static void __iomem *g_fm34_vclk_adr;
 static struct sndp_extdev_callback_func g_fm34_callback_func;
 
 /* Function prototype */
@@ -683,8 +682,8 @@ static void fm34_gpio_free(void)
 	fm34_pr_func_end();
 }
 
-static int fm34_read_proc(char *page, char **start, off_t offset,
-					int count, int *eof, void *data)
+static int fm34_read_proc(struct file *file, char __user *page,
+			  size_t count, loff_t *offset)
 {
 	int len = 0;
 
@@ -694,7 +693,7 @@ static int fm34_read_proc(char *page, char **start, off_t offset,
 }
 
 static int fm34_write_proc(struct file *filp, const char __user *buffer,
-					unsigned long len, void *data)
+			   size_t len, loff_t *offset)
 {
 	int rc = 0;
 	unsigned char buf[11] = {0};
@@ -722,14 +721,14 @@ static int fm34_write_proc(struct file *filp, const char __user *buffer,
 
 	return len;
 }
-static int fm34_read_exec_proc(char *page, char **start, off_t offset,
-					int count, int *eof, void *data)
+static int fm34_read_exec_proc(struct file *filp, char __user * page,
+			       size_t count, loff_t *offset)
 {
 	return count;
 }
 
 static int fm34_write_exec_proc(struct file *filp, const char __user *buffer,
-					unsigned long len, void *data)
+				size_t len, loff_t *data)
 {
 	int rc = 0;
 	unsigned char buf[11] = {0};
@@ -803,8 +802,6 @@ static int fm34_write_exec_proc(struct file *filp, const char __user *buffer,
 			g_fm34_curt_status);
 		fm34_pr_debug("g_fm34_curt_band  [0x%08x]\n",
 			g_fm34_curt_band);
-		fm34_pr_debug("g_fm34_vclk_adr   [0x%08x]\n",
-			ioread32(g_fm34_vclk_adr));
 		fm34_pr_debug("g_fm34_log_level  [0x%08x]\n",
 			g_fm34_log_level);
 		fm34_pr_debug("gpio_rst          [0x%08x]\n",
@@ -821,35 +818,41 @@ static int fm34_write_exec_proc(struct file *filp, const char __user *buffer,
 	return len;
 }
 
+static struct file_operations log_level_proc_ops = {
+	.read = fm34_read_proc,
+	.write = fm34_write_proc,
+};
+
+static struct file_operations exec_proc_ops = {
+	.read = fm34_read_exec_proc,
+	.write = fm34_write_exec_proc,
+};
+
 static int fm34_create_proc_entry(void)
 {
 	int rc = 0;
-	struct proc_dir_entry *log_level = NULL;
-	struct proc_dir_entry *exec = NULL;
+	struct proc_dir_entry *log_level;
+	struct proc_dir_entry *exec;
 
 	/* Create FM34 directory */
 	 g_fm34_parent = proc_mkdir(FM34_MODULE_NAME, NULL);
 	if (NULL != g_fm34_parent) {
 		/* Log level procfile create.  */
-		log_level = create_proc_entry("log_level",
-				(S_IFREG | S_IRUGO | S_IWUGO), g_fm34_parent);
-		if (NULL != log_level) {
-			log_level->read_proc  = fm34_read_proc;
-			log_level->write_proc = fm34_write_proc;
-		} else {
+		log_level = proc_create("log_level",
+					(S_IFREG | S_IRUGO | S_IWUGO),
+					g_fm34_parent, &log_level_proc_ops);
+		if (!log_level) {
 			rc = -EACCES;
 			goto rm_dir;
 		}
 
 		/* Exec procfile create.  */
-		exec = create_proc_entry("exec",
-				(S_IFREG | S_IRUGO | S_IWUGO), g_fm34_parent);
-		if (NULL != exec) {
-			exec->read_proc  = fm34_read_exec_proc;
-			exec->write_proc = fm34_write_exec_proc;
-		} else {
+		exec = proc_create("exec",
+				   (S_IFREG | S_IRUGO | S_IWUGO),
+				   g_fm34_parent, &exec_proc_ops);
+		if (!exec) {
 			rc = -EACCES;
-			goto rm_dir;
+			goto rm_loglevel;
 		}
 
 	} else {
@@ -858,6 +861,8 @@ static int fm34_create_proc_entry(void)
 	}
 	return rc;
 
+rm_loglevel:
+	remove_proc_entry("log_level", g_fm34_parent);
 rm_dir:
 	remove_proc_entry(FM34_MODULE_NAME, NULL);
 	g_fm34_parent = NULL;
@@ -893,7 +898,6 @@ static int fm34_enable_vclk4(void)
 		fm34_pr_debug("already enable vclk4.\n");
 	}
 
-	fm34_pr_debug("g_fm34_vclk_adr[0x%08x]\n", ioread32(g_fm34_vclk_adr));
 
 	fm34_pr_func_end();
 	return 0;
@@ -910,7 +914,6 @@ static void fm34_disable_vclk4(void)
 		fm34_pr_debug("already disabled vclk4.\n");
 	}
 
-	fm34_pr_debug("g_fm34_vclk_adr[0x%08x]\n", ioread32(g_fm34_vclk_adr));
 
 	fm34_pr_func_end();
 }
@@ -986,14 +989,6 @@ static int fm34_probe(
 		goto err_init_gpio_failed;
 	}
 
-	g_fm34_vclk_adr = ioremap(VCLKCR4_PHYS, FM34_VCLKCR4_REGSIZE);
-
-	if (!g_fm34_vclk_adr) {
-		ret = -EINVAL;
-		fm34_pr_err("vclk4 ioremap error\n");
-		goto err_ioremap_vclk4_failed;
-	}
-
 	g_fm34_vclk4_clk = clk_get(NULL, "vclk4_clk");
 	if (IS_ERR(g_fm34_vclk4_clk)) {
 		ret = IS_ERR(g_fm34_vclk4_clk);
@@ -1033,10 +1028,10 @@ static int fm34_probe(
 	/* set callback function */
 	g_fm34_callback_func.set_state = fm34_set_mode;
 	g_fm34_callback_func.set_nb_wb = fm34_set_nb_wb;
-
+#ifdef CONFIG_SND_FSI_D2153
 	/* Register sound driver callback */
 	sndp_extdev_regist_callback(&g_fm34_callback_func);
-
+#endif
 	/* Create platform driver. */
 	ret = platform_device_register(&fm34_platform_device);
 	if (0 != ret) {
@@ -1089,8 +1084,6 @@ err_clk_set_parent:
 err_clk_get_main:
 	clk_put(g_fm34_vclk4_clk);
 err_clk_get_vclk4:
-	iounmap(g_fm34_vclk_adr);
-err_ioremap_vclk4_failed:
 	fm34_gpio_free();
 err_init_gpio_failed:
 	mutex_destroy(&g_fm34_lock);
@@ -1111,7 +1104,6 @@ static int fm34_remove(struct i2c_client *client)
 	platform_device_unregister(&fm34_platform_device);
 	fm34_disable_vclk4();
 	clk_put(g_fm34_vclk4_clk);
-	iounmap(g_fm34_vclk_adr);
 	fm34_gpio_free();
 	mutex_destroy(&g_fm34_lock);
 	kfree(pfm34data);
