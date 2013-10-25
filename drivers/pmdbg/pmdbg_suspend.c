@@ -243,20 +243,11 @@ fail:
  * */
 static int wakelock_cmd(char *para, int size)
 {
-	int ret = 0;
 	FUNC_MSG_IN;
 
-#ifdef CONFIG_ARCH_R8A7373
-	ret = has_wake_lock_no_expire(WAKE_LOCK_SUSPEND);
-	if (ret == 0)
-		MSG_INFO("No active suspend wakelock");
-#else /*!CONFIG_ARCH_R8A7373*/
-	ret = has_wake_lock(WAKE_LOCK_SUSPEND);
-	if (ret == 0)
-		MSG_INFO("No active suspend wakelock");
-#endif /*CONFIG_ARCH_R8A7373*/
+	MSG_INFO("No Support yet for showing active wakelocks");
 
-	FUNC_MSG_RET(0);
+	FUNC_MSG_RET(-ENOTSUPP);
 }
 
 /* enable_dump_suspend

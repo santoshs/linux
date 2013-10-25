@@ -37,7 +37,6 @@ static char state_name[PM_STATE_NOTIFY_CORESTANDBY_2+1][32] = {
 
 static char buf_reg[1024];
 static int mon_state;
-static struct wake_lock idle_wakelock;
 static int mon_all;
 
 
@@ -57,7 +56,6 @@ LOCAL_DECLARE_MOD_SHOW(idle, idle_init, idle_exit, idle_show);
 
 DECLARE_CMD(mon, monitor_cmd);
 DECLARE_CMD(sup, suppress_cmd);
-DECLARE_CMD(wakelock, wakelock_cmd);
 
 static unsigned int idle_confirm_cb(void)
 {
@@ -211,34 +209,12 @@ end:
 
 static int suppress_cmd(char *para, int size)
 {
-	int ret = 0;
-	char item[PAR_SIZE];
-	int para_sz = 0;
+	int ret =  -ENOTSUPP;
 	char *s = buf_reg;
 	FUNC_MSG_IN;
-#ifndef CONFIG_HAS_WAKELOCK
+
 	s += sprintf(s, "Not support\n");
-	ret =  -ENOTSUPP;
-	goto end;
-#endif /*CONFIG_HAS_WAKELOCK*/
 
-	para = strim(para);
-
-	ret = get_word(para, size, 0, item, &para_sz);
-	if (para_sz == 0) {
-		wake_lock(&idle_wakelock);
-		s += sprintf(s, "CoreStandby was suppressed\n");
-		goto end;
-	}
-	ret = strncmp(item, "no", sizeof("no"));
-	if (0 == ret) {
-		wake_unlock(&idle_wakelock);
-		s += sprintf(s, "CoreStandby is allowed\n");
-		goto end;
-	}
-	ret =  -EINVAL;
-	s += sprintf(s, "FAILED");
-end:
 	MSG_INFO("%s", buf_reg);
 	FUNC_MSG_RET(ret);
 }
@@ -276,28 +252,6 @@ static void get_info(char *buf)
 	FUNC_MSG_OUT;
 }
 
-int wakelock_cmd(char *para, int size)
-{
-	int ret = 0;
-	FUNC_MSG_IN;
-
-#ifdef CONFIG_ARCH_R8A7373
-	ret = has_wake_lock_no_expire(WAKE_LOCK_IDLE);
-	if (ret == 0)
-		MSG_INFO("No active idle wakelock");
-
-#else /*!CONFIG_ARCH_R8A7373*/
-	ret = has_wake_lock(WAKE_LOCK_IDLE);
-	if (ret == 0)
-		MSG_INFO("No active idle wakelock");
-	else
-		MSG_INFO("Has active idle wakelock");
-
-#endif /*CONFIG_ARCH_R8A7373*/
-
-	FUNC_MSG_RET(0);
-}
-
 static void idle_show(char **buf)
 {
 	FUNC_MSG_IN;
@@ -311,8 +265,6 @@ static int idle_init(void)
 	FUNC_MSG_IN;
 	ADD_CMD(idle, mon);
 	ADD_CMD(idle, sup);
-	ADD_CMD(idle, wakelock);
-	wake_lock_init(&idle_wakelock, WAKE_LOCK_IDLE, "pmdbg Idle");
 	mon_state = 0;
 	mon_all = 0;
 	FUNC_MSG_RET(0);
@@ -321,9 +273,7 @@ static int idle_init(void)
 static void idle_exit(void)
 {
 	FUNC_MSG_IN;
-	wake_lock_destroy(&idle_wakelock);
 	DEL_CMD(idle, mon);
 	DEL_CMD(idle, sup);
-	DEL_CMD(idle, wakelock);
 	FUNC_MSG_OUT;
 }
