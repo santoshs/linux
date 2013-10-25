@@ -1254,24 +1254,47 @@ static int renesas_sdhi_signal_voltage_switch(
 {
 	struct renesas_sdhi_host *host = mmc_priv(mmc);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
-	u16 val16;
+	u16 timeout;
 
 	if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_330) {
 		if (pdata->set_pwr)
 			pdata->set_pwr(host->pdev, RENESAS_SDHI_SIGNAL_V330);
 	} else if (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
 		clk_enable(host->clk);
+		/* Stop the clock, and clear SDCLKOFFEN */
+		sdhi_write16(host, SDHI_CLK_CTRL,
+		((sdhi_read16(host, SDHI_CLK_CTRL)) & ~(0x300)) & 0x3ff);
 
-		/* disable card clock */
-		val16 = sdhi_read16(host, SDHI_CLK_CTRL);
-		sdhi_write16(host, SDHI_CLK_CTRL, val16 & ~0x100);
+		timeout = 0;
+		/* Check the DAT0 line is low */
+		do {
+			udelay(1);
+		} while ((sdhi_read16(host, SDHI_INFO2) & (1<<7)) == (1<<7) &&
+					(timeout++ < 0x1000));
+
+		if (timeout >= 0x1000)
+			return -ETIMEDOUT;
 
 		if (pdata->set_pwr)
 			pdata->set_pwr(host->pdev, RENESAS_SDHI_SIGNAL_V180);
 
-		/* enable card clock */
-		sdhi_write16(host, SDHI_CLK_CTRL, val16);
-		sdhi_read16(host, SDHI_CLK_CTRL);
+		mdelay(5);
+
+		/* Start the clock, and clear SDCLKOFFEN */
+		sdhi_write16(host, SDHI_CLK_CTRL,
+			(((sdhi_read16(host, SDHI_CLK_CTRL)) | 0x100) &
+				~0x200) & 0x3ff);
+		mdelay(1);
+
+		timeout = 0;
+		/* Check the DAT0 line is low */
+		do {
+			udelay(1);
+		} while (((sdhi_read16(host, SDHI_INFO2) & (1<<7)) == 0) &&
+		(timeout++ < 0x1000));
+
+		if (timeout >= 0x1000)
+			return -ETIMEDOUT;
 		clk_disable(host->clk);
 	}
 	return 0;
