@@ -2284,10 +2284,10 @@ static int d2153_battery_suspend(struct platform_device *pdev, pm_message_t stat
 	cancel_delayed_work_sync(&pbat->monitor_temp_work);
 	cancel_delayed_work_sync(&pbat->monitor_volt_work);
 
-#ifdef CONFIG_ARCH_R8A7373
+#ifdef CONFIG_PM_DEBUG
 	if (pmdbg_get_enable_dump_suspend())
 		pmdbg_pmic_dump_suspend(d2153);
-#endif /* CONFIG_ARCH_R8A7373 */
+#endif /* CONFIG_PM_DEBUG */
 
 #ifdef CONFIG_D2153_HW_TIMER
 	if(suspend_time.tv_sec == 0) {
