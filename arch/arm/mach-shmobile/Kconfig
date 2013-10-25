@@ -625,15 +625,6 @@ config SHMOBILE_PASR_SUPPORT
 	  This enables PASR support
 	  It is called by Suspend module before entering suspend state
 
-menu "Kernel low-level debugging via SuperH SCI(F) port"
-
-config DEBUG_LL_SH_SCI_BASE
-	depends on DEBUG_SH_SCI
-	hex "Physical base address"
-	default "0x00000000"
-
-endmenu
-
 config IRQ_TRACE
 	bool "Hardware vector tracing"
 	help
