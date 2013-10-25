@@ -47,8 +47,6 @@
 #include <linux/power_supply.h>
 #include <linux/spa_power.h>
 
-#define USB_DRVSTR_DBG 1
-
 #include "r8a66597-udc.h"
 
 #define DRIVER_VERSION	"2011-09-26"
@@ -61,7 +59,6 @@
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 
 /* #define UDC_LOG  */
-#define RECOVER_RESUME
 #ifdef  UDC_LOG
 #define udc_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 #else
@@ -2014,7 +2011,7 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 	  udc_log("%s: USB BUS Reset speed = %d\n", __func__, r8a66597->gadget.speed);
 		r8a66597_update_usb_speed(r8a66597);
 		r8a66597_inform_vbus_power(r8a66597, 100);
-#ifdef RECOVER_RESUME
+#if RECOVER_RESUME
 		if (++reset_resume_ctr > 270){ /*More then 1 sec*/
 			printk(KERN_INFO "%s: usb state stuck in DS_DFLT\nGoing to perform phyreset\n",__func__);
 			r8a66597->is_active=0;
@@ -2025,7 +2022,7 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 			reset_resume_ctr = 0;
 			return;
 		}
-#endif
+#endif /* End RECOVER_RESUME */
         chirp_count = 1;
 #ifdef CONFIG_USB_OTG
 	if (otg->state == OTG_STATE_A_SUSPEND)
@@ -2718,6 +2715,7 @@ static int r8a66597_vbus_draw(struct usb_gadget *gadget, unsigned mA)
 	return r8a66597_set_vbus_draw(gadget_to_r8a66597(gadget), mA);
 }
 
+#if USB_REINIT_CHANGE
 static void usb_reinitialize(struct r8a66597 *r8a66597)
 {
 	u16 bwait = r8a66597->pdata->buswait ? : 0xf;
@@ -2734,15 +2732,15 @@ static void usb_reinitialize(struct r8a66597 *r8a66597)
         r8a66597_bset(r8a66597, SCKE, SYSCFG0);
         r8a66597_bclr(r8a66597, DRPD, SYSCFG0);
 }
-
+#endif /* End USB_REINIT_CHNAGE */
 static int r8a66597_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct r8a66597 *r8a66597 = gadget_to_r8a66597(gadget);
 	unsigned long flags;
-
-	udc_log("%s: \n", __func__);
+	udc_log("%s:\n", __func__);
 	r8a66597->softconnect = (is_on != 0);
 	if (r8a66597->vbus_active) {
+#if USB_REINIT_CHANGE
 		if(r8a66597->softconnect == 0)
 			usb_reinitialize(r8a66597);
 		else {
@@ -2751,6 +2749,12 @@ static int r8a66597_pullup(struct usb_gadget *gadget, int is_on)
 			spin_unlock_irqrestore(&r8a66597->lock, flags);
 		}
 	}
+#else
+		spin_lock_irqsave(&r8a66597->lock, flags);
+		r8a66597_set_pullup(r8a66597);
+		spin_unlock_irqrestore(&r8a66597->lock, flags);
+	}
+#endif /* End USB_REINIT_CHANGE */
 	return 0;
 }
 

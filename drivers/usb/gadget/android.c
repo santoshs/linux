@@ -32,6 +32,7 @@
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
 
+#include <mach/setup-u2usb.h>
 #include "gadget_chips.h"
 
 /*
@@ -75,7 +76,6 @@ static const char longname[] = "Gadget Android";
 /* Default vendor and product IDs, overridden by userspace */
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0x0001
-#define USB_DRVSTR_DBG 1
 
 struct android_usb_function {
 	char *name;

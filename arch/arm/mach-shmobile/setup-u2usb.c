@@ -404,23 +404,6 @@ static struct r8a66597_platdata usbhs_func_data_d2153 = {
 	.dmac		= 1,
 };
 
-static struct r8a66597_platdata usbhs_func_data = {
-	.is_vbus_powered = is_vbus_powered,
-	.module_start	= usbhs_module_reset,
-	.module_stop	= usb_sw_reset,
-	.on_chip	= 1,
-	.buswait	= 5,
-	.max_bufnum	= 0xff,
-#ifdef CONFIG_PMIC_INTERFACE
-	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS,
-#else  /* CONFIG_PMIC_INTERFACE */
-	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
-#endif /* CONFIG_PMIC_INTERFACE */
-	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
-	.usb_gpio_setting_info  = r8a66597_gpio_setting_info,
-	.dmac		= 1,
-};
-
 static struct resource usbhs_resources[] = {
 	[0] = {
 		.name	= "USBHS",
@@ -456,17 +439,6 @@ struct platform_device usbhs_func_device_d2153 = {
 	.resource	= usbhs_resources,
 };
 
-struct platform_device usbhs_func_device = {
-	.name	= "r8a66597_udc",
-	.id	= 0,
-	.dev = {
-		.dma_mask		= NULL,
-		.coherent_dma_mask	= DMA_BIT_MASK(32),
-		.platform_data		= &usbhs_func_data,
-	},
-	.num_resources	= ARRAY_SIZE(usbhs_resources),
-	.resource	= usbhs_resources,
-};
 #ifdef CONFIG_USB_R8A66597_HCD
 static void usb_host_port_power(int port, int power)
 {
