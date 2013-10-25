@@ -279,6 +279,7 @@ static struct i2c_board_info __initdata i2c0_devices_d2153[] = {
 
 static struct platform_led_backlight_data led_backlight_data = {
         .max_brightness = 255,
+	.gpio_port	= GPIO_PORT39,
 };
 
 static struct platform_device led_backlight_device = {
@@ -434,6 +435,9 @@ static void __init board_init(void)
 	/* Init unused GPIOs */
 	for (inx = 0; inx < ARRAY_SIZE(unused_gpios_amethyst); inx++)
 		unused_gpio_port_init(unused_gpios_amethyst[inx]);
+
+	gpio_request(GPIO_PORT39, NULL);
+	gpio_direction_output(GPIO_PORT39, 1);
 
 	/* SCIFA0 */
 	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);

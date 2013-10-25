@@ -22,6 +22,7 @@
 
 struct platform_led_backlight_data {
         unsigned int max_brightness;
+	int gpio_port;
 };
 #endif
 

@@ -43,7 +43,7 @@
 
 #define NT35516_POWAREA_MNG_ENABLE
 /* #define NT35516_GED_ORG */
-
+#define QHD_COMMAND_MODE 1
 /* #define NT35516_SWITCH_FRAMERATE_40HZ */
 
 #ifdef NT35516_POWAREA_MNG_ENABLE
@@ -56,7 +56,7 @@
 					 SDRAM_FRAME_BUFFER_START_ADDR + 1)
 
 #define BRCM
-					 /* panel size (mm) */
+/* panel size (mm) */
 #define R_MOBILE_M_PANEL_SIZE_WIDTH		54
 #define R_MOBILE_M_PANEL_SIZE_HEIGHT	95
 
@@ -244,9 +244,8 @@ static char exit_sleep[2] = {0x11, 0x00};
 static char display_on[2] = {0x29, 0x00};
 static char display_off[2] = {0x28, 0x00};
 static char enter_sleep[2] = {0x10, 0x00};
-static char deep_stdby_mode[2] = {0x4F, 0x01};
 
-#ifdef TRULY_QHD_COMMAND_MODE
+#ifdef QHD_COMMAND_MODE
 static char colmod[2] = {0x3A, 0x77};
 static char teon[2] = {0x35, 0x00};
 
@@ -263,6 +262,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{MIPI_DSI_DCS_LONG_WRITE, dopctr , sizeof(dopctr) },
 	{MIPI_DSI_DCS_LONG_WRITE, stesl , sizeof(stesl) },
 
+	{ MIPI_DSI_BLACK,           NULL,      0                },
 	{ MIPI_DSI_DCS_SHORT_WRITE, display_on,    sizeof(display_on)   },
 	{ MIPI_DSI_DELAY,           NULL,      10              },
 	{ MIPI_DSI_END,             NULL,      0                }
@@ -274,6 +274,7 @@ static const struct specific_cmdset initialize_cmdset[] = {
 	{MIPI_DSI_DCS_LONG_WRITE, mauc_dis, sizeof(mauc_dis)},
 	{MIPI_DSI_DCS_LONG_WRITE, dopctr , sizeof(dopctr) },
 
+	{ MIPI_DSI_BLACK,           NULL,      0                },
 	{ MIPI_DSI_DCS_SHORT_WRITE, display_on,    sizeof(display_on)   },
 	{ MIPI_DSI_DELAY,           NULL,      10              },
 	{ MIPI_DSI_END,             NULL,      0                }
@@ -285,8 +286,6 @@ static const struct specific_cmdset demise_cmdset[] = {
 	{MIPI_DSI_DCS_SHORT_WRITE, display_off, sizeof(display_off)},
 	{MIPI_DSI_DCS_SHORT_WRITE, enter_sleep, sizeof(enter_sleep)},
 	{MIPI_DSI_DELAY,           NULL,      120              },
-	{MIPI_DSI_DCS_LONG_WRITE, deep_stdby_mode, sizeof(deep_stdby_mode)},
-	{MIPI_DSI_DELAY,           NULL,      150              },
 	{MIPI_DSI_END,             NULL,      0                }
 };
 
@@ -934,6 +933,10 @@ static int NT35516_panel_resume(void)
 #endif
 
 retry:
+
+	/* LCD panel reset */
+	mipi_display_reset();
+
 	screen_handle =  screen_display_new();
 
 	/* Start a display to LCD */
@@ -944,9 +947,6 @@ retry:
 		printk(KERN_ALERT "disp_start_lcd err!\n");
 		goto out;
 	}
-
-	/* LCD panel reset */
-	mipi_display_reset();
 
 	is_dsi_read_enabled = 1;
 

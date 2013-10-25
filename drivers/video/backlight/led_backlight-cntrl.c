@@ -46,7 +46,6 @@ static __init int led_dev_init(void);
 /* Macro */
 
 #define TPU_CHANNEL "TPU0TO3"
-#define GPIO_PORT GPIO_PORT39
 
 #define CLK_SOURCE_CP 0 /* CP clock Common Peripheral*/
 #define CLK_SOURCE_CP_DIV4 1 /* CP/4 */
@@ -55,9 +54,10 @@ static __init int led_dev_init(void);
 
 /* Global variables */
 static struct wake_lock wakelock;
-static const int periodical_cycle = 43000; /* PWM periodic cycle */
+static const int periodical_cycle = 260; /* PWM periodic cycle */
 static const int backlight_brightness = 192; /* Initial value
 						for LCD backlight */
+static int gpio_pin;
 DEFINE_MUTEX(led_mutex);  /* Initialize mutex */
 
 /*
@@ -93,7 +93,7 @@ static int control_led_backlight(int  value)
 	if (value) {
 		/* Open TPU channel to use, clock source is CP/4 */
 		if (!handle) {
-			gpio_free(GPIO_PORT);
+			gpio_free(gpio_pin);
 			ret = tpu_pwm_open(TPU_CHANNEL, CLK_SOURCE_CP, &handle);
 
 			if (ret) {
@@ -126,6 +126,8 @@ static int control_led_backlight(int  value)
 			}
 			handle = NULL;
 		}
+		gpio_request(gpio_pin, NULL);
+		gpio_direction_output(gpio_pin, 0);
 		return ret;
 	}
 }
@@ -141,7 +143,9 @@ static int __init led_probe(struct platform_device *pdev)
 	struct platform_led_backlight_data *data = pdev->dev.platform_data;      
 	struct backlight_device *bl;
         struct backlight_properties props;
+
 	memset(&props, 0, sizeof(struct backlight_properties));
+	gpio_pin = data->gpio_port;
         props.max_brightness = data->max_brightness;
         props.type = BACKLIGHT_PLATFORM;
 	bl = backlight_device_register(pdev->name, &pdev->dev,
