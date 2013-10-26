@@ -259,7 +259,31 @@ static struct lsm303dl_mag_port_info lsm303dl_mag_platdata = {
 #endif
 
 #if defined(CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)
+
+struct taos_cfg taos_cfg_plat_data = {
+	.calibrate_target = 300000,
+	.als_time = 200,
+	.scale_factor = 1,
+	.gain_trim = 512,
+	.filter_history = 3,
+	.filter_count = 1,
+	.gain = 2,
+	.prox_threshold_hi = 646,
+	.prox_threshold_lo = 638,
+	. als_threshold_hi = 1,
+	. als_threshold_lo = 0,
+	.prox_win_sw = 100,
+	.prox_int_time = 238,
+	.prox_adc_time = 255,
+	.prox_wait_time = 238,
+	.prox_intr_filter = 17,
+	.prox_config = 0,
+	.prox_pulse_cnt = 96,
+	.prox_gain = 34,
+};
+
 static struct tmd2771_platform_data taos_platdata = {
+	.cfg_data = &taos_cfg_plat_data,
 	.tmd2771_port = GPIO_PORT108,
 
 };
