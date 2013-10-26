@@ -42,7 +42,7 @@
 #include <linux/k3dh_dev.h>
 #endif
 
-#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A) 
+#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A)
 #include <linux/hscd_i2c_dev.h>
 #endif
 
@@ -108,7 +108,7 @@ static struct k3dh_platform_data k3dh_platform_data = {
 };
 #endif
 
-#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A) 
+#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A)
 static struct hscd_i2c_platform_data hscd_i2c_platform_data = {
 	.orientation = {
 	-1, 0, 0,
@@ -142,7 +142,7 @@ static void gp2ap002_led_onoff(bool onoff)
         }
     } else {
         led_regulator = regulator_get(NULL, "sensor_led_3v");
-        ret = regulator_disable(led_regulator); 
+        ret = regulator_disable(led_regulator);
         printk(KERN_INFO "[GP2A] regulator_disable : %d\n", ret);
         regulator_put(led_regulator);
     }
@@ -176,7 +176,7 @@ static void gp2ap030_led_onoff(bool onoff)
 #define GPIO_PS_ALS_INT 108
 static struct gp2ap030_pdata gp2ap030_pdata = {
 	.p_out = GPIO_PS_ALS_INT,
-    	.power_on = gp2ap030_power_onoff,        
+    	.power_on = gp2ap030_power_onoff,
     	.led_on	= gp2ap030_led_onoff,
 	.version = GP2AP030,
 	.prox_cal_path = "/efs/prox_cal"
@@ -231,21 +231,21 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 #if defined  (CONFIG_SENSORS_K3DH)
 	{
 		I2C_BOARD_INFO("k3dh", 0x19),
-		.platform_data = &k3dh_platform_data,                        
+		.platform_data = &k3dh_platform_data,
 	},
 #endif
 
-#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A) 
+#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A)
 	{
 		I2C_BOARD_INFO("hscd_i2c", 0x0c),
-		.platform_data = &hscd_i2c_platform_data,               
+		.platform_data = &hscd_i2c_platform_data,
 	},
  #endif
 
 #if defined  (CONFIG_SENSORS_GP2AP002)
 	{
 		I2C_BOARD_INFO("gp2ap002", 0x44),
-		.platform_data = &gp2ap002_platform_data,            
+		.platform_data = &gp2ap002_platform_data,
 	},
 #endif
 
@@ -286,7 +286,7 @@ static void grip_init_code_set(void)
 	atsn10p_pdata.cr_divnd = 12;
 	atsn10p_pdata.cs_divsr = 10;
 	atsn10p_pdata.cs_divnd = 12;
-	
+
 	atsn10p_pdata.init_code[SET_UNLOCK] = 0x5a;
 	atsn10p_pdata.init_code[SET_RST_ERR] = 0x33;
 	atsn10p_pdata.init_code[SET_PROX_PER] = 0x38;
@@ -345,8 +345,8 @@ void __init board_sensor_init(void)
 	gpio_request(PROXI_INT_GRIP_PIN, NULL);
 	gpio_direction_input(PROXI_INT_GRIP_PIN);
 	gpio_pull_up_port(PROXI_INT_GRIP_PIN);
-	
-	grip_init_code_set();		
+
+	grip_init_code_set();
 	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 #endif
 	i2c_register_board_info(I2C_BUS_ID_SENSOR, i2c2_devices, ARRAY_SIZE(i2c2_devices));

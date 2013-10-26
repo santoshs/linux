@@ -23,7 +23,6 @@
 #include <linux/regulator/machine.h>
 #include <linux/bq27425.h>
 #include <linux/tsu6712.h>
-#include <linux/pmic/pmic.h>
 #include <linux/spa_power.h>
 #include <linux/spa_agent.h>
 #include <linux/wakelock.h>
@@ -66,7 +65,7 @@
 
 #define STATUS_C_TERMINATED_ONE_CYCLED	(0x01 << 7)
 #define STATUS_C_TERMINATED_LOW_CURRENT	(0x01 << 6)
-#define STATUS_C_SAFETY_TIMER_STATUS	(0x03 << 4)	// 4,5 two bit. 
+#define STATUS_C_SAFETY_TIMER_STATUS	(0x03 << 4)	// 4,5 two bit.
 #define STATUS_C_CHARGER_ERROR			(0x01 << 3)
 
 
@@ -93,22 +92,7 @@ struct smb328a_chip {
 
 static struct smb328a_chip *smb_charger = NULL;
 
-struct i2c_client *smb328a_chip_client(void)
-{
-	return smb_charger->client;
-}
-
-int smb328a_chip_status(void)
-{
-	return smb_charger->charger_status;
-}
-
 static bool FullChargeSend;
-
-#ifdef CONFIG_PMIC_INTERFACE
-extern int pmic_get_temp_status(void);
-extern int pmic_read_battery_status(int property);
-#endif
 
 #ifdef CONFIG_BATTERY_D2153
 extern int d2153_battery_set_status(int type, int status);
@@ -762,7 +746,7 @@ static int smb328a_set_full_charge (unsigned int eoc)
 	}
 #ifdef NO_USE_TERMINATION_CURRENT
 	validval = 25;	//don't use charger eoc.
-#endif	
+#endif
 	ret = smb328a_set_top_off(smb_charger->client, validval);
 
 	return ret;
@@ -812,7 +796,7 @@ static void smb328a_work_func(struct work_struct *work)
 	if(val & (STATUS_A_CURRENT_TERMINATION|STATUS_A_TAPER_CHARGING))
 	{
 		if(FullChargeSend==0 || (val & STATUS_A_CURRENT_TERMINATION)) {
-			pm_charger_info("%s: EOC\n", __func__);	        
+			pm_charger_info("%s: EOC\n", __func__);
 			if(spa_event_handler(SPA_EVT_EOC, 0) < 0)
 				pr_info("%s: EOC is not ready\n", __func__);
 			else

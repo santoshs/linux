@@ -15,6 +15,11 @@
 
 #include <linux/videodev2.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/regulator/consumer.h>
+#include <linux/clk.h>
+#include <mach/r8a7373.h>
+#include <mach/gpio.h>
 #include <linux/i2c.h>
 #include <linux/log2.h>
 #include <linux/delay.h>
@@ -22,6 +27,7 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-chip-ident.h>
 #include <media/soc_camera.h>
+#include <media/sh_mobile_csi2.h>
 #include <linux/videodev2_brcm.h>
 #include "hm2056.h"
 
@@ -102,6 +108,146 @@ static const struct v4l2_frmsize_discrete hm2056_frmsizes[hm2056_SIZE_LAST] = {
 	{1280, 1024},
 	{1600, 1200},
 };
+
+/* Power function for HM2056 */
+int HM2056_power(struct device *dev, int power_on)
+{
+	struct clk *vclk1_clk, *vclk2_clk;
+	int iRet;
+	struct regulator *regulator;
+	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
+
+	vclk1_clk = clk_get(NULL, "vclk1_clk");
+	if (IS_ERR(vclk1_clk)) {
+		dev_err(dev, "clk_get(vclk1_clk) failed\n");
+		return -1;
+	}
+
+	vclk2_clk = clk_get(NULL, "vclk2_clk");
+	if (IS_ERR(vclk2_clk)) {
+		dev_err(dev, "clk_get(vclk2_clk) failed\n");
+		return -1;
+	}
+
+	if (power_on) {
+		printk(KERN_ALERT "%s PowerON\n", __func__);
+		sh_csi2_power(dev, power_on);
+		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
+
+		/* CAM_AVDD_2V8  On */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(2);
+
+		/* CAM_VDDIO_1V8 On */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+
+		mdelay(2);
+
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		mdelay(2);
+
+		iRet = clk_set_rate(vclk1_clk,
+		clk_round_rate(vclk1_clk, 24000000));
+		if (0 != iRet) {
+			dev_err(dev,
+				"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
+					iRet);
+		}
+
+		iRet = clk_enable(vclk1_clk);
+		if (0 != iRet) {
+			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
+				iRet);
+		}
+		mdelay(3);
+
+		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
+		mdelay(2);
+
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		mdelay(2);
+
+		/* CAM_CORE_1V2  On */
+		gpio_set_value(GPIO_PORT3, 1);
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
+		udelay(70);
+		/* 1ms */
+
+		/* 5M_AF_2V8 On */
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_enable(regulator);
+		regulator_put(regulator);
+
+		printk(KERN_ALERT "%s PowerON fin\n", __func__);
+	} else {
+		printk(KERN_ALERT "%s PowerOFF\n", __func__);
+
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(1);
+
+		clk_disable(vclk1_clk);
+
+		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
+		mdelay(1);
+
+		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
+		mdelay(1);
+
+		/* CAM_CORE_1V2  Off */
+		gpio_set_value(GPIO_PORT3, 0);
+		mdelay(1);
+
+		/* CAM_VDDIO_1V8 Off */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* CAM_AVDD_2V8  Off */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(1);
+
+		/* 5M_AF_2V8 Off */
+		regulator = regulator_get(NULL, "cam_af");
+		if (IS_ERR(regulator))
+			return -1;
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		sh_csi2_power(dev, power_on);
+		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
+	}
+
+	clk_put(vclk1_clk);
+	clk_put(vclk2_clk);
+
+	return 0;
+}
+
 
 /* Find a data format by a pixel code in an array */
 static int hm2056_find_datafmt(enum v4l2_mbus_pixelcode code)

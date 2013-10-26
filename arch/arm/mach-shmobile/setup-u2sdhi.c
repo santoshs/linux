@@ -2,7 +2,6 @@
 #include <linux/gpio.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/renesas_sdhi.h>
-#include <linux/pmic/pmic.h>
 #include <linux/regulator/consumer.h>
 
 #include <mach/setup-u2sdhi.h>
@@ -10,8 +9,6 @@
 #include <mach/r8a7373.h>
 #include <mach/irqs.h>
 
-#define WLAN_GPIO_EN	GPIO_PORT260
-#define WLAN_IRQ	GPIO_PORT98
 #define VSD_VDCORE_DELAY 50
 #define E3_3_V 3300000
 #define E1_8_V 1800000
@@ -221,7 +218,8 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 
 static int sdhi0_get_cd(struct platform_device *pdev)
 {
-	return gpio_get_value(GPIO_PORT327) ? 0 : 1;
+	struct renesas_sdhi_platdata *pdata = pdev->dev.platform_data;
+	return gpio_get_value(pdata->card_detect_gpio) ? 0 : 1;
 }
 
 #define SDHI0_EXT_ACC_PHYS	0xEE1000E4
@@ -285,6 +283,8 @@ struct renesas_sdhi_platdata sdhi0_info = {
 	.detect_irq		= R8A7373_IRQC_IRQ(50),
 	.detect_msec		= 0,
 	.get_cd			= sdhi0_get_cd,
+	.card_detect_gpio	= GPIO_PORT327,
+	.card_stat_sysfs	= true,
 	.set_dma		= sdhi0_set_dma,
 	.port_cnt		= ARRAY_SIZE(sdhi0_gpio_setting_info),
 	.gpio_setting_info	= sdhi0_gpio_setting_info,
@@ -315,18 +315,20 @@ struct platform_device sdhi0_device = {
 
 static int sdhi1_get_pwr(struct platform_device *pdev)
 {
-	return gpio_get_value(GPIO_PORT260);
+	struct renesas_sdhi_platdata *pdata = pdev->dev.platform_data;
+	return gpio_get_value(pdata->pwr_gpio);
 }
 
 static void sdhi1_set_pwr(struct platform_device *pdev, int state)
 {
 	static int power_state;
+	struct renesas_sdhi_platdata *pdata = pdev->dev.platform_data;
 
 	printk(KERN_ALERT "%s: %s\n", __func__, (state ? "on" : "off"));
 
 	if (state != power_state) {
 		power_state = state;
-		gpio_set_value(GPIO_PORT260, state);
+		gpio_set_value(pdata->pwr_gpio, state);
 	}
 }
 
@@ -340,13 +342,6 @@ static int sdhi1_get_cd(struct platform_device *pdev)
 	return 1;/*return gpio_get_value(GPIO_PORT327) ? 0 : 1;*/
 }
 
-#define SDHI1_VOLTAGE (MMC_VDD_165_195 | MMC_VDD_20_21 | MMC_VDD_21_22 \
-			| MMC_VDD_22_23 | MMC_VDD_23_24 | MMC_VDD_24_25 \
-			| MMC_VDD_25_26 | MMC_VDD_26_27 | MMC_VDD_27_28 \
-			| MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_30_31 \
-			| MMC_VDD_31_32 | MMC_VDD_32_33 | MMC_VDD_33_34 \
-			| MMC_VDD_34_35 | MMC_VDD_35_36)
-
 static struct renesas_sdhi_platdata sdhi1_info = {
 	.caps		= MMC_CAP_SDIO_IRQ | MMC_CAP_NONREMOVABLE | MMC_CAP_4_BIT_DATA |
 			  MMC_CAP_POWER_OFF_CARD | MMC_CAP_DISABLE,
@@ -356,6 +351,8 @@ static struct renesas_sdhi_platdata sdhi1_info = {
 	.slave_id_rx	= SHDMA_SLAVE_SDHI1_RX,
 	.set_pwr	= sdhi1_set_pwr,
 	.get_pwr	= sdhi1_get_pwr,
+	.pwr_gpio	= GPIO_PORT260,
+	.suspend_pwr_ctrl	= true,
 	.detect_irq	= 0,
 	.detect_msec	= 0,
 	.get_cd		= sdhi1_get_cd,

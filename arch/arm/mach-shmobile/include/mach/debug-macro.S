@@ -24,9 +24,6 @@
 
 #define DEBUG_UART_BASE		CONFIG_DEBUG_LL_SH_SCI_BASE
 
-#if defined(CONFIG_MACH_U2EVM) || defined(CONFIG_MACH_GARDALTE) || \
-	defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_LT02LTE) || \
-	defined(CONFIG_MACH_AMETHYST)
 #define DEBUG_UART_BASE_PHY	0xe6450000
 #define DEBUG_UART_BASE_VIRT	IO_ADDRESS(DEBUG_UART_BASE_PHY)
 
@@ -49,4 +46,3 @@
 	.macro	waituart, rd, rx
 	.endm
 
-#endif

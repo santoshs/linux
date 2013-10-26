@@ -253,10 +253,7 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 	/* Get clock rate after clock is enabled */
 	clk_enable(pd->clk);
 	i2c_clk_khz = clk_get_rate(pd->clk) / 1000;
-
-#if defined(CONFIG_ARCH_SH73A0) || defined(CONFIG_ARCH_R8A7373)
-	i2c_clk_khz /= 2;
-#endif
+	i2c_clk_khz /= pd->clks_per_count;
 
 	if (pd->bus_speed == STANDARD_MODE) {
 		tHIGH	= 400;	/* tHD;STA = tHIGH = 4.0 us */

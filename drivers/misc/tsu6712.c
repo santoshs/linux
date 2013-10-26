@@ -1499,56 +1499,12 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	int ret;
 	pr_info("%s\n", __func__);
 
-#if defined(CONFIG_BOARD_VERSION_LOGANLTE)  || \
-	defined(CONFIG_BOARD_VERSION_AMETHYST) /* mUSB_temp_20130308 */
+#if defined(CONFIG_MACH_LOGANLTE)  || \
+	defined(CONFIG_MACH_AMETHYST) /* mUSB_temp_20130308 */
 	tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
 
 
 	ctrl = value & (~0x1);
-
-	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, ctrl);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-#else
-	ret = tsu6712_write_reg(client,TSU6712_REG_INT1_MASK,0x5C);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	ret = tsu6712_write_reg(client,TSU6712_REG_INT2_MASK,0xF8);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	/* MUIC current limit to MAX */
-	//tsu6712_read_reg(client, TSU6712_REG_OCL_OCP_SET1, &value);	// over current limit setting
-
-	//ctrl = value | 0x60;	// 0110 2.5A
-
-	ret = tsu6712_write_reg(client, TSU6712_REG_OCL_OCP_SET1, 0x69);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	//	tsu6712_read_reg(client, TSU6712_REG_OCL_OCP_SET2, &value); //over current setting
-
-	//	ctrl = (value &~(0x18));// | 0x02;	//0011 2A
-
-	ret = tsu6712_write_reg(client, TSU6712_REG_OCL_OCP_SET2, 0x03);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	/* ADC Detect Time: 500ms */
-	ret = tsu6712_write_reg(client, TSU6712_REG_TIMING1, 0x0);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	ret = tsu6712_read_reg(client, TSU6712_REG_MANSW1, &value);
-	if (ret < 0)
-		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-
-	usbsw->mansw = value;
-	if (usbsw->mansw)
-		ctrl &= ~CON_MANUAL_SW;	/* Manual Switching Mode */
-	else
-		ctrl &= ~(CON_INT_MASK);
 
 	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, ctrl);
 	if (ret < 0)
@@ -1651,22 +1607,6 @@ static void tsu6712_detect_func(struct work_struct *work)
 	if(!key_detect)
 		tsu6712_detect_dev(usbsw, dev, adc);
 
-#if defined(CONFIG_BOARD_VERSION_GARDA)// mUSB_temp_20130308
-	/* Check OVP */
-	if(intr & 0xFF)
-	{
-		if(intr & 0x20) // ovp
-		{
-			usbsw->ovp = 1;
-			usbsw->pdata->ovp_cb(true);
-		}
-		else if(intr & 0x80 && usbsw->ovp == 1)
-		{
-			usbsw->ovp = 0;
-			usbsw->pdata->ovp_cb(false);
-		}
-	}
-#endif
 }
 
 static void tsu6712_irq_func(struct work_struct *work)

@@ -5,7 +5,6 @@
 # Common objects
 # obj-y				:= timer.o console.o clock.o pm_runtime.o
 obj-y				:= timer.o console.o clock.o cmt.o serial.o
-obj-$(CONFIG_SH_TIMER_CMT_ARM)	+= sh_cmt.o
 #obj-y                           += tz_comm/
 # CPU objects
 obj-$(CONFIG_ARCH_SH7367)	+= setup-sh7367.o clock-sh7367.o intc-sh7367.o
@@ -69,10 +68,7 @@ obj-$(CONFIG_MACH_MACKEREL)	+= board-mackerel.o
 obj-$(CONFIG_MACH_KOTA2)	+= board-kota2.o
 obj-$(CONFIG_MACH_BONITO)	+= board-bonito.o
 obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
-obj-$(CONFIG_MACH_U2EVM)	+= board-u2evm.o
-obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
-obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte.o
 obj-$(CONFIG_MACH_AMETHYST)	+= board-amethyst.o
 
 obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
@@ -82,9 +78,9 @@ obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
 obj-$(CONFIG_RENESAS_BT)	+= dev-renesas-bt.o
 
 # BT object
-obj-$(CONFIG_BT_BCM4330)		+= board-bluetooth-bcm4330.o
-obj-$(CONFIG_BT_BCM4334)		+= board-bluetooth-bcm4334.o
-obj-$(CONFIG_BT_BCM43241)		+= board-bluetooth-bcm43241.o
+obj-$(CONFIG_BT_BCM4330)		+= board-bcm4334-bt.o
+obj-$(CONFIG_BT_BCM4334)		+= board-bcm4334-bt.o
+obj-$(CONFIG_BT_BCM43241)		+= board-bcm4334-bt.o
 obj-$(CONFIG_BCM4334_BT)		+= board-bcm4334-bt.o
 
 # Framework support
@@ -119,10 +115,7 @@ obj-y +=  setup-u2vibrator.o
 
 # charging
 ifeq ($(CONFIG_SEC_CHARGING_FEATURE),y)
-obj-$(CONFIG_MACH_U2EVM)	+= setup-u2spa.o
-obj-$(CONFIG_MACH_GARDALTE)	+= board-gardalte-spa.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte-spa.o
-obj-$(CONFIG_MACH_LT02LTE)	+= board-lt02lte-spa.o
 obj-$(CONFIG_MACH_AMETHYST)	+= board-amethyst-spa.o
 endif
 
@@ -133,8 +126,6 @@ obj-$(CONFIG_U2_SDHI)	+= setup-u2sdhi.o
 
 # gpio_key and keysc
 obj-$(CONFIG_U2_GPIOKEY)	+= setup-u2gpio_key.o
-# setup-u2tps80032
-obj-$(CONFIG_PMIC_INTERFACE)	+= setup-u2tps80032.o
 # WiFi objects
 obj-$(CONFIG_ARCH_SHMOBILE)	+= dev-wifi.o
 
@@ -178,9 +169,6 @@ obj-$(CONFIG_ION) += setup-u2ion.o
 
 # camera
 obj-$(CONFIG_SOC_CAMERA) += setup-u2camera.o
-
-# setup-d2153
-obj-$(CONFIG_MACH_U2EVM)	+= setup-d2153.o
 
 # Ramdump
 obj-$(CONFIG_SH_RAMDUMP)	+= ramdump.o

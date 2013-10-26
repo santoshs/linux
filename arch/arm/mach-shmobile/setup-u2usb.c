@@ -17,14 +17,10 @@
 #include <linux/gpio_keys.h>
 #include <linux/usb/r8a66597.h>
 #include <mach/setup-u2usb.h>
-#include <linux/mfd/tps80031.h>
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
 #ifdef CONFIG_USB_OTG
 #include <linux/usb/tusb1211.h>
-#endif
-#if defined(CONFIG_MACH_GARDALTE)
-#include <mach/board-gardalte.h>
 #endif
 #include <mach/r8a7373.h>
 #define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
@@ -411,11 +407,7 @@ static struct r8a66597_platdata usbhs_func_data = {
 	.on_chip	= 1,
 	.buswait	= 5,
 	.max_bufnum	= 0xff,
-#ifdef CONFIG_PMIC_INTERFACE
-	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS,
-#else  /* CONFIG_PMIC_INTERFACE */
-	.vbus_irq	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_VBUS_DET,
-#endif /* CONFIG_PMIC_INTERFACE */
+	.vbus_irq	= ENT_TPS80031_IRQ_BASE,
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
 	.usb_gpio_setting_info  = r8a66597_gpio_setting_info,
 	.dmac		= 1,
@@ -470,12 +462,6 @@ struct platform_device usbhs_func_device = {
 #ifdef CONFIG_USB_R8A66597_HCD
 static void usb_host_port_power(int port, int power)
 {
-#ifdef CONFIG_PMIC_INTERFACE
-	if (power)
-		pmic_set_vbus(1);
-	else
-		pmic_set_vbus(0);
-#endif
 	return;
 }
 static struct r8a66597_platdata usb_host_data = {
@@ -605,32 +591,7 @@ void __init USBGpio_init(void)
 	if (ret < 0)
 		error_log("ERROR : ULPI_NXT failed ! USB may not function\n");
 
-#if defined(CONFIG_MACH_GARDALTE)
-	ret = gpio_request(GPIO_PORT131, NULL);
-	if (ret < 0)
-		error_log("PORT131 failed!USB may not function\n");
-	ret = gpio_direction_output(GPIO_PORT131, 0);
-	if (ret < 0)
-		error_log("PORT131 direction output(0) failed!\n");
-	udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
-	ret = gpio_direction_output(GPIO_PORT131, 1);
-	if (ret < 0)
-		error_log("PORT131 direction output(1) failed!\n");
-#endif
-
 #if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AMETHYST)
-	ret = gpio_request(GPIO_PORT131, NULL);
-	if (ret < 0)
-		error_log("PORT131 failed!USB may not function\n");
-	ret = gpio_direction_output(GPIO_PORT131, 0);
-	if (ret < 0)
-		error_log("PORT131 direction output(0) failed!\n");
-	udelay(100); /* assert RESET_N (min pulse width 100 usecs) */
-	ret = gpio_direction_output(GPIO_PORT131, 1);
-	if (ret < 0)
-		error_log("PORT131 direction output(1) failed!\n");
-#endif
-#if defined(CONFIG_MACH_LT02LTE)
 	ret = gpio_request(GPIO_PORT131, NULL);
 	if (ret < 0)
 		error_log("PORT131 failed!USB may not function\n");
