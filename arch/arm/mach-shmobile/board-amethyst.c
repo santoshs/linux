@@ -603,15 +603,6 @@ static void __init board_init(void)
 	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
 #endif /* CONFIG_MFD_D2153 */
 
-	/* Touch */
-	gpio_request(GPIO_PORT32, NULL);
-	gpio_direction_input(GPIO_PORT32);
-	gpio_pull_up_port(GPIO_PORT32);
-
-	gpio_request(GPIO_PORT30, NULL);
-	gpio_direction_output(GPIO_PORT30, 1);
-	gpio_pull_up_port(GPIO_PORT30);
-
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)

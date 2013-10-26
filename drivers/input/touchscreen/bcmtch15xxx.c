@@ -45,9 +45,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_gpio.h>
 
-#ifdef CONFIG_REGULATOR
 #include <linux/regulator/consumer.h>
-#endif
 
 
 #include <linux/timer.h>
@@ -1036,11 +1034,9 @@ struct bcmtch_data {
 	bool irq_pending;
 	bool irq_enabled;
 
-#ifdef CONFIG_REGULATOR
 	struct regulator *regulator_avdd33;
 	struct regulator *regulator_vddo;
 	struct regulator *regulator_avdd_adldo;
-#endif
 	/* Power Management */
 	uint32_t power_on_delay_us; /* us wait time after power on */
 
@@ -5815,38 +5811,57 @@ static int32_t bcmtch_dev_watchdog_check(
 static int32_t bcmtch_dev_power_init(
 		struct bcmtch_data *p_bcmtch_data)
 {
-	int32_t ret_val = 0;
+	int32_t ret = 0;
 
-#ifdef CONFIG_REGULATOR
 	p_bcmtch_data->regulator_avdd33 =
 			regulator_get(
-				p_bcmtch_data->p_device,
-				"avdd33");
+				NULL,
+				"key_led");
 	if (IS_ERR(p_bcmtch_data->regulator_avdd33))
 		p_bcmtch_data->regulator_avdd33 = NULL;
 
+	ret = regulator_set_voltage(p_bcmtch_data->regulator_avdd33,
+					3300000, 3300000);
+	printk(KERN_INFO "[TSP] 3.3v regulator_set_voltage ret = %d\n", ret);
+	if (ret) {
+		pr_err("[TSP] can't set voltage TSP AVDD 3.3V,ret=%d\n", ret);
+		regulator_put(p_bcmtch_data->regulator_avdd33);
+		p_bcmtch_data->regulator_avdd33 = NULL;
+		return ret;
+		}
+
 	p_bcmtch_data->regulator_vddo =
 			regulator_get(
-				p_bcmtch_data->p_device,
-				"vddo");
+				NULL,
+				"vtsp_3v");
 	if (IS_ERR(p_bcmtch_data->regulator_vddo))
 		p_bcmtch_data->regulator_vddo = NULL;
 
+	ret = regulator_set_voltage(p_bcmtch_data->regulator_vddo,
+					3000000, 3000000);
+	printk(KERN_INFO "[TSP] 3.0v regulator_set_voltage ret = %d\n", ret);
+	if (ret) {
+		pr_err("[TSP] can't set voltage TSP AVDD 3.0V,ret=%d\n", ret);
+		regulator_put(p_bcmtch_data->regulator_vddo);
+		p_bcmtch_data->regulator_vddo = NULL;
+		return ret;
+		}
+	p_bcmtch_data->regulator_avdd_adldo = NULL;
+#if 0
 	p_bcmtch_data->regulator_avdd_adldo =
 			regulator_get(
 				p_bcmtch_data->p_device,
 				"avdd_adldo");
 	if (IS_ERR(p_bcmtch_data->regulator_avdd_adldo))
 		p_bcmtch_data->regulator_avdd_adldo = NULL;
-
+#endif
 	BCMTCH_DBG(BCMTCH_DF_PM, "PM:%s() %x %x %x\n",
 		__func__,
 		(uint32_t)p_bcmtch_data->regulator_avdd33,
 		(uint32_t)p_bcmtch_data->regulator_vddo,
 		(uint32_t)p_bcmtch_data->regulator_avdd_adldo);
-#endif
 
-	return ret_val;
+	return ret;
 }
 
 static int32_t bcmtch_dev_power_enable(
@@ -5855,7 +5870,6 @@ static int32_t bcmtch_dev_power_enable(
 {
 	int32_t ret_val = 0;
 
-#ifdef CONFIG_REGULATOR
 	if (enable) {
 		if (p_bcmtch_data->regulator_avdd33)
 			ret_val |= regulator_enable(p_bcmtch_data
@@ -5892,7 +5906,6 @@ static int32_t bcmtch_dev_power_enable(
 			regulator_disable(
 				p_bcmtch_data->regulator_avdd_adldo);
 	}
-#endif
 
 	if (ret_val)
 		BCMTCH_ERR("BCMTOUCH: %s() error rv=%d\n",
@@ -5907,7 +5920,6 @@ static int32_t bcmtch_dev_power_free(
 {
 	int32_t ret_val = 0;
 
-#ifdef CONFIG_REGULATOR
 	if (p_bcmtch_data->regulator_avdd33)
 		regulator_put(p_bcmtch_data->regulator_avdd33);
 
@@ -5920,7 +5932,6 @@ static int32_t bcmtch_dev_power_free(
 	p_bcmtch_data->regulator_avdd33 = NULL;
 	p_bcmtch_data->regulator_vddo = NULL;
 	p_bcmtch_data->regulator_avdd_adldo = NULL;
-#endif
 
 	return ret_val;
 }
