@@ -67,5 +67,7 @@ obj-$(CONFIG_MAX8997_MUIC)	+= max8997-muic.o
 obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
 obj-$(CONFIG_RMU2_CMT15)	+= rmu2_cmt15.o
 obj-$(CONFIG_EOS2_RMTA_CTRL)	+= eos2_rmta_ctrl.o
+obj-$(CONFIG_BCM_BT_RFKILL)     += bcm-bt-rfkill.o
+obj-$(CONFIG_BCM_BT_LPM)        += bcm-bt-lpm.o
 
 subdir-ccflags-y += -Werror
