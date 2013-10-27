@@ -15,6 +15,8 @@
 #define VSD_VDCORE_DELAY 50
 #define E3_3_V 3300000
 #define E1_8_V 1800000
+#define SDCLK0DCR               IO_ADDRESS(0xE605811E)
+#define SD0DCR                  IO_ADDRESS(0xE605818E)
 
 static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 {
@@ -133,28 +135,12 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		}
 
 		regulator_put(regulator);
+
+		__raw_writew(__raw_readw(SDCLK0DCR) | (1<<5), SDCLK0DCR);
+		__raw_writew(__raw_readw(SD0DCR) | (1<<5), SD0DCR);
 		break;
 	case RENESAS_SDHI_SIGNAL_V180:
 		printk(KERN_INFO "RENESAS_SDHI_SIGNAL_V180:%s\n", __func__);
-
-		regulator = regulator_get(NULL, "vsd");
-		if (IS_ERR(regulator)) {
-			printk(KERN_INFO "%s:err regulator_get ret = %ld\n",
-						__func__ , PTR_ERR(regulator));
-			return;
-		}
-
-		regulator_voltage = regulator_get_voltage(regulator);
-		printk(KERN_INFO "vsd voltage = %d\n", regulator_voltage);
-		if (regulator_voltage != E1_8_V) {
-			printk(KERN_INFO "vsd change as %duV\n", E1_8_V);
-			ret = regulator_set_voltage(regulator, E1_8_V, E1_8_V);
-			if (ret)
-				printk(KERN_INFO "%s: err vsd set voltage ret=%d\n",
-								__func__, ret);
-		}
-
-		regulator_put(regulator);
 
 		regulator = regulator_get(NULL, "vio_sd");
 		if (IS_ERR(regulator)) {
@@ -174,6 +160,8 @@ static void sdhi0_set_pwr(struct platform_device *pdev, int state)
 		}
 
 		regulator_put(regulator);
+		__raw_writew(__raw_readw(SDCLK0DCR) & ~(1<<5), SDCLK0DCR);
+		__raw_writew(__raw_readw(SD0DCR) & ~(1<<5), SD0DCR);
 		break;
 	default:
 		printk(KERN_INFO "default:%s\n", __func__);
@@ -238,10 +226,11 @@ static struct portn_gpio_setting_info sdhi0_gpio_setting_info[] = {
 };
 
 struct renesas_sdhi_platdata sdhi0_info = {
-	.caps			= 0,
+	.caps			= MMC_CAP_SET_XPC_180 | MMC_CAP_UHS_SDR50,
 	.flags			= RENESAS_SDHI_SDCLK_OFFEN |
 					RENESAS_SDHI_WP_DISABLE |
-					RENESAS_SDHI_DMA_SLAVE_CONFIG,
+					RENESAS_SDHI_DMA_SLAVE_CONFIG |
+					RENESAS_SDHI_SDCLK_DIV1,
 	.slave_id_tx		= SHDMA_SLAVE_SDHI0_TX,
 	.slave_id_rx		= SHDMA_SLAVE_SDHI0_RX,
 	.set_pwr		= sdhi0_set_pwr,
