@@ -1480,7 +1480,7 @@ unsigned int u2_get_board_rev(void)
 }
 EXPORT_SYMBOL_GPL(u2_get_board_rev);
 
-void r8a7373_l2cache_init(void)
+void __init r8a7373_l2cache_init(void)
 {
 #ifdef CONFIG_CACHE_L2X0
 	/*
