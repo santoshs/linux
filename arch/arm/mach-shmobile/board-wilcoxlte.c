@@ -34,6 +34,7 @@
 #include <mach/board-wilcoxlte-config.h>
 #include <mach/poweroff.h>
 #include <mach/sbsc.h>
+#include <mach/dev-wifi.h>
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #endif
@@ -459,6 +460,12 @@ static void __init board_init(void)
 		gpio_pull_up_port(GPIO_PORT290);
 		gpio_pull_up_port(GPIO_PORT289);
 		/* move gpio request to board-renesas_wifi.c */
+                /* WLAN Init API call */
+#if defined(CONFIG_BRCM_UNIFIED_DHD_SUPPORT) || defined(CONFIG_RENESAS_WIFI)
+                printk(KERN_ERR "Calling WLAN_INIT!\n");
+                renesas_wlan_init();
+                printk(KERN_ERR "DONE WLAN_INIT!\n");
+#endif
 	}
 
 	/* I2C */

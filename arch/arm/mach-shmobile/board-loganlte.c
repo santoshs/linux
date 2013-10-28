@@ -86,6 +86,8 @@
 #include <mach/dev-nfc.h>
 #endif
 
+#include <mach/dev-wifi.h>
+
 #include <mach/dev-touchpanel.h>
 
 #ifdef CONFIG_ARCH_R8A7373
@@ -488,8 +490,13 @@ static void __init board_init(void)
 		gpio_pull_up_port(GPIO_PORT290);
 		gpio_pull_up_port(GPIO_PORT289);
 		/* move gpio request to board-renesas_wifi.c */
+                /* WLAN Init API call */
+#if defined(CONFIG_BRCM_UNIFIED_DHD_SUPPORT) || defined(CONFIG_RENESAS_WIFI)
+                printk(KERN_ERR "Calling WLAN_INIT!\n");
+                renesas_wlan_init();
+                printk(KERN_ERR "DONE WLAN_INIT!\n");
+#endif
 	}
-
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
