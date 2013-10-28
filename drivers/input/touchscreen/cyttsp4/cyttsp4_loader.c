@@ -40,7 +40,7 @@
 #define SAMSUNG_CALIBRATION
 
 /*#ifdef SAMSUNG_SYSINFO_DATA
-#if defined(CONFIG_MACH_WILCOXLTE)
+#if defined(CONFIG_MACH_AFYONLTE)
 #define SAMSUNG_HW_VERSION			0x05
 #define SAMSUNG_FW_VERSION			0x0C00
 #define SAMSUNG_CONFIG_VERSION		0x0C
@@ -860,7 +860,7 @@ static int cyttsp4_check_version_(struct cyttsp4_device *ttsp,
 	dev_dbg(dev, "%s: ic config vers:0x%02X img config vers:0x%02X\n", __func__,
 			config_ver_ic, fw->config_version);
 
-#if defined(CONFIG_MACH_WILCOXLTE)
+#if defined(CONFIG_MACH_AFYONLTE)
 	if (fw->hw_version >= hw_ver_ic) {
 		printk("hunny : %s: hw version is newer, will NOT upgrade\n",
 				__func__);
@@ -877,7 +877,7 @@ static int cyttsp4_check_version_(struct cyttsp4_device *ttsp,
 			printk ("enter here");
 			return 1;
 		}
-#if defined(CONFIG_MACH_WILCOXLTE)
+#if defined(CONFIG_MACH_AFYONLTE)
     }
 #endif
 	/* equal */

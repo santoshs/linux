@@ -255,7 +255,7 @@ static struct platform_device i2c3_device = {
 static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
 	.bus_speed	= 400000,
         .pin_multi	= true,
-#if defined(CONFIG_MACH_WILCOXLTE)
+#if defined(CONFIG_MACH_AFYONLTE)
 		.bus_data_delay = MIN_SDA_DELAY,
 #else
 		.bus_data_delay = I2C_SDA_163NS_DELAY,

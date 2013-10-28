@@ -31,7 +31,7 @@
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
 #include <mach/board.h>
-#include <mach/board-wilcoxlte-config.h>
+#include <mach/board-afyonlte-config.h>
 #include <mach/poweroff.h>
 #include <mach/sbsc.h>
 #ifdef CONFIG_MFD_D2153
@@ -93,7 +93,7 @@
 #endif
 
 
-static int unused_gpios_wilcox_rev0[] = {
+static int unused_gpios_afyon_rev0[] = {
 				GPIO_PORT4, GPIO_PORT21, GPIO_PORT26, GPIO_PORT27, GPIO_PORT36,
 				GPIO_PORT44, GPIO_PORT46, GPIO_PORT86, GPIO_PORT87,
 				GPIO_PORT104, GPIO_PORT140, GPIO_PORT141, GPIO_PORT142,
@@ -348,8 +348,8 @@ static void __init board_init(void)
 	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
 
 	/* Init unused GPIOs */
-		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_wilcox_rev0); inx++)
-			unused_gpio_port_init(unused_gpios_wilcox_rev0[inx]);
+		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_afyon_rev0); inx++)
+			unused_gpio_port_init(unused_gpios_afyon_rev0[inx]);
 
 
 	/* SCIFA0 */

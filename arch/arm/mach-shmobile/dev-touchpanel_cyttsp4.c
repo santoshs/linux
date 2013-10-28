@@ -22,14 +22,14 @@
 
 #if defined(CONFIG_TOUCHSCREEN_CYPRESS_CYTTSP4_INCLUDE_FW) && defined(SAMSUNG_SYSINFO_DATA)
 
-#if defined(CONFIG_MACH_WILCOXLTE)
+#if defined(CONFIG_MACH_AFYONLTE)
 
-#include "mach/Wilcox_cyttsp4_img.h"
+#include "mach/afyonlte_cyttsp4_img.h"
 #define SAMSUNG_HW_VERSION			0x05
 #define SAMSUNG_FW_VERSION			0x1300
 #define SAMSUNG_CONFIG_VERSION		0x13
 
-#else//defined(CONFIG_MACH_WILCOXLTE)
+#else//defined(CONFIG_MACH_AFYONLTE)
 
 #include <linux/cyttsp4_regs.h>
 #include "mach/CANE_HW04_FW15_img.h"
@@ -37,7 +37,7 @@
 #define SAMSUNG_FW_VERSION			0x0F00
 #define SAMSUNG_CONFIG_VERSION		0x0F
 
-#endif//defined(CONFIG_MACH_WILCOXLTE)
+#endif//defined(CONFIG_MACH_AFYONLTE)
 
 static struct cyttsp4_touch_firmware cyttsp4_firmware = {
 	.img = cyttsp4_img,
@@ -67,7 +67,7 @@ static struct cyttsp4_touch_firmware cyttsp4_firmware = {
 //#define CYTTSP4_I2C_RST_GPIO 14
 #endif
 
-#if defined(CONFIG_MACH_WILCOXLTE)
+#if defined(CONFIG_MACH_AFYONLTE)
 #define CY_MAXX 540
 #define CY_MAXY 960
 #else
@@ -107,7 +107,7 @@ int touch_debug_option = TSP_DEBUG_OPTION;
 static int cyttsp4_hw_power(int on, int use_irq, int irq_gpio)
 {
 	int ret = 0;
-	
+
 	static struct regulator *reg_l31;
 
 	pr_info("[TSP] power %s\n", on ? "on" : "off");
@@ -119,7 +119,7 @@ static int cyttsp4_hw_power(int on, int use_irq, int irq_gpio)
 				__func__, PTR_ERR(reg_l31));
 			return -1;
 		}
-#if defined(CONFIG_MACH_WILCOXLTE)
+#if defined(CONFIG_MACH_AFYONLTE)
 		ret = regulator_set_voltage(reg_l31, 2850000, 2850000);
 #else
 		ret = regulator_set_voltage(reg_l31, 2900000, 2900000);
@@ -209,7 +209,7 @@ static int cyttsp4_wakeup(struct cyttsp4_core_platform_data *pdata,
 		struct device *dev, atomic_t *ignore_irq)
 {
 	int irq_gpio = pdata->irq_gpio;
-	
+
 	return cyttsp4_hw_power(1, true, irq_gpio);
 }
 
@@ -242,7 +242,7 @@ static int touchkey_regulator_cnt;
 
 static int cyttsp4_led_power_onoff(int on)
 {
-#if defined(CONFIG_MACH_WILCOXLTE)
+#if defined(CONFIG_MACH_AFYONLTE)
 	int ret;
 
 	if (keyled_regulator == NULL) {
@@ -352,7 +352,7 @@ static struct cyttsp4_core_info cyttsp4_core_info __initdata= {
 	.adap_id = CYTTSP4_I2C_NAME,
        .platform_data = &_cyttsp4_core_platform_data,
 };
- 
+
 
 
 
@@ -482,7 +482,7 @@ void __init board_tsp_init(void)
 
 	i2c_register_board_info(4, touch_i2c_devices,
                 ARRAY_SIZE(touch_i2c_devices));
-	
+
 	cyttsp4_register_core_device(&cyttsp4_core_info);
 	cyttsp4_register_device(&cyttsp4_mt_info);
 #if 1	//defined(CONFIG_TOUCHSCREEN_CYPRESS_TMA46X_SUPPORT_BUTTON)

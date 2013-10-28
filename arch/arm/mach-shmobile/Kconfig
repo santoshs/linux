@@ -115,8 +115,8 @@ config MACH_LOGANLTE
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
 
-config MACH_WILCOXLTE
-	bool "WilcoxLTE board"
+config MACH_AFYONLTE
+	bool "AfyonLTE board"
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
 
@@ -163,7 +163,7 @@ config MEMORY_START
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL || MACH_BONITO
 	default "0x41000000" if MACH_KOTA2
-	default "0x49000000" if  MACH_LOGANLTE || MACH_WILCOXLTE
+	default "0x49000000" if  MACH_LOGANLTE || MACH_AFYONLTE
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -174,7 +174,7 @@ config MEMORY_SIZE
 	hex "Physical memory size"
 	default "0x08000000" if MACH_G3EVM
 	default "0x08000000" if MACH_G4EVM
-	default "0x20000000" if MACH_AG5EVM || MACH_LOGANLTE || MACH_WILCOXLTE
+	default "0x20000000" if MACH_AG5EVM || MACH_LOGANLTE || MACH_AFYONLTE
 	default "0x1e000000" if MACH_KOTA2
 	default "0x10000000" if MACH_AP4EVB || MACH_MACKEREL
 	default "0x04000000"
@@ -399,15 +399,6 @@ config BOARD_VERSION_V050
 	  Board revision
 comment "Debugging Feature"
 
-config BOARD_VERSION_LOGANLTE
-	bool "board_revision"
-	help
-	  Board revision number
-
-config BOARD_VERSION_WILCOXLTE
-	bool "board_revision"
-	help
-	  Board revision number
 
 #
 # GPS devices

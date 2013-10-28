@@ -70,7 +70,7 @@ obj-$(CONFIG_MACH_KOTA2)	+= board-kota2.o
 obj-$(CONFIG_MACH_BONITO)	+= board-bonito.o
 obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
-obj-$(CONFIG_MACH_WILCOXLTE)	+= board-wilcoxlte.o
+obj-$(CONFIG_MACH_AFYONLTE)	+= board-afyonlte.o
 
 obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
 obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
@@ -112,7 +112,7 @@ obj-y +=  setup-u2vibrator.o
 # charging
 ifeq ($(CONFIG_SEC_CHARGING_FEATURE),y)
 obj-$(CONFIG_MACH_LOGANLTE)		+= board-loganlte-spa.o
-obj-$(CONFIG_MACH_WILCOXLTE)	+= board-wilcoxlte-spa.o
+obj-$(CONFIG_MACH_AFYONLTE)	+= board-afyonlte-spa.o
 endif
 
 # common timer setup
