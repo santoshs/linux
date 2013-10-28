@@ -55,7 +55,7 @@ static int bcm_bt_rfkill_set_power(void *data, bool blocked)
 		if (n_reset_gpio > 0)
 			gpio_set_value(n_reset_gpio,
 					BCM_BT_RFKILL_N_RESET_OFF);
-		pr_info("bcm_bt_rfkill_setpower: unblocked %s\n",
+		pr_debug("bcm_bt_rfkill_setpower: unblocked %s\n",
 			gpio_get_value(vreg_gpio) ? "High [POWER ON]" :
 			"Low [POWER_OFF]");
 	} else {		/* Transmitter OFF (Blocked) */
@@ -65,7 +65,7 @@ static int bcm_bt_rfkill_set_power(void *data, bool blocked)
 		if (vreg_gpio > 0)
 			gpio_set_value(vreg_gpio, BCM_BT_RFKILL_VREG_OFF);
 
-		pr_info("bcm_bt_rfkill_setpower: blocked %s\n",
+		pr_debug("bcm_bt_rfkill_setpower: blocked %s\n",
 			gpio_get_value(vreg_gpio) ? "High [POWER ON]" :
 			"Low [POWER_OFF]");
 	}
