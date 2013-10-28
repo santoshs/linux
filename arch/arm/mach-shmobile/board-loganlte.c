@@ -666,7 +666,7 @@ static void __init board_init(void)
 	 * registered at the time of L2$ init because "r8a7373l2_cache_init()"
 	 * function called more early.
 	 */
-	l2x0_init_later();
+/*	l2x0_init_later(); */
 #endif
 
 	camera_init();
