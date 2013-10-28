@@ -1417,6 +1417,8 @@ static DEVICE_ATTR(field, S_IRUGO | S_IWUSR, field ## _show, field ## _store);
 #if USB_DRVSTR_DBG
 #define READ_OP		1
 #define WRITE_OP	0
+#define DRV_MAX_CHECK 0x4F
+#define DRV_MIN_CHECK 0x40
 static ssize_t usb_drvstr_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
 	unsigned char value= 0x00; 
@@ -1431,7 +1433,7 @@ static ssize_t usb_drvstr_store(struct device *pdev, struct device_attribute *at
 	unsigned char value= 0x00;  
 	sscanf(buff, "%x", (unsigned int*)&value);
 	
-	if((value >= 0x40) && (value <= 0x4F))
+	if ((value >= DRV_MIN_CHECK) && (value <= DRV_MAX_CHECK))
 		tusb_drive_event(WRITE_OP, &value);	
 	else
 		return -ENODEV;

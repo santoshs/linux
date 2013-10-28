@@ -133,7 +133,7 @@ CONFIG_BLK_CGROUP=y
 #
 #MUIC RT8793
 #
-CONFIG_MFD_RT=y
+# CONFIG_MFD_RT is not set
 #
 # Richtek Multifunction Device Drivers
 #

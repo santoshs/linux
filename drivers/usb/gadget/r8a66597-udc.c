@@ -70,9 +70,17 @@
 #define CHGD_SERX_DM 1
 #define DP_VSRC_EN 0x40
 #define VDAT_DET 0x20
-#define TUSB_SW_CONTROL			0x01
-#define CHGD_IDP_SRC_EN			0x40
-#define MAX_COUNT			270
+#define TUSB_SW_CONTROL	0x01
+#define CHGD_IDP_SRC_EN	0x40
+#define MAX_COUNT_DCD_TIMEOUT 270
+#define PHY_READ_MASK 0x3F
+#define FRAME_MASK 0x03FF
+#define DMA_TIMEOUT 0x0027AC40
+#define RECOVER_RESUME_COUNT 270
+#define DCP_DETECT_MASK 0x3
+#define MSEC_COUNT 1000000
+#define INTSTS_REG_MASK 0xffff
+#define PIPE_TIMEOUT_COUNT 100000
 
 #define VBUS_HANDLE_IRQ_BASED
 
@@ -96,8 +104,9 @@ volatile static bool chirp_count=0;
 #if USB_DRVSTR_DBG
 void usb_drv_str_read(unsigned char *val)
 {
-	__raw_writew(0x0000, USB_SPADDR);		/* set HSUSB.SPADDR */
-	__raw_writew(0x0020, USB_SPEXADDR);    /* set HSUSB.SPEXADDR */
+
+	__raw_writew(PHY_SPADDR_INIT, USB_SPADDR);              /* set HSUSB.SPADDR */
+	__raw_writew(PHY_VENDOR_SPECIFIC_ADDR_MASK, USB_SPEXADDR);    /* set HSUSB.SPEXADDR */
 	__raw_writew(USB_SPRD, USB_SPCTRL);		/* set HSUSB.SPCTRL */
 	mdelay(1);
 	*val = __raw_readw(USB_SPRDAT);
@@ -106,8 +115,8 @@ void usb_drv_str_read(unsigned char *val)
 static void usb_drv_str_write(unsigned char *val)
 {
 	u8 value= *val;
-	__raw_writew(0x0000, USB_SPADDR);		/* set HSUSB.SPADDR */
-	__raw_writew(0x0020, USB_SPEXADDR);		/* set HSUSB.SPEXADDR */
+	__raw_writew(PHY_SPADDR_INIT, USB_SPADDR);		/* set HSUSB.SPADDR */
+	__raw_writew(PHY_VENDOR_SPECIFIC_ADDR_MASK , USB_SPEXADDR);		/* set HSUSB.SPEXADDR */
 	__raw_writew(value, USB_SPWDAT);       /* set HSUSB.SPWDAT */
 	__raw_writew(USB_SPWR, USB_SPCTRL);		/* set HSUSB.SPCTRL */
 	mdelay(1);
@@ -165,7 +174,7 @@ static void disable_pipe_irq(struct r8a66597 *r8a66597, u16 pipenum,
 static u8 usb_phy_read(u64 reg)
 {
 	u8 monreg;
-	__raw_writew((reg & 0x3F), USB_SPADDR);
+	__raw_writew((reg & PHY_READ_MASK), USB_SPADDR);
 	__raw_writew(((reg >> 6) << 4), USB_SPEXADDR);
 	/* Issue read comand */
 	__raw_writew(__raw_readw(USB_SPCTRL) | USB_SPRD, USB_SPCTRL);
@@ -187,7 +196,7 @@ static u8 usb_phy_read(u64 reg)
 void usb_phy_write(u64 reg, u8 val)
 {
 	u64 monreg;
-	__raw_writew((reg & 0x3F), USB_SPADDR);
+	__raw_writew((reg & PHY_READ_MASK), USB_SPADDR);
 	__raw_writew(((reg >> 6) << 4), USB_SPEXADDR);
 
 	__raw_writew(val, USB_SPWDAT);
@@ -235,7 +244,7 @@ static void get_charger_type(struct r8a66597 *r8a66597)
 				r_data | (CHGD_IDP_SRC_EN));
 		msleep(5);
 		/* DCD Timeout max 2700 ms */
-		while (count++ < MAX_COUNT) {
+		while (count++ < MAX_COUNT_DCD_TIMEOUT) {
 			msleep(10);
 			r_data = usb_phy_read(TUSB_VENDOR_SPECIFIC4);
 			if (!(r_data & CHGD_SERX_DP)) {
@@ -278,7 +287,7 @@ static void get_charger_type(struct r8a66597 *r8a66597)
 			r8a66597_bclr(r8a66597, HSE, SYSCFG0);
 			r8a66597_bclr(r8a66597, USBE, SYSCFG0);
 
-			if (r_data & 0x3) {
+			if (r_data & DCP_DETECT_MASK) {
 				udc_log("%s: Identified DCP\n", __func__);
 				r8a66597->charger_type = CHARGER_DCP;
 				spa_event_handler(SPA_EVT_CHARGER,
@@ -601,7 +610,7 @@ static void r8a66597_wait_pbusy(struct r8a66597 *r8a66597, u16 pipenum)
 
 	do {
 		tmp = control_reg_get(r8a66597, pipenum);
-		if (i++ > 1000000) {	/* 1 msec */
+		if (i++ > MSEC_COUNT) {	/* 1 msec */
 			dev_err(r8a66597_to_dev(r8a66597),
 				"%s: pipenum = %d, timeout \n",
 				__func__, pipenum);
@@ -763,7 +772,7 @@ static void r8a66597_change_curpipe(struct r8a66597 *r8a66597, u16 pipenum,
 
 	do {
 		tmp = r8a66597_read(r8a66597, fifosel);
-		if (i++ > 1000000) {
+		if (i++ > MSEC_COUNT) {
 			dev_err(r8a66597_to_dev(r8a66597),
 				"r8a66597: register%x, loop %x "
 				"is timeout\n", fifosel, loop);
@@ -1211,6 +1220,7 @@ static void dmac_free_channel(struct r8a66597 *r8a66597,
 	ep->fifoctr = CFIFOCTR;
 }
 
+#define FINAL_TRANSACTION_DATA_TRANSFER 0xFFFFFFFF
 static void dmac_start(struct r8a66597 *r8a66597, struct r8a66597_ep *ep,
 			 struct r8a66597_request *req)
 {
@@ -1228,15 +1238,15 @@ static void dmac_start(struct r8a66597 *r8a66597, struct r8a66597_ep *ep,
 			DIV_ROUND_UP(req->req.length, ep->dma->tx_size),
 			USBHS_DMAC_TCR(ch));
 	r8a66597_dma_write(r8a66597, 0, USBHS_DMAC_CHCR(ch));
-	r8a66597_dma_write(r8a66597, 0x0027AC40, USBHS_DMAC_TOCSTR(ch));
+	r8a66597_dma_write(r8a66597, DMA_TIMEOUT, USBHS_DMAC_TOCSTR(ch));
 
 	if (ep->dma->dir) {
 		if ((req->req.length % ep->dma->tx_size) == 0)
-			r8a66597_dma_write(r8a66597, 0xFFFFFFFF,
+			r8a66597_dma_write(r8a66597, FINAL_TRANSACTION_DATA_TRANSFER,
 						USBHS_DMAC_TEND(ch));
 		else
 			r8a66597_dma_write(r8a66597,
-					~(0xFFFFFFFF >>
+					~(FINAL_TRANSACTION_DATA_TRANSFER >>
 					(req->req.length &
 					 (ep->dma->tx_size - 1))),
 					USBHS_DMAC_TEND(ch));
@@ -1514,7 +1524,7 @@ static void irq_ep0_write(struct r8a66597_ep *ep, struct r8a66597_request *req)
 	i = 0;
 	do {
 		tmp = r8a66597_read(r8a66597, ep->fifoctr);
-		if (i++ > 100000) {
+		if (i++ > PIPE_TIMEOUT_COUNT) {
 			dev_err(r8a66597_to_dev(r8a66597),
 				"pipe0 is busy. maybe cpu i/o bus "
 				"conflict. please power off this controller.");
@@ -1729,11 +1739,6 @@ static void irq_pipe_empty(struct r8a66597 *r8a66597, u16 status,
 					/*control_reg_set_pid(
 					r8a66597, pipenum, PID_NAK);*/
 					r8a66597_wait_pbusy(r8a66597, pipenum);
-#if 0
-					disable_irq_empty(r8a66597, pipenum);
-					pipe_irq_disable(r8a66597, pipenum);
-					pipe_stop(r8a66597, pipenum);
-#endif
 					ep = r8a66597->pipenum2ep[pipenum];
 					req = get_request_from_ep(ep);
 					if (!list_empty(&ep->queue))
@@ -1965,10 +1970,6 @@ static int setup_packet(struct r8a66597 *r8a66597, struct usb_ctrlrequest *ctrl)
 
 static int r8a66597_set_vbus_draw(struct r8a66597 *r8a66597, int mA)
 {
-#if 0
-	if (r8a66597->transceiver)
-		return usb_phy_set_power(r8a66597->transceiver, mA);
-#endif
 	return -EOPNOTSUPP;
 }
 
@@ -2012,7 +2013,7 @@ static void irq_device_state(struct r8a66597 *r8a66597)
 		r8a66597_update_usb_speed(r8a66597);
 		r8a66597_inform_vbus_power(r8a66597, 100);
 #if RECOVER_RESUME
-		if (++reset_resume_ctr > 270){ /*More then 1 sec*/
+		if (++reset_resume_ctr > RECOVER_RESUME_COUNT) { /*More then 1 sec*/
 			printk(KERN_INFO "%s: usb state stuck in DS_DFLT\nGoing to perform phyreset\n",__func__);
 			r8a66597->is_active=0;
 			r8a66597->vbus_active=0;
@@ -2136,16 +2137,8 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 
 	mask0 = intsts0 & intenb0;
 	if (mask0) {
-#if 0
-		brdysts = r8a66597_read(r8a66597, BRDYSTS);
-		nrdysts = r8a66597_read(r8a66597, NRDYSTS);
-		bempsts = r8a66597_read(r8a66597, BEMPSTS);
-		brdyenb = r8a66597_read(r8a66597, BRDYENB);
-		nrdyenb = r8a66597_read(r8a66597, NRDYENB);
-		bempenb = r8a66597_read(r8a66597, BEMPENB);
-#endif
 		if (mask0 & VBINT) {
-			r8a66597_write(r8a66597,  0xffff & ~VBINT,
+			r8a66597_write(r8a66597, INTSTS_REG_MASK & ~VBINT,
 					INTSTS0);
 			r8a66597_start_xclock(r8a66597);
 
@@ -2159,23 +2152,6 @@ static irqreturn_t r8a66597_irq(int irq, void *_r8a66597)
 		}
 		if (intsts0 & DVST)
 			irq_device_state(r8a66597);
-#if 0
-#ifdef CONFIG_USB_OTG
-		if ((intsts0 & BRDY) && (intenb0 & BRDYE)
-				&& (brdysts & brdyenb) && (!role))
-			irq_pipe_ready(r8a66597, brdysts, brdyenb);
-		if ((intsts0 & BEMP) && (intenb0 & BEMPE)
-				&& (bempsts & bempenb) && (!role))
-			irq_pipe_empty(r8a66597, bempsts, bempenb);
-#else	/* CONFIG_USB_OTG */
-		if ((intsts0 & BRDY) && (intenb0 & BRDYE)
-				&& (brdysts & brdyenb))
-			irq_pipe_ready(r8a66597, brdysts, brdyenb);
-		if ((intsts0 & BEMP) && (intenb0 & BEMPE)
-				&& (bempsts & bempenb))
-			irq_pipe_empty(r8a66597, bempsts, bempenb);
-#endif
-#endif
 
 #ifdef CONFIG_USB_OTG
 		if ((intsts0 & BRDY) && (intenb0 & BRDYE) && (!r8a66597->role)) {
@@ -2695,7 +2671,7 @@ static int r8a66597_stop(struct usb_gadget *gadget,
 static int r8a66597_get_frame(struct usb_gadget *_gadget)
 {
 	struct r8a66597 *r8a66597 = gadget_to_r8a66597(_gadget);
-	return r8a66597_read(r8a66597, FRMNUM) & 0x03FF;
+	return r8a66597_read(r8a66597, FRMNUM) & FRAME_MASK;
 }
 
 static int r8a66597_set_selfpowered(struct usb_gadget *gadget, int is_self)

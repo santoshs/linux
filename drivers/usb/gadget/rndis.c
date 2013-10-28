@@ -49,13 +49,7 @@
  * and will be happier if you provide the host_addr module parameter.
  */
 
-#if 0
-static int rndis_debug = 0;
-module_param (rndis_debug, int, 0);
-MODULE_PARM_DESC (rndis_debug, "enable debugging");
-#else
 #define rndis_debug		0
-#endif
 
 #define RNDIS_MAX_CONFIGS	1
 
