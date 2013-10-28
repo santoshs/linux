@@ -333,7 +333,12 @@ static int monitor_cmd(char *para, int size)
 		arch_hw_breakpoint_init_late();
 #endif
 #ifdef CONFIG_HW_PERF_EVENTS
+/* Needs to be re-enabled once hardware performance events
+ * 3.4.5 to 3.10 migration support is complete.
+ */
+#if 0
 		init_hw_perf_events_late();
+#endif
 #endif
 		goto end;
 	}
@@ -383,7 +388,12 @@ void pmdbg_dbgpin_to_dbgmode()
 	arch_hw_breakpoint_init_late();
 #endif
 #ifdef CONFIG_HW_PERF_EVENTS
-	init_hw_perf_events_late();
+/* Needs to be re-enabled once hardware performance events
+ * 3.4.5 to 3.10 migration support is complete.
+ */
+#if 0
+		init_hw_perf_events_late();
+#endif
 #endif
 }
 #endif
