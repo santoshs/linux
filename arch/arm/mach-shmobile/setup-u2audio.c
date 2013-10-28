@@ -103,7 +103,7 @@ void u2audio_codec_aad_init(unsigned int u2_board_rev)
 	}
 #endif
 
-#ifdef CONFIG_MACH_WILCOXLTE
+#ifdef CONFIG_MACH_AFYONLTE
 	d2153_pdata.audio.aad_codec_detect_enable = false;
 	debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
 #endif
@@ -162,7 +162,7 @@ void u2audio_init(unsigned int u2_board_rev)
 		fm34_device = DEVICE_NONE;
 #endif
 
-#ifdef CONFIG_MACH_WILCOXLTE
+#ifdef CONFIG_MACH_AFYONLTE
 	fm34_device = DEVICE_NONE;
 #endif
 

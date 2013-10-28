@@ -4,5 +4,5 @@
 
 # Each configuration option enables a list of files.
 obj-$(CONFIG_MACH_LOGANLTE)		+= loganlte/
-obj-$(CONFIG_MACH_WILCOXLTE)	+= loganlte/
+obj-$(CONFIG_MACH_AFYONLTE)		+= loganlte/
 

@@ -94,18 +94,18 @@ static int cyttsp4_exec_cmd_(struct cyttsp4_core_data *cd, u8 mode,
 #define LOCALIDAC_SIZE (1)
 #define I2C_RETRY_CNT 2
 
-#if defined(CONFIG_MACH_WILCOXLTE)
+#if defined(CONFIG_MACH_AFYONLTE)
 #define BUTTON_NUM (0x02)
 #define RX_NUM (21)
 #define TX_NUM (12)
 #define TX_IS_X 1
-#else//defined(CONFIG_MACH_WILCOXLTE)
+#else//defined(CONFIG_MACH_AFYONLTE)
 #define BUTTON_NUM (0x00)
 #define RX_NUM (22)
 #define TX_NUM (14)
 #define TX_IS_X 0
 
-#endif//defined(CONFIG_MACH_WILCOXLTE)
+#endif//defined(CONFIG_MACH_AFYONLTE)
 
 #define TSP_BUF_SIZE 1024
 
