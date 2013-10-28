@@ -535,6 +535,7 @@ struct d2153_battery_platform_data pbat_pdata = {
 	.battery_capacity = BATTERY_CAPACITY,
 	.vf_lower = 250,
 	.vf_upper = 510,
+	.bat_temp_adc = D2153_ADC_TEMPERATURE_1
 };
 
 

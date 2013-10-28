@@ -48,7 +48,6 @@ obj-$(CONFIG_CHARGER_MAX8998)	+= max8998_charger.o
 obj-$(CONFIG_BATTERY_ANDROID)	+= android_battery.o
 obj-$(CONFIG_PMIC_BAT_INTERFACE)+= pmic_battery.o
 obj-$(CONFIG_STC3115_FUELGAUGE) += stc3115_battery.o
-obj-$(CONFIG_CHARGER_SMB328A)	+= smb328a_charger.o
 obj-$(CONFIG_CHARGER_SMB358)	+= smb358_charger.o
 obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
 obj-$(CONFIG_CHARGER_SMB328A)   += smb328a_charger.o
