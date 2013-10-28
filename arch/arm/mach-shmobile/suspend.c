@@ -746,7 +746,6 @@ int suspend_set_clock(unsigned int is_restore)
 
 static int shmobile_suspend(void)
 {
-	int locked;
 #ifdef CONFIG_PM_HAS_SECURE
 	unsigned int sec_hal_ret_cpu0;
 	unsigned int sec_hal_ret_cpu1;
@@ -755,11 +754,6 @@ static int shmobile_suspend(void)
 	unsigned int workBankState2Area;
 	unsigned int dramPasrSettingsArea0;
 	unsigned int dramPasrSettingsArea1;
-
-	/* check wakelock */
-	locked = has_wake_lock_no_expire(WAKE_LOCK_SUSPEND);
-	if (locked)
-		goto Cancel;
 
 	/* check cpu#1 power down */
 	if (core_shutdown_status(1) != 3) {
@@ -894,8 +888,6 @@ static int shmobile_suspend(void)
 
 	return 0;
 
-Cancel:
-	return -EBUSY;
 }
 
 static int shmobile_suspend_enter(suspend_state_t unused)
