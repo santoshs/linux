@@ -603,14 +603,13 @@ int __clk_get_rate(struct clk_rate *rate)
 static void __notify_all_cpu(unsigned int fold, unsigned int fnew, int flag)
 {
 	struct cpufreq_freqs freqs;
-	int i = 0;
+	struct cpufreq_policy *policy;
 
 	freqs.old = fold;
 	freqs.new = fnew;
-	for (i = 0; i < num_online_cpus(); i++) {
-		freqs.cpu = i;
-		cpufreq_notify_transition(&freqs, flag);
-	}
+	policy = cpufreq_cpu_get(0);
+
+	cpufreq_notify_transition(policy, &freqs, flag);
 }
 
 /*
