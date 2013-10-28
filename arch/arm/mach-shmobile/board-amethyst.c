@@ -540,6 +540,9 @@ static void __init board_init(void)
 		gpio_pull_up_port(GPIO_PORT290);
 		gpio_pull_up_port(GPIO_PORT289);
 		/* move gpio request to board-renesas_wifi.c */
+	#if defined(CONFIG_BRCM_UNIFIED_DHD_SUPPORT) || defined(CONFIG_RENESAS_WIFI)
+		renesas_wlan_init();
+	#endif
 	}
 
 	/* I2C */
@@ -565,7 +568,7 @@ static void __init board_init(void)
 	gpio_request(GPIO_PORT30, NULL);
 	gpio_direction_output(GPIO_PORT30, 1);
 	gpio_pull_up_port(GPIO_PORT30);
-	
+
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
@@ -623,7 +626,7 @@ static void __init board_init(void)
 #endif
 
 	if (MUIC_IS_PRESENT) {
-		i2c_register_board_info(3, i2c3_devices, 
+		i2c_register_board_info(3, i2c3_devices,
 						ARRAY_SIZE(i2c3_devices));
 	} else {
 		int i;
