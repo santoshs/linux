@@ -111,7 +111,6 @@ extern void PM_Spin_Unlock(void);
 extern int copy_functions(void);
 
 extern void jump_systemsuspend(void);
-extern void request_suspend_state(suspend_state_t state);
 extern suspend_state_t get_suspend_state(void);
 
 #ifdef CONFIG_CPU_IDLE

@@ -1011,12 +1011,7 @@ static void shmobile_suspend_wake(void)
 int control_systemsuspend(int is_enabled)
 {
 	unsigned long irqflags;
-	int cur_state = 0;
 	spin_lock_irqsave(&systemsuspend_lock, irqflags);
-	cur_state = get_suspend_state();
-
-	if (cur_state == PM_SUSPEND_MEM)
-		request_suspend_state(PM_SUSPEND_ON);
 
 	enable_module = is_enabled;
 	spin_unlock_irqrestore(&systemsuspend_lock, irqflags);
