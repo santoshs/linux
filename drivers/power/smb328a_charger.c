@@ -596,7 +596,7 @@ void smb328a_otg_enable_disable(int onoff, int cable)
 EXPORT_SYMBOL(smb328a_otg_enable_disable);
 
 
-int smb328a_check_charging_status(void)
+static int smb328a_get_charging_status(void)
 {
 	int val;
 	u8 data = 0;
@@ -615,7 +615,6 @@ int smb328a_check_charging_status(void)
 
 	return ret;
 }
-EXPORT_SYMBOL(smb328a_check_charging_status);
 
 #if 0
 static void smb328a_ldo_disable(struct i2c_client *client)
@@ -752,7 +751,7 @@ static int smb328a_set_full_charge (unsigned int eoc)
 	return ret;
 }
 
-static int smb328a_get_batt_presence (unsigned int opt)
+static int smb328a_get_batt_presence(void)
 {
 	if (smb328a_check_bat_missing(smb_charger->client))
 		return BAT_NOT_DETECTED;
@@ -895,11 +894,18 @@ static int __devinit smb328a_probe(struct i2c_client *client,
 
 	chip->chg_mode = CHG_MODE_NONE;
 
-	spa_agent_register(SPA_AGENT_SET_CHARGE, (void*)smb328a_set_charge, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_SET_CHARGE_CURRENT, (void*)smb328a_set_charge_current, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_SET_FULL_CHARGE, (void*)smb328a_set_full_charge, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_GET_BATT_PRESENCE, (void*)smb328a_get_batt_presence, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_GET_CHARGER_TYPE, (void*)smb328a_get_charger_type, "smb328a-charger");
+	spa_agent_register(SPA_AGENT_SET_CHARGE,
+			(void *)smb328a_set_charge, "smb328a-charger");
+	spa_agent_register(SPA_AGENT_SET_CHARGE_CURRENT,
+			(void *)smb328a_set_charge_current, "smb328a-charger");
+	spa_agent_register(SPA_AGENT_SET_FULL_CHARGE,
+			(void *)smb328a_set_full_charge, "smb328a-charger");
+	spa_agent_register(SPA_AGENT_GET_BATT_PRESENCE_CHARGER,
+			(void *)smb328a_get_batt_presence, "smb328a-charger");
+	spa_agent_register(SPA_AGENT_GET_CHARGER_TYPE,
+			(void *)smb328a_get_charger_type, "smb328a-charger");
+	spa_agent_register(SPA_AGENT_GET_CHARGE_STATE,
+			(void *)smb328a_get_charging_status, "smb328a-charger");
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
 

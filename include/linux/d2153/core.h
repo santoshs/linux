@@ -175,6 +175,7 @@ struct d2153_battery_platform_data {
 	u32	vf_lower;
 	u32	vf_upper;
 	int battery_technology;
+	adc_channel bat_temp_adc;
 };
 
 struct d2153_platform_data {
