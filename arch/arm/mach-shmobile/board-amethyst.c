@@ -586,6 +586,9 @@ static void __init board_init(void)
 		gpio_pull_up_port(GPIO_PORT290);
 		gpio_pull_up_port(GPIO_PORT289);
 		/* move gpio request to board-renesas_wifi.c */
+	#if defined(CONFIG_BRCM_UNIFIED_DHD_SUPPORT) || defined(CONFIG_RENESAS_WIFI)
+		renesas_wlan_init();
+	#endif
 	}
 
 	/* I2C */
@@ -602,6 +605,7 @@ static void __init board_init(void)
 #if defined(CONFIG_MFD_D2153)
 	irq_set_irq_type(irqpin2irq(28), IRQ_TYPE_LEVEL_LOW);
 #endif /* CONFIG_MFD_D2153 */
+
 
 	USBGpio_init();
 
