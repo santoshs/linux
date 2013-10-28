@@ -94,7 +94,7 @@ static struct bcm_bt_lpm_ldisc_data bcm_bt_lpm_ldisc_saved;
 
 int bcm_bt_lpm_assert_bt_wake(void)
 {
-	pr_info("%s BLUETOOTH: Enter ASSERT BT_WAKE\n", __func__);
+	pr_debug("%s BLUETOOTH: Enter ASSERT BT_WAKE\n", __func__);
 	if (priv_g == NULL) {
 		pr_err(
 		"%s BLUETOOTH:data corrupted: cannot assert bt_wake\n",
@@ -108,10 +108,11 @@ int bcm_bt_lpm_assert_bt_wake(void)
 #else
 	if (!wake_lock_active(&priv_g->bt_wake_lock))
 		wake_lock(&priv_g->bt_wake_lock);
+
 #endif
 	gpio_set_value(priv_g->pdata->bt_wake_gpio,
 					BCM_BT_LPM_BT_WAKE_ASSERT);
-	pr_info("%s BLUETOOTH: Exit ASSERT BT_WAKE\n", __func__);
+	pr_debug("%s BLUETOOTH: Exit ASSERT BT_WAKE\n", __func__);
 	return 0;
 }
 
@@ -127,7 +128,7 @@ int bcm_bt_lpm_deassert_bt_wake(void)
 		return -EFAULT;
 	gpio_set_value(priv_g->pdata->bt_wake_gpio,
 					BCM_BT_LPM_BT_WAKE_DEASSERT);
-	pr_info("%s: BLUETOOTH: BT_WAKE de-asserted.\n", __func__);
+	pr_debug("%s: BLUETOOTH: BT_WAKE de-asserted.\n", __func__);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	__pm_relax(priv_g->bt_wake_ws);
 #else
@@ -142,7 +143,7 @@ static int bcm_bt_lpm_init_bt_wake(
 {
 	int rc = 0;
 
-	pr_info("%s BLUETOOTH:Enter.\n", __func__);
+	pr_debug("%s BLUETOOTH:Enter(init bt wake).\n", __func__);
 
 	if (priv->pdata->bt_wake_gpio < 0) {
 		pr_err("%s: Exiting => invalid bt-wake-gpio=%d\n",
@@ -165,15 +166,15 @@ static int bcm_bt_lpm_init_bt_wake(
 		__func__, rc);
 		return rc;
 	}
-	
-	pr_info("%s: BT_WAKE GPIO: %d\n", __func__,
+
+	pr_debug("%s: BT_WAKE GPIO: %d\n", __func__,
                         priv->pdata->bt_wake_gpio);
 
 	rc = gpio_direction_output(
 			priv->pdata->bt_wake_gpio,
 			BCM_BT_LPM_BT_WAKE_DEASSERT);
 
-	pr_info("%s BLUETOOTH:Exit.\n", __func__);
+	pr_debug("%s BLUETOOTH:Exit(init bt wake).\n", __func__);
 	return 0;
 }
 
@@ -181,14 +182,14 @@ static void bcm_bt_lpm_tty_cleanup(void)
 {
 	int err;
 
-	pr_info("%s BLUETOOTH: Entering.\n", __func__);
+	pr_debug("%s BLUETOOTH: Entering(tty cleanup).\n", __func__);
 	err = tty_unregister_ldisc(N_BRCM_HCI);
 	if (err)
 		pr_err(
 		"can't unregister N_BRCM_HCI line discipline\n");
 	else
 		pr_info("N_BRCM_HCI line discipline removed\n");
-	pr_info("%s BLUETOOTH: Exiting.\n", __func__);
+	pr_debug("%s BLUETOOTH: Exiting(tty cleanup).\n", __func__);
 }
 
 static void bcm_bt_lpm_clean_bt_wake(
@@ -203,7 +204,7 @@ static void bcm_bt_lpm_clean_bt_wake(
 	if (b_tty)
 		bcm_bt_lpm_tty_cleanup();
 
-	pr_info("%s BLUETOOTH:Exiting (Clean BT Wake).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (Clean BT Wake).\n", __func__);
 }
 
 static irqreturn_t bcm_bt_lpm_host_wake_isr(int irq, void *dev)
@@ -240,7 +241,7 @@ static irqreturn_t bcm_bt_lpm_host_wake_isr(int irq, void *dev)
 	}
 
 	spin_unlock_irqrestore(&priv->plpm->bcm_bt_lpm_lock, flags);
-	pr_info("%s BLUETOOTH:Exiting (host_wake_isr).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (host_wake_isr).\n", __func__);
 	return IRQ_HANDLED;
 }
 
@@ -248,7 +249,7 @@ static int bcm_bt_lpm_init_hostwake(struct bcm_bt_lpm_entry_struct *priv)
 {
 	int rc = -1;
 
-	pr_info("%s BLUETOOTH:Entering.\n", __func__);
+	pr_debug("%s BLUETOOTH:Entering.\n", __func__);
 	if ((priv == NULL) ||
 		(priv->pdata->host_wake_gpio < 0)) {
 		pr_err("%s BLUETOOTH: invalid host-wake-gpio.\n",
@@ -265,7 +266,7 @@ static int bcm_bt_lpm_init_hostwake(struct bcm_bt_lpm_entry_struct *priv)
 	rc = gpio_request(priv->pdata->host_wake_gpio, "host_wake_gpio");
 #endif
 
-	pr_info("%s: HOST_WAKE GPIO: %d\n", __func__,
+	pr_debug("%s: HOST_WAKE GPIO: %d\n", __func__,
 		priv->pdata->host_wake_gpio);
 
 	if (rc) {
@@ -276,14 +277,14 @@ static int bcm_bt_lpm_init_hostwake(struct bcm_bt_lpm_entry_struct *priv)
 	}
 	gpio_direction_input(priv->pdata->host_wake_gpio);
 
-	pr_info("%s BLUETOOTH:Exiting (init_host_wake).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (init_host_wake).\n", __func__);
 	return rc;
 }
 
 static void bcm_bt_lpm_clean_host_wake(
 				struct bcm_bt_lpm_entry_struct *priv)
 {
-	pr_info("%s BLUETOOTH:Entering.\n", __func__);
+	pr_debug("%s BLUETOOTH:Entering(clean host wake).\n", __func__);
 	if ((priv == NULL) ||
 		 (priv->pdata->host_wake_gpio < 0)) {
 		pr_err("%s BLUETOOTH: NULL ptr or invalid hw gpio.\n",
@@ -294,7 +295,7 @@ static void bcm_bt_lpm_clean_host_wake(
 	gpio_free((unsigned)priv->pdata->host_wake_gpio);
 
 	free_irq(priv->plpm->host_irq, priv_g);
-	pr_info("%s BLUETOOTH:Exiting (clean_host_wake).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (clean_host_wake).\n", __func__);
 }
 
 
@@ -302,9 +303,9 @@ void bcm_bt_lpm_start(void)
 {
 	int rc = -1;
 
-	pr_info("%s BLUETOOTH: Entering.\n", __func__);
+	pr_debug("%s BLUETOOTH: Entering (lpm start).\n", __func__);
 	if (priv_g != NULL) {
-		pr_info(
+		pr_debug(
 		"%s: BLUETOOTH: data pointer is valid\n", __func__);
 
 		rc = gpio_to_irq(
@@ -316,7 +317,7 @@ void bcm_bt_lpm_start(void)
 			return;
 		}
 		priv_g->plpm->host_irq = rc;
-		pr_info("%s: BLUETOOTH: request host_wake_irq=%d\n",
+		pr_debug("%s: BLUETOOTH: request host_wake_irq=%d\n",
 			__func__, priv_g->plpm->host_irq);
 
 		rc = request_irq(
@@ -333,7 +334,7 @@ void bcm_bt_lpm_start(void)
 						__func__);
 		return;
 	}
-	pr_info("%s BLUETOOTH:Exiting (lpm_start).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (lpm_start).\n", __func__);
 	return;
 }
 
@@ -343,7 +344,7 @@ static int bcm_bt_get_bt_wake_state(unsigned long arg)
 	void __user *uarg = (void __user *)arg;
 	unsigned long tmp;
 
-	pr_info("%s BLUETOOTH: Entering.\n", __func__);
+	pr_debug("%s BLUETOOTH: Entering (bt wake state).\n", __func__);
 	if ((priv_g == NULL) ||
 		 (priv_g->pdata->bt_wake_gpio < 0)) {
 		pr_err("%s BLUETOOTH: NULL ptr or invalid bw gpio.\n",
@@ -360,7 +361,7 @@ static int bcm_bt_get_bt_wake_state(unsigned long arg)
 
 	if (copy_to_user(uarg, &tmp, sizeof(*uarg)))
 		return -EFAULT;
-	pr_info("%s BLUETOOTH:Exiting (get_bt_wake_state).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (get_bt_wake_state).\n", __func__);
 	return 0;
 }
 
@@ -370,24 +371,24 @@ static int bcm_bt_lpm_tty_ioctl(struct tty_struct *tty,
 {
 	int rc = -1;
 
-	pr_info("%s:BLUETOOTH:Enter bcm_bt_lpm_tty_ioctl,cmd=%d\n",
+	pr_debug("%s:BLUETOOTH:Enter bcm_bt_lpm_tty_ioctl,cmd=%d\n",
 						__func__, cmd);
 	switch (cmd) {
 	case TIO_ASSERT_BT_WAKE:
 		rc = bcm_bt_lpm_assert_bt_wake();
-		pr_info("%s: BLUETOOTH: TIO_ASSERT_BT_WAKE\n",
+		pr_debug("%s: BLUETOOTH: TIO_ASSERT_BT_WAKE\n",
 							__func__);
 		break;
 
 	case TIO_DEASSERT_BT_WAKE:
 		rc = bcm_bt_lpm_deassert_bt_wake();
-		pr_info("%s: BLUETOOTH: TIO_DEASSERT_BT_WAKE\n",
+		pr_debug("%s: BLUETOOTH: TIO_DEASSERT_BT_WAKE\n",
 							__func__);
 		break;
 
 	case TIO_GET_BT_WAKE_STATE:
 		rc = bcm_bt_get_bt_wake_state(arg);
-		pr_info("%s: BLUETOOTH: TIO_GET_BT_WAKE_STATE\n",
+		pr_debug("%s: BLUETOOTH: TIO_GET_BT_WAKE_STATE\n",
 							__func__);
 		break;
 
@@ -397,7 +398,7 @@ static int bcm_bt_lpm_tty_ioctl(struct tty_struct *tty,
 		return n_tty_ioctl_helper(tty, file, cmd, arg);
 
 	}
-	pr_info("%s:BLUETOOTH:Exit bcm_bt_lpm_tty_ioctl,cmd=%d\n",
+	pr_debug("%s:BLUETOOTH:Exit bcm_bt_lpm_tty_ioctl,cmd=%d\n",
 						__func__, cmd);
 	return rc;
 }
@@ -406,7 +407,7 @@ static int bcm_bt_lpm_tty_open(struct tty_struct *tty)
 {
 	struct uart_state *state;
 
-	pr_info("%s BLUETOOTH: Entering.\n", __func__);
+	pr_debug("%s BLUETOOTH: Entering(tty open).\n", __func__);
 	state = tty->driver_data;
 	if (priv_g == NULL) {
 		pr_err("%s BLUETOOTH: NULL ptr or invalid bw gpio.\n",
@@ -444,12 +445,12 @@ static int bcm_bt_lpm_tty_open(struct tty_struct *tty)
 #endif
 
 	bcm_bt_lpm_start();
-	pr_info("bcm_bt_lpm_tty_open()::open(): x%p",
+	pr_debug("bcm_bt_lpm_tty_open()::open(): x%p",
 				bcm_bt_lpm_ldisc_saved.open);
 
 	if (bcm_bt_lpm_ldisc_saved.open)
 		return bcm_bt_lpm_ldisc_saved.open(tty);
-	pr_info("%s BLUETOOTH:Exiting (tty_open).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (tty_open).\n", __func__);
 	return 0;
 }
 
@@ -457,7 +458,7 @@ static void bcm_bt_lpm_tty_close(struct tty_struct *tty)
 {
 	struct uart_state *state;
 
-	pr_info("%s BLUETOOTH: Entering.\n", __func__);
+	pr_debug("%s BLUETOOTH: Entering.\n", __func__);
 	if (!priv_g || !priv_g->plpm) {
 		pr_err("%s:data freed?priv_g:0x%p,p_lpm: 0x%p\n",
 				__func__, priv_g, priv_g->plpm);
@@ -475,19 +476,19 @@ static void bcm_bt_lpm_tty_close(struct tty_struct *tty)
 	wake_lock_destroy(&priv_g->bt_wake_lock);
 	wake_lock_destroy(&priv_g->host_wake_lock);
 #endif
-	pr_info("bcm_bt_lpm_tty_close(line: %d)::close(): x%p",
+	pr_debug("bcm_bt_lpm_tty_close(line: %d)::close(): x%p",
 	state->uart_port->line, bcm_bt_lpm_ldisc_saved.close);
 
 	if (bcm_bt_lpm_ldisc_saved.close)
 		bcm_bt_lpm_ldisc_saved.close(tty);
-	pr_info("%s BLUETOOTH:Exiting (tty_close).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (tty_close).\n", __func__);
 	return;
 }
 
 static int bcm_bt_lpm_tty_init(void)
 {
 	int err;
-	pr_info("%s: BLUETOOTH:\n", __func__);
+	pr_debug("%s: BLUETOOTH (tty init):\n", __func__);
 
 	/* Inherit the N_TTY's ops */
 	n_tty_inherit_ops(&bcm_bt_lpm_ldisc_ops);
@@ -506,7 +507,7 @@ static int bcm_bt_lpm_tty_init(void)
 	else
 		pr_info("N_BRCM_HCI line discipline registered\n");
 
-	pr_info("%s BLUETOOTH:Exiting(tty_init).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting(tty_init).\n", __func__);
 	return err;
 }
 
@@ -634,11 +635,11 @@ static int bcm_bt_lpm_probe(struct platform_device *pdev)
 		rc = -1;
 	}
 
-	pr_info("%s BLUETOOTH:Exiting (probe_good).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (probe_good).\n", __func__);
 	return rc;
 
 out:
-	pr_info("%s BLUETOOTH:Exiting after cleaning.\n",
+	pr_debug("%s BLUETOOTH:Exiting after cleaning.\n",
 							__func__);
 	return rc;
 }
@@ -669,7 +670,7 @@ static int bcm_bt_lpm_remove(struct platform_device *pdev)
 		kfree(priv_g);
 		priv_g = NULL;
 	}
-	pr_info("%s BLUETOOTH:Exiting (lpm_remove).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (lpm_remove).\n", __func__);
 	return 0;
 }
 
@@ -687,14 +688,14 @@ static int __init bcm_bt_lpm_init(void)
 {
 	int rc = -1;
 
-	pr_info("%s BLUETOOTH: Entering.\n", __func__);
+	pr_debug("%s BLUETOOTH: Entering.\n", __func__);
 	rc = platform_driver_register(&bcm_bt_lpm_platform_driver);
 	if (rc)
 		pr_err(
 		"BLUETOOTH: driver register failed err=%d, Exiting %s.\n",
 							rc, __func__);
 	else
-		pr_info(
+		pr_debug(
 		"BLUETOOTH: Init success. Exiting %s.\n", __func__);
 	return rc;
 }
@@ -702,7 +703,7 @@ static int __init bcm_bt_lpm_init(void)
 static void __exit bcm_bt_lpm_exit(void)
 {
 	platform_driver_unregister(&bcm_bt_lpm_platform_driver);
-	pr_info("%s BLUETOOTH:Exiting (lpm_exit).\n", __func__);
+	pr_debug("%s BLUETOOTH:Exiting (lpm_exit).\n", __func__);
 }
 
 module_init(bcm_bt_lpm_init);
