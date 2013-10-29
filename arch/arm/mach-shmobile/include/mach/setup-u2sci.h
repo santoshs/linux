@@ -255,7 +255,9 @@ static struct plat_sci_port scif4_platform_data = {
 	.ops		= &shmobile_sci_port_ops,
 	.capabilities = SCIx_HAVE_RTSCTS,
 	.rts_ctrl	= 0,
+	#ifdef CONFIG_RENESAS_BT
 	.exit_lpm_cb	= bcm_bt_lpm_exit_lpm_locked,
+	#endif
 	/* GPIO settings */
 	.port_count = ARRAY_SIZE(scif4_gpio_setting_info),
 	.scif_gpio_setting_info = scif4_gpio_setting_info,

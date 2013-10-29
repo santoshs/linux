@@ -49,7 +49,7 @@ obj-y				+= lis3lv02d/
 obj-y				+= carma/
 obj-$(CONFIG_SENSORS_AK8975)	+= akm8975.o
 obj-$(CONFIG_SENSORS_K3DH)	+= k3dh.o
-obj-$(CONFIG_SENSORS_GP2AP002)	+= gp2ap002.o 
+obj-$(CONFIG_SENSORS_GP2AP002)	+= gp2ap002.o
 obj-$(CONFIG_SENSORS_GP2A030)	+= gp2ap030.o
 obj-$(CONFIG_SENSORS_HSCDTD006A)	+= hscdtd006a_i2c.o alps-input.o
 obj-$(CONFIG_SENSORS_HSCDTD008A)	+= hscdtd008a_i2c.o alps-input.o
@@ -71,5 +71,7 @@ obj-$(CONFIG_ALTERA_STAPL)	+=altera-stapl/
 obj-$(CONFIG_MAX8997_MUIC)	+= max8997-muic.o
 obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
 obj-$(CONFIG_RMU2_CMT15)	+= rmu2_cmt15.o
+obj-$(CONFIG_BCM_BT_RFKILL)     += bcm-bt-rfkill.o
+obj-$(CONFIG_BCM_BT_LPM)        += bcm-bt-lpm.o
 
 subdir-ccflags-y += -Werror
