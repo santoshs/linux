@@ -637,18 +637,6 @@ config BTHID
 	This driver adds support for HID for Broadcom bluetooth
 	devices.
 
-config BCM_RFKILL
-        bool "BCM RFKILL driver support for Bluetooth"
-        depends on RFKILL
-        default n
-        help
-          This driver adds RFKILL support for Broadcom bluetooth
-
-config BCM_BT_LPM
-        bool "BCM BT Low Power support"
-        default n
-        help
-          This driver adds Low Power mode support for Broadcom bluetooth
 
 config USB_SWITCH_FSA9485
 	tristate "FSA9480 USB Switch"
@@ -685,6 +673,27 @@ config MAX8997_MUIC
 	  If you say yes here you get support for the MUIC device of
 	  Maxim MAX8997 PMIC.
 	  The MAX8997 MUIC is a USB port accessory detector and switch.
+
+config BCM_BT_RFKILL
+        bool "BCM RFKILL driver support for Bluetooth"
+        depends on RFKILL
+        default n
+        help
+        This driver adds RFKILL support for Broadcom
+         Bluetooth. By default it should be set as N.
+         Say Y here if you want to enable Broadcom
+         Bluetooth RFKILL.
+
+config BCM_BT_LPM
+        bool "BCM BT Low Power support"
+        default n
+        help
+        This driver adds Bluetooth low power mode line discipline
+        support for Broadcom Bluetooth chips. By default it should
+        be set as N. Say Y if you want to enable Low power mode
+        functionality.
+        If not sure, say N.
+
 
 config WL127X_RFKILL
 	tristate "Bluetooth power control driver for TI wl127x"
