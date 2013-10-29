@@ -113,16 +113,6 @@ static int r8a66597_clock_enable(struct r8a66597 *r8a66597)
 #ifdef CONFIG_HAVE_CLK
 		clk_enable(r8a66597->clk);
 #endif
-#if 0
-		do {
-			r8a66597_write(r8a66597, SCKE, SYSCFG0);
-			tmp = r8a66597_read(r8a66597, SYSCFG0);
-			if (i++ > 1000) {
-				printk(KERN_ERR "r8a66597: reg access fail.\n");
-				return -ENXIO;
-			}
-		} while ((tmp & SCKE) != SCKE);
-#endif
 		r8a66597_write(r8a66597, 0x04, 0x02);
 	} else {
 		do {
@@ -2490,9 +2480,6 @@ static int r8a66597_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		case USB_PORT_FEAT_SUSPEND:
 			break;
 		case USB_PORT_FEAT_POWER:
-#if 0
-			r8a66597_port_power(r8a66597, port, 0);
-#endif
 			r8a66597->power = 0;
 			schedule_delayed_work(&r8a66597->vbus_work, 0);
 			break;
@@ -2529,9 +2516,6 @@ static int r8a66597_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		case USB_PORT_FEAT_SUSPEND:
 			break;
 		case USB_PORT_FEAT_POWER:
-#if 0
-			r8a66597_port_power(r8a66597, port, 1);
-#endif
 #ifndef CONFIG_USB_OTG
 			r8a66597->power = 1;
 			schedule_delayed_work(&r8a66597->vbus_work, 0);

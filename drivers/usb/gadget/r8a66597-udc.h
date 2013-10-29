@@ -63,6 +63,12 @@ void send_usb_insert_event(int isConnected);
 
 #define TUSB_VENDOR_SPECIFIC3_SWUSBDET         0x10
 
+#define BUFFER_ALIGN_32 4
+#define BUFFER_MASK_32 0x03
+#define BUFFER_ALIGN_16 2
+#define BUFFER_MASK_16 0x01
+#define BYTE_MASK 0xff
+
 struct r8a66597_pipe_info {
 	u16	pipe;
 	u16	epnum;
@@ -196,35 +202,35 @@ static inline void r8a66597_read_fifo(struct r8a66597 *r8a66597,
 		/* 32-bit accesses for on_chip controllers */
 
 		/* aligned buf case */
-		if (len >= 4 && !((unsigned long)buf & 0x03)) {
-			ioread32_rep(fifoaddr, buf, len / 4);
-			buf += len & ~0x03;
-			len &= 0x03;
+		if (len >= BUFFER_ALIGN_32 && !((unsigned long)buf & BUFFER_MASK_32)) {
+			ioread32_rep(fifoaddr, buf, len / BUFFER_ALIGN_32);
+			buf += len & ~BUFFER_MASK_32;
+			len &= BUFFER_MASK_32;
 		}
 
 		/* unaligned buf case */
 		for (i = 0; i < len; i++) {
-			if (!(i & 0x03))
+			if (!(i & BUFFER_MASK_32))
 				data = ioread32(fifoaddr);
 
-			buf[i] = (data >> ((i & 0x03) * 8)) & 0xff;
+			buf[i] = (data >> ((i & BUFFER_MASK_32) * 8)) & BYTE_MASK;
 		}
 	} else {
 		/* 16-bit accesses for external controllers */
 
 		/* aligned buf case */
-		if (len >= 2 && !((unsigned long)buf & 0x01)) {
-			ioread16_rep(fifoaddr, buf, len / 2);
-			buf += len & ~0x01;
-			len &= 0x01;
+		if (len >= BUFFER_ALIGN_16 && !((unsigned long)buf & BUFFER_MASK_16)) {
+			ioread16_rep(fifoaddr, buf, len / BUFFER_ALIGN_16);
+			buf += len & ~BUFFER_MASK_16;
+			len &= BUFFER_MASK_16;
 		}
 
 		/* unaligned buf case */
 		for (i = 0; i < len; i++) {
-			if (!(i & 0x01))
+			if (!(i & BUFFER_MASK_16))
 				data = ioread16(fifoaddr);
 
-			buf[i] = (data >> ((i & 0x01) * 8)) & 0xff;
+			buf[i] = (data >> ((i & BUFFER_MASK_16) * 8)) & BYTE_MASK;
 		}
 	}
 }
@@ -289,26 +295,26 @@ static inline void r8a66597_write_fifo(struct r8a66597 *r8a66597,
 
 	if (r8a66597->pdata->on_chip) {
 		/* 32-bit access only if buf is 32-bit aligned */
-		if (len >= 4 && !((unsigned long)buf & 0x03)) {
-			iowrite32_rep(fifoaddr, buf, len / 4);
-			buf += len & ~0x03;
-			len &= 0x03;
+		if (len >= BUFFER_ALIGN_32 && !((unsigned long)buf & BUFFER_MASK_32)) {
+			iowrite32_rep(fifoaddr, buf, len / BUFFER_ALIGN_32);
+			buf += len & ~BUFFER_MASK_32;
+			len &= BUFFER_MASK_32;
 		}
 	} else {
 		/* 16-bit access only if buf is 16-bit aligned */
-		if (len >= 2 && !((unsigned long)buf & 0x01)) {
-			iowrite16_rep(fifoaddr, buf, len / 2);
-			buf += len & ~0x01;
-			len &= 0x01;
+		if (len >= BUFFER_ALIGN_16 && !((unsigned long)buf & BUFFER_MASK_16)) {
+			iowrite16_rep(fifoaddr, buf, len / BUFFER_ALIGN_16);
+			buf += len & ~BUFFER_MASK_16;
+			len &= BUFFER_MASK_16;
 		}
 	}
 
 	/* adjust fifo address in the little endian case */
 	if (!(r8a66597_read(r8a66597, CFIFOSEL) & BIGEND)) {
 		if (r8a66597->pdata->on_chip)
-			adj = 0x03; /* 32-bit wide */
+			adj = BUFFER_MASK_32; /* 32-bit wide */
 		else
-			adj = 0x01; /* 16-bit wide */
+			adj = BUFFER_MASK_16; /* 16-bit wide */
 	}
 
 	if (r8a66597->pdata->wr0_shorted_to_wr1)

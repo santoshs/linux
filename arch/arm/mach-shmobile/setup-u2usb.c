@@ -27,7 +27,14 @@
 #define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 
-#define TUSB_VENDOR_SPECIFIC1                           0x80
+#define TUSB_VENDOR_SPECIFIC1 0x80
+#define VBUS_RETURN_VAL (val1>>7)
+#define USBHS_DMAC_BIT (1 << 14)
+#define USBHS_BIT (1 << 22)
+#define SUSPEND_MON_BIT (1 << 14)
+#define PRESET_BIT (1 << 13)
+#define IDPULLUP_BIT (1 << 8)
+#define PHY_HANG_CTR 100
 
 static int is_vbus_powered(void)
 {
@@ -36,11 +43,11 @@ static int is_vbus_powered(void)
 	int count = 10;
 
 	/* Extract bit VBSTS in INTSTS0 register */
-	val = __raw_readw(HSUSB_INTSTS0) & 0x80;
+	val = __raw_readw(HSUSB_INTSTS0) & VBSTS;
 
 	while (--count) {
 		msleep(1);
-		val1 = __raw_readw(HSUSB_INTSTS0) & 0x80;
+		val1 = __raw_readw(HSUSB_INTSTS0) & VBSTS;
 		if (val != val1) {
 			count = 10;
 			val = val1;
@@ -49,7 +56,7 @@ static int is_vbus_powered(void)
 
 	printk(KERN_INFO "Value of Status register INTSTS0: %x\n",
 			__raw_readw(HSUSB_INTSTS0));
-	return val1>>7;
+	return VBUS_RETURN_VAL;
 }
 
 #define LOCK_TIME_OUT_MS 1000
@@ -66,8 +73,8 @@ static void usbhs_module_reset(void)
 		printk(KERN_INFO "Can't lock hwlock_cpg\n");
 	else {
 		__raw_writel(__raw_readl(SRCR2) |
-				(1 << 14), SRCR2); /* USBHS-DMAC */
-		__raw_writel(__raw_readl(SRCR3) | (1 << 22), SRCR3); /* USBHS */
+				USBHS_DMAC_BIT, SRCR2); /* USBHS-DMAC */
+		__raw_writel(__raw_readl(SRCR3) | USBHS_BIT, SRCR3); /* USBHS */
 		hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 	}
 	udelay(50); /* wait for at least one EXTALR cycle */
@@ -76,14 +83,14 @@ static void usbhs_module_reset(void)
 	if (ret < 0)
 		printk(KERN_INFO "Can't lock hwlock_cpg\n");
 	else {
-		__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
-		__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
+		__raw_writel(__raw_readl(SRCR2) & ~USBHS_DMAC_BIT, SRCR2);
+		__raw_writel(__raw_readl(SRCR3) & ~USBHS_BIT, SRCR3);
 		hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 	}
 	/* wait for SuspendM bit being cleared by hardware */
-	while (!(__raw_readw(PHYFUNCTR) & (1 << 14))) /* SUSMON */{
+	while (!(__raw_readw(PHYFUNCTR) & SUSPEND_MON_BIT)) /* SUSMON */{
 		mdelay(10);
-		if (ctr++ > 100) {
+		if (ctr++ > PHY_HANG_CTR) {
 			printk(KERN_INFO "FATAL ERROR: PHY Hang and NOT COMING out from LP mode\n");
 			printk(KERN_INFO "Recover from FATAL ERROR\n");
 			ctr = 0;
@@ -91,10 +98,10 @@ static void usbhs_module_reset(void)
 		}
 	}
 	__raw_writew(__raw_readw(PHYFUNCTR) |
-		(1 << 13), PHYFUNCTR); /* PRESET */
-	while (__raw_readw(PHYFUNCTR) & (1 << 13)) {
+		PRESET_BIT, PHYFUNCTR); /* PRESET */
+	while (__raw_readw(PHYFUNCTR) & PRESET_BIT) {
 		mdelay(10);
-		if (ctr++ > 100) {
+		if (ctr++ > PHY_HANG_CTR) {
 			printk(KERN_INFO "FATAL ERROR: PHY Hang and NOT COMING out from LP mode\n");
 			printk(KERN_INFO "Recover from FATAL ERROR\n");
 			ctr = 0;
@@ -102,18 +109,16 @@ static void usbhs_module_reset(void)
 		}
 	}
 
-
-
 #ifdef CONFIG_USB_OTG
 	__raw_writew(__raw_readw(PHYOTGCTR) |
-		(1 << 8), PHYOTGCTR); /* IDPULLUP */
+		IDPULLUP_BIT, PHYOTGCTR); /* IDPULLUP */
 	msleep(50);
 #endif
 //Eye Diagram
-		__raw_writew(0x0000, USB_SPADDR);       /* set HSUSB.SPADDR*/
-                __raw_writew(0x0020, USB_SPEXADDR);     /* set HSUSB.SPEXADDR*/
-                __raw_writew(0x004F, USB_SPWDAT);       /* set HSUSB.SPWDAT*/
-                __raw_writew(USB_SPWR, USB_SPCTRL);     /* set HSUSB.SPCTRL*/
+		__raw_writew(PHY_SPADDR_INIT, USB_SPADDR);       /* set HSUSB.SPADDR*/
+		__raw_writew(PHY_VENDOR_SPECIFIC_ADDR_MASK, USB_SPEXADDR);     /* set HSUSB.SPEXADDR*/
+		__raw_writew(PHY_SPWDAT_MASK, USB_SPWDAT);       /* set HSUSB.SPWDAT*/
+		__raw_writew(USB_SPWR, USB_SPCTRL);     /* set HSUSB.SPCTRL*/
 		mdelay(1);
 //Eye Diagram
 }
@@ -129,8 +134,8 @@ static void usb_sw_reset(void)
 		printk(KERN_INFO "Can't lock hwlock_cpg\n");
 	else {
 		__raw_writel(__raw_readl(SRCR2) |
-			(1 << 14), SRCR2); /* USBHS-DMAC */
-		__raw_writel(__raw_readl(SRCR3) | (1 << 22), SRCR3); /* USBHS */
+			USBHS_DMAC_BIT, SRCR2); /* USBHS-DMAC */
+		__raw_writel(__raw_readl(SRCR3) | USBHS_BIT, SRCR3); /* USBHS */
 		hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 	}
 	udelay(50); /* wait for at least one EXTALR cycle */
@@ -139,8 +144,8 @@ static void usb_sw_reset(void)
 	if (ret < 0)
 		printk(KERN_INFO "Can't lock hwlock_cpg\n");
 	else {
-		__raw_writel(__raw_readl(SRCR2) & ~(1 << 14), SRCR2);
-		__raw_writel(__raw_readl(SRCR3) & ~(1 << 22), SRCR3);
+		__raw_writel(__raw_readl(SRCR2) & ~USBHS_DMAC_BIT, SRCR2);
+		__raw_writel(__raw_readl(SRCR3) & ~USBHS_BIT, SRCR3);
 		hwspin_unlock_irqrestore(r8a7373_hwlock_cpg, &flags);
 	}
 }
@@ -400,19 +405,6 @@ static struct r8a66597_platdata usbhs_func_data_d2153 = {
 	.dmac		= 1,
 };
 
-static struct r8a66597_platdata usbhs_func_data = {
-	.is_vbus_powered = is_vbus_powered,
-	.module_start	= usbhs_module_reset,
-	.module_stop	= usb_sw_reset,
-	.on_chip	= 1,
-	.buswait	= 5,
-	.max_bufnum	= 0xff,
-	.vbus_irq	= ENT_TPS80031_IRQ_BASE,
-	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
-	.usb_gpio_setting_info  = r8a66597_gpio_setting_info,
-	.dmac		= 1,
-};
-
 static struct resource usbhs_resources[] = {
 	[0] = {
 		.name	= "USBHS",
@@ -448,17 +440,6 @@ struct platform_device usbhs_func_device_d2153 = {
 	.resource	= usbhs_resources,
 };
 
-struct platform_device usbhs_func_device = {
-	.name	= "r8a66597_udc",
-	.id	= 0,
-	.dev = {
-		.dma_mask		= NULL,
-		.coherent_dma_mask	= DMA_BIT_MASK(32),
-		.platform_data		= &usbhs_func_data,
-	},
-	.num_resources	= ARRAY_SIZE(usbhs_resources),
-	.resource	= usbhs_resources,
-};
 #ifdef CONFIG_USB_R8A66597_HCD
 static void usb_host_port_power(int port, int power)
 {
@@ -603,7 +584,6 @@ void __init USBGpio_init(void)
 	if (ret < 0)
 		error_log("PORT131 direction output(1) failed!\n");
 #endif
-
 	ret = gpio_request(GPIO_PORT130, NULL);
 	if (ret < 0)
 		error_log("ERROR : PORT130 failed ! USB may not function\n");
