@@ -4576,7 +4576,12 @@ static int zinitix_touch_probe(struct i2c_client *client,
 
 #if MULTI_PROTOCOL_TYPE_B
 	set_bit(MT_TOOL_FINGER, touch_dev->input_dev->keybit);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+	input_mt_init_slots(touch_dev->input_dev,
+			    touch_dev->cap_info.multi_fingers, 0);
+#else
 	input_mt_init_slots(touch_dev->input_dev, touch_dev->cap_info.multi_fingers);
+#endif
 #else
 	set_bit(BTN_TOUCH, touch_dev->input_dev->keybit);
 #endif

@@ -567,7 +567,9 @@ static int ist30xx_probe(struct i2c_client *		client,
 	data->input_dev = input_dev;
 	i2c_set_clientdata(client, data);
 
-#if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 0, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+	input_mt_init_slots(input_dev, IST30XX_MAX_MT_FINGERS, 0);
+#elif (LINUX_VERSION_CODE > KERNEL_VERSION(3, 0, 0))
 	input_mt_init_slots(input_dev, IST30XX_MAX_MT_FINGERS);
 #endif
 

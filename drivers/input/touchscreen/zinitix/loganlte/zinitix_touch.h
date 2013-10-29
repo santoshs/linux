@@ -84,7 +84,11 @@ enum _zinitix_button_event {
 
 
 /*Test Mode (Monitoring Raw Data) */
+#ifdef CONFIG_SEC_DEBUG
 #define SEC_TSP_FACTORY_TEST	1	//for samsung
+#else
+#define SEC_TSP_FACTORY_TEST	0	/* for samsung */
+#endif
 
 #define MAX_FW_PATH 255
 #define TSP_FW_FILENAME "zinitix_fw.bin"

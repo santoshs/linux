@@ -53,7 +53,9 @@
 #define READ_CMD_MSG_LEN        (2)
 
 
+#ifdef CONFIG_SEC_DEBUG
 #define SEC_FAC_TK
+#endif
 
 enum ist30xx_commands {
 	CMD_ENTER_UPDATE            = 0x02,
