@@ -307,9 +307,8 @@ ATTR_STORE_FN(disabled_switches, EV_SW);
 
  /* sys fs  */
 
-#ifdef CONFIG_SEC_DEBUG
 extern struct class *sec_class;
-#endif
+
 
 static DEVICE_ATTR(disabled_keys, S_IWUSR | S_IRUGO,
 		   gpio_keys_show_disabled_keys,
@@ -379,10 +378,10 @@ static ssize_t wakeup_enable(struct device *dev,
 	if (error)
 		goto out;
 
-	dev_info(dev, "n_buttons=%d, %s\n", ddata->pdata->nbuttons, __func__);
+	printk("n_buttons=%d, %s\n",ddata->n_buttons,__func__);
 
 
-	for (i = 0; i < ddata->pdata->nbuttons; i++) {
+ 	for (i = 0; i < ddata->n_buttons; i++) {
 		struct gpio_button_data *button = &ddata->data[i];
 		
 		printk("button->code=%d\n",button->button->code);
@@ -547,6 +546,7 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 			return error;
 		}
 
+		gpio_pull_up_port(button->gpio);
 
 		if (button->debounce_interval) {
 			error = gpio_set_debounce(button->gpio,
@@ -860,7 +860,6 @@ static int gpio_keys_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, wakeup);
 
-#ifdef CONFIG_SEC_DEBUG
 /* /sec/sec_key/sec_key_pressed */
      /* sys fs */
 	ddata->sec_key = device_create(sec_class, NULL, 0, ddata, "sec_key");
@@ -873,7 +872,7 @@ static int gpio_keys_probe(struct platform_device *pdev)
 			error);
 		goto fail2;			
 	}
-#endif
+
 	return 0;
 
  fail3:

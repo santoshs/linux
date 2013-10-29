@@ -139,6 +139,7 @@ static irqreturn_t sh_keysc_isr(int irq, void *dev_id)
 	DECLARE_BITMAP(keys1, SH_KEYSC_MAXKEYS);
 	unsigned char keyin_set, tmp;
 	int i, k, n;
+	unsigned long drl, drh;
 
 	unsigned long drl, drh, num;
 
