@@ -19,6 +19,7 @@
  * published by the Free Software Foundation.
  */
 
+
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
@@ -854,61 +855,6 @@ static int soc_camera_streamoff(struct file *file, void *priv,
 	return 0;
 }
 
-static int soc_camera_g_ctrl(struct file *file, void *priv,
-			     struct v4l2_control *ctrl)
-{
-	struct soc_camera_device *icd = file->private_data;
-	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
-	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
-	int ret;
-
-	WARN_ON(priv != file->private_data);
-
-	if (ici->ops->get_ctrl) {
-		ret = ici->ops->get_ctrl(icd, ctrl);
-		if (ret != -ENOIOCTLCMD)
-			return ret;
-	}
-
-	return v4l2_subdev_call(sd, core, g_ctrl, ctrl);
-}
-
-static int soc_camera_s_ctrl(struct file *file, void *priv,
-			     struct v4l2_control *ctrl)
-{
-	struct soc_camera_device *icd = file->private_data;
-	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
-	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
-	int ret = 0;
-	struct soc_camera_link *icl = to_soc_camera_link(icd);
-	int power;
-
-	WARN_ON(priv != file->private_data);
-
-	if (V4L2_CID_SET_RESET == ctrl->id) {
-		if (ctrl->value)
-			power = 0;
-		else
-			power = 1;
-		if (icl->power) {
-			ret = icl->power(icd->pdev, power);
-			if (ret < 0) {
-				dev_err(icd->pdev, "special reset fail(%d)\n",
-					ret);
-			}
-		}
-		return ret;
-	}
-
-	if (ici->ops->set_ctrl) {
-		ret = ici->ops->set_ctrl(icd, ctrl);
-		if (ret != -ENOIOCTLCMD)
-			return ret;
-	}
-
-	return v4l2_subdev_call(sd, core, s_ctrl, ctrl);
-}
-
 static int soc_camera_cropcap(struct file *file, void *fh,
 			      struct v4l2_cropcap *a)
 {
@@ -1118,7 +1064,7 @@ static int soc_camera_probe(struct soc_camera_device *icd)
 	 * small and there is a (very) small performance hit when looking up
 	 * controls in the internal hash.
 	 */
-	ret = v4l2_ctrl_handler_init(&icd->ctrl_handler, 16);
+	ret = v4l2_ctrl_handler_init(&icd->ctrl_handler, 20);
 	if (ret < 0)
 		return ret;
 
@@ -1483,8 +1429,6 @@ static const struct v4l2_ioctl_ops soc_camera_ioctl_ops = {
 	.vidioc_prepare_buf	 = soc_camera_prepare_buf,
 	.vidioc_streamon	 = soc_camera_streamon,
 	.vidioc_streamoff	 = soc_camera_streamoff,
-	.vidioc_g_ctrl		 = soc_camera_g_ctrl,
-	.vidioc_s_ctrl		 = soc_camera_s_ctrl,
 	.vidioc_cropcap		 = soc_camera_cropcap,
 	.vidioc_g_crop		 = soc_camera_g_crop,
 	.vidioc_s_crop		 = soc_camera_s_crop,
