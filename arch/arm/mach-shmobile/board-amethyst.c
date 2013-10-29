@@ -101,7 +101,7 @@
 #include <mach/dev-nfc.h>
 #endif
 
-#include <mach/dev-touchpanel-bcmtch15xxx.h>
+#include <mach/dev-touchpanel.h>
 
 #ifdef CONFIG_ARCH_R8A7373
 #include <mach/setup-u2stm.h>
@@ -674,7 +674,7 @@ static void __init board_init(void)
 		}
 	}
 
-	board_tsp_init();
+	tsp_bcmtch15xxx_init();
 
 	i2c_register_board_info(8, i2cm_devices_d2153,
 					ARRAY_SIZE(i2cm_devices_d2153));

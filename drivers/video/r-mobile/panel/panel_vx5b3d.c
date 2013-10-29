@@ -54,8 +54,6 @@
 
 #define VX5B3D_USE_I2C
 
-#define VX5B3D_SUPPORT_REV0_0
-
 /* framebuffer address and size */
 #define R_MOBILE_M_BUFF_ADDR		SDRAM_FRAME_BUFFER_START_ADDR
 #define R_MOBILE_M_BUFF_SIZE		(SDRAM_FRAME_BUFFER_END_ADDR - \
@@ -1505,114 +1503,6 @@ static void mipi_display_reset(void)
 	msleep(100);
 }
 
-#ifdef VX5B3D_SUPPORT_REV0_0
-
-/* HW revision */
-#define PANEL_LT02_HWREV_0_0       0
-#define PANEL_LT02_HWREV_0_0_PATCH 1
-#define PANEL_LT02_HWREV_0_1       2
-
-/* replace cmd for rev0.0 */
-static unsigned char snd_data_502[] = { 0x05, 0x01, 0x40, 0x04, 0x07,
-		0xD8, 0x02, 0x03, 0x00 };
-static unsigned char snd_data_519[] = { 0x05, 0x01, 0x40, 0x2C, 0x01,
-		0x8E, 0x00, 0x00, 0x00 };
-static unsigned char snd_data_527[] = { 0x05, 0x01, 0x40, 0x1C, 0x02,
-		0x80, 0x07, 0x00, 0x00 };
-
-static const struct specific_cmdset initialize_rev0_0_cmdset[] = {
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_001, sizeof(snd_data_001) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_502, sizeof(snd_data_502) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_003, sizeof(snd_data_003) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_004, sizeof(snd_data_004) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_005, sizeof(snd_data_005) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_006, sizeof(snd_data_006) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_007, sizeof(snd_data_007) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_008, sizeof(snd_data_008) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_009, sizeof(snd_data_009) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_010, sizeof(snd_data_010) },
-	{ MIPI_DSI_DELAY,          NULL,         1                    },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_011, sizeof(snd_data_011) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_012, sizeof(snd_data_012) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_013, sizeof(snd_data_013) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_014, sizeof(snd_data_014) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_015, sizeof(snd_data_015) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_016, sizeof(snd_data_016) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_017, sizeof(snd_data_017) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_018, sizeof(snd_data_018) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_519, sizeof(snd_data_519) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_020, sizeof(snd_data_020) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_021, sizeof(snd_data_021) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_022, sizeof(snd_data_022) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_023, sizeof(snd_data_023) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_024, sizeof(snd_data_024) },
-#ifdef VX5B3D_VEE_ENABLE
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_025, sizeof(snd_data_025) },
-#endif /* VX5B3D_VEE_ENABLE */
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_026, sizeof(snd_data_026) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_527, sizeof(snd_data_527) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_028, sizeof(snd_data_028) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_029, sizeof(snd_data_029) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_030, sizeof(snd_data_030) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_031, sizeof(snd_data_031) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_032, sizeof(snd_data_032) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_033, sizeof(snd_data_033) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_034, sizeof(snd_data_034) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_035, sizeof(snd_data_035) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_036, sizeof(snd_data_036) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_037, sizeof(snd_data_037) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_038, sizeof(snd_data_038) },
-	{ MIPI_DSI_DELAY,          NULL,         1                    },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_039, sizeof(snd_data_039) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_040, sizeof(snd_data_040) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_041, sizeof(snd_data_041) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_042, sizeof(snd_data_042) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_043, sizeof(snd_data_043) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_044, sizeof(snd_data_044) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_045, sizeof(snd_data_045) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_046, sizeof(snd_data_046) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_047, sizeof(snd_data_047) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_048, sizeof(snd_data_048) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_049, sizeof(snd_data_049) },
-	{ MIPI_DSI_DELAY,          NULL,         1                    },
-
-	/* don't remove this. Need to restart the host after the init....... */
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_100, sizeof(snd_data_100) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_101, sizeof(snd_data_101) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_102, sizeof(snd_data_102) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_103, sizeof(snd_data_103) },
-	{ MIPI_DSI_GEN_LONG_WRITE, snd_data_104, sizeof(snd_data_104) },
-
-	{ MIPI_DSI_DELAY,           NULL,          10                   },
-	{ MIPI_DSI_BLACK,           NULL,          0                    },
-
-	/* for backlight */
-	{ MIPI_DSI_DELAY,           NULL,          10                   },
-	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_200,  sizeof(snd_data_200) },
-	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_201,  sizeof(snd_data_201) },
-	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_202,  sizeof(snd_data_202) },
-	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_203,  sizeof(snd_data_203) },
-	{ MIPI_DSI_GEN_LONG_WRITE,  snd_data_204,  sizeof(snd_data_204) },
-
-	{ MIPI_DSI_END,             NULL,          0                    }
-};
-
-static void set_config_by_revision(void)
-{
-	unsigned int hw_id;
-
-	hw_id = system_rev;
-
-	printk(KERN_INFO "%s\n", __func__);
-	printk(KERN_DEBUG "hwid = %d\n", hw_id);
-
-	if (hw_id >= PANEL_LT02_HWREV_0_1)
-		return;
-
-	init_cmdset = initialize_rev0_0_cmdset;
-}
-#endif /* VX5B3D_SUPPORT_REV0_0 */
-
 static int vx5b3d_panel_init(unsigned int mem_size)
 {
 	void *screen_handle;
@@ -1633,10 +1523,6 @@ static int vx5b3d_panel_init(unsigned int mem_size)
 #endif
 
 	printk(KERN_INFO "%s\n", __func__);
-
-#ifdef VX5B3D_SUPPORT_REV0_0
-	set_config_by_revision();
-#endif /* VX5B3D_SUPPORT_REV0_0 */
 
 #ifdef VX5B3D_POWAREA_MNG_ENABLE
 	printk(KERN_INFO "Start A4LC power area\n");

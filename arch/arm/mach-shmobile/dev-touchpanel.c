@@ -30,18 +30,13 @@
 #include <linux/regulator/consumer.h>
 #include <mach/irqs.h>
 
+#include <linux/i2c/bcmtch15xxx.h>
+#include <mach/bcmtch15xxx_settings.h>
+
+#define BCMTCH15XXX_TSC_NAME	"bcmtch15xxx"
 
 /* Touch Panel auto detection */
 static struct i2c_client *tsp_detector_i2c_client;
-
-#if defined CONFIG_TOUCHSCREEN_MELFAS
-static struct i2c_board_info i2c4_devices_melfas[] = {
-	{
-		I2C_BOARD_INFO("sec_touch", 0x48),
-		.irq = irqpin2irq(32),
-	},
-};
-#endif
 
 static struct i2c_board_info i2c4_devices_imagis[] = {
 	{
@@ -110,3 +105,51 @@ struct i2c_driver tsp_detector_driver = {
 	.remove 	= tsp_detector_remove,
 	.id_table 	= tsp_detector_idtable,
 };
+
+#if 0
+static int BCMTCH_TSP_PowerOnOff(bool on)
+{
+/* PLACE TOUCH CONTROLLER REGULATOR CODE HERE – SEE STEP 6 */
+}
+#endif
+
+static struct bcmtch_platform_data bcmtch15xxx_i2c_platform_data = {
+	.i2c_bus_id       = BCMTCH_HW_I2C_BUS_ID,
+	.i2c_addr_spm = BCMTCH_HW_I2C_ADDR_SPM,
+	.i2c_addr_sys   = BCMTCH_HW_I2C_ADDR_SYS,
+
+	.gpio_interrupt_pin       = BCMTCH_HW_GPIO_INTERRUPT_PIN,
+	.gpio_interrupt_trigger = BCMTCH_HW_GPIO_INTERRUPT_TRIGGER,
+
+	.gpio_reset_pin           = BCMTCH_HW_GPIO_RESET_PIN,
+	.gpio_reset_polarity   = BCMTCH_HW_GPIO_RESET_POLARITY,
+	.gpio_reset_time_ms = BCMTCH_HW_GPIO_RESET_TIME_MS,
+
+#if 0
+	.ext_button_count = BCMTCH_BUTTON_COUNT,
+	.ext_button_map   = bcmtch_button_map,
+
+	.axis_orientation_flag =
+		((BCMTCH_HW_AXIS_ REVERSE _X << BCMTCH_AXIS_FLAG_X_BIT_POS)
+		|(BCMTCH_HW_AXIS_ REVERSE _Y << BCMTCH_AXIS_FLAG_Y_BIT_POS)
+		|(BCMTCH_HW_AXIS_SWAP_X_Y << BCMTCH_AXIS_FLAG_X_Y_BIT_POS)),
+
+	.bcmtch_on = BCMTCH_TSP_PowerOnOff,
+#endif
+};
+
+static struct i2c_board_info __initdata bcmtch15xxx_i2c_boardinfo[] = {
+	{
+		I2C_BOARD_INFO(BCMTCH15XXX_TSC_NAME, BCMTCH_HW_I2C_ADDR_SPM),
+		.irq = irqpin2irq(BCMTCH_HW_GPIO_INTERRUPT_PIN),
+		.platform_data = &bcmtch15xxx_i2c_platform_data,
+	},
+};
+
+void __init tsp_bcmtch15xxx_init(void)
+{
+	printk(KERN_INFO "%s: [TSP] init\n", __func__);
+	i2c_register_board_info(bcmtch15xxx_i2c_platform_data.i2c_bus_id,
+		bcmtch15xxx_i2c_boardinfo,
+		ARRAY_SIZE(bcmtch15xxx_i2c_boardinfo));
+}
