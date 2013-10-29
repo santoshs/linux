@@ -21,5 +21,6 @@
 #define __ASM_MACH_DEV_TSP_H
 
 extern struct i2c_driver tsp_detector_driver;
+extern void __init tsp_bcmtch15xxx_init(void);
 
 #endif /* __ASM_MACH_DEV_TSP_H */
