@@ -67,11 +67,11 @@
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
-#if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
-#include <linux/broadcom/bcmbt_rfkill.h>
+#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
+#include <linux/broadcom/bcm-bt-rfkill.h>
 #endif
 #ifdef CONFIG_BCM_BT_LPM
-#include <linux/broadcom/bcmbt_lpm.h>
+#include <linux/broadcom/bcm-bt-lpm.h>
 #endif
 #ifdef CONFIG_BCM_BZHW
 #include <linux/broadcom/bcm_bzhw.h>
@@ -155,28 +155,20 @@ static struct platform_device led_backlight_device = {
 	},
 };
 
-#if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
+#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
 #define BCMBT_VREG_GPIO       (GPIO_PORT268)
 #define BCMBT_N_RESET_GPIO    (GPIO_PORT15) //(-1)
-/* clk32 */
-#define BCMBT_AUX0_GPIO       (-1)
-/* UARTB_SEL */
-#define BCMBT_AUX1_GPIO       (-1)
 
-static struct bcmbt_rfkill_platform_data board_bcmbt_rfkill_cfg = {
-	.vreg_gpio    = BCMBT_VREG_GPIO,
-	.n_reset_gpio = BCMBT_N_RESET_GPIO,
-	/* CLK32 */
-	.aux0_gpio    = BCMBT_AUX0_GPIO,
-	/* UARTB_SEL, probably not required */
-	.aux1_gpio    = BCMBT_AUX1_GPIO,
+static struct bcm_bt_rfkill_platform_data bcm_bt_rfkill_data = {
+	.bcm_bt_rfkill_vreg_gpio = BCMBT_VREG_GPIO,
+	.bcm_bt_rfkill_n_reset_gpio = BCMBT_N_RESET_GPIO,
 };
 
-static struct platform_device board_bcmbt_rfkill_device = {
-	.name = "bcmbt-rfkill",
+struct platform_device board_bcmbt_rfkill_device = {
+	.name = "bcm-bt-rfkill",
 	.id   = -1,
 	.dev  = {
-		.platform_data=&board_bcmbt_rfkill_cfg,
+		.platform_data=&bcm_bt_rfkill_data,
 	},
 };
 #endif
@@ -201,16 +193,16 @@ static struct platform_device board_bcm_bzhw_device = {
 #endif
 
 #ifdef CONFIG_BCM_BT_LPM
-#define GPIO_BT_WAKE   6
-#define GPIO_HOST_WAKE 14
+#define GPIO_BT_WAKE	GPIO_PORT262
+#define GPIO_HOST_WAKE	GPIO_PORT272
 
 static struct bcm_bt_lpm_platform_data brcm_bt_lpm_data = {
-	.gpio_bt_wake = GPIO_BT_WAKE,
-	.gpio_host_wake = GPIO_HOST_WAKE,
+	.bt_wake_gpio = GPIO_BT_WAKE,
+	.host_wake_gpio = GPIO_HOST_WAKE,
 };
 
-static struct platform_device board_bcmbt_lpm_device = {
-	.name = "bcmbt-lpm",
+struct platform_device board_bcmbt_lpm_device = {
+	.name = "bcm-bt-lpm",
 	.id   = -1,
 	.dev  = {
 		.platform_data=&brcm_bt_lpm_data,

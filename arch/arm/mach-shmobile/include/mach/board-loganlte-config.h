@@ -33,6 +33,14 @@
 #include <mach/dev-renesas-bt.h>
 #endif
 
+#if defined(CONFIG_BCM_BT_RFKILL)
+#include <mach/dev-bt-rfkill.h>
+#endif
+
+#if defined(CONFIG_BCM_BT_LPM)
+#include <mach/dev-bt-lpm.h>
+#endif
+
 #include <sound/sh_fsi.h>
 #include <linux/platform_data/fsi_d2153_pdata.h>
 #include <linux/spi/sh_msiof.h>
@@ -473,7 +481,7 @@ static struct platform_device *devices_stm_sdhi1[] __initdata = {
 	&sh_msiof0_device,
 #endif
 	&u2evm_ion_device,
-#if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
+#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
 	&board_bcmbt_rfkill_device,
 #endif
 
@@ -532,7 +540,7 @@ static struct platform_device *devices_stm_sdhi0[] __initdata = {
 	&sh_msiof0_device,
 #endif
 	&u2evm_ion_device,
-#if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
+#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
 	&board_bcmbt_rfkill_device,
 #endif
 #ifdef CONFIG_BCM_BZHW
@@ -591,7 +599,7 @@ static struct platform_device *devices_stm_none[] __initdata = {
 	&sh_msiof0_device,
 #endif
 	&u2evm_ion_device,
-#if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
+#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
 	&board_bcmbt_rfkill_device,
 #endif
 #ifdef CONFIG_BCM_BZHW
