@@ -140,8 +140,6 @@ source "drivers/hwspinlock/Kconfig"
 
 source "drivers/clocksource/Kconfig"
 
-source "drivers/pmic/Kconfig"
-
 source "drivers/mailbox/Kconfig"
 
 source "drivers/iommu/Kconfig"

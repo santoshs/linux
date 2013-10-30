@@ -24,16 +24,9 @@
 #include <linux/irq.h>
 #include <mach/dev-sensor.h>
 
+
 #include <linux/pm.h>
 #include <linux/regulator/consumer.h>
-
-#ifdef CONFIG_PMIC_INTERFACE
-#include <linux/pmic/pmic-tps80032.h>
-#include <linux/mfd/tps80031.h>
-#include <linux/pmic/pmic.h>
-#include <mach/setup-u2tps80032.h>
-#include <linux/regulator/tps80031-regulator.h>
-#endif
 
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
@@ -49,7 +42,7 @@
 #include <linux/k3dh_dev.h>
 #endif
 
-#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A) 
+#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A)
 #include <linux/hscd_i2c_dev.h>
 #endif
 
@@ -69,18 +62,6 @@
 #include <linux/atsn01p.h>
 #endif
 
-#if defined (CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)
-#include <linux/tmd2771.h>
-#endif
-
-#if defined (CONFIG_SENSOR_LSM303DL)
-#include <linux/lsm303dl.h>
-#endif
-
-#if defined (CONFIG_SENSOR_L3GD20)
-#include <linux/l3gd20.h>
-#endif
-
 #define I2C_BUS_ID_SENSOR	  2
 
 #if defined(CONFIG_OPTICAL_TAOS_TRITON)
@@ -95,36 +76,6 @@ int taos_led_onoff(bool onoff)
 {
 	return 0;
 }
-#endif
-
-#if defined (CONFIG_SENSOR_L3GD20)
-static struct lsm303dl_platform_data lsm303dl_platdata = {
-
-};
-#endif
-
-#if defined (CONFIG_SENSOR_LSM303DL)
-static struct platform_device lsm303dl_device = {
-	.name           = "lsm303dl",
-	.dev            = {
-	.platform_data  = &lsm303dl_platdata,
-	},
-};
-
-static struct lsm303dl_acc_port_info lsm303dl_acc_platdata = {
-	.lsm303dl_acc_port = GPIO_PORT110,
-};
-
-static struct lsm303dl_mag_port_info lsm303dl_mag_platdata = {
-	.lsm303dl_mag_port = GPIO_PORT109,
-};
-#endif
-
-#if defined (CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)
-static struct tmd2771_platform_data taos_platdata = {
-	.tmd2771_port = GPIO_PORT108,
-
-};
 #endif
 
 #if defined(CONFIG_INPUT_MPU6050) || defined(CONFIG_INPUT_MPU6500)
@@ -157,7 +108,7 @@ static struct k3dh_platform_data k3dh_platform_data = {
 };
 #endif
 
-#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A) 
+#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A)
 static struct hscd_i2c_platform_data hscd_i2c_platform_data = {
 	.orientation = {
 	-1, 0, 0,
@@ -191,7 +142,7 @@ static void gp2ap002_led_onoff(bool onoff)
         }
     } else {
         led_regulator = regulator_get(NULL, "sensor_led_3v");
-        ret = regulator_disable(led_regulator); 
+        ret = regulator_disable(led_regulator);
         printk(KERN_INFO "[GP2A] regulator_disable : %d\n", ret);
         regulator_put(led_regulator);
     }
@@ -225,7 +176,7 @@ static void gp2ap030_led_onoff(bool onoff)
 #define GPIO_PS_ALS_INT 108
 static struct gp2ap030_pdata gp2ap030_pdata = {
 	.p_out = GPIO_PS_ALS_INT,
-    	.power_on = gp2ap030_power_onoff,        
+    	.power_on = gp2ap030_power_onoff,
     	.led_on	= gp2ap030_led_onoff,
 	.version = GP2AP030,
 	.prox_cal_path = "/efs/prox_cal"
@@ -280,21 +231,21 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 #if defined  (CONFIG_SENSORS_K3DH)
 	{
 		I2C_BOARD_INFO("k3dh", 0x19),
-		.platform_data = &k3dh_platform_data,                        
+		.platform_data = &k3dh_platform_data,
 	},
 #endif
 
-#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A) 
+#if defined  (CONFIG_SENSORS_HSCDTD006A) || defined(CONFIG_SENSORS_HSCDTD008A)
 	{
 		I2C_BOARD_INFO("hscd_i2c", 0x0c),
-		.platform_data = &hscd_i2c_platform_data,               
+		.platform_data = &hscd_i2c_platform_data,
 	},
  #endif
 
 #if defined  (CONFIG_SENSORS_GP2AP002)
 	{
 		I2C_BOARD_INFO("gp2ap002", 0x44),
-		.platform_data = &gp2ap002_platform_data,            
+		.platform_data = &gp2ap002_platform_data,
 	},
 #endif
 
@@ -305,41 +256,10 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 	},
 #endif
 
-#if defined  (CONFIG_OPTICAL_TAOS_TRITON)
+#if defined(CONFIG_OPTICAL_TAOS_TRITON)
 	{
 		I2C_BOARD_INFO("taos", 0x39),
 		.platform_data = &taos_pdata,
-	},
-#endif
-
-#if defined (CONFIG_SENSOR_L3GD20)
-	{
-		I2C_BOARD_INFO("l3gd20", GYRO_SLAVE_ADDRESS),
-	},
-#endif
-
-#if defined (CONFIG_SENSOR_LSM303DL)
-	{
-		I2C_BOARD_INFO("lsm303dl_acc", ACC_SLAVE_ADDRESS),
-		.platform_data = &lsm303dl_acc_platdata,
-		.irq = R8A7373_IRQC_IRQ(ACC_INT),
-		.flags = IORESOURCE_IRQ | IRQ_TYPE_EDGE_FALLING,
-	},
-
-	{
-		I2C_BOARD_INFO("lsm303dl_mag", MAG_SLAVE_ADDRESS),
-		.platform_data = &lsm303dl_mag_platdata,
-		.irq = R8A7373_IRQC_IRQ(MAG_INT),
-		.flags = IORESOURCE_IRQ | IRQ_TYPE_EDGE_FALLING,
-	},
-#endif
-
-#if defined (CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)
-	{
-		I2C_BOARD_INFO("tmd2771", PROXIMITY_SLAVE_ADDRESS),
-		.platform_data = &taos_platdata,
-		.irq = R8A7373_IRQC_IRQ(ALS_INT),
-		.flags = IORESOURCE_IRQ | IRQ_TYPE_EDGE_FALLING,
 	},
 #endif
 };
@@ -366,7 +286,7 @@ static void grip_init_code_set(void)
 	atsn10p_pdata.cr_divnd = 12;
 	atsn10p_pdata.cs_divsr = 10;
 	atsn10p_pdata.cs_divnd = 12;
-	
+
 	atsn10p_pdata.init_code[SET_UNLOCK] = 0x5a;
 	atsn10p_pdata.init_code[SET_RST_ERR] = 0x33;
 	atsn10p_pdata.init_code[SET_PROX_PER] = 0x38;
@@ -425,13 +345,9 @@ void __init board_sensor_init(void)
 	gpio_request(PROXI_INT_GRIP_PIN, NULL);
 	gpio_direction_input(PROXI_INT_GRIP_PIN);
 	gpio_pull_up_port(PROXI_INT_GRIP_PIN);
-	
-	grip_init_code_set();		
-	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
-#endif
 
-#if defined (CONFIG_SENSOR_L3GD20)
-	platform_device_register(&lsm303dl_device);
+	grip_init_code_set();
+	i2c_register_board_info(0, i2c0_devices, ARRAY_SIZE(i2c0_devices));
 #endif
 	i2c_register_board_info(I2C_BUS_ID_SENSOR, i2c2_devices, ARRAY_SIZE(i2c2_devices));
 	return;

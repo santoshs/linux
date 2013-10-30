@@ -1,4 +1,4 @@
-/* drivers/sensor/accelerometer/lsm303dl/lsm303dl_input.c
+/* drivers/misc/lsm303dl_input.c
  *
  * Copyright (C) 2012 Renesas Mobile Corporation.
  *
@@ -24,8 +24,8 @@
 #include <linux/miscdevice.h>
 #include <linux/input.h>
 #include <linux/slab.h>
-#include <asm/uaccess.h>
-#include <asm/io.h>
+#include <linux/uaccess.h>
+#include <linux/io.h>
 #include <linux/lsm303dl.h>
 #include "lsm303dl_local.h"
 
@@ -85,7 +85,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 	/*Get value from user*/
 	ret = copy_from_user(&usr_val, argp, sizeof(usr_val));
 	if (ret != 0) {
-		printk("Invalid user address!\n");
+		lsm303dl_err("Invalid user address!\n");
 		wake_unlock(&lsm303dl_info->wakelock);
 		mutex_unlock(&lsm303dl_info->lock);
 		return -EFAULT;
@@ -115,7 +115,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 
 			/* Turn ON LDO5 or LDO7 */
 			/*lsm303dl_acc_power_on_off(1);
-			printk("Accel: Turn ON LDO5 or LDO7\n");*/
+			lsm303dl_err("Accel: Turn ON LDO5 or LDO7\n");*/
 
 			/*User delay time is less than or equal
 			to maximum polling threshold*/
@@ -123,7 +123,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 				/*Activate accelerometer*/
 				ret = lsm303dl_acc_activate(ACC_ENABLE);
 				if (ret < 0) {
-					printk("Cannot activate accelerometer\n");
+					lsm303dl_err("Cannot activate accel");
 					ret = -EIO;
 					break;
 				}
@@ -134,11 +134,11 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 			/*Magnetometer is not activated*/
 			if (MAG_DISABLE == activate_mag) {
 				hrtimer_start(&lsm303dl_info->timer,
-				ktime_set(0, lsm303dl_info->poll_interval * NSEC_PER_MSEC),
-				HRTIMER_MODE_REL);
+				ktime_set(0, lsm303dl_info->poll_interval *
+					NSEC_PER_MSEC), HRTIMER_MODE_REL);
 			}
 
-		} else if (ACC_DISABLE == usr_val) { /*Deactivate Accelerometer*/
+		} else if (ACC_DISABLE == usr_val) { /*Deactivate Accel*/
 			/*Accelerometer has already deactivated*/
 			if (ACC_DISABLE == activate_acc) {
 				ret = 0;
@@ -148,7 +148,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 			/*Deactivate accelerometer*/
 			ret = lsm303dl_acc_activate(ACC_DISABLE);
 			if (ret < 0) {
-				printk("Cannot deactivate accelerometer\n");
+				lsm303dl_err("Cannot deactivate accel\n");
 				ret = -EIO;
 				break;
 			}
@@ -161,9 +161,9 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 
 			/* Turn OFF LDO5 or LDO7 */
 			/*lsm303dl_acc_power_on_off(0);
-			printk("Accel: Turn OFF LDO5 or LDO7\n");*/
+			lsm303dl_err("Accel: Turn OFF LDO5 or LDO7\n");*/
 		} else { /*Input value from user is invalid*/
-			printk("Invaild input value from user\n");
+			lsm303dl_err("Invaild input value from user\n");
 			ret =  -EINVAL;
 			break;
 		}
@@ -187,7 +187,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 			}
 			/* Turn ON LDO5 or LDO7  */
 			/*lsm303dl_mag_power_on_off(1);
-			printk("Mag: Turn ON LDO5 or LDO7\n");*/
+			lsm303dl_err("Mag: Turn ON LDO5 or LDO7\n");*/
 
 			/*User delay time is less than or equal
 			to maximum polling threshold*/
@@ -195,7 +195,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 				/*Activate Magnetometer*/
 				ret = lsm303dl_mag_activate(MAG_ENABLE);
 				if (ret < 0) {
-					printk("Cannot activate Magnetometer\n");
+					lsm303dl_err("Cannot activate Compass");
 					ret = -EIO;
 					break;
 				}
@@ -206,11 +206,11 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 			/*Accelerometer is not activated*/
 			if (ACC_DISABLE == activate_acc) {
 				hrtimer_start(&lsm303dl_info->timer,
-				ktime_set(0, lsm303dl_info->poll_interval * NSEC_PER_MSEC),
-				HRTIMER_MODE_REL);
+				ktime_set(0, lsm303dl_info->poll_interval *
+					NSEC_PER_MSEC), HRTIMER_MODE_REL);
 			}
 
-		} else if (MAG_DISABLE == usr_val) {	/*Deactivate Magnetometer*/
+		} else if (MAG_DISABLE == usr_val) {	/*Deactivate Compass*/
 
 			/*Magnetometer has already deactivated*/
 			if (MAG_DISABLE == activate_mag) {
@@ -221,13 +221,13 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 			/*Deactivate Magnetometer*/
 			ret = lsm303dl_mag_activate(MAG_DISABLE);
 			if (ret < 0) {
-				printk("Cannot deactivate Magnetometer\n");
+				lsm303dl_err("Cannot deactivate Compass\n");
 				ret = -EIO;
 				break;
 			}
 			/* Turn OFF LDO5 or LDO7  */
 			/*lsm303dl_mag_power_on_off(0);
-			printk("Mag: Turn OFF LDO5 or LDO7\n");*/
+			lsm303dl_err("Mag: Turn OFF LDO5 or LDO7\n");*/
 
 			activate_acc = atomic_read(&lsm303dl_info->acc_enable);
 
@@ -236,7 +236,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 				hrtimer_cancel(&lsm303dl_info->timer);
 
 		} else { /*Input value from user is invalid*/
-			printk("Invalid input value from user\n");
+			lsm303dl_err("Invalid input value from user\n");
 			ret =  -EINVAL;
 			break;
 		}
@@ -252,7 +252,8 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 
 		/*Input value is greater than maximum polling threshold*/
 		if (usr_val > LSM303DL_POLL_THR) {
-			lsm303dl_info->poll_interval = usr_val - LSM303DL_ACTIVATE_TIME;
+			lsm303dl_info->poll_interval =
+					usr_val - LSM303DL_ACTIVATE_TIME;
 
 			acc_delay = ACC_POLLING_INTERVAL_MIN;
 
@@ -263,11 +264,11 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 			lsm303dl_info->poll_interval = usr_val;
 		}
 
-		lsm303dl_log("\n #### IOCTL_SET_DELAY acc_delay = %d ", acc_delay);
+		lsm303dl_log("\n IOCTL_SET_DELAY acc_delay = %d ", acc_delay);
 		/*Write output data rate to accelerometer register*/
 		ret = lsm303dl_acc_set_odr(acc_delay);
 		if (ret < 0) {
-			printk("Cannot set odr for accelerometer\n");
+			lsm303dl_err("Cannot set odr for accelerometer\n");
 			ret = -EIO;
 			break;
 		}
@@ -275,7 +276,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 		/*Write output data rate to magnetometer register*/
 		ret = lsm303dl_mag_set_odr(mag_delay);
 		if (ret < 0) {
-			printk("Cannot set odr for magnetometer\n");
+			lsm303dl_err("Cannot set odr for magnetometer\n");
 			ret = -EIO;
 			break;
 		}
@@ -284,15 +285,17 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 		activate_mag = atomic_read(&lsm303dl_info->mag_enable);
 
 		/*Accelerometer or Magnetometer is activated before*/
-		if ((ACC_ENABLE == activate_acc) || (MAG_ENABLE == activate_mag)) {
+		if ((ACC_ENABLE == activate_acc) ||
+					(MAG_ENABLE == activate_mag)) {
 			hrtimer_cancel(&lsm303dl_info->timer);
 			if (usr_val > LSM303DL_POLL_THR) {
 				/*Accelerometer has already activated*/
 				if (ACC_ENABLE == activate_acc) {
 					/*Deactivate Accelerometer*/
-					ret = lsm303dl_acc_activate(ACC_DISABLE);
+					ret =
+					lsm303dl_acc_activate(ACC_DISABLE);
 					if (ret < 0) {
-						printk("Can't deactivate accelerometer\n");
+						lsm303dl_err("Can't deactivate accelerometer\n");
 						ret = -EIO;
 						break;
 					}
@@ -301,9 +304,10 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 				/*Magnetometer has already activated*/
 				if (MAG_ENABLE == activate_mag) {
 					/*Deactivate Magnetometer*/
-					ret = lsm303dl_mag_activate(MAG_DISABLE);
+					ret =
+					lsm303dl_mag_activate(MAG_DISABLE);
 					if (ret < 0) {
-						printk("Can't deactivate magnetometer\n");
+						lsm303dl_err("Can't deactivate magnetometer\n");
 						ret = -EIO;
 						break;
 					}
@@ -315,7 +319,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 					/*Activate Accelerometer*/
 					ret = lsm303dl_acc_activate(ACC_ENABLE);
 					if (ret < 0) {
-						printk("Can't activate accelerometer\n");
+						lsm303dl_err("Can't activate accelerometer\n");
 						ret = -EIO;
 						break;
 					}
@@ -325,7 +329,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 					/*Activate Magnetometer*/
 					ret = lsm303dl_mag_activate(MAG_ENABLE);
 					if (ret < 0) {
-						printk("Can't activate magnetometer\n");
+						lsm303dl_err("Can't activate magnetometer\n");
 						ret = -EIO;
 						break;
 					}
@@ -333,8 +337,8 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 			}
 			/*Start polling*/
 			hrtimer_start(&lsm303dl_info->timer,
-			ktime_set(0, lsm303dl_info->poll_interval * NSEC_PER_MSEC),
-			HRTIMER_MODE_REL);
+			ktime_set(0, lsm303dl_info->poll_interval *
+				NSEC_PER_MSEC), HRTIMER_MODE_REL);
 		}
 		lsm303dl_info->delay = usr_val;
 
@@ -342,7 +346,7 @@ static long lsm303dl_misc_ioctl(struct file *filp, unsigned int cmd,
 
 	/*Unsupported command*/
 	default:
-		printk("Unknown command\n");
+		lsm303dl_err("Unknown command\n");
 		ret = -ENOTTY;
 		break;
 	}
@@ -369,17 +373,21 @@ void lsm303dl_acc_report_values(void)
 	if (0 == ret) {
 		/*Report x, y, z value to HAL*/
 		input_report_abs(lsm303dl_info->input_dev,
-							EVENT_TYPE_ACCEL_X, xyz[0]);
+						EVENT_TYPE_ACCEL_X, xyz[0]);
 		input_report_abs(lsm303dl_info->input_dev,
-							EVENT_TYPE_ACCEL_Y, xyz[1]);
+						EVENT_TYPE_ACCEL_Y, xyz[1]);
 		input_report_abs(lsm303dl_info->input_dev,
-							EVENT_TYPE_ACCEL_Z, xyz[2]);
+						EVENT_TYPE_ACCEL_Z, xyz[2]);
 
 		/*Mark this event for accelerometer and inform
 		 *to input core that value report is completed */
-		lsm303dl_info->input_dev->sync = 0;
-		input_event(lsm303dl_info->input_dev, EV_SYN, \
-						SYN_REPORT, LSM303DL_ACC_REPORT_ID);
+
+		/* sync is removed from kernel 3.10 */
+		/*lsm303dl_info->input_dev->sync = 0;*/
+
+		input_event(lsm303dl_info->input_dev, EV_SYN,
+					SYN_REPORT, LSM303DL_ACC_REPORT_ID);
+		input_sync(lsm303dl_info->input_dev);
 	}
 }
 EXPORT_SYMBOL(lsm303dl_acc_report_values);
@@ -401,17 +409,22 @@ void lsm303dl_mag_report_values(void)
 	if (0 == ret) {
 		/*Report x, y, z value to HAL*/
 		input_report_abs(lsm303dl_info->input_dev,
-									EVENT_TYPE_MAGV_X, xyz[0]);
+					EVENT_TYPE_MAGV_X, xyz[0]);
 		input_report_abs(lsm303dl_info->input_dev,
-									EVENT_TYPE_MAGV_Y, xyz[1]);
+					EVENT_TYPE_MAGV_Y, xyz[1]);
 		input_report_abs(lsm303dl_info->input_dev,
-									EVENT_TYPE_MAGV_Z, xyz[2]);
+					EVENT_TYPE_MAGV_Z, xyz[2]);
 
 		/*Mark this event for magnetometer and inform
 		 *to input core that value report is completed */
-		lsm303dl_info->input_dev->sync = 0;
-		input_event(lsm303dl_info->input_dev, EV_SYN, SYN_REPORT, \
-										LSM303DL_MAG_REPORT_ID);
+
+		/* sync is removed from Kernel 3.10 */
+		/*lsm303dl_info->input_dev->sync = 0;*/
+
+		input_event(lsm303dl_info->input_dev, EV_SYN, SYN_REPORT,
+					LSM303DL_MAG_REPORT_ID);
+
+		input_sync(lsm303dl_info->input_dev);
 	}
 }
 EXPORT_SYMBOL(lsm303dl_mag_report_values);
@@ -457,7 +470,8 @@ static enum hrtimer_restart lsm303dl_timer_func(struct hrtimer *timer)
 	activate_mag = atomic_read(&lsm303dl_info->mag_enable);
 
 	if ((ACC_ENABLE == activate_acc) || (MAG_ENABLE == activate_mag))
-		queue_work(lsm303dl_info->poll_workqueue, &lsm303dl_info->work_func);
+		queue_work(lsm303dl_info->poll_workqueue,
+				&lsm303dl_info->work_func);
 
 	return HRTIMER_NORESTART;
 }
@@ -619,6 +633,7 @@ static int lsm303dl_platform_resume(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 /*************************************************************************
  *	name	=	lsm303dl_platform_early_suspend
  *	func	=	Call lsm303dl_platform_suspend function
@@ -654,12 +669,12 @@ static void lsm303dl_platform_late_resume(struct early_suspend *h)
 
 	lsm303dl_platform_resume(&pinfo->input_dev->dev);
 }
-
+#endif
 
 /****************************************************
 *	File operation structure definition		*
 *****************************************************/
-static struct file_operations lsm303dl_fops = {
+static const struct file_operations lsm303dl_fops = {
 	.owner          = THIS_MODULE,
 	.llseek		= no_llseek,
 	.open           = lsm303dl_misc_open,
@@ -690,7 +705,7 @@ static int lsm303dl_platform_probe(struct platform_device *pdev)
 	/*Allocate memory for lsm303dl_input structure*/
 	lsm303dl_info = kzalloc(sizeof(struct lsm303dl_input), GFP_KERNEL);
 	if (NULL == lsm303dl_info) {
-		printk("Cannot allocate memory for lsm303dl_input structure\n");
+		lsm303dl_err("Cannot allocate memory for lsm303dl_input struc");
 		return -ENOMEM;
 	}
 
@@ -715,10 +730,10 @@ static int lsm303dl_platform_probe(struct platform_device *pdev)
 	lsm303dl_info->timer.function = lsm303dl_timer_func;
 
 	/*Create work queue structure for handling bottom half timer interrupt*/
-	lsm303dl_info->poll_workqueue = \
+	lsm303dl_info->poll_workqueue =
 				create_singlethread_workqueue("lsm303dl_wq");
 	if (NULL == lsm303dl_info->poll_workqueue) {
-		printk("Cannot allocate memory for workqueue\n");
+		lsm303dl_err("Cannot allocate memory for workqueue\n");
 		ret = -ENOMEM;
 		goto workqueue_err;
 	}
@@ -728,7 +743,7 @@ static int lsm303dl_platform_probe(struct platform_device *pdev)
 	/*Allocate input device for reporting value to HAL layer*/
 	lsm303dl_info->input_dev = input_allocate_device();
 	if (NULL == lsm303dl_info->input_dev) {
-		printk("Cannot allocate memory for input device\n");
+		lsm303dl_err("Cannot allocate memory for input device\n");
 		ret = -ENOMEM;
 		goto input_alloc_err;
 	}
@@ -736,35 +751,35 @@ static int lsm303dl_platform_probe(struct platform_device *pdev)
 	set_bit(EV_ABS, lsm303dl_info->input_dev->evbit);
 
 	/*Set parameters for 3-axis event type of accelerometer*/
-	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_ACCEL_X, \
-		-LSM303DL_MAX_RANGE_ACC, LSM303DL_MAX_RANGE_ACC, \
+	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_ACCEL_X,
+		-LSM303DL_MAX_RANGE_ACC, LSM303DL_MAX_RANGE_ACC,
 		LSM303DL_INPUT_FLAT, LSM303DL_INPUT_FUZZ);
 
-	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_ACCEL_Y, \
-		-LSM303DL_MAX_RANGE_ACC, LSM303DL_MAX_RANGE_ACC, \
+	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_ACCEL_Y,
+		-LSM303DL_MAX_RANGE_ACC, LSM303DL_MAX_RANGE_ACC,
 		LSM303DL_INPUT_FLAT, LSM303DL_INPUT_FUZZ);
 
-	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_ACCEL_Z, \
-		-LSM303DL_MAX_RANGE_ACC, LSM303DL_MAX_RANGE_ACC, \
+	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_ACCEL_Z,
+		-LSM303DL_MAX_RANGE_ACC, LSM303DL_MAX_RANGE_ACC,
 		LSM303DL_INPUT_FLAT, LSM303DL_INPUT_FUZZ);
 
 	/*Set parameters for 3-axis event type of magnetometer*/
-	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_MAGV_X, \
-		-LSM303DL_MAX_RANGE_MAG, LSM303DL_MAX_RANGE_MAG, \
+	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_MAGV_X,
+		-LSM303DL_MAX_RANGE_MAG, LSM303DL_MAX_RANGE_MAG,
 		LSM303DL_INPUT_FLAT, LSM303DL_INPUT_FUZZ);
 
-	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_MAGV_Y, \
-		-LSM303DL_MAX_RANGE_MAG, LSM303DL_MAX_RANGE_MAG, \
+	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_MAGV_Y,
+		-LSM303DL_MAX_RANGE_MAG, LSM303DL_MAX_RANGE_MAG,
 		LSM303DL_INPUT_FLAT, LSM303DL_INPUT_FUZZ);
 
-	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_MAGV_Z, \
-		-LSM303DL_MAX_RANGE_MAG, LSM303DL_MAX_RANGE_MAG, \
+	input_set_abs_params(lsm303dl_info->input_dev, EVENT_TYPE_MAGV_Z,
+		-LSM303DL_MAX_RANGE_MAG, LSM303DL_MAX_RANGE_MAG,
 		LSM303DL_INPUT_FLAT, LSM303DL_INPUT_FUZZ);
 
 	/*Register input device to input core*/
 	ret = input_register_device(lsm303dl_info->input_dev);
 	if (ret < 0) {
-		printk("Cannot register input device\n");
+		lsm303dl_err("Cannot register input device\n");
 		ret = -EIO;
 		goto input_register_err;
 	}
@@ -772,7 +787,7 @@ static int lsm303dl_platform_probe(struct platform_device *pdev)
 	/*Register lsm303dl input driver as miscellaneous driver*/
 	ret = misc_register(&lsm303dl_device);
 	if (ret < 0) {
-		printk("Cannot register misc device\n");
+		lsm303dl_err("Cannot register misc device\n");
 		ret = -EIO;
 		goto misc_register_err;
 	}
@@ -844,7 +859,7 @@ static int lsm303dl_platform_remove(struct platform_device *dev)
 *	Power management structure definition		*
 *****************************************************/
 #ifndef CONFIG_HAS_EARLYSUSPEND
-static struct dev_pm_ops lsm303dl_pm_ops = {
+static const struct dev_pm_ops lsm303dl_pm_ops = {
 	.suspend = lsm303dl_platform_suspend,
 	.resume = lsm303dl_platform_resume,
 };
@@ -879,7 +894,7 @@ static int __init lsm303dl_init(void)
 	/*Register lsm303dl input driver to platform driver*/
 	ret = platform_driver_register(&lsm303dl_pf_driver);
 	if (ret < 0) {
-		printk("Cannot register platform driver\n");
+		lsm303dl_err("Cannot register platform driver\n");
 		return -ENOTSUPP;
 	}
 

@@ -58,14 +58,14 @@
 #include <mach/sec_debug_inform.h>
 #endif
 
-#ifdef CONFIG_MFD_D2153
-#include <linux/d2153/core.h>
-#endif
+#include <linux/regulator/consumer.h>
 #include <mach/setup-u2sci.h>
 
 #ifdef CONFIG_ARCH_SHMOBILE
 void __iomem *dummy_write_mem;
 #endif
+
+static unsigned int shmobile_revision;
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
 #undef PM_FUNCTION_START
@@ -451,38 +451,7 @@ static struct platform_device i2c8_device = {
 	},
 };
 
-/* SYS-DMAC */
-/* GPIO Port number needs to be modified by the respective driver module
-Udealy=5 will set I2C bus speed to 100k HZ */
-#ifdef DISABLE_UNUSED_I2C_0_1_GPIO_DEVICE_FOR_GARDA
-static struct i2c_gpio_platform_data  i2c0gpio_platform_data = {
-      .sda_pin        = GPIO_PORT5,
-      .scl_pin        = GPIO_PORT4,
-      .udelay         = 5,
-};
 
-static struct platform_device i2c0gpio_device = {
-  .name          = "i2c-gpio",
-  .id    = 9,
-  .dev           = {
-         .platform_data  = &i2c0gpio_platform_data,
-  },
-};
-
-static struct i2c_gpio_platform_data  i2c1gpio_platform_data = {
-      .sda_pin        = GPIO_PORT27,
-      .scl_pin        = GPIO_PORT26,
-      .udelay         = 5,
-};
-
-static struct platform_device i2c1gpio_device = {
-  .name          = "i2c-gpio",
-  .id    = 10,
-  .dev           = {
-         .platform_data  = &i2c1gpio_platform_data,
-  },
-};
-#endif
 /* Transmit sizes and respective CHCR register values */
 enum {
 	XMIT_SZ_8BIT		= 0,
@@ -1303,10 +1272,10 @@ void __init r8a7373_add_standard_devices(void)
 	platform_add_devices(r8a7373_early_devices,
 			ARRAY_SIZE(r8a7373_early_devices));
 
-	if (((system_rev & 0xFFFF) >> 4) >= 0x3E1) {
+	/* ES2 and onwards */
+	if (!shmobile_is_older(U2_VERSION_2_0))
 		platform_add_devices(r8a7373_late_devices_es20_d2153,
 			ARRAY_SIZE(r8a7373_late_devices_es20_d2153));
-	}
 /* ES2.0 change end */
 }
 /*Do Dummy write in L2 cache to avoid A2SL turned-off
@@ -1325,58 +1294,38 @@ void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
 /* do nothing for !CONFIG_SMP or !CONFIG_HAVE_TWD */
 
 
-#if defined(CONFIG_MFD_D2153)
-struct regulator *emmc_regulator;
-
-void d2153_mmcif_pwr_control(int onoff)
+void mmcif_pwr_control(int onoff)
 {
 	int ret;
+	struct regulator *emmc_regulator;
 
-	printk(KERN_EMERG "%s %s\n", __func__, (onoff) ? "on" : "off");
-	if (emmc_regulator == NULL) {
-		printk(KERN_INFO " %s, %d\n", __func__, __LINE__);
-		emmc_regulator = regulator_get(NULL, "vmmc");
-		if (IS_ERR(emmc_regulator)) {
-			printk(KERN_INFO "can not get vmmc regulator\n");
-			return;
-		}
+	pr_info("%s %s\n", __func__, (onoff) ? "on" : "off");
+	emmc_regulator = regulator_get(NULL, "vmmc");
+	if (IS_ERR(emmc_regulator)) {
+		pr_err("can not get vmmc regulator\n");
+		return;
 	}
 
+	/* always enabling the vmmc */
 	if (onoff == 1) {
-#if 1 /* always enabling the vmmc */
 		if (!regulator_is_enabled(emmc_regulator)) {
-			printk(KERN_INFO " %s, %d vmmc On\n", __func__,
+			pr_info("%s, %d vmmc On\n", __func__,
 				__LINE__);
 			ret = regulator_enable(emmc_regulator);
-			printk(KERN_INFO "regulator_enable ret = %d\n", ret);
+			pr_info("regulator_enable ret = %d\n", ret);
 		}
-#else
-		printk(KERN_INFO " %s, %d vmmc On\n", __func__, __LINE__);
-		ret = regulator_enable(emmc_regulator);
-		printk(KERN_INFO "regulator_enable ret = %d\n", ret);
-#endif
-	} else {
-#if 0 /* always enabling the vmmc */
-		printk(KERN_INFO "%s, %d vmmc Off\n", __func__, __LINE__);
-		ret = regulator_disable(emmc_regulator);
-		printk(KERN_INFO "regulator_disable ret = %d\n", ret);
-#endif
 	}
+	regulator_put(emmc_regulator);
 }
-#endif
 
 void mmcif_set_pwr(struct platform_device *pdev, int state)
 {
-#if defined(CONFIG_MFD_D2153)
-	d2153_mmcif_pwr_control(1);
-#endif /* CONFIG_MFD_D2153 */
+	mmcif_pwr_control(1);
 }
 
 void mmcif_down_pwr(struct platform_device *pdev)
 {
-#if defined(CONFIG_MFD_D2153)
-	d2153_mmcif_pwr_control(0);
-#endif /* CONFIG_MFD_D2153 */
+	mmcif_pwr_control(0);
 }
 
 /* Lock used while modifying register */
@@ -1452,90 +1401,18 @@ void SBSC_Init_520Mhz(void)
 }
 EXPORT_SYMBOL_GPL(SBSC_Init_520Mhz);
 
-static int read_board_rev(void)
+static void shmobile_check_rev(void)
 {
-	int rev0, rev1, rev2, rev3, ret;
-	int error;
-	error = gpio_request(GPIO_PORT72, "HW_REV0");
-	if (error < 0)
-		goto ret_err;
-	error = gpio_direction_input(GPIO_PORT72);
-	if (error < 0)
-		goto ret_err1;
-	rev0 = gpio_get_value(GPIO_PORT72);
-	if (rev0 < 0) {
-		error = rev0;
-		goto ret_err1;
-	}
-
-	error = gpio_request(GPIO_PORT73, "HW_REV1");
-	if (error < 0)
-		goto ret_err1;
-	error = gpio_direction_input(GPIO_PORT73);
-	if (error < 0)
-		goto ret_err2;
-	rev1 = gpio_get_value(GPIO_PORT73);
-	if (rev1 < 0) {
-		error = rev1;
-		goto ret_err2;
-	}
-
-	error = gpio_request(GPIO_PORT74, "HW_REV2");
-	if (error < 0)
-		goto ret_err2;
-	error = gpio_direction_input(GPIO_PORT74);
-	if (error < 0)
-		goto ret_err3;
-	rev2 = gpio_get_value(GPIO_PORT74);
-	if (rev2 < 0) {
-		error = rev2;
-		goto ret_err3;
-	}
-
-	error = gpio_request(GPIO_PORT75, "HW_REV3");
-	if (error < 0)
-		goto ret_err3;
-	error = gpio_direction_input(GPIO_PORT75);
-	if (error < 0)
-		goto ret_err4;
-	rev3 = gpio_get_value(GPIO_PORT75);
-	if (rev3 < 0) {
-		error = rev3;
-		goto ret_err4;
-	}
-
-	ret =  rev3 << 3 | rev2 << 2 | rev1 << 1 | rev0;
-	return ret;
-ret_err4:
-	 gpio_free(GPIO_PORT75);
-ret_err3:
-	 gpio_free(GPIO_PORT74);
-ret_err2:
-	 gpio_free(GPIO_PORT73);
-ret_err1:
-	 gpio_free(GPIO_PORT72);
-ret_err:
-	return error;
+	shmobile_revision = __raw_readl(IOMEM(CCCR));
 }
-unsigned int u2_get_board_rev(void)
+
+inline unsigned int shmobile_rev(void)
 {
-	static int board_rev_val = -1;
-	unsigned int loop = 0;
-
-	/*if Revision read is faild for 3 times genarate panic*/
-	if (unlikely(board_rev_val < 0)) {
-		for (loop = 0; loop < 3; loop++) {
-			board_rev_val = read_board_rev();
-			if (board_rev_val >= 0)
-				break;
-		}
-		if (unlikely(loop == 3))
-			panic("Board revision not found\n");
-	}
-	/*board revision is always be a +value*/
-	return (unsigned int) board_rev_val;
+	unsigned int chiprev;
+	chiprev = (shmobile_revision & CCCR_VERSION_MASK);
+	return chiprev;
 }
-EXPORT_SYMBOL_GPL(u2_get_board_rev);
+EXPORT_SYMBOL(shmobile_rev);
 
 void r8a7373_l2cache_init(void)
 {
@@ -1548,8 +1425,8 @@ void r8a7373_l2cache_init(void)
 	 * [19:17] Way-size: b010 = 32KB
 	 * [16] Accosiativity: 0 = 8-way
 	 */
-	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
+	 /* */
+	if (!shmobile_is_older(U2_VERSION_2_1)) {
 		/*The L2Cache is resized to 512 KB*/
 		l2x0_init(IO_ADDRESS(0xf0100000), 0x4c460000, 0x820f0fff);
 	}
@@ -1559,7 +1436,7 @@ void r8a7373_l2cache_init(void)
 
 void __init r8a7373_init_early(void)
 {
-	system_rev = __raw_readl(CCCR);
+	shmobile_check_rev();
 
 #ifdef CONFIG_ARM_TZ
 	r8a7373_l2cache_init();

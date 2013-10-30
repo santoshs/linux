@@ -11,18 +11,22 @@ typedef unsigned int            u32;
 #define TAOS_IOCTL_ALS_OFF              _IO(TAOS_IOCTL_MAGIC, 2)
 #define TAOS_IOCTL_ALS_DATA             _IOR(TAOS_IOCTL_MAGIC, 3, short)
 #define TAOS_IOCTL_ALS_CALIBRATE        _IO(TAOS_IOCTL_MAGIC, 4)
-#define TAOS_IOCTL_CONFIG_GET           _IOR(TAOS_IOCTL_MAGIC, 5, struct taos_cfg)
-#define TAOS_IOCTL_CONFIG_SET           _IOW(TAOS_IOCTL_MAGIC, 6, struct taos_cfg)
+#define TAOS_IOCTL_CONFIG_GET           _IOR(TAOS_IOCTL_MAGIC, 5, \
+						struct taos_cfg)
+#define TAOS_IOCTL_CONFIG_SET           _IOW(TAOS_IOCTL_MAGIC, 6, \
+						struct taos_cfg)
 #define TAOS_IOCTL_PROX_ON              _IO(TAOS_IOCTL_MAGIC, 7)
 #define TAOS_IOCTL_PROX_OFF             _IO(TAOS_IOCTL_MAGIC, 8)
-#define TAOS_IOCTL_PROX_DATA            _IOR(TAOS_IOCTL_MAGIC, 9, struct taos_prox_info)
+#define TAOS_IOCTL_PROX_DATA            _IOR(TAOS_IOCTL_MAGIC, 9, \
+						struct taos_prox_info)
 #define TAOS_IOCTL_PROX_EVENT           _IO(TAOS_IOCTL_MAGIC, 10)
 #define TAOS_IOCTL_PROX_CALIBRATE       _IO(TAOS_IOCTL_MAGIC, 11)
 #define TAOS_IOCTL_SENSOR_ON    _IO(TAOS_IOCTL_MAGIC, 12)
 #define TAOS_IOCTL_SENSOR_OFF   _IO(TAOS_IOCTL_MAGIC, 13)
-#define TAOS_IOCTL_SENSOR_CONFIG        _IOW(TAOS_IOCTL_MAGIC, 14, struct taos_cfg)
+#define TAOS_IOCTL_SENSOR_CONFIG        _IOW(TAOS_IOCTL_MAGIC, 14, \
+						struct taos_cfg)
 #define TAOS_IOCTL_SENSOR_CHECK _IO(TAOS_IOCTL_MAGIC, 15)
-#define TAOS_IOCTL_SENSOR_test  _IO(TAOS_IOCTL_MAGIC, 16)
+#define TAOS_IOCTL_SENSOR_TEST  _IO(TAOS_IOCTL_MAGIC, 16)
 
 
 #define TAOS_DEVICE_ID		"tmd2771"

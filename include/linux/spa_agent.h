@@ -18,6 +18,7 @@ enum
 {
 	SPA_AGENT_SET_CHARGE,
 	SPA_AGENT_SET_CHARGE_CURRENT,
+	SPA_AGENT_SET_CHARGE_VOLTAGE,
 	SPA_AGENT_SET_FULL_CHARGE,
 	SPA_AGENT_GET_VOLTAGE,
 	SPA_AGENT_GET_TEMP,
@@ -25,6 +26,7 @@ enum
 	SPA_AGENT_GET_BATT_PRESENCE,
 	SPA_AGENT_GET_CHARGER_TYPE,
 	SPA_AGENT_GET_CURRENT,
+	SPA_AGENT_GET_CHARGE_STATE,
 	SPA_AGENT_CTRL_FG,
 	SPA_AGENT_MAX,
 };
@@ -33,6 +35,7 @@ typedef union
 {
 	int (*set_charge)(unsigned int en);
 	int (*set_charge_current)(unsigned int curr);
+	int (*set_charge_voltage)(unsigned int mvolt);
 	int (*set_full_charge)(unsigned int eoc);
 	int (*get_voltage)(unsigned int opt);
 	int (*get_temp)(unsigned int opt);
@@ -40,6 +43,7 @@ typedef union
 	int (*get_batt_presence)(unsigned int opt);
 	int (*get_charger_type)(void);
 	int (*get_spa_current)(unsigned int opt);
+	int (*get_charge_state)(void);
 	int (*ctrl_fg)(void *data);
 	int (*dummy)(void);
 } SPA_AGENT_FN_T;

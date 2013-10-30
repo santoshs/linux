@@ -1,4 +1,4 @@
-/* drivers/sensor/accelerometer/lsm303dl/lsm303dl_i2c_mag.c
+/* drivers/misc/lsm303dl_i2c_mag.c
  *
  * Copyright (C) 2012 Renesas Mobile Corporation.
  *
@@ -30,15 +30,18 @@
 /************************************************
 *	Global variable definition section		*
 ************************************************/
-static struct lsm303dl_mag_data *lsm303dl_mag_info ;
-static struct i2c_client *mag_client ;
+static struct lsm303dl_mag_data *lsm303dl_mag_info;
+static struct i2c_client *mag_client;
+
+#ifdef RUNTIME_PM
 static struct regulator *mag_regltr_18v;
 static struct regulator *mag_regltr_3v;
+#endif
 
 /* Global variables for Hard-iron calibration */
-typedef struct vector {
+struct vector {
 	s16 x, y, z;
-} vector;
+};
 /* maximum magnetometer data used for calibration */
 static struct vector m_max = {-2048, -2048, -2048};
 /* minimum magnetometer data used for calibration */
@@ -83,7 +86,7 @@ static int lsm303dl_mag_i2c_read(u8 reg, u8 *val, int len)
 
 	/*Check input value*/
 	if ((NULL == val) || (NULL == mag_client)) {
-		printk("Read buffer is NULL\n");
+		lsm303dl_err("Read buffer is NULL\n");
 		return -EINVAL;
 	}
 
@@ -107,7 +110,7 @@ static int lsm303dl_mag_i2c_read(u8 reg, u8 *val, int len)
 	} while ((ret != 2) && (++tries < LSM303DL_I2C_RETRIES));
 
 	if (ret != 2) {
-		printk("Read transfer error\n");
+		lsm303dl_err("Read transfer error\n");
 		ret = -EIO;
 	} else {
 		ret = 0;
@@ -132,14 +135,14 @@ static int lsm303dl_mag_i2c_write(u8 reg, u8 *val, int len)
 
 	/*Check input value*/
 	if ((NULL == val) || (NULL == mag_client)) {
-		printk("Write buffer is NULL\n");
+		lsm303dl_err("Write buffer is NULL\n");
 		return -EINVAL;
 	}
 
 	/*Allocate internal buffer*/
 	data = kzalloc(len + 1, GFP_KERNEL);
 	if (NULL == data) {
-		printk("Allocate internal buffer error\n");
+		lsm303dl_err("Allocate internal buffer error\n");
 		return -EIO;
 	}
 
@@ -163,7 +166,7 @@ static int lsm303dl_mag_i2c_write(u8 reg, u8 *val, int len)
 	} while ((ret != 1) && (++tries < LSM303DL_I2C_RETRIES));
 
 	if (ret != 1) {
-		printk("Write transfer error\n");
+		lsm303dl_err("Write transfer error\n");
 		ret = -EIO;
 	} else
 		ret = 0;
@@ -186,14 +189,14 @@ static int lsm303dl_mag_set_sensitivity(u8 val)
 	u8		current_setting		= 0;
 
 	if ((val < MAG_SENS_1_3) || (val > MAG_SENS_8_1)) {
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 
 	/*Read the content of CRB_REG_M register*/
 	ret = lsm303dl_mag_i2c_read(CRB_REG_M, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to read data from Magnetometer\n");
+		lsm303dl_err("Fail to read data from Magnetometer\n");
 		return ret;
 	}
 
@@ -208,7 +211,7 @@ static int lsm303dl_mag_set_sensitivity(u8 val)
 	/*Write new value to CRB_REG_M register*/
 	ret = lsm303dl_mag_i2c_write(CRB_REG_M, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to write data to Magnetometer\n");
+		lsm303dl_err("Fail to write data to Magnetometer\n");
 		return ret;
 	}
 
@@ -232,14 +235,14 @@ static int lsm303dl_mag_power_status(u8 val)
 	u8		current_setting		= 0;
 
 	if ((val != MAG_NORMAL) && (val != MAG_STANDBY)) {
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 
 	/*Read the content of MR_REG_M register*/
 	ret = lsm303dl_mag_i2c_read(MR_REG_M, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to read data from Magnetometer\n");
+		lsm303dl_err("Fail to read data from Magnetometer\n");
 		return ret;
 	}
 
@@ -252,7 +255,7 @@ static int lsm303dl_mag_power_status(u8 val)
 	/*Write new value to MR_REG_M register*/
 	ret = lsm303dl_mag_i2c_write(MR_REG_M, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to write data to Magnetometer\n");
+		lsm303dl_err("Fail to write data to Magnetometer\n");
 		return ret;
 	}
 
@@ -275,14 +278,14 @@ int lsm303dl_mag_set_odr(u32 val)
 	u8		odr			= 0;
 
 	if (NULL == lsm303dl_mag_info) {
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 
 	/*Power down Magnetometer*/
 	ret = lsm303dl_mag_power_status(MAG_STANDBY);
 	if (ret < 0) {
-		printk("Fail to power down Magnetometer\n");
+		lsm303dl_err("Fail to power down Magnetometer\n");
 		return -EIO;
 	}
 
@@ -300,7 +303,7 @@ int lsm303dl_mag_set_odr(u32 val)
 	/*Read the content of CRA_REG_M register*/
 	ret = lsm303dl_mag_i2c_read(CRA_REG_M, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to read data from Magnetometer\n");
+		lsm303dl_err("Fail to read data from Magnetometer\n");
 		return -EIO;
 	}
 
@@ -309,14 +312,14 @@ int lsm303dl_mag_set_odr(u32 val)
 	/*Write new value to CRA_REG_M register*/
 	ret = lsm303dl_mag_i2c_write(CRA_REG_M, &reg_value, 1);
 	if (ret < 0) {
-		printk("Fail to write data to Magnetometer\n");
+		lsm303dl_err("Fail to write data to Magnetometer\n");
 		return -EIO;
 	}
 
 	/*Power on Magnetometer*/
 	ret = lsm303dl_mag_power_status(MAG_NORMAL);
 	if (ret < 0) {
-		printk("Fail to power on Magnetometer\n");
+		lsm303dl_err("Fail to power on Magnetometer\n");
 		return -EIO;
 	}
 
@@ -339,7 +342,7 @@ int lsm303dl_mag_activate(u8 val)
 		return -EINVAL;
 
 	if (NULL == lsm303dl_mag_info) {
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 
@@ -370,7 +373,7 @@ int lsm303dl_mag_hw_init(u8 *val)
 	int ret = 0;
 
 	if ((NULL == val) | (NULL == lsm303dl_mag_info)) {
-		printk("Input value is NULL\n");
+		lsm303dl_err("Input value is NULL\n");
 		return -EINVAL;
 	}
 
@@ -399,7 +402,7 @@ int lsm303dl_mag_get_data(s16 *data)
 	int	d_z;
 
 	if (NULL == lsm303dl_mag_info) {
-		printk("Invalid input argument\n");
+		lsm303dl_err("Invalid input argument\n");
 		return -EINVAL;
 	}
 	idx = lsm303dl_mag_info->sensitivity;
@@ -407,7 +410,7 @@ int lsm303dl_mag_get_data(s16 *data)
 	wake_lock(&lsm303dl_mag_info->wakelock);
 
 	if (NULL == data) {
-		printk("Input value is NULL\n");
+		lsm303dl_err("Input value is NULL\n");
 		ret = -EINVAL;
 		goto err;
 	}
@@ -415,7 +418,7 @@ int lsm303dl_mag_get_data(s16 *data)
 	/*Get x, y and z axis value from Magnetometer*/
 	ret = lsm303dl_mag_i2c_read(OUT_X_H_M, reg_value, 6);
 	if (ret < 0) {
-		printk("Fail to read data from Magnetometer\n");
+		lsm303dl_err("Fail to read data from Magnetometer\n");
 		goto err;
 	}
 
@@ -423,11 +426,11 @@ int lsm303dl_mag_get_data(s16 *data)
 	hw_data[0] = (int) (((reg_value[0]) << 8) | reg_value[1]);
 	hw_data[1] = (int) (((reg_value[4]) << 8) | reg_value[5]);
 	hw_data[2] = (int) (((reg_value[2]) << 8) | reg_value[3]);
-	hw_data[0] = (hw_data[0] & 0x8000) ? (hw_data[0] | 0xFFFF0000) \
+	hw_data[0] = (hw_data[0] & 0x8000) ? (hw_data[0] | 0xFFFF0000)
 								: (hw_data[0]);
-	hw_data[1] = (hw_data[1] & 0x8000) ? (hw_data[1] | 0xFFFF0000) \
+	hw_data[1] = (hw_data[1] & 0x8000) ? (hw_data[1] | 0xFFFF0000)
 								: (hw_data[1]);
-	hw_data[2] = (hw_data[2] & 0x8000) ? (hw_data[2] | 0xFFFF0000) \
+	hw_data[2] = (hw_data[2] & 0x8000) ? (hw_data[2] | 0xFFFF0000)
 								: (hw_data[2]);
 
 #ifdef MAG_HARD_IRON_CALIBRATION
@@ -475,7 +478,7 @@ int lsm303dl_mag_get_data(s16 *data)
 		data[2] = (hw_data[2] * 1000) / sens_table_mag[idx].z;
 	else
 		data[2] = 0x8000;
-	lsm303dl_log("\n Final compass reg values: %d\t%d\t%d\t\n", data[0], \
+	lsm303dl_log("\n Final compass reg values: %d\t%d\t%d\t\n", data[0],
 				data[1], data[2]);
 
 err:
@@ -495,17 +498,23 @@ int lsm303dl_mag_power_on_off(bool flag)
 {
 
 #ifdef RUNTIME_PM
+	int ret;
+
 	if (!mag_regltr_3v) {
-		printk("Error: mag_regltr_3v is unavailable\n");
+		lsm303dl_err("Error: mag_regltr_3v is unavailable\n");
 		return -1;
 	}
 
 	if ((flag == 1)) {
 		lsm303dl_log("\n LDO on %s ", __func__);
-		regulator_enable(mag_regltr_3v);
+		ret = regulator_enable(mag_regltr_3v);
+		if (ret)
+			lsm303dl_err("Error: Mag 3v Regulator enable failed\n");
 	} else if ((flag == 0)) {
 		lsm303dl_log("\n LDO off %s ", __func__);
-		regulator_disable(mag_regltr_3v);
+		ret = regulator_disable(mag_regltr_3v);
+		if (ret)
+			lsm303dl_err("Error: Mag 3v Regulator disable failed\n");
 	}
 #endif
 
@@ -524,18 +533,23 @@ int lsm303dl_mag_cs_power_on_off(bool flag)
 {
 
 #ifdef RUNTIME_PM
+	int ret;
 
 	if (!mag_regltr_18v) {
-		printk("Error: mag_regltr_18v is unavailable\n");
+		lsm303dl_err("Error: mag_regltr_18v is unavailable\n");
 		return -1;
 	}
 
 	if ((flag == 1)) {
 		lsm303dl_log("\n LDO on %s ", __func__);
-		regulator_enable(mag_regltr_18v);
+		ret = regulator_enable(mag_regltr_18v);
+		if (ret)
+			lsm303dl_err("Error: Mag 1v8 Regulator enable failed\n");
 	} else if ((flag == 0)) {
 		lsm303dl_log("\n LDO off %s ", __func__);
-		regulator_disable(mag_regltr_18v);
+		ret = regulator_disable(mag_regltr_18v);
+		if (ret)
+			lsm303dl_err("Error: Mag 1v8 Regulator disable failed\n");
 	}
 #endif
 
@@ -586,21 +600,26 @@ static int lsm303dl_mag_i2c_probe(struct i2c_client *client,
 
 #ifdef RUNTIME_PM
 
-	lsm303dl_log("%s: Magnetometer setting up regulator supplies\n", __func__);
-	mag_regltr_18v = regulator_get(NULL, "sensor_mag_18v");
+	lsm303dl_log("Magnetometer setting up regulator supplies");
+	mag_regltr_18v = regulator_get(NULL, "sensor_1v8");
 	if (IS_ERR_OR_NULL(mag_regltr_18v)) {
-		printk("%s: Failed to get 1.8V regulator\n", __func__);
+		lsm303dl_err("%s: Failed to get 1.8V regulator\n", __func__);
 		return -EBUSY;
 	}
 	regulator_set_voltage(mag_regltr_18v, 1800000, 1800000);
-	regulator_enable(mag_regltr_18v);
-	mag_regltr_3v = regulator_get(NULL, "sensor_mag_3v");
+	ret = regulator_enable(mag_regltr_18v);
+	if (ret)
+		lsm303dl_err("Error: Mag 1v8 regulator enable failed\n");
+
+	mag_regltr_3v = regulator_get(NULL, "sensor_3v");
 	if (IS_ERR_OR_NULL(mag_regltr_3v)) {
-		printk("%s: Failed to get 3V regulator\n", __func__);
+		lsm303dl_err("%s: Failed to get 3V regulator\n", __func__);
 		return -EBUSY;
 	}
 	regulator_set_voltage(mag_regltr_3v, 3000000, 3000000);
-	regulator_enable(mag_regltr_3v);
+	ret = regulator_enable(mag_regltr_3v);
+	if (ret)
+		lsm303dl_err("Error: Mag 3v regulator enable failed\n");
 #endif
 /* Runtime PM regulator setup */
 
@@ -608,15 +627,15 @@ static int lsm303dl_mag_i2c_probe(struct i2c_client *client,
 	/*Check functionalities of I2C adapter*/
 	ret = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
 	if (ret == 0) {
-		printk("Magnetometer I2C is malfunction\n");
+		lsm303dl_err("Magnetometer I2C is malfunction\n");
 		return -EIO;
 	}
 
 	/*Allocate memory for lsm303dl_mag_data structure*/
-	lsm303dl_mag_info = kzalloc(sizeof(struct lsm303dl_mag_data), \
+	lsm303dl_mag_info = kzalloc(sizeof(struct lsm303dl_mag_data),
 					GFP_KERNEL);
 	if (NULL == lsm303dl_mag_info) {
-		printk("Can't allocate memmory for lsm303dl_mag_data struct\n");
+		lsm303dl_err("Can't allocate memmory for lsm303dl_mag_data struct\n");
 		return -ENOMEM;
 	}
 
@@ -642,7 +661,7 @@ static int lsm303dl_mag_i2c_probe(struct i2c_client *client,
 	ret = lsm303dl_mag_i2c_write(CRA_REG_M, reg_default,
 				sizeof(reg_default)/sizeof(reg_default[0]));
 	if (ret < 0) {
-		printk("Can't Initialize Mag fixed &default setting\n");
+		lsm303dl_err("Can't Initialize Mag fixed &default setting\n");
 		ret = -EIO;
 		goto hw_init_err;
 	}
@@ -713,7 +732,7 @@ static const struct i2c_device_id lsm303dl_mag_id[] = {
 /****************************************************
 *	Power management structure definition		*
 *****************************************************/
-static struct dev_pm_ops lsm303dl_mag_pm_ops = {
+static const struct dev_pm_ops lsm303dl_mag_pm_ops = {
 	.suspend = lsm303dl_mag_suspend,
 	.resume = lsm303dl_mag_resume,
 };
@@ -747,7 +766,7 @@ static int __init lsm303dl_mag_init(void)
 	/*Register magnetometer driver to I2C core*/
 	ret = i2c_add_driver(&mag_driver);
 	if (ret < 0) {
-		printk("Cannot register magnetometer to I2C core\n");
+		lsm303dl_err("Cannot register magnetometer to I2C core\n");
 		ret = -ENOTSUPP;
 		goto handle_error;
 	}

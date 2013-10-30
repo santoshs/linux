@@ -5,21 +5,12 @@
 #include "MMS100S_ISC_Updater.h"
 #include <mach/r8a7373.h>
 
-#if defined(CONFIG_MACH_GARDALTE)
-#define GPIO_TOUCH_EN    	GPIO_PORT30
-#define TOUCH_EN       		GPIO_PORT30
-#define TSP_PWR_LDO_GPIO	GPIO_PORT30
-#define GPIO_TOUCH_INT		GPIO_PORT32
-#define GPIO_TSP_SCL		GPIO_PORT84
-#define GPIO_TSP_SDA		GPIO_PORT85
-#else
 #define GPIO_TOUCH_EN    41
 #define TOUCH_EN       41
 #define TSP_PWR_LDO_GPIO 41
 #define GPIO_TOUCH_INT        27
 #define GPIO_TSP_SCL             35
 #define GPIO_TSP_SDA            40
-#endif
 
 #ifndef GPIO_TOUCH_I2C_SDA
 #define GPIO_TOUCH_I2C_SDA GPIO_TSP_SDA

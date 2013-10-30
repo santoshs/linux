@@ -120,7 +120,7 @@
 #define SD_CLK_CMD_DELAY   200     /* microseconds */
 static unsigned int wakeup_from_suspend_sd;
 
-unsigned int check_booting;
+static unsigned int check_booting;
 
 /* sdcard1_detect_state variable used to detect the state of the SD card */
 static int sdcard1_detect_state;
@@ -463,15 +463,15 @@ static void renesas_sdhi_data_done(
 	struct renesas_sdhi_host *host, struct mmc_command *cmd)
 {
 	struct mmc_data *data = host->data;
-	enum dma_transfer_direction dir;
+	enum dma_data_direction dir_data;
 	u32 val;
 
 	if (data) {
 		if (!host->force_pio) {
-			dir = (host->data->flags & MMC_DATA_READ) ?
-				DMA_DEV_TO_MEM : DMA_MEM_TO_DEV;
+			dir_data = (host->data->flags & MMC_DATA_READ) ?
+				DMA_FROM_DEVICE : DMA_TO_DEVICE;
 			dma_unmap_sg(mmc_dev(host->mmc), host->sg_ptr,
-						host->sg_len, dir);
+						host->sg_len, dir_data);
 		}
 		if (!host->data->error)
 			host->data->bytes_xfered = data->blocks * data->blksz;
@@ -914,7 +914,8 @@ static void renesas_sdhi_start_dma(
 	struct renesas_sdhi_host *host, struct mmc_data *data)
 {
 	struct scatterlist *sg = host->sg_ptr, *sg_tmp;
-	enum dma_transfer_direction dir;
+	enum dma_data_direction dir_data;
+	enum dma_transfer_direction dir_transfer;
 	int count, i;
 	struct dma_async_tx_descriptor *desc = NULL;
 	struct dma_chan *chan;
@@ -935,23 +936,26 @@ static void renesas_sdhi_start_dma(
 	sdhi_dma_enable(host, true);
 
 	if (data->flags & MMC_DATA_READ) {
-		dir = DMA_DEV_TO_MEM;
+		dir_data = DMA_FROM_DEVICE;
+		dir_transfer = DMA_DEV_TO_MEM;
 		chan = host->dma_rx;
 	} else {
-		dir = DMA_MEM_TO_DEV;
+		dir_data = DMA_TO_DEVICE;
+		dir_transfer = DMA_MEM_TO_DEV;
 		chan = host->dma_tx;
 	}
 
 	if (host->pdata->flags & RENESAS_SDHI_DMA_SLAVE_CONFIG)
 		renesas_sdhi_config_dma(host, sg->length, sg->offset);
 
-	count = dma_map_sg(chan->device->dev, data->sg, data->sg_len, dir);
+	count = dma_map_sg(chan->device->dev, data->sg, data->sg_len, dir_data);
 	if (count <= 0) {
 		dev_err(&host->pdev->dev, "%s(): dma_map_sg error\n", __func__);
 		goto force_pio;
 	}
 
-	desc = dmaengine_prep_slave_sg(chan, data->sg, count, dir, DMA_CTRL_ACK);
+	desc = dmaengine_prep_slave_sg(chan, data->sg, count,
+					dir_transfer, DMA_CTRL_ACK);
 	if (desc) {
 		desc->callback = renesas_sdhi_dma_callback;
 		desc->callback_param = host;
@@ -1283,29 +1287,6 @@ static const struct mmc_host_ops renesas_sdhi_ops = {
 	.start_signal_voltage_switch = renesas_sdhi_signal_voltage_switch,
 };
 
-#ifdef CONFIG_SEC_DEBUG
-	//Add sdcard detection value to sysfs
-extern struct class *sec_class;
-static struct device *sd_detection_cmd_dev;
-
-static ssize_t sd_detection_cmd_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	if(sdcard1_detect_state==1)
-	{
-		printk("sdhci: card inserted.\n");
-		return sprintf(buf, "Insert\n");
-	}
-	else
-	{
-		printk("sdhci: card removed.\n");
-		return sprintf(buf, "Remove\n");
-	}
-}
-
-static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
-#endif
-
 static int renesas_sdhi_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
@@ -1458,24 +1439,13 @@ static int renesas_sdhi_probe(struct platform_device *pdev)
 	printk(KERN_INFO "%s: %s: host->connect %d\n",
 			__func__, mmc_hostname(host->mmc), host->connect);
 
-	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
+	if (pdata->card_stat_sysfs) {
 		/* updating the SD card presence*/
 		sdcard1_detect_state = host->connect;
 		sysfs_ret = sdhi_sysfs_init(host);
 		if (sysfs_ret)
 			printk(KERN_ERR "SYSFS initialization for SDHI:sdcard1 detection failed\n");
 	}
-#ifdef CONFIG_SEC_DEBUG
-	//Create sdcard detection value to sysfs
-	if (sd_detection_cmd_dev == NULL){
-		sd_detection_cmd_dev = device_create(sec_class, NULL, 0, NULL, "sdcard");
-		if (IS_ERR(sd_detection_cmd_dev))
-			printk("Fail to create sysfs dev\n");
-
-		if (device_create_file(sd_detection_cmd_dev, &dev_attr_status) < 0)
-			printk("Fail to create sysfs file\n");
-	}
-#endif
 
 	/* irq */
 	for (i = 0; i < 3; i++) {
@@ -1584,16 +1554,15 @@ static int renesas_sdhi_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-#define CHANNEL_SDHI1	1
 #define OFF		0
-int renesas_sdhi_suspend(struct device *dev)
+static int renesas_sdhi_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
 	struct renesas_sdhi_platdata *pdata = host->pdata;
 	int ret = 0;
 
-	if (CHANNEL_SDHI1 == pdev->id) {
+	if (pdata->suspend_pwr_ctrl) {
 		if (pdata->get_pwr)
 			host->state = pdata->get_pwr(host->pdev);
 	}
@@ -1612,11 +1581,9 @@ int renesas_sdhi_suspend(struct device *dev)
 	ret = pm_runtime_put_sync(dev);
 	if (0 > ret)
 		return -1;
-	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
-		if (host->pdata != NULL)
+	if (host->pdata != NULL && host->pdata->gpio_setting_info != NULL)
 			gpio_set_portncr_value(host->pdata->port_cnt,
 				host->pdata->gpio_setting_info, 1);
-	}
 
 	if (host->pdata  && device_may_wakeup(dev))
 		enable_irq_wake(host->pdata->detect_irq);
@@ -1624,7 +1591,7 @@ int renesas_sdhi_suspend(struct device *dev)
 	return ret;
 }
 
-int renesas_sdhi_resume(struct device *dev)
+static int renesas_sdhi_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct renesas_sdhi_host *host = platform_get_drvdata(pdev);
@@ -1634,11 +1601,10 @@ int renesas_sdhi_resume(struct device *dev)
 
 	wakeup_from_suspend_sd = 1;
 
-	if (0 == strcmp(mmc_hostname(host->mmc), "mmc1")) {
-		if (host->pdata != NULL)
+	if (host->pdata != NULL && host->pdata->gpio_setting_info != NULL)
 			gpio_set_portncr_value(host->pdata->port_cnt,
 				host->pdata->gpio_setting_info, 0);
-	}
+
 	pm_runtime_get_sync(dev);
 	if (!host->dynamic_clock) {
 		clk_enable(host->clk);
@@ -1655,7 +1621,7 @@ int renesas_sdhi_resume(struct device *dev)
 
 	ret = mmc_resume_host(host->mmc);
 
-	if (CHANNEL_SDHI1 == pdev->id) {
+	if (pdata->suspend_pwr_ctrl) {
 		if (OFF == host->state) {
 			if (pdata->set_pwr)
 				pdata->set_pwr(host->pdev, 0);

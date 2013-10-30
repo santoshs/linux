@@ -32,21 +32,28 @@ int camera_init(void);
 static inline int camera_init(void) { return 0; }
 #endif
 
+#if defined(CONFIG_SOC_CAMERA_OV5645)
+int OV5645_power(struct device *dev, int power_on);
+#else
+static inline int OV5645_power(struct device *dev, int power_on) { return 0; }
+#endif
+#if defined(CONFIG_SOC_CAMERA_HM2056)
+int HM2056_power(struct device *dev, int power_on);
+#else
+static inline int HM2056_power(struct device *dev, int power_on) { return 0; }
+#endif
 #if defined(CONFIG_SOC_CAMERA_S5K4ECGX)
 int S5K4ECGX_power(struct device *dev, int power_on);
+#else
+static inline int S5K4ECGX_power(struct device *dev, int power_on) { return 0; }
 #endif
-int main_cam_led(int light, int mode);
 #if defined(CONFIG_SOC_CAMERA_SR030PC50)
 int SR030PC50_power(struct device *dev, int power_on);
+#else
+static inline int SR030PC50_power(struct device *dev, int power_on) { return 0; }
 #endif
-#if defined(CONFIG_SOC_CAMERA_SR200PC20M)
-int SR200PC20M_power(struct device *dev, int power_on);
-#endif
-#if defined(CONFIG_SOC_CAMERA_SR352)
-int SR352_power(struct device *dev, int power_on);
-#endif
-#if defined(CONFIG_SOC_CAMERA_SR130PC20)
-int SR130PC20_power(struct device *dev, int power_on);
-#endif
+
+int main_cam_led(int light, int mode);
+
 
 #endif /* __ASM_ARCH_CAMERA_H */

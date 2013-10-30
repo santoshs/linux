@@ -41,24 +41,4 @@ extern void mreg32(void __iomem *addr, u32 set, u32 clear);
 
 #define mreg(addr, set, clear) mreg32(addr, set, clear)
 
-#ifndef CHIP_VERSION_MASK
-#define CHIP_VERSION_MASK	0x0000FFFF
-#endif /*CHIP_VERSION_MASK*/
-
-#ifndef CHIP_VERSION_ES2_0
-#define CHIP_VERSION_ES2_0	0x00003E10
-#endif /*CHIP_VERSION_ES2_0*/
-
-#ifndef CHIP_VERSION_ES2_1
-#define CHIP_VERSION_ES2_1	0x00003E11
-#endif /*CHIP_VERSION_ES2_1*/
-
-#ifndef CHIP_VERSION_ES2_2
-#define CHIP_VERSION_ES2_2	0x00003E12
-#endif /*CHIP_VERSION_ES2_2*/
-
-#ifndef CHIP_VERSION_ES2_3
-#define CHIP_VERSION_ES2_3	0x00003E13
-#endif /*CHIP_VERSION_ES2_3*/
-
 #endif /*__TST_PM_HW___*/

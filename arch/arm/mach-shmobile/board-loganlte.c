@@ -33,6 +33,8 @@
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
 #include <mach/board.h>
+#include <media/soc_camera.h>
+#include <media/soc_camera_platform.h>
 #include <linux/irqchip/arm-gic.h>
 #include <mach/setup-u2timers.h>
 #include <mach/board-loganlte-config.h>
@@ -42,6 +44,7 @@
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
+#include <linux/d2153/d2153_aad.h>
 #endif
 #include <mach/dev-wifi.h>
 #include <linux/ktd259b_bl.h>
@@ -157,7 +160,7 @@ void (*shmobile_arch_reset)(char mode, const char *cmd);
 
 static int board_rev_proc_show(struct seq_file *s, void *v)
 {
-	seq_printf(s, "%x", u2_get_board_rev());
+	seq_printf(s, "%x", system_rev);
 
 	return 0;
 }
@@ -385,9 +388,35 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 	},
 };
 
-
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
+
+static struct i2c_board_info i2c_cameras[] = {
+	{
+		I2C_BOARD_INFO("S5K4ECGX", 0x56),
+	},
+	{
+		I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
+	},
+};
+
+struct soc_camera_link camera_links[] = {
+	{
+		.bus_id			= 0,
+		.board_info		= &i2c_cameras[0],
+		.i2c_adapter_id = 1,
+		.module_name	= "S5K4ECGX",
+		.power			= S5K4ECGX_power,
+	},
+	{
+		.bus_id			= 1,
+		.board_info		= &i2c_cameras[1],
+		.i2c_adapter_id = 1,
+		.module_name	= "SR030PC50",
+		.power			= SR030PC50_power,
+	},
+};
+EXPORT_SYMBOL(camera_links);
 
 void board_restart(char mode, const char *cmd)
 {
@@ -434,10 +463,9 @@ static void __init board_init(void)
 	int inx = 0;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-	unsigned int u2_board_rev = 0;
 	u8 reg8 = __raw_readb(STBCHRB3);
 
-	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
+	if ((reg8 & 0x80) && !shmobile_is_older(U2_VERSION_2_2)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
 				__func__, __raw_readl(PLL3CR));
@@ -466,9 +494,6 @@ static void __init board_init(void)
 				  ARRAY_SIZE(loganlte_pinctrl_map));
 	r8a7373_pinmux_init();
 
-	/* set board version */
-	u2_board_rev = u2_get_board_rev();
-
 	if (!proc_create("board_revision", 0444, NULL, &board_rev_ops))
 		pr_warn("creation of /proc/board_revision failed\n");
 
@@ -478,18 +503,17 @@ static void __init board_init(void)
 	r8a7373_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
 	r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 
-	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
+	if (!shmobile_is_older(U2_VERSION_2_0)) {
 		__raw_writew(0x0022, GPIO_DRVCR_SD0);
 		__raw_writew(0x0022, GPIO_DRVCR_SIM1);
 		__raw_writew(0x0022, GPIO_DRVCR_SIM2);
 	}
 	shmobile_arch_reset = board_restart;
 
-	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
+	printk(KERN_INFO "%s hw rev : %d\n", __func__, system_rev);
 
 	/* Init unused GPIOs */
-	if (u2_board_rev <= BOARD_REV_0_1) {
+	if (system_rev <= BOARD_REV_0_1) {
 		for (inx = 0; inx < ARRAY_SIZE(unused_gpios_logan_rev1); inx++)
 			unused_gpio_port_init(unused_gpios_logan_rev1[inx]);
 	} else {
@@ -616,7 +640,21 @@ static void __init board_init(void)
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
-	u2audio_init(u2_board_rev);
+	if (system_rev < BOARD_REV_0_1)
+		d2153_pdata.audio.fm34_device = DEVICE_EXIST;
+	else
+		d2153_pdata.audio.fm34_device = DEVICE_NONE;
+
+	if ((BOARD_REV_0_1 < system_rev) &&
+		(BOARD_REV_0_4 > system_rev)) {
+			d2153_pdata.audio.aad_codec_detect_enable = true;
+			d2153_pdata.audio.debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+			d2153_pdata.audio.debounce_ms -= D2153_AAD_MICBIAS_SETUP_TIME_MS;
+	} else {
+			d2153_pdata.audio.aad_codec_detect_enable = false;
+			d2153_pdata.audio.debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+	}
+	u2audio_init();
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 
 #ifndef CONFIG_ARM_TZ
@@ -633,7 +671,7 @@ static void __init board_init(void)
 
 	camera_init();
 
-	gpio_key_init(stm_select, u2_board_rev,
+	gpio_key_init(stm_select,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
 			devices_stm_sdhi1,
@@ -662,7 +700,7 @@ static void __init board_init(void)
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if (u2_board_rev == BOARD_REV_0_0 || u2_board_rev > BOARD_REV_0_4) {
+	if (system_rev == BOARD_REV_0_0 || system_rev > BOARD_REV_0_4) {
 		int i;
 		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
 			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {
@@ -695,15 +733,14 @@ static void __init board_init(void)
 
 	/* PA devices init */
 	spa_init();
-	vibrator_init(u2_board_rev);
+#ifdef CONFIG_VIBRATOR_SS
+	ss_vibrator_data.voltage = 2800000;
+#endif
+	u2_vibrator_init();
 
 	printk(KERN_DEBUG "%s\n", __func__);
-#ifdef CONFIG_MMC_OOPS
-	crashlog_r_local_ver_write(mmcoops_info.soft_version);
-#endif
 #if 0 /*TODO: crashlog.c not compiled in and not config option*/
 	crashlog_reset_log_write();
-	crashlog_init_tmplog();
 #endif
 
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
@@ -717,7 +754,7 @@ static const char *logan_compat_dt[] __initdata = {
 	NULL,
 };
 
-DT_MACHINE_START(U2_LOGANLTE, "LoganLTE")
+DT_MACHINE_START(LOGANLTE, "loganlte")
 	.smp		= smp_ops(r8a7373_smp_ops),
 	.map_io		= r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,
@@ -729,7 +766,7 @@ DT_MACHINE_START(U2_LOGANLTE, "LoganLTE")
 	.dt_compat	= logan_compat_dt,
 MACHINE_END
 #else  /* CONFIG_OF */
-MACHINE_START(U2EVM, "u2evm")
+MACHINE_START(LOGANLTE, "loganlte")
 	.smp		= smp_ops(r8a7373_smp_ops),
 	.map_io		= r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,

@@ -25,16 +25,14 @@
 /*
  * global variable declaration
  */
-int g_vcd_ctrl_result;
-unsigned int g_vcd_ctrl_call_type;
-unsigned int g_vcd_ctrl_record_mode;
-unsigned int g_vcd_ctrl_playback_mode;
-unsigned int g_vcd_ctrl_call_kind;
-int g_vcd_ctrl_is_stop_fw;
-struct vcd_playback_option g_vcd_ctrl_stored_playback_option;
-struct timer_list g_vcd_ctrl_timer_list;
-unsigned int g_vcd_ctrl_timer_status;
-DEFINE_SEMAPHORE(g_vcd_ctrl_semaphore);
+static int g_vcd_ctrl_result;
+static unsigned int g_vcd_ctrl_call_type;
+static unsigned int g_vcd_ctrl_call_kind;
+static int g_vcd_ctrl_is_stop_fw;
+static struct vcd_playback_option g_vcd_ctrl_stored_playback_option;
+static struct timer_list g_vcd_ctrl_timer_list;
+static unsigned int g_vcd_ctrl_timer_status;
+static DEFINE_SEMAPHORE(g_vcd_ctrl_semaphore);
 
 /* ========================================================================= */
 /* For AMHAL functions                                                       */

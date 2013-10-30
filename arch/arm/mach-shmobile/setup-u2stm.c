@@ -3,7 +3,6 @@
 #include <linux/gpio.h>
 #include <mach/gpio.h>
 
-#include <linux/pmic/pmic.h>
 #include <linux/regulator/consumer.h>
 
 #include <mach/common.h>

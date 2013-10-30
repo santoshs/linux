@@ -404,6 +404,18 @@ config SENSORS_K3DH
 	help
 	  Driver for STMicroelectronic K3DH accelerometer.
 
+config USES_MOVEMENT_RECOGINATION
+        tristate "movement recognition support for K3dh sensor"
+        depends on SENSORS_K3DH
+        default n
+        help
+	 if we enable this support, it uses the interrupt mode for
+	 K3dh Accelerometer.
+
+	 it also enables the wake lock support for k3dh Accelerometer
+	 should be enabled, only when SENSORS_K3DH support is enabled.
+	 because, it is not used by any other driver
+
 config SENSORS_ACC_12BIT
 	tristate "12bit acceleration sensor support"
 	depends on I2C
@@ -450,16 +462,37 @@ config SENSOR_LSM303DL
 	tristate "ST Accelerometer and Magnetometer sensor"
 	depends on I2C
 	default n
+	 help
+	 if you say yes, here you get a LSM303DL Accelerometer
+	 and Magnetometer support
+
+	 It is a tristate, it can support as a module also, when you need
+	 work it as a module, please select m
+
 
 config SENSOR_L3GD20
 	tristate "ST Gyroscope sensor"
 	depends on I2C
 	default n
+	 help
+	 if you say yes, here you will get a L3GD20 gyroscope
+	 sensor support
+
+	 it is a tristate, tou can set a m, when it is required to
+	 work as module
+
 
 config SENSOR_OPTICAL_TAOS_TMD2771
         tristate "TAOS ambient proximity input device without light sensor"
 	depends on I2C
         default n
+	 help
+	 if you say yes, here you will get a TMD2771 ambient and
+	 proximity sensor support
+
+	 it is tristate, you can set a m, when it is required to
+	 work as module
+
 
 config SENSORS_MAG_15BIT
 	tristate "15bit Magnetic Sensor Driver Support"
@@ -652,14 +685,6 @@ config RMU2_CMT15
 	depends on RMU2_RWDT
 	select FIQ
 	select FIQ_GLUE
-
-config EOS2_RMTA_CTRL
-	tristate "eos2_rmta_ctrl"
-	help
-        This enables the sysfs entry under /sys/kernel/rmta_control.
-
-        It can be used to echo appropriate values to charging_status variable.
-        0 indicates charging diabled, 1 indicates charging enabled.
 
 config RWDT_CMT15_TEST
 	bool "CMT15 Test"

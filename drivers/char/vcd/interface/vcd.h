@@ -143,6 +143,7 @@ void vcd_stop_fw_only_sound(void);
 void vcd_codec_type_ind(unsigned int codec_type);
 void vcd_udata_ind(void);
 void vcd_start_clkgen(void);
+void vcd_stop_clkgen(void);
 void vcd_wait_path(void);
 void vcd_voip_ul_callback(unsigned int buf_size);
 void vcd_voip_dl_callback(unsigned int buf_size);
@@ -184,18 +185,18 @@ static int vcd_get_voip_dl_buffer(void *arg);
 static int vcd_set_voip_callback(void *arg);
 
 /* Proc functions */
-static int vcd_read_exec_proc(char *page, char **start, off_t offset,
-					int count, int *eof, void *data);
-static int vcd_write_exec_proc(struct file *filp, const char *buffer,
-					unsigned long len, void *data);
-static int vcd_read_log_level(char *page, char **start, off_t offset,
-					int count, int *eof, void *data);
-static int vcd_write_log_level(struct file *filp, const char *buffer,
-					unsigned long len, void *data);
-static int vcd_read_exec_func(char *page, char **start, off_t offset,
-					int count, int *eof, void *data);
-static int vcd_write_exec_func(struct file *filp, const char *buffer,
-					unsigned long len, void *data);
+static int vcd_read_exec_proc(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos);
+static int vcd_write_exec_proc(struct file *file, const char __user *buffer,
+				size_t len, loff_t *ppos);
+static int vcd_read_log_level(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos);
+static int vcd_write_log_level(struct file *file, const char __user *buffer,
+				size_t len, loff_t *ppos);
+static int vcd_read_exec_func(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos);
+static int vcd_write_exec_func(struct file *file, const char __user *buffer,
+				size_t len, loff_t *ppos);
 
 static int vcd_debug_execute(unsigned int command);
 static void vcd_debug_complete_buffer(void);

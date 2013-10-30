@@ -74,4 +74,3 @@ obj-$(CONFIG_VMWARE_VMCI)	+= vmw_vmci/
 obj-$(CONFIG_LATTICE_ECP3_CONFIG)	+= lattice-ecp3-config.o
 obj-$(CONFIG_SRAM)		+= sram.o
 obj-$(CONFIG_RMU2_CMT15)	+= rmu2_cmt15.o
-obj-$(CONFIG_EOS2_RMTA_CTRL)	+= eos2_rmta_ctrl.o

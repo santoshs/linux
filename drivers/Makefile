@@ -155,7 +155,6 @@ obj-$(CONFIG_IPACK_BUS)		+= ipack/
 obj-$(CONFIG_NTB)		+= ntb/
 
 obj-$(CONFIG_NEW_SENSORS)	+= sensors/
-obj-y				+= pmic/
 
 obj-$(CONFIG_SMECO)		+= smeco/
 

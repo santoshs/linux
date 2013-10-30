@@ -38,12 +38,6 @@
 #include <linux/ctype.h>
 #include <linux/wakelock.h>
 
-#define MUSB_IC_UART_AT_MODE           2
-#define MUSB_IC_UART_INVALID_MODE      -1
-#define MUSB_IC_UART_EMPTY_CR          3
-#define MUSB_IC_UART_EMPTY_CRLF        4
-#define MUSB_IC_UART_AT_MODE_MODECHAN  5
-
 #ifdef CONFIG_USB_R8A66597
 extern void send_usb_insert_event(int);
 #else
@@ -230,12 +224,6 @@ extern struct class *sec_class;
 
 static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw);
 
-int get_cable_type(void)
-{
-	return set_cable_status;
-}
-EXPORT_SYMBOL(get_cable_type);
-
 #if 1
 struct interrupt_element
 {
@@ -375,7 +363,7 @@ static int tsu6712_read_word_reg(struct i2c_client *client, u8 reg, int *data)
 #ifdef USE_USB_UART_SWITCH
 static int usb_uart_switch_state;
 char at_isi_switch_buf[1000] = {0};
-int KERNEL_LOG;
+int KERNEL_LOG = 1;
 
 static struct switch_dev switch_usb_uart = {
         .name = "tsu6712",
@@ -980,7 +968,7 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	    (strncmp((char *)at_isi_switch_buf, "\r\n", 2) == 0)) {
 		memset(at_isi_switch_buf, 0, 400);
 		KERNEL_LOG = 0;
-		return MUSB_IC_UART_EMPTY_CRLF;
+		return UART_EMPTY_CRLF;
 	}
 
 	if (strstr(at_isi_switch_buf, "\r\n"))
@@ -1002,11 +990,11 @@ ssize_t ld_set_switch_buf(struct device *dev,
 	if (strstr(at_isi_switch_buf, atbuf) != NULL) {
 		KERNEL_LOG = 0;
 		memset(at_isi_switch_buf, 0, 400);
-		return MUSB_IC_UART_AT_MODE;
+		return UART_AT_MODE;
 	} else if (strstr(at_isi_switch_buf, atmodechanbuf) != NULL) {
 		KERNEL_LOG = 0;
 		memset(at_isi_switch_buf, 0, 400);
-		return MUSB_IC_UART_AT_MODE_MODECHAN;
+		return UART_AT_MODE_MODECHAN;
 	} else if (strstr(at_isi_switch_buf, "AT+ISISTART") != NULL ||
 		   strstr(at_isi_switch_buf, "AT+MODECHAN=0,0") != NULL) {
 		/*do not switch to isi mode if isi mode already set*/
@@ -1024,10 +1012,10 @@ ssize_t ld_set_switch_buf(struct device *dev,
 		strstr(at_isi_switch_buf, "AT+MODECHAN=0,0\r") != NULL) {
 		memset(at_isi_switch_buf, 0, 400);
 		ld_set_manualsw(NULL, NULL, isi_cmd_buf, strlen(isi_cmd_buf));
-		return MUSB_IC_UART_INVALID_MODE;
+		return UART_INVALID_MODE;
 	}
 	if (error != 0) {
-		count = MUSB_IC_UART_INVALID_MODE;
+		count = UART_INVALID_MODE;
 		memset(at_isi_switch_buf, 0, 400);
 	}
 
@@ -1035,6 +1023,11 @@ ssize_t ld_set_switch_buf(struct device *dev,
 }
 #endif
 
+int get_kernel_log_status(void)
+{
+	return KERNEL_LOG;
+}
+EXPORT_SYMBOL(get_kernel_log_status);
 #if defined(CONFIG_SEC_DEBUG)
 static ssize_t adc_show(struct device *dev,
         struct device_attribute *attr, char *buf)
