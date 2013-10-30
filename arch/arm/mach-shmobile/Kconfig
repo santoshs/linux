@@ -250,6 +250,18 @@ config U2_GPIOKEY
 	help
 	 selects the gpio setup implemtation for u2 chipsets.
 
+config U2_TOUCHPANEL
+       bool "Touch panel setup for u2 based boards"
+       default n
+       help
+         Register required touchpanels for u2 boards
+
+config U2_TOUCHKEY
+       bool "Touch key setup for u2 based boards"
+       default n
+       help
+         Setup touchkey for u2 boards
+
 config U2_STM_ETR_TO_SDRAM
 	bool "U2 STM ETR to SDRAM"
 	depends on ARCH_R8A7373

@@ -674,10 +674,8 @@ static void __init board_init(void)
 
 	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
-#if 0 /*dev-touchpanel.c not compiled yet and no config option*/
 	/* Touch Panel auto detection */
 	i2c_add_driver(&tsp_detector_driver);
-#endif
 	i2c_register_board_info(4, i2c4_devices_tsp_detector,
 					ARRAY_SIZE(i2c4_devices_tsp_detector));
 

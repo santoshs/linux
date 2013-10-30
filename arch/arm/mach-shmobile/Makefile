@@ -107,8 +107,9 @@ obj-y += crashlog.o
 obj-$(CONFIG_SEC_DEBUG)			+= sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec-reboot.o
 obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
 
-# touchkey "Trying 3.10 build. Comment it for now TODO
-#obj-y += setup-u2touchkey.o dev-touchpanel.o
+obj-$(CONFIG_U2_TOUCHPANEL) += dev-touchpanel.o
+obj-$(CONFIG_U2_TOUCHKEY) += setup-u2touchkey.o
+
 # touchscreen
 obj-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += setup-u2mxt224.o
 
