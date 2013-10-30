@@ -27,6 +27,7 @@
 #define PSTR_RETRIES	100
 #define PSTR_DELAY_US	10
 
+#ifndef CONFIG_PDC
 #ifdef CONFIG_PM
 static int rmobile_pd_power_down(struct generic_pm_domain *genpd)
 {
@@ -184,3 +185,4 @@ void rmobile_add_devices_to_domains(struct pm_domain_device data[],
 						data[j].pdev, &latencies);
 }
 #endif /* CONFIG_PM */
+#endif /* CONFIG_PDC */
