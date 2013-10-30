@@ -1312,7 +1312,7 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 	if(ret < 0)
 		return ret;
 
-	 pr_info("%s:voltage ADC = 0x%03x\n",
+	 pr_info("%s:voltage ADC = 0x%x\n", __func__,
 			pbat_data->adc_res[D2153_ADC_VOLTAGE].read_adc);
 	// Getting calibration result.
 
