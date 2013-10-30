@@ -47,7 +47,7 @@
 #endif /* CONFIG_ARCH_R8A7373 */
 
 static const char __initdata d2153_battery_banner[] = \
-"D2153 Battery, (c) 2012 Dialog Semiconductor Ltd.\n";
+	"D2153 Battery, (c) 2012 Dialog Semiconductor Ltd.\n";
 
 /***************************************************************************
  Pre-definition
@@ -147,8 +147,6 @@ static struct timeval resume_time = {0, 0};
 static u8  is_called_by_ticker = 0;
 static u16 ACT_4P2V_ADC = 0;
 static u16 ACT_3P4V_ADC = 0;
-
-extern struct spa_power_data spa_power_pdata;
 
 /* This array is for setting ADC_CONT register about each channel.*/
 static struct adc_cont_in_auto adc_cont_inven[D2153_ADC_CHANNEL_MAX - 1] = {
@@ -1280,23 +1278,18 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 	u16 offset_charging=0;
 	int charging_index = 0;
 	int charging_status;
-	struct power_supply *ps_bat = NULL;
+	struct power_supply *ps = NULL;
 	union power_supply_propval value;
 
-	ps_bat = power_supply_get_by_name("battery");
-	if(ps_bat == NULL) {
-		pr_err("%s. ps \"battery\" yet to register\n", __func__);
+	ps = power_supply_get_by_name(spa_power_pdata.charger_name);
+	if (ps == NULL) {
+		pr_err("%s. ps  yet to register\n", __func__);
 		return -EINVAL;
 	}
-	ps_bat->get_property(ps_bat, POWER_SUPPLY_PROP_STATUS, &value);
+	ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
+	charging_status = value.intval;
 
-	charging_status =
-			(value.intval == POWER_SUPPLY_STATUS_CHARGING) ? 1 : 0;
-
-	if (charging_status)
-		pbat_data->is_charging = 1;
-	else
-		pbat_data->is_charging = 0;
+	pbat_data->is_charging = charging_status;
 
 #ifdef CONFIG_D2153_EOC_CTRL
 	if (charging_status) {
@@ -1319,6 +1312,8 @@ static int d2153_read_voltage(struct d2153_battery *pbat)
 	if(ret < 0)
 		return ret;
 
+	 pr_info("%s:voltage ADC = 0x%03x\n",
+			pbat_data->adc_res[D2153_ADC_VOLTAGE].read_adc);
 	// Getting calibration result.
 
 	if(pbat_data->is_charging)
@@ -1716,7 +1711,9 @@ int d2153_check_bat_presence(unsigned int opt)
 {
 	int ret = 0;
 	struct d2153_battery_data *pbat_data = &gbat->battery_data;
-	unsigned int temp1_adc;
+	unsigned int bat_check_adc;
+	adc_channel bat_temp_adc =
+			gbat->pd2153->pdata->pbat_platform->bat_temp_adc;
 
 	/* Read temperature ADC
 	* Channel : D2153_ADC_TEMPERATURE_1 -> TEMP_BOARD
@@ -1724,12 +1721,15 @@ int d2153_check_bat_presence(unsigned int opt)
 	*/
 
 	/* To read a TEMP1 ADC */
-	ret = gbat->d2153_read_adc(gbat, D2153_ADC_TEMPERATURE_1);
+	ret = gbat->d2153_read_adc(gbat, bat_temp_adc);
+/*	ret = gbat->d2153_read_adc(gbat, D2153_ADC_TEMPERATURE_1); */
 	if (ret < 0)
 		return ret;
-	temp1_adc = pbat_data->adc_res[D2153_ADC_TEMPERATURE_1].read_adc;
-
-	if (temp1_adc == 0xfff)
+/*	bat_check_adc = pbat_data->adc_res[D2153_ADC_TEMPERATURE_1].read_adc; */
+	bat_check_adc = pbat_data->adc_res[bat_temp_adc].read_adc;
+	pr_info("%s:bat temp channel = %d,adc val = 0x%x\n", __func__,
+						bat_temp_adc, bat_check_adc);
+	if (bat_check_adc == 0xfff)
 		return BATTERY_NOT_DETECTED;
 	else
 		return BATTERY_DETECTED;
@@ -2269,7 +2269,6 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 
 	gbat = pbat;
 	pbat->pd2153 = d2153;
-
 	// Initialize a resource locking
 	mutex_init(&pbat->lock);
 	mutex_init(&pbat->api_lock);
@@ -2312,7 +2311,7 @@ static __devinit int d2153_battery_probe(struct platform_device *pdev)
 			(void *)d2153_get_temp, "d2153_battery");
 	spa_agent_register(SPA_AGENT_GET_VOLTAGE,
 			(void *)d2153_get_voltage, "d2153-battery");
-	spa_agent_register(SPA_AGENT_GET_BATT_PRESENCE,
+	spa_agent_register(SPA_AGENT_GET_BATT_PRESENCE_PMIC,
 			(void *)d2153_check_bat_presence, "d2153-battery");
 	spa_agent_register(SPA_AGENT_CTRL_FG,
 			(void *)d2153_ctrl_fg, "d2153-battery");

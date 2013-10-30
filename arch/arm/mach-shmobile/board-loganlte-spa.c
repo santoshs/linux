@@ -79,9 +79,13 @@ static struct platform_device spa_power_device = {
 	.dev.platform_data = &spa_power_pdata,
 };
 
+static enum spa_agent_feature bat_check_method =
+					SPA_AGENT_GET_BATT_PRESENCE_CHARGER;
+
 static struct platform_device spa_agent_device = {
 	.name = "spa_agent",
 	.id = -1,
+	.dev.platform_data = &bat_check_method,
 };
 
 static int spa_power_init(void)

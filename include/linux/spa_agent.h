@@ -14,7 +14,7 @@
 #ifndef __SPA_AGENT_H
 #define __SPA_AGENT_H
 
-enum
+enum spa_agent_feature
 {
 	SPA_AGENT_SET_CHARGE,
 	SPA_AGENT_SET_CHARGE_CURRENT,
@@ -23,7 +23,8 @@ enum
 	SPA_AGENT_GET_VOLTAGE,
 	SPA_AGENT_GET_TEMP,
 	SPA_AGENT_GET_CAPACITY,
-	SPA_AGENT_GET_BATT_PRESENCE,
+	SPA_AGENT_GET_BATT_PRESENCE_PMIC,
+	SPA_AGENT_GET_BATT_PRESENCE_CHARGER,
 	SPA_AGENT_GET_CHARGER_TYPE,
 	SPA_AGENT_GET_CURRENT,
 	SPA_AGENT_GET_CHARGE_STATE,
@@ -40,7 +41,8 @@ typedef union
 	int (*get_voltage)(unsigned int opt);
 	int (*get_temp)(unsigned int opt);
 	int (*get_capacity)(void);
-	int (*get_batt_presence)(unsigned int opt);
+	int (*get_batt_presence_pmic)(void);
+	int (*get_batt_presence_charger)(void);
 	int (*get_charger_type)(void);
 	int (*get_current)(unsigned int opt);
 	int (*get_charge_state)(void);
