@@ -146,7 +146,7 @@ static uint32_t oom_count = 0;
 #if defined(CONFIG_LOW_MEM_SNPR)
 #include "lowmemsnpr.h"
 
-static int lowmem_oom_adj_to_oom_score_adj(int oom_adj);
+static short lowmem_oom_adj_to_oom_score_adj(short oom_adj);
 #endif
 
 static uint32_t lowmem_debug_level = 1;
@@ -187,7 +187,7 @@ task_notify_func(struct notifier_block *self, unsigned long val, void *data);
 
 
 #ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
-static int lowmem_oom_adj_to_oom_score_adj(int oom_adj);
+static short lowmem_oom_adj_to_oom_score_adj(short oom_adj);
 #endif
 
 static struct notifier_block task_nb = {
