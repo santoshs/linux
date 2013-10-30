@@ -22,6 +22,6 @@
 
 void touchkey_init_hw(void);
 
-int touchkey_i2c_register_board_info(int busnum);
+int __init touchkey_i2c_register_board_info(int busnum);
 
 #endif // __ASM_ARCH_TOUCHKEY_H
