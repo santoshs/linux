@@ -795,7 +795,7 @@ static struct i2c_driver gp2a_prox_i2c_driver = {
                 .pm = &gp2a_prox_pm_ops,
         },
 	.probe 		= gp2a_prox_probe,
-	.remove 	= __exit_p(gp2a_prox_remove),
+	.remove         = gp2a_prox_remove,
 	.id_table 	= gp2a_prox_id,
 };
 
