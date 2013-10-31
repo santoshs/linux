@@ -33,32 +33,32 @@
 /*
  * global variable declaration
  */
-DEFINE_SEMAPHORE(g_vcd_semaphore);
-void (*g_vcd_complete_buffer)(void);
-void (*g_vcd_beginning_buffer)(void);
-void (*g_vcd_voip_ul_callback)(unsigned int buf_size);
-void (*g_vcd_voip_dl_callback)(unsigned int buf_size);
-void (*g_vcd_start_fw)(void);
-void (*g_vcd_stop_fw)(void);
-void (*g_vcd_start_fw_pt)(void);
-void (*g_vcd_stop_fw_pt)(void);
-void (*g_vcd_codec_type_ind)(unsigned int codec_type);
-void (*g_vcd_start_clkgen)(void);
-void (*g_vcd_stop_clkgen)(void);
-void (*g_vcd_start_clkgen_pt)(void);
-void (*g_vcd_stop_clkgen_pt)(void);
-void (*g_vcd_wait_path)(void);
+static DEFINE_SEMAPHORE(g_vcd_semaphore);
+static void (*g_vcd_complete_buffer)(void);
+static void (*g_vcd_beginning_buffer)(void);
+static void (*g_vcd_voip_ul_callback)(unsigned int buf_size);
+static void (*g_vcd_voip_dl_callback)(unsigned int buf_size);
+static void (*g_vcd_start_fw)(void);
+static void (*g_vcd_stop_fw)(void);
+static void (*g_vcd_start_fw_pt)(void);
+static void (*g_vcd_stop_fw_pt)(void);
+static void (*g_vcd_codec_type_ind)(unsigned int codec_type);
+static void (*g_vcd_start_clkgen)(void);
+static void (*g_vcd_stop_clkgen)(void);
+static void (*g_vcd_start_clkgen_pt)(void);
+static void (*g_vcd_stop_clkgen_pt)(void);
+static void (*g_vcd_wait_path)(void);
 static struct proc_dir_entry *g_vcd_parent;
 unsigned int g_vcd_log_level = VCD_LOG_ERROR;
 
-struct vcd_async_wait  g_vcd_async_wait;
-struct libvcd_status_async_map *g_vcd_status_async_map;
+static struct vcd_async_wait  g_vcd_async_wait;
+static struct libvcd_status_async_map *g_vcd_status_async_map;
 
-int g_vcd_debug_call_kind;
-int g_vcd_debug_mode;
+static int g_vcd_debug_call_kind;
+static int g_vcd_debug_mode;
 
-int g_vcd_is_call_clkgen;
-int g_vcd_is_start_vcd;
+static int g_vcd_is_call_clkgen;
+static int g_vcd_is_start_vcd;
 
 /*
  * table declaration
@@ -1273,7 +1273,7 @@ rtn:
 static int vcd_set_voip_callback(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_voip_callback option = {0};
+	struct vcd_voip_callback option = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1306,7 +1306,7 @@ rtn:
 static int vcd_watch_fw(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_watch_fw_info info = {0};
+	struct vcd_watch_fw_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1342,7 +1342,7 @@ rtn:
 static int vcd_watch_fw_pt(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_watch_fw_info info = {0};
+	struct vcd_watch_fw_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1378,7 +1378,7 @@ rtn:
 static int vcd_watch_clkgen(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_watch_clkgen_info info = {0};
+	struct vcd_watch_clkgen_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1414,7 +1414,7 @@ rtn:
 static int vcd_watch_clkgen_pt(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_watch_clkgen_info info = {0};
+	struct vcd_watch_clkgen_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1450,7 +1450,7 @@ rtn:
 static int vcd_watch_codec_type(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_watch_codec_type_info info = {0};
+	struct vcd_watch_codec_type_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1485,7 +1485,7 @@ rtn:
 static int vcd_set_wait_path(void *arg)
 {
 	int ret = VCD_ERR_NONE;
-	struct vcd_wait_path_info info = {0};
+	struct vcd_wait_path_info info = {NULL};
 
 	vcd_pr_start_interface_function("arg[%p].\n", arg);
 
@@ -1516,21 +1516,18 @@ rtn:
 /**
  * @brief	execute process read function.
  *
- * @param[in]	page	write position.
- * @param[in]	start	unused.
- * @param[in]	offset	unused.
- * @param[in]	count	maximum write length.
- * @param[in]	eof	unused.
- * @param[in]	data	unused.
+ * @param[in]	file    unused.
+ * @param[in]	buf	userspace buffer read to.
+ * @param[in]	size	maximum number of bytes to read.
+ * @param[in]	ppos	current position in the buffer.
  *
- * @retval	len	write length.
  */
-static int vcd_read_exec_proc(char *page, char **start, off_t offset,
-					int count, int *eof, void *data)
+static int vcd_read_exec_proc(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos)
 {
-	int len = 0;
+	size_t len;
 	int result = 0;
-
+	char page[10];
 	/* semaphore start */
 	down(&g_vcd_semaphore);
 
@@ -1546,7 +1543,7 @@ static int vcd_read_exec_proc(char *page, char **start, off_t offset,
 	/* execute control function */
 	result = vcd_ctrl_get_result();
 
-	len = snprintf(page, count, "%d\n", result);
+	len = snprintf(page, sizeof(page), "%d\n", result);
 
 	vcd_pr_if_amhal("[ -> AMHAL] [%d]\n", result);
 
@@ -1562,22 +1559,22 @@ rtn:
 	/* semaphore end */
 	up(&g_vcd_semaphore);
 
-	return len;
+	return simple_read_from_buffer(buf, size, ppos, page, len);
 }
 
 
 /**
  * @brief	execute process write function.
  *
- * @param[in]	filp	unused.
+ * @param[in]	file	unused.
  * @param[in]	buffer	user data.
  * @param[in]	len	length of data.
- * @param[in]	data	unused.
+ * @param[in]	ppos	unused.
  *
  * @retval	len	read length.
  */
-static int vcd_write_exec_proc(struct file *filp, const char *buffer,
-					unsigned long len, void *data)
+static int vcd_write_exec_proc(struct file *file, const char __user *buffer,
+				size_t len, loff_t *ppos)
 {
 	int ret = VCD_ERR_NONE;
 	unsigned char proc_buf[VCD_PROC_BUF_SIZE] = {0};
@@ -1595,7 +1592,7 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 
 	/* buffer size check */
 	if (VCD_PROC_BUF_SIZE <= len) {
-		vcd_pr_err("size over len[%ld].\n", len);
+		vcd_pr_err("size over len[%d].\n", len);
 		goto rtn;
 	}
 
@@ -1651,7 +1648,7 @@ static int vcd_write_exec_proc(struct file *filp, const char *buffer,
 		break;
 	}
 
-	vcd_pr_end_if_user("len[%ld].\n", len);
+	vcd_pr_end_if_user("len[%d].\n", len);
 
 rtn:
 	/* semaphore end */
@@ -1664,43 +1661,40 @@ rtn:
 /**
  * @brief	log level read function.
  *
- * @param[in]	page	write position.
- * @param[in]	start	unused.
- * @param[in]	offset	unused.
- * @param[in]	count	maximum write length.
- * @param[in]	eof	unused.
- * @param[in]	data	unused.
+ * @param[in]   file    unused.
+ * @param[in]   buf     userspace buffer read to.
+ * @param[in]   size    maximum number of bytes to read.
+ * @param[in]   ppos    current position in the buffer.
  *
- * @retval	len	write length.
  */
-static int vcd_read_log_level(char *page, char **start, off_t offset,
-					int count, int *eof, void *data)
+static int vcd_read_log_level(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos)
 {
-	int len = 0;
-
+	size_t len;
+	char page[50];
 	vcd_pr_start_interface_function();
 
 #ifdef __PRINT_VCD__
-	len = snprintf(page, count, "0x%x\n", g_vcd_log_level);
+	len = sprintf(page, "0x%x\n", g_vcd_log_level);
 #endif /* __PRINT_VCD__ */
 
 	vcd_pr_end_interface_function("len[%d].\n", len);
-	return len;
+	return simple_read_from_buffer(buf, size, ppos, page, len);
 }
 
 
 /**
  * @brief	log level write function.
  *
- * @param[in]	filp	unused.
- * @param[in]	buffer	user data.
- * @param[in]	len	length of data.
- * @param[in]	data	unused.
- *
+ * @param[in]   file    unused.
+ * @param[in]   buffer  user data.
+ * @param[in]   len     length of data.
+ * @param[in]   ppos    unused.
+
  * @retval	len	read length.
  */
-static int vcd_write_log_level(struct file *filp, const char *buffer,
-						unsigned long len, void *data)
+static int vcd_write_log_level(struct file *file, const char __user *buffer,
+				size_t len, loff_t *ppos)
 {
 	int ret = VCD_ERR_NONE;
 	unsigned char proc_buf[VCD_PROC_BUF_SIZE] = {0};
@@ -1714,7 +1708,7 @@ static int vcd_write_log_level(struct file *filp, const char *buffer,
 
 	/* buffer size check */
 	if (VCD_PROC_BUF_SIZE <= len) {
-		vcd_pr_err("size over len[%ld].\n", len);
+		vcd_pr_err("size over len[%d].\n", len);
 		goto rtn;
 	}
 
@@ -1743,7 +1737,7 @@ static int vcd_write_log_level(struct file *filp, const char *buffer,
 
 rtn:
 	vcd_pr_interface_info("g_vcd_log_level[0x%x].\n", g_vcd_log_level);
-	vcd_pr_end_interface_function("len[%ld].\n", len);
+	vcd_pr_end_interface_function("len[%d].\n", len);
 	return len;
 }
 
@@ -1751,17 +1745,15 @@ rtn:
 /**
  * @brief	exec func read function.
  *
- * @param[in]	page	write position.
- * @param[in]	start	unused.
- * @param[in]	offset	unused.
- * @param[in]	count	maximum write length.
- * @param[in]	eof	unused.
- * @param[in]	data	unused.
+ * @param[in]   file    unused.
+ * @param[in]   buf     userspace buffer read to.
+ * @param[in]   size    maximum number of bytes to read.
+ * @param[in]   ppos    current position in the buffer.
  *
  * @retval	len	write length.
  */
-static int vcd_read_exec_func(char *page, char **start, off_t offset,
-					int count, int *eof, void *data)
+static int vcd_read_exec_func(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos)
 {
 	int len = 0;
 
@@ -1777,23 +1769,23 @@ static int vcd_read_exec_func(char *page, char **start, off_t offset,
 /**
  * @brief	exec func write function.
  *
- * @param[in]	filp	unused.
- * @param[in]	buffer	user data.
- * @param[in]	len	length of data.
- * @param[in]	data	unused.
+ * @param[in]   file    unused.
+ * @param[in]   buffer  user data.
+ * @param[in]   len     length of data.
+ * @param[in]   ppos    unused.
  *
  * @retval	count	read length.
  */
-static int vcd_write_exec_func(struct file *filp, const char *buffer,
-					unsigned long len, void *data)
+static int vcd_write_exec_func(struct file *file, const char __user *buffer,
+				size_t len, loff_t *ppos)
 {
 	int ret = VCD_ERR_NONE;
 	unsigned char proc_buf[VCD_PROC_BUF_SIZE] = {0};
 	unsigned int write_func = 0;
 
 	vcd_pr_start_interface_function(
-		"filp[%p],buffer[%p],len[%ld],data[%p].\n",
-		filp, buffer, len, data);
+		"filp[%p],buffer[%p],len[%d].\n",
+		file, buffer, len);
 
 #ifndef __VCD_DEBUG__
 	goto rtn;
@@ -1801,7 +1793,7 @@ static int vcd_write_exec_func(struct file *filp, const char *buffer,
 
 	/* buffer size check */
 	if (VCD_PROC_BUF_SIZE <= len) {
-		vcd_pr_err("size over len[%ld].\n", len);
+		vcd_pr_err("size over len[%d].\n", len);
 		goto rtn;
 	}
 
@@ -1822,11 +1814,27 @@ static int vcd_write_exec_func(struct file *filp, const char *buffer,
 	vcd_debug_execute(write_func);
 
 rtn:
-	vcd_pr_end_interface_function("len[%ld].\n", len);
+	vcd_pr_end_interface_function("len[%d].\n", len);
 	return len;
 }
 
+static const struct file_operations proc_fops = {
+	.read           = vcd_read_exec_proc,
+	.write		= vcd_write_exec_proc,
+	.llseek         = default_llseek,
+};
 
+static const struct file_operations log_fops = {
+	.read           = vcd_read_log_level,
+	.write          = vcd_write_log_level,
+	.llseek         = default_llseek,
+};
+
+static const struct file_operations func_fops = {
+	.read           = vcd_read_exec_func,
+	.write          = vcd_write_exec_func,
+	.llseek         = default_llseek,
+};
 /**
  * @brief	debug execute function.
  *
@@ -1840,11 +1848,11 @@ static int vcd_debug_execute(unsigned int command)
 	struct vcd_execute_command args = {0};
 	struct vcd_record_option record_option = {0};
 	struct vcd_playback_option playback_option = {0};
-	struct vcd_record_buffer_info record_buf_info = { {0} };
-	struct vcd_playback_buffer_info playback_buf_info = { {0} };
-	struct vcd_watch_fw_info watch_fw_info = {0};
-	struct vcd_watch_clkgen_info watch_clkgen_info = {0};
-	struct vcd_watch_codec_type_info watch_codec_type_info = {0};
+	struct vcd_record_buffer_info record_buf_info = { {NULL} };
+	struct vcd_playback_buffer_info playback_buf_info = { {NULL} };
+	struct vcd_watch_fw_info watch_fw_info = {NULL};
+	struct vcd_watch_clkgen_info watch_clkgen_info = {NULL};
+	struct vcd_watch_codec_type_info watch_codec_type_info = {NULL};
 	unsigned int temp_log_level = VCD_LOG_NONE;
 
 	vcd_pr_start_interface_function("command[%d].\n", command);
@@ -2144,34 +2152,32 @@ static int vcd_create_proc_entry(void)
 	g_vcd_parent = proc_mkdir(VCD_DRIVER_NAME, NULL);
 	if (NULL != g_vcd_parent) {
 		/* create file for execute process */
-		exec_proc = create_proc_entry(VCD_PROC_FILE_NAME_EXEC_PROC,
-				(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent);
-		if (NULL != exec_proc) {
-			exec_proc->read_proc  = vcd_read_exec_proc;
-			exec_proc->write_proc = vcd_write_exec_proc;
-		} else {
+		exec_proc = proc_create_data(VCD_PROC_FILE_NAME_EXEC_PROC,
+			(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent, &proc_fops, NULL);
+		if (NULL != exec_proc)
+			printk(KERN_INFO" exec proc succesful\n");
+		 else {
 			vcd_pr_always_err("create failed for exec.\n");
 			ret = VCD_ERR_SYSTEM;
 			goto rm_dir;
 		}
 		/* create file for log level */
-		log_level = create_proc_entry(VCD_PROC_FILE_NAME_LOG_LEVEL,
-				(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent);
-		if (NULL != log_level) {
-			log_level->read_proc  = vcd_read_log_level;
-			log_level->write_proc = vcd_write_log_level;
-		} else {
+		log_level = proc_create_data(VCD_PROC_FILE_NAME_LOG_LEVEL,
+			(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent, &log_fops, NULL);
+		if (NULL != log_level)
+			printk(KERN_INFO" log proc succesful\n");
+		else {
 			vcd_pr_always_err("create failed for log level.\n");
 			ret = VCD_ERR_SYSTEM;
 			goto rm_exec_proc;
 		}
 		/* create file for execute function */
-		exec_func = create_proc_entry(VCD_PROC_FILE_NAME_EXEC_FUNC,
-				(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent);
-		if (NULL != exec_func) {
-			exec_func->read_proc  = vcd_read_exec_func;
-			exec_func->write_proc = vcd_write_exec_func;
-		} else {
+		exec_func = proc_create_data(VCD_PROC_FILE_NAME_EXEC_FUNC,
+			(S_IFREG | S_IRUGO | S_IWUGO), g_vcd_parent, &func_fops, NULL);
+
+		if (NULL != exec_func)
+			 printk(KERN_INFO" exec proc func succesful\n");
+		 else {
 			vcd_pr_always_err("create failed for exec func.\n");
 			ret = VCD_ERR_SYSTEM;
 			goto rm_log_proc;

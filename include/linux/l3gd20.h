@@ -30,7 +30,7 @@
 #define EVENT_TYPE_GYRO_X				ABS_HAT1X
 #define EVENT_TYPE_GYRO_Y				ABS_HAT1Y
 #define EVENT_TYPE_GYRO_Z				ABS_GAS
-#define PI								(314/100)
+#define PI						(314/100)
 #define CONVERT_GYRO_RAD				((2*PI)/360)
 
 #endif /*ANDROID_GYROSCOPE_SENSOR_H*/

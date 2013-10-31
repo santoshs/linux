@@ -26,8 +26,8 @@
 #include <mach/irqs.h>
 #include <mach/memory-r8a7373.h>
 
-#include "linux/vcd/vcd_common.h"
-#include "linux/vcd/vcd_control.h"
+#include <linux/vcd/vcd_common.h>
+#include <linux/vcd/vcd_control.h>
 #include "vcd_spuv.h"
 #include "vcd_spuv_func.h"
 
@@ -35,21 +35,21 @@
 /*
  * global variable declaration
  */
-struct vcd_spuv_info g_vcd_spuv_info;
-struct vcd_spuv_set_binary_info g_vcd_spuv_binary_info;
+static struct vcd_spuv_info g_vcd_spuv_info;
+static struct vcd_spuv_set_binary_info g_vcd_spuv_binary_info;
 
 static struct vcd_spuv_workqueue  *g_vcd_spuv_work_queue;
 static struct vcd_spuv_work       g_vcd_spuv_interrupt_ack;
 static struct vcd_spuv_work       g_vcd_spuv_interrupt_req;
 static struct vcd_spuv_work       g_vcd_spuv_watchdog_timeout;
 
-struct timeval g_vcd_spuv_tv_start;
-struct timeval g_vcd_spuv_tv_timeout;
+static struct timeval g_vcd_spuv_tv_start;
+static struct timeval g_vcd_spuv_tv_timeout;
 
 /* for debug */
-unsigned int g_vcd_spuv_is_trigger_cnt;
-unsigned int g_vcd_spuv_play_trigger_cnt;
-unsigned int g_vcd_spuv_rec_trigger_cnt;
+static unsigned int g_vcd_spuv_is_trigger_cnt;
+static unsigned int g_vcd_spuv_play_trigger_cnt;
+static unsigned int g_vcd_spuv_rec_trigger_cnt;
 
 
 /* ========================================================================= */
@@ -209,7 +209,7 @@ int vcd_spuv_get_binary_buffer(void)
  */
 int vcd_spuv_set_binary_preprocessing(char *file_path)
 {
-	unsigned int addr = 0;
+	void *addr = NULL;
 	char *comp_result = NULL;
 
 	vcd_pr_start_spuv_function("file_path[%s].\n", file_path);
@@ -378,7 +378,6 @@ int vcd_spuv_get_async_area(void)
 	return buf_addr;
 }
 
-
 /**
  * @brief	get asyncrnous return area function.
  *
@@ -398,7 +397,6 @@ int vcd_spuv_free_async_area(unsigned int adr)
 	vcd_pr_end_spuv_function("ret[%d].\n", ret);
 	return ret;
 }
-
 
 /**
  * @brief	start vcd function.
@@ -526,7 +524,7 @@ int vcd_spuv_set_hw_param(void)
 {
 	int ret = VCD_ERR_NONE;
 	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
-	int *proc_param = (int *)SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
+	int *proc_param = SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
 
 	vcd_pr_start_spuv_function();
 
@@ -538,7 +536,7 @@ int vcd_spuv_set_hw_param(void)
 				VCD_SPUV_HW_PARAMETERS_IND);
 
 	/* flush cache */
-	vcd_spuv_func_cacheflush_sdram((unsigned int)proc_param, PAGE_SIZE);
+	vcd_spuv_func_cacheflush_sdram(proc_param, PAGE_SIZE);
 
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
@@ -573,7 +571,7 @@ int vcd_spuv_start_call(void)
 {
 	int ret = VCD_ERR_NONE;
 	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
-	int *proc_param = (int *)SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
+	int *proc_param = SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
 	int param_num = VCD_SPUV_SPEECH_START_LENGTH;
 	unsigned int dl_adr = 0;
 	unsigned int ul_adr = 0;
@@ -589,7 +587,7 @@ int vcd_spuv_start_call(void)
 				VCD_SPUV_SPEECH_START_CNF);
 
 	/* flush cache */
-	vcd_spuv_func_cacheflush_sdram((unsigned int)proc_param, PAGE_SIZE);
+	vcd_spuv_func_cacheflush_sdram(proc_param, PAGE_SIZE);
 
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
@@ -706,7 +704,7 @@ int vcd_spuv_set_udata(void)
 {
 	int ret = VCD_ERR_NONE;
 	int *param = (int *)SPUV_FUNC_SDRAM_SPUV_MSG_BUFFER;
-	int *proc_param = (int *)SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
+	int *proc_param = SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
 
 	vcd_pr_start_spuv_function();
 
@@ -718,7 +716,7 @@ int vcd_spuv_set_udata(void)
 				VCD_SPUV_UDATA_REQ);
 
 	/* flush cache */
-	vcd_spuv_func_cacheflush_sdram((unsigned int)proc_param, PAGE_SIZE);
+	vcd_spuv_func_cacheflush_sdram(proc_param, PAGE_SIZE);
 
 	/* set parameter */
 	param[0] = VCD_SPUV_INTERFACE_ID;
@@ -1511,12 +1509,12 @@ int vcd_spuv_set_trace_select(void)
 int vcd_spuv_get_call_type(void)
 {
 	int call_type = VCD_CALL_TYPE_CS;
-	int *proc_param = (int *)SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
+	int *proc_param = SPUV_FUNC_SDRAM_PROC_MSG_BUFFER;
 
 	vcd_pr_start_spuv_function();
 
 	/* flush cache */
-	vcd_spuv_func_cacheflush_sdram((unsigned int)proc_param, PAGE_SIZE);
+	vcd_spuv_func_cacheflush_sdram(proc_param, PAGE_SIZE);
 
 	/* VoIP Loopback [SRC] for debug */
 	if (0x03000000 & g_vcd_log_level)

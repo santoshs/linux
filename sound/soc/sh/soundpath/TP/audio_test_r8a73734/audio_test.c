@@ -150,16 +150,17 @@ static void audio_test_watch_stop_vcd_cb(void);
 /* log level                       */
 /***********************************/
 static int audio_test_create_proc_entry(char *name,
-					struct proc_dir_entry **proc_child);
-static int audio_test_proc_log_read(char *page, char **start, off_t offset,
-					int count, int *eof, void *data);
-static int audio_test_proc_log_write(struct file *filp, const char *buffer,
-					u_long count, void *data);
+				struct proc_dir_entry **proc_child);
+static int audio_test_proc_log_read(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos);
+static int audio_test_proc_log_write(struct file *file, const char __user *buffer,
+				size_t count, loff_t *ppos);
 /***********************************/
 /* pcm dump                        */
 /***********************************/
-static int audio_test_proc_pcm_read(char *page, char **start, off_t offset,
-					int count, int *eof, void *data);
+static int audio_test_proc_pcm_read(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos);
+
 /***********************************/
 /* callback                        */
 /***********************************/
@@ -1815,6 +1816,16 @@ static void audio_test_watch_stop_vcd_cb(void)
 
   @note		.
 */
+static const struct file_operations log_level_fops = {
+	.read           = audio_test_proc_log_read,
+	.write		= audio_test_proc_log_write,
+	.llseek         = default_llseek,
+};
+
+static const struct file_operations proc_fops = {
+	.read           = audio_test_proc_pcm_read,
+	.llseek         = default_llseek,
+};
 static int audio_test_create_proc_entry(char *name,
 					struct proc_dir_entry **proc_child)
 {
@@ -1822,22 +1833,27 @@ static int audio_test_create_proc_entry(char *name,
 
 	audio_test_log_efunc("name[%s]", name);
 
-	*proc_child = create_proc_entry(name,
-					(S_IRUGO | S_IWUGO),
-					audio_test_conf->proc_parent);
-	if (NULL != *proc_child) {
-		if (strcmp(name, AUDIO_TEST_LOG_LEVEL) == 0) {
-			(*proc_child)->read_proc = audio_test_proc_log_read;
-			(*proc_child)->write_proc = audio_test_proc_log_write;
-		} else if (strcmp(name, AUDIO_TEST_PCMNAME) == 0) {
-			(*proc_child)->read_proc = audio_test_proc_pcm_read;
-		} else {
-			audio_test_log_err("parameter error.");
-			ret = -EINVAL;
-		}
+	if (strcmp(name, AUDIO_TEST_LOG_LEVEL) == 0) {
+
+		*proc_child = proc_create_data(name,
+			(S_IFREG | S_IRUGO | S_IWUGO), audio_test_conf->proc_parent, &log_level_fops, NULL);
+
+	} else if (strcmp(name, AUDIO_TEST_PCMNAME) == 0) {
+
+		*proc_child = proc_create_data(name,
+			(S_IFREG | S_IRUGO | S_IWUGO), audio_test_conf->proc_parent, &proc_fops, NULL);
+
 	} else {
-		audio_test_log_err("create failed for %s.", name);
-		ret = -ENOMEM;
+
+		audio_test_log_err("parameter error.");
+		return ret = -EINVAL;
+
+	}
+
+	if (!*proc_child) {
+
+		audio_test_log_err("proc entry creation failed for %s\n", name);
+		return -EAGAIN;
 	}
 
 	audio_test_log_rfunc("ret[%d]", ret);
@@ -1845,54 +1861,53 @@ static int audio_test_create_proc_entry(char *name,
 }
 
 /*!
-  @brief	Read proc file.
+  @brief       Read proc file.
 
-  @param	page [o] Writing range.
-  @param	start [o] .
-  @param	offset [o] .
-  @param	count [o] .
-  @param	eof [o] End of file.
-  @param	data [o] .
+  @param       file    unused
 
-  @return	Data length.
+  @pram[in]    buf     userspace buffer read to.
 
+  @param[in]   size    maximum number of bytes to read.
+
+  @param[in]   ppos    current position in the buffer.
+
+  @return      function result
   @note		.
 */
-static int audio_test_proc_log_read(char *page, char **start, off_t offset,
-					int count, int *eof, void *data)
+static int audio_test_proc_log_read(struct file *file, char __user *buf,
+				size_t size, loff_t *ppos)
 {
 	int len = 0;
-
+	char page[50];
 	audio_test_log_efunc("");
 
 	len = sprintf(page, "%#010x\n", (int)audio_test_log_level);
-	*eof = 1;
 
 	audio_test_log_rfunc("len[%d]", len);
-	return len;
+	return simple_read_from_buffer(buf, size, ppos, page, len);
 }
 
 /*!
-  @brief	Write proc file.
+  @brief       Write proc file.
 
-  @param	filp [i] File pointer.
-  @param	buffer [i] Data buffer.
-  @param	count [i] Data count.
-  @param	data [i] Data.
+  @param[in]   file    unused.
 
-  @return	Data count or Function results.
+  @param[in]   buffer  user data.
+
+  @param[in]   count     length of data.
+
+  @param[in]   ppos    unused.
+
+  @return      Data count or Function results.
 
   @note		.
 */
-static int audio_test_proc_log_write(struct file *filp, const char *buffer,
-					u_long count, void *data)
+static int audio_test_proc_log_write(struct file *file, const char __user *buffer,
+					size_t count, loff_t *ppos)
 {
 	int ret = 0;
 	int in = 0;
 	char *temp = NULL;
-
-	audio_test_log_efunc("filp[%p] buffer[%p] count[%ld] data[%p]",
-			filp, buffer, count, data);
 
 	temp = kmalloc(count, GFP_KERNEL);
 	memset(temp, 0, count);
@@ -1905,30 +1920,32 @@ static int audio_test_proc_log_write(struct file *filp, const char *buffer,
 
 	audio_test_log_level = (u_int)in & AUDIO_TEST_LOG_LEVEL_MAX;
 
-	audio_test_log_rfunc("count[%ld]", count);
+	audio_test_log_rfunc("count[%d]", count);
 	return count;
 }
 
 /*!
-  @brief	Read proc file.
+  @brief       Read proc file.
 
-  @param	page [o] Writing range.
-  @param	start [o] Not use.
-  @param	offset [o] Not use.
-  @param	count [o] Not use.
-  @param	eof [o] End of file.
-  @param	data [o] Not use.
+  @param       file    unused
 
-  @return	Data length.
+  @pram[in]    buf     userspace buffer read to.
+
+  @param[in]   size    maximum number of bytes to read.
+
+  @param[in]   ppos    current position in the buffer.
+
+  @return      function result.
 
   @note		.
 */
-static int audio_test_proc_pcm_read(char *page, char **start, off_t offset,
-					int count, int *eof, void *data)
+static int audio_test_proc_pcm_read(struct file *file, char __user *buf,
+					size_t size, loff_t *ppos)
 {
 	int len = 0, i, j;
 	char *pcmname;
 	char *none = "--";
+	char page[100];
 
 	audio_test_log_efunc("");
 
@@ -1943,10 +1960,7 @@ static int audio_test_proc_pcm_read(char *page, char **start, off_t offset,
 		}
 	}
 
-	*eof = 1;
-
-	audio_test_log_rfunc("len[%d]", len);
-	return len;
+	return simple_read_from_buffer(buf, size, ppos, page, len);
 }
 
 /*------------------------------------*/

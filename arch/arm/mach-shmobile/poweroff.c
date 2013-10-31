@@ -55,11 +55,7 @@
 #include <linux/regulator/consumer.h>
 #endif
 
-#ifdef CONFIG_PMIC_INTERFACE
-#include <linux/pmic/pmic.h>
-#else
 #define pmic_force_power_off(x)
-#endif
 
 /* #define DEBUG_POWEROFF */
 /* #define SHMOBILE_PM_RESTART */

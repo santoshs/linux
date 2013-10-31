@@ -42,7 +42,7 @@
 #include <linux/switch.h> /* AT-ISI Separation */
 #include <linux/tsu6712.h>
 #include <linux/interrupt.h>
-
+#include <mach/setup-u2usb.h>
 
 MODULE_AUTHOR("david RMC");
 MODULE_DESCRIPTION("Phonet TTY line discipline");
@@ -84,15 +84,9 @@ MODULE_ALIAS_LDISC(N_PHONET);
 #define LD_PHONET_INIT_LEN        0
 
 #define LD_ATCMD_BUFFER_LEN       1024
-#define LD_UART_AT_MODE           2
-#define LD_UART_INVALID_MODE      -1
-#define LD_UART_AT_MODE_MODECHAN  5
 
 #define LD_WAKEUP_DATA_INIT       0
 #define ATPLIB_AT_CMD_MAX   1024
-
-#define LD_UART_EMPTY_CR          3
-#define LD_UART_EMPTY_CRLF        4
 
 #define LD_SWITCH_ATSTART_RESP    1
 #define LD_SWITCH_MODECHAN02_RESP 2
@@ -569,7 +563,7 @@ out:
 
 /* AT-ISI Message Separation Starts */
 
-extern ssize_t ld_set_manualsw(struct device *dev,
+ssize_t ld_set_manualsw(struct device *dev,
 			       struct device_attribute *attr,
 			       const char *buf, size_t count);
 
@@ -619,20 +613,21 @@ static void ld_phonet_ldisc_receive
 			if (room >= count)
 				tty->ops->write(tty, cp, count);
 #endif
-			ret = ld_set_switch_buf(NULL, NULL, cp, count);
-			if (LD_UART_AT_MODE == ret) {
+			if (MUIC_IS_PRESENT)
+				ret = ld_set_switch_buf(NULL, NULL, cp, count);
+			if (UART_AT_MODE == ret) {
 				ld_uart_switch_work->at_modechan02_mode \
 					 = LD_SWITCH_ATSTART_RESP;
 				queue_work(ld_phonet_wq, \
 				(struct work_struct *)ld_uart_switch_work);
 				ld_pn->ld_phonet_state = LD_PHONET_NEW_ISI_MSG;
-			} else if (LD_UART_AT_MODE_MODECHAN == ret) {
+			} else if (UART_AT_MODE_MODECHAN == ret) {
 				ld_uart_switch_work->at_modechan02_mode \
 					= LD_SWITCH_MODECHAN02_RESP;
 				queue_work(ld_phonet_wq, \
 				(struct work_struct *)ld_uart_switch_work);
 				ld_pn->ld_phonet_state = LD_PHONET_NEW_ISI_MSG;
-			} else if (LD_UART_INVALID_MODE == ret) {
+			} else if (UART_INVALID_MODE == ret) {
 					ld_atcmd_len = \
 						sprintf(
 						ld_pn->ld_atcmd_buffer, \
@@ -647,7 +642,7 @@ static void ld_phonet_ldisc_receive
 						("No Room for AT+ATSTART NG\n");
 					ld_pn->ld_phonet_state = \
 						LD_PHONET_NEW_ISI_MSG;
-					} else if (LD_UART_EMPTY_CRLF == ret) {
+					} else if (UART_EMPTY_CRLF == ret) {
 						ld_atcmd_len = \
 						sprintf(
 						ld_pn->ld_atcmd_buffer, \
@@ -859,11 +854,12 @@ static void ld_uart_switch_function(struct work_struct *work)
 	struct ld_uart_switch_work_t *at_mode_work;
 	at_mode_work = (struct ld_uart_switch_work_t *)work;
 	set_current_state(TASK_INTERRUPTIBLE);
-	if (at_mode_work->at_modechan02_mode ==  LD_SWITCH_ATSTART_RESP)
-		ld_set_manualsw(NULL, NULL, "AT+ATSTART", 10);
-	else
-		ld_set_manualsw(NULL, NULL, "AT+MODECHAN=0,2", 15);
-
+	if (MUIC_IS_PRESENT) {
+		if (at_mode_work->at_modechan02_mode ==  LD_SWITCH_ATSTART_RESP)
+			ld_set_manualsw(NULL, NULL, "AT+ATSTART", 10);
+		else
+			ld_set_manualsw(NULL, NULL, "AT+MODECHAN=0,2", 15);
+	}
 	ld_uart_switch_work->at_modechan02_mode = 0;
 	return;
 }

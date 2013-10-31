@@ -491,6 +491,20 @@ static int sndp_pm_runtime_sync(const enum sndp_pm_runtime_kind kind,
    @retval	0			Successful
    @retval	-EFAULT			Other error
  */
+
+static const struct file_operations fops = {
+	.read 		= sndp_proc_read,
+	.write 		= sndp_proc_write,
+	.llseek 	= default_llseek,
+};
+
+static const struct file_operations reg_fops = {
+	.read 		= sndp_proc_reg_dump_read,
+	.write 		= sndp_proc_reg_dump_write,
+	.llseek 	= default_llseek,
+};
+
+
 int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	struct snd_soc_platform_driver *fsi_soc_platform,
 	struct snd_soc_card *fsi_soc_card)
@@ -520,31 +534,30 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 	g_sndp_parent = proc_mkdir(SNDP_DRV_NAME, NULL);
 	if (NULL != g_sndp_parent) {
 		/* create file for log level entry */
-		entry = create_proc_entry(LOG_LEVEL,
-					  S_IRUGO | S_IWUGO,
-					  g_sndp_parent);
-		if (NULL != entry) {
-			entry->read_proc  = sndp_proc_read;
-			entry->write_proc = sndp_proc_write;
-		} else {
+		entry = proc_create_data(LOG_LEVEL,
+					S_IRUGO | S_IWUGO,
+					g_sndp_parent, &fops, NULL);
+
+		if (NULL != entry)
+			printk(KERN_INFO "proc entry successful\n");
+		 else {
 			sndp_log_always_err("create_proc_entry(LOG) failed\n");
 			goto mkproc_sub_err;
 		}
 
 		/* create file for register dump */
-		reg_dump_entry = create_proc_entry(SNDP_REG_DUMP,
-						   S_IRUGO | S_IWUGO,
-						   g_sndp_parent);
-		if (NULL != reg_dump_entry) {
-			reg_dump_entry->read_proc = sndp_proc_reg_dump_read;
-			reg_dump_entry->write_proc = sndp_proc_reg_dump_write;
-		} else {
+		reg_dump_entry = proc_create_data(SNDP_REG_DUMP,
+					S_IRUGO | S_IWUGO,
+					g_sndp_parent, &reg_fops, NULL);
+		if (NULL != reg_dump_entry)
+			printk(KERN_INFO "proc entry for reg dump succesful\n");
+		 else {
 			sndp_log_always_err("create_proc_entry(REG) failed\n");
 			goto mkproc_sub_err;
 		}
 
 	} else {
-		sndp_log_always_err("create failed for proc parrent\n");
+		printk(KERN_INFO "create failed for proc parrent\n");
 		goto mkproc_err;
 	}
 
@@ -794,45 +807,46 @@ void sndp_exit(void)
 /*!
    @brief PROC read function
 
-   @param[out]	page	Page data
-   @param[-]	start	Not use
-   @param[-]	offset	Not use
-   @param[-]	count	Not use
-   @param[out]	eof	EOF flag
-   @param[-]	data	Not use
+   @param[in]   file    unused.
 
-   @retval	read data length
+   @param[in]   buf     userspace buffer read to.
+
+   @param[in]   size    maximum number of bytes to read.
+
+   @param[in]   ppos    current position in the buffer.
+
+   @retval	function return
  */
-static int sndp_proc_read(
-	char *page,
-	char **start,
-	off_t offset,
-	int count,
-	int *eof,
-	void *data)
+
+static int sndp_proc_read(struct file *file, char __user *buf,
+			size_t size, loff_t *ppos)
 {
-	int	iLen = sprintf(page, "0x%08x\n", (int)g_sndp_log_level);
+	size_t iLen;
+	char page[50];
 
-	*eof = 1;
-	return iLen;
+	iLen = sprintf(page, "0x%08x\n", (int)g_sndp_log_level);
+	return simple_read_from_buffer(buf, size, ppos, page, iLen);
+
 }
-
 
 /*!
    @brief PROC write function
 
-   @param[-]	filp	Not use
-   @param[in]	buffer	Write data
-   @param[in]	count	Data length
-   @param[-]	data	Not use
+   @param[in]   filp    unused.
 
-   @retval		Write data count
+   @param[in]   buffer  user data.
+
+   @param[in]   count    length of data.
+
+   @param[in]   ppos    unused.
+
+   @retval	Write data count
  */
 static int sndp_proc_write(
 	struct file *filp,
 	const char __user *buffer,
-	unsigned long count,
-	void *data)
+	size_t count,
+	loff_t *ppos)
 {
 	unsigned long long int	uiIn;
 	static unsigned char	proc_buf[32];
@@ -865,26 +879,22 @@ static int sndp_proc_write(
 	return count;
 }
 
-
 /*!
    @brief PROC read function for register dump
 
-   @param[out]  page    Page data
-   @param[-]    start   Not use
-   @param[-]    offset  Not use
-   @param[-]    count   Not use
-   @param[out]  eof     EOF flag
-   @param[-]    data    Not use
+   @param[in]   file    unused.
+
+   @param[in]   buf     userspace buffer read to.
+
+   @param[in]   size    maximum number of bytes to read.
+
+   @param[in]   ppos    current position in the buffer.
 
    @retval      0
  */
 static int sndp_proc_reg_dump_read(
-	char *page,
-	char **start,
-	off_t offset,
-	int count,
-	int *eof,
-	void *data)
+	struct file *file, char __user *buf,
+		size_t size, loff_t *ppos)
 {
 	return ERROR_NONE;
 }
@@ -893,18 +903,22 @@ static int sndp_proc_reg_dump_read(
 /*!
    @brief PROC write function for register dump
 
-   @param[-]	filp	Not use
-   @param[in]	buffer	Write data
-   @param[in]	count	Data length
-   @param[-]	data	Not use
+   @param[in]   filp    unused.
 
-   @retval	Write data length
+   @param[in]   buffer  user data.
+
+   @param[in]   count     length of data.
+
+   @param[in]   ppos    unused.
+
+   @retval      Write data count
+
  */
 static int sndp_proc_reg_dump_write(
 	struct file *filp,
 	const char __user *buffer,
-	unsigned long count,
-	void *data)
+	size_t count,
+	loff_t *ppos)
 {
 	int			iRet = ERROR_NONE;
 	u_long			ulIn;
@@ -969,6 +983,7 @@ static int sndp_proc_reg_dump_write(
 
 	return count;
 }
+
 
 #if 0
 /*!

@@ -23,7 +23,6 @@
 #include <linux/regulator/machine.h>
 #include <linux/bq27425.h>
 #include <linux/tsu6712.h>
-#include <linux/pmic/pmic.h>
 #include <linux/spa_power.h>
 #include <linux/spa_agent.h>
 #include <linux/wakelock.h>
@@ -66,7 +65,7 @@
 
 #define STATUS_C_TERMINATED_ONE_CYCLED	(0x01 << 7)
 #define STATUS_C_TERMINATED_LOW_CURRENT	(0x01 << 6)
-#define STATUS_C_SAFETY_TIMER_STATUS	(0x03 << 4)	// 4,5 two bit. 
+#define STATUS_C_SAFETY_TIMER_STATUS	(0x03 << 4)	// 4,5 two bit.
 #define STATUS_C_CHARGER_ERROR			(0x01 << 3)
 
 
@@ -93,26 +92,9 @@ struct smb328a_chip {
 
 static struct smb328a_chip *smb_charger = NULL;
 
-struct i2c_client *smb328a_chip_client(void)
-{
-	return smb_charger->client;
-}
-
-int smb328a_chip_status(void)
-{
-	return smb_charger->charger_status;
-}
-
 static bool FullChargeSend;
 
-#ifdef CONFIG_PMIC_INTERFACE
-extern int pmic_get_temp_status(void);
-extern int pmic_read_battery_status(int property);
-#endif
-
 #ifdef CONFIG_BATTERY_D2153
-extern void d2153_battery_start(void);
-extern int d2153_battery_read_status(int type);
 extern int d2153_battery_set_status(int type, int status);
 #endif
 
@@ -764,53 +746,10 @@ static int smb328a_set_full_charge (unsigned int eoc)
 	}
 #ifdef NO_USE_TERMINATION_CURRENT
 	validval = 25;	//don't use charger eoc.
-#endif	
+#endif
 	ret = smb328a_set_top_off(smb_charger->client, validval);
 
 	return ret;
-}
-
-static int smb328a_get_capacity (void)
-{
-	unsigned int bat_per;
-
-#ifdef CONFIG_BATTERY_D2153
-	bat_per = d2153_battery_read_status(D2153_BATTERY_SOC);
-#else
-
-#ifdef CONFIG_BATTERY_BQ27425
-	get_bq27425_battery_data(BQ27425_REG_SOC, &bat_per);
-#endif
-#endif
-	return bat_per;
-}
-
-static int smb328a_get_temp (unsigned int opt)
-{
-	int temp;
-
-#ifdef CONFIG_BATTERY_D2153
-	temp = d2153_battery_read_status(D2153_BATTERY_TEMP_ADC);
-#else
-
-#ifdef CONFIG_PMIC_INTERFACE
-	temp = pmic_get_temp_status();
-#else
-	temp = 30;
-#endif
-#endif
-	return temp;
-}
-
-static int smb328a_get_voltage (unsigned char opt)
-{
-#ifdef CONFIG_BATTERY_D2153
-	int volt;
-	volt = d2153_battery_read_status(D2153_BATTERY_AVG_VOLTAGE);
-#else
-	int volt=3800;
-#endif
-	return volt;
 }
 
 static int smb328a_get_batt_presence (unsigned int opt)
@@ -821,16 +760,6 @@ static int smb328a_get_batt_presence (unsigned int opt)
 		return BAT_DETECTED;
 }
 
-static int smb328a_ctrl_fg (void *data)
-{
-	int ret = 0;
-
-#ifdef CONFIG_BATTERY_D2153
-	d2153_battery_set_status(D2153_RESET_SW_FG, 0);
-#endif
-	
-	return ret;
-}
 
 #ifdef CONFIG_USE_MUIC
 extern void muic_set_vbus(int vbus);
@@ -867,7 +796,7 @@ static void smb328a_work_func(struct work_struct *work)
 	if(val & (STATUS_A_CURRENT_TERMINATION|STATUS_A_TAPER_CHARGING))
 	{
 		if(FullChargeSend==0 || (val & STATUS_A_CURRENT_TERMINATION)) {
-			pm_charger_info("%s: EOC\n", __func__);	        
+			pm_charger_info("%s: EOC\n", __func__);
 			if(spa_event_handler(SPA_EVT_EOC, 0) < 0)
 				pr_info("%s: EOC is not ready\n", __func__);
 			else
@@ -969,12 +898,8 @@ static int smb328a_probe(struct i2c_client *client,
 	spa_agent_register(SPA_AGENT_SET_CHARGE, (void*)smb328a_set_charge, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_SET_CHARGE_CURRENT, (void*)smb328a_set_charge_current, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_SET_FULL_CHARGE, (void*)smb328a_set_full_charge, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_GET_CAPACITY, (void*)smb328a_get_capacity, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_GET_TEMP, (void*)smb328a_get_temp, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_GET_VOLTAGE, (void*)smb328a_get_voltage, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_GET_BATT_PRESENCE, (void*)smb328a_get_batt_presence, "smb328a-charger");
 	spa_agent_register(SPA_AGENT_GET_CHARGER_TYPE, (void*)smb328a_get_charger_type, "smb328a-charger");
-	spa_agent_register(SPA_AGENT_CTRL_FG, (void*)smb328a_ctrl_fg, "smb328a-charger");
 
 	val = smb328a_read_reg(client, SMB328A_BATTERY_CHARGING_STATUS_C);
 
@@ -988,10 +913,6 @@ static int smb328a_probe(struct i2c_client *client,
 	smb328a_charger_function_conrol(client, 500);
 
 	smb328a_irq_init(client);
-
-#ifdef CONFIG_BATTERY_D2153
-	d2153_battery_start();
-#endif
 
 	return 0;
 }

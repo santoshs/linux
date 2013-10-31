@@ -198,27 +198,10 @@ config MACH_KZM9G_REFERENCE
 
 	   This is intended to aid developers
 
-config MACH_U2EVM
-	bool "U2EVM board"
-	select ARCH_REQUIRE_GPIOLIB
-	depends on ARCH_R8A7373
-
-config MACH_GARDALTE
-	bool "Garda board"
-	select ARCH_REQUIRE_GPIOLIB
-	depends on ARCH_R8A7373
-
 config MACH_LOGANLTE
 	bool "LoganLTE board"
 	select ARCH_REQUIRE_GPIOLIB
 	depends on ARCH_R8A7373
-
-config MACH_LT02LTE
-	bool "LT02LTE board support"
-	select ARCH_REQUIRE_GPIOLIB
-	depends on ARCH_R8A7373
-	help
-	  Select this to support lt02lte board.
 
 config MACH_AMETHYST
 	bool "U2 based Amethyst board support"
@@ -283,7 +266,7 @@ config MEMORY_START
 				MACH_ARMADILLO800EVA || MACH_APE6EVM || \
 				MACH_LAGER
 	default "0x41000000" if MACH_KOTA2
-	default "0x49000000" if MACH_U2EVM || MACH_GARDALTE || MACH_LOGANLTE || MACH_LT02LTE || MACH_AMETHYST
+	default "0x49000000" if MACH_LOGANLTE || MACH_AMETHYST
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -295,8 +278,7 @@ config MEMORY_SIZE
 	default "0x80000000" if MACH_LAGER
 	default "0x40000000" if MACH_APE6EVM
 	default "0x20000000" if MACH_AG5EVM || MACH_BONITO || \
-				MACH_ARMADILLO800EVA || MACH_U2EVM || MACH_GARDALTE || \
-				MACH_LOGANLTE || MACH_LT02LTE || MACH_AMETHYST
+				MACH_ARMADILLO800EVA || MACH_LOGANLTE || MACH_AMETHYST
 	default "0x1e000000" if MACH_KOTA2
 	default "0x10000000" if MACH_AP4EVB || MACH_MACKEREL
 	default "0x04000000"
@@ -520,32 +502,7 @@ config RENESAS_WIFI
 	default n
 	depends on BRCM_UNIFIED_DHD_SUPPORT
 
-config BOARD_VERSION_V050
-	#default y
-	bool "board_revision"
-	help
-	  Board revision
 comment "Debugging Feature"
-
-config BOARD_VERSION_GARDA
-	bool "board_revision"
-	help
-	  Board revision number
-
-config BOARD_VERSION_LOGANLTE
-	bool "board_revision"
-	help
-	  Board revision number
-
-config BOARD_VERSION_LT02LTE
-	bool "board_revision"
-	help
-	  Board revision number
-
-config BOARD_VERSION_AMETHYST
-	bool "board_revision"
-	help
-	  Board revision number
 
 #
 # GPS devices
@@ -565,11 +522,11 @@ config BT_CSR8811
 
 config BT_BCM4330
 	bool "Enable BCM4330 driver"
-	default n
+	default y
 
 config BT_BCM4334
 	bool "Enable BCM4334 driver"
-	default n
+	default y
 	help
 	  Adds BCM4334 RFKILL driver for Broadcom BCM4334 chipset
 
@@ -581,7 +538,6 @@ config BCM4334_BT
 
 config BCM4330_MODULE
         bool "Enable BCM4330 driver on Renesas Baseband"
-        depends on (BOARD_VERSION_LOGANLTE || BOARD_VERSION_AMETHYST)
  	default y
 
 config BT_BCM43241
@@ -603,12 +559,6 @@ config SAMSUNG_SENSOR
 	---help---
 	  support Samsung Sensor Driver
 
-config AMETHYST_SENSOR
-	bool "Enable Amethyst sensor Driver"
-	default n
-	--- help---
-	 support Amethyst sensor Driver
-
 config FLASH_MIC2871
 	bool "Enable MIC2871 driver"
 	default n
@@ -624,12 +574,6 @@ config SHMOBILE_PASR_SUPPORT
 	help
 	  This enables PASR support
 	  It is called by Suspend module before entering suspend state
-
-config IRQ_TRACE
-	bool "Hardware vector tracing"
-	help
-	  This enables to-memory tracing of ARM vector entry and exit,
-	  for extraction by the crashlog tool.
 
 config SH_RAMDUMP
 	default y

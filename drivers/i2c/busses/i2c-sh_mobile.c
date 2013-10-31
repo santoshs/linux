@@ -224,7 +224,7 @@ static u32 sh_mobile_i2c_iccl(unsigned long count_khz, u32 tLOW, u32 tf, int off
 	 * account the fall time of SCL signal (tf).  Default tf value
 	 * should be 0.3 us, for safety.
 	 */
-	return (((count_khz * (tLOW + tf)) + 5000) / 10000) + offset;
+	return (((count_khz * (tLOW + tf)) + 50000) / 100000) + offset;
 }
 
 static u32 sh_mobile_i2c_icch(unsigned long count_khz, u32 tHIGH, u32 tf, int offset)
@@ -243,7 +243,7 @@ static u32 sh_mobile_i2c_icch(unsigned long count_khz, u32 tHIGH, u32 tf, int of
 	 * to take into account the fall time of SDA signal (tf) at START
 	 * condition, in order to meet both tHIGH and tHD;STA specs.
 	 */
-	return (((count_khz * (tHIGH + tf)) + 5000) / 10000) + offset;
+	return (((count_khz * (tHIGH + tf)) + 50000) / 100000) + offset;
 }
 
 static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
@@ -258,19 +258,19 @@ static void sh_mobile_i2c_init(struct sh_mobile_i2c_data *pd)
 	i2c_clk_khz /= pd->clks_per_count;
 
 	if (pd->bus_speed == STANDARD_MODE) {
-		tLOW	= 47;	/* tLOW = 4.7 us */
-		tHIGH	= 40;	/* tHD;STA = tHIGH = 4.0 us */
-		tf	= 3;	/* tf = 0.3 us */
+		tLOW	= 470;	/* tLOW = 4.7 us */
+		tHIGH	= 400;	/* tHD;STA = tHIGH = 4.0 us */
+		tf	= 30;	/* tf = 0.3 us */
 		offset	= 0;	/* No offset */
 	} else if (pd->bus_speed == FAST_MODE) {
-		tLOW	= 13;	/* tLOW = 1.3 us */
-		tHIGH	= 6;	/* tHD;STA = tHIGH = 0.6 us */
-		tf	= 3;	/* tf = 0.3 us */
+		tLOW	= 130;	/* tLOW = 1.3 us */
+		tHIGH	= 60;	/* tHD;STA = tHIGH = 0.6 us */
+		tf	= 30;	/* tf = 0.3 us */
 		offset	= 0;	/* No offset */
 	} else if (pd->bus_speed == FAST_MODE_PLUS) {
-		tLOW	= 5;	/* tLOW = 0.5 us */
-		tHIGH	= 2.6;	/* tHD;STA = tHIGH = 0.26 us */
-		tf	= 1.2;	/* tf = 0.12 us */
+		tLOW	= 50;	/* tLOW = 0.5 us */
+		tHIGH	= 26;	/* tHD;STA = tHIGH = 0.26 us */
+		tf	= 12;	/* tf = 0.12 us */
 		offset	= 0;	/* No offset */
 	} else {
 		dev_err(pd->dev, "unrecognized bus speed %lu Hz\n",

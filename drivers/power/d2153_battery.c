@@ -35,7 +35,7 @@
 #include <mach/common.h>
 #include <linux/jiffies.h>
 #include <linux/spa_power.h>
-
+#include <linux/spa_agent.h>
 #include "linux/err.h"
 
 #include <linux/d2153/core.h>
@@ -47,7 +47,7 @@
 #endif /* CONFIG_ARCH_R8A7373 */
 
 static const char __initdata d2153_battery_banner[] = \
-    "D2153 Battery, (c) 2012 Dialog Semiconductor Ltd.\n";
+"D2153 Battery, (c) 2012 Dialog Semiconductor Ltd.\n";
 
 /***************************************************************************
  Pre-definition
@@ -1266,15 +1266,10 @@ extern struct spa_power_data spa_power_pdata;
 extern int spa_event_handler(int evt, void *data);
 #endif
 
-#ifdef CONFIG_CHARGER_SMB328A
-int smb328a_check_charging_status(void);
-#endif
-
-
 /*
  * Name : d2153_read_voltage
  */
-static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps)
+static int d2153_read_voltage(struct d2153_battery *pbat)
 {
 	int new_vol_adc = 0, base_weight, new_vol_orign;
 	int offset_with_old, offset_with_new = 0;
@@ -1284,42 +1279,40 @@ static int d2153_read_voltage(struct d2153_battery *pbat,struct power_supply *ps
 	struct d2153_battery_data *pbat_data = &pbat->battery_data;
 	u16 offset_charging=0;
 	int charging_index = 0;
-#ifdef CONFIG_CHARGER_SMB328A
 	int charging_status;
-#ifdef CONFIG_D2153_EOC_CTRL
 	struct power_supply *ps_bat = NULL;
 	union power_supply_propval value;
 
 	ps_bat = power_supply_get_by_name("battery");
 	if(ps_bat == NULL) {
-		pr_err("%s. Failed a battery supply instance\n", __func__);
+		pr_err("%s. ps \"battery\" yet to register\n", __func__);
 		return -EINVAL;
 	}
 	ps_bat->get_property(ps_bat, POWER_SUPPLY_PROP_STATUS, &value);
-#endif
-#endif
 
-#ifdef CONFIG_CHARGER_SMB328A
-	charging_status = smb328a_check_charging_status();
-	if(charging_status) {
+	charging_status =
+			(value.intval == POWER_SUPPLY_STATUS_CHARGING) ? 1 : 0;
+
+	if (charging_status)
 		pbat_data->is_charging = 1;
+	else
+		pbat_data->is_charging = 0;
+
 #ifdef CONFIG_D2153_EOC_CTRL
+	if (charging_status) {
 		if(pbat_data->charger_ctrl_status == D2153_BAT_CHG_MAX)
 			pbat_data->charger_ctrl_status = D2153_BAT_CHG_START;
-#endif /* CONFIG_D2153_EOC_CTRL */
 	} else {
-		pbat_data->is_charging = 0;
-#ifdef CONFIG_D2153_EOC_CTRL
 		if(value.intval != POWER_SUPPLY_STATUS_FULL)
 			pbat_data->charger_ctrl_status = D2153_BAT_CHG_MAX;
-#endif /* CONFIG_D2153_EOC_CTRL */
 	}
+#endif
+
 #if defined(CONFIG_D2153_BATTERY_DEBUG)
 	pr_info("## %s. is_charging = %d, charger_ctrl_status = %d\n",
-				__func__, pbat_data->is_charging,
-				pbat_data->charger_ctrl_status);
+			__func__, pbat_data->is_charging,
+			pbat_data->charger_ctrl_status);
 #endif
-#endif /*CONFIG_CHARGER_SMB328A*/
 
 	// Read voltage ADC
 	ret = pbat->d2153_read_adc(pbat, D2153_ADC_VOLTAGE);
@@ -1716,6 +1709,33 @@ static int d2153_read_temperature(struct d2153_battery *pbat)
 
 
 /*
+ * Name : d2153_check_bat_presence
+ *	  Determine battery presence by reading TEMP1 ADC
+ */
+int d2153_check_bat_presence(unsigned int opt)
+{
+	int ret = 0;
+	struct d2153_battery_data *pbat_data = &gbat->battery_data;
+	unsigned int temp1_adc;
+
+	/* Read temperature ADC
+	* Channel : D2153_ADC_TEMPERATURE_1 -> TEMP_BOARD
+	* Channel : D2153_ADC_TEMPERATURE_2 -> TEMP_RF
+	*/
+
+	/* To read a TEMP1 ADC */
+	ret = gbat->d2153_read_adc(gbat, D2153_ADC_TEMPERATURE_1);
+	if (ret < 0)
+		return ret;
+	temp1_adc = pbat_data->adc_res[D2153_ADC_TEMPERATURE_1].read_adc;
+
+	if (temp1_adc == 0xfff)
+		return BATTERY_NOT_DETECTED;
+	else
+		return BATTERY_DETECTED;
+}
+
+/*
  * Name : d2153_get_rf_temperature
  */
 int d2153_get_rf_temperature(void)
@@ -1875,31 +1895,55 @@ int d2153_battery_set_status(int type, int status)
 	return val;
 }
 EXPORT_SYMBOL(d2153_battery_set_status);
-
+/*
+ * Name: d2153_ctrl_fg - Reset fuel gauge
+ */
+static int d2153_ctrl_fg(void *data)
+{
+	int ret;
+	ret = d2153_battery_set_status(D2153_RESET_SW_FG, 0);
+	return ret;
+}
+/*
+ * Name: d2153_get_voltage - Get battery voltage
+ */
+static int d2153_get_voltage(unsigned char opt)
+{
+	int volt;
+	volt = d2153_battery_read_status(D2153_BATTERY_AVG_VOLTAGE);
+	return volt;
+}
+/*
+ * Name: d2153_get_capacity - Get battery SOC
+ */
+static int d2153_get_capacity(void)
+{
+	unsigned int bat_per;
+	bat_per = d2153_battery_read_status(D2153_BATTERY_SOC);
+	return bat_per;
+}
+/*
+ * Name: d2153_get_temp - Read battery temperature
+ */
+static int d2153_get_temp(unsigned int opt)
+{
+	int temp;
+	temp = d2153_battery_read_status(D2153_BATTERY_TEMP_ADC);
+	return temp;
+}
 
 static void d2153_monitor_voltage_work(struct work_struct *work)
 {
 	int ret=0;
 	struct d2153_battery *pbat = container_of(work, struct d2153_battery, monitor_volt_work.work);
 	struct d2153_battery_data *pbat_data = &pbat->battery_data;
-	struct power_supply *ps;
 
 	if(unlikely(!pbat || !pbat_data)) {
 		pr_err("%s. Invalid driver data\n", __func__);
 		goto err_adc_read;
 	}
-#ifdef CONFIG_SEC_CHARGING_FEATURE
-	ps = power_supply_get_by_name(spa_power_pdata.charger_name);
-#else
-	ps = NULL;
-#endif
-	if(ps == NULL){
-		pr_info("spa is not registered yet !!!");
-		schedule_delayed_work(&pbat->monitor_volt_work, D2153_VOLTAGE_MONITOR_START);
-		return;
-	}
 
-	ret = d2153_read_voltage(pbat,ps);
+	ret = d2153_read_voltage(pbat);
 	if(ret < 0)
 	{
 		pr_err("%s. Read voltage ADC failure\n", __func__);
@@ -1911,15 +1955,16 @@ static void d2153_monitor_voltage_work(struct work_struct *work)
 	}
 	else {
 #ifdef CONFIG_D2153_EOC_CTRL
-				if(pbat_data->volt_adc_init_done && pbat_data->is_charging) {
-					struct power_supply *ps;
-					union power_supply_propval value;
+		if (pbat_data->volt_adc_init_done && pbat_data->is_charging) {
+			struct power_supply *ps;
+			union power_supply_propval value;
 
-					ps = power_supply_get_by_name("battery");
-					if(ps == NULL) {
-						pr_err("%s. Failed a battery supply instance\n", __func__);
-						goto err_adc_read;
-					}
+			ps = power_supply_get_by_name("battery");
+			if (ps == NULL) {
+				pr_err("%s. ps \"battery\" yet to register\n",
+								__func__);
+				goto err_adc_read;
+			}
 
 					pr_info("%s. Battery PROP_STATUS = %d\n", __func__, value.intval);
 
@@ -2261,10 +2306,22 @@ static int d2153_battery_probe(struct platform_device *pdev)
 	d2153_battery_cmt_init_irq();
 #endif
 
+	spa_agent_register(SPA_AGENT_GET_CAPACITY,
+			(void *)d2153_get_capacity, "d2153_battery");
+	spa_agent_register(SPA_AGENT_GET_TEMP,
+			(void *)d2153_get_temp, "d2153_battery");
+	spa_agent_register(SPA_AGENT_GET_VOLTAGE,
+			(void *)d2153_get_voltage, "d2153-battery");
+	spa_agent_register(SPA_AGENT_GET_BATT_PRESENCE,
+			(void *)d2153_check_bat_presence, "d2153-battery");
+	spa_agent_register(SPA_AGENT_CTRL_FG,
+			(void *)d2153_ctrl_fg, "d2153-battery");
+
+	schedule_delayed_work(&pbat->monitor_volt_work, 0);
+
 	pr_info("%s. End...\n", __func__);
 	return ret;
 }
-
 
 /*
  * Name : d2153_battery_suspend

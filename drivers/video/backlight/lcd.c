@@ -187,11 +187,7 @@ static void lcd_device_release(struct device *dev)
 static ssize_t show_lcd_info(struct device *dev, struct device_attribute *attr, char *buf)
 {
     //return sprintf(buf, "%s","BOE_BF040WVMG003-G101\n" );
-#ifdef CONFIG_MACH_LT02LTE
-    return sprintf(buf, "%s","BOE_BP070WS1\n" );
-#else
     return sprintf(buf, "%s","INH_GH96-06122A\n" );
-#endif                                  
 }
 
 static struct device_attribute lcd_device_attributes[] = {

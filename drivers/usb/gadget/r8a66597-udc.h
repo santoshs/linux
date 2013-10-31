@@ -50,6 +50,16 @@ void tusb_drive_event(int event, unsigned char *val);
 
 void send_usb_insert_event(int isConnected);
 
+
+/* USB detection */
+#define CHARGER_DCP                            0x03
+#define CHARGER_SDP                            0x02
+#define CHARGER_CDP                            0x01
+#define CHARGER_NONE                           0x00
+#define CHARGER_ERROR                          -1
+
+#define TUSB_VENDOR_SPECIFIC3_SWUSBDET         0x10
+
 struct r8a66597_pipe_info {
 	u16	pipe;
 	u16	epnum;
@@ -148,6 +158,8 @@ struct r8a66597 {
 	struct usb_phy		*transceiver;
 	struct delayed_work	vbus_work;
 	struct wake_lock	wake_lock;
+	unsigned charger_type;
+	unsigned charger_detected;
 #ifdef CONFIG_USB_OTG
 	struct delayed_work hnp_work;
 	struct timer_list   hnp_timer_fail;

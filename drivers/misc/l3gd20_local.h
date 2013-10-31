@@ -1,4 +1,4 @@
-/* drivers/sensor/gyroscope/l3gd20_local.h
+/* drivers/misc/l3gd20_local.h
  *
  * Copyright (C) 2012 Renesas Mobile Corporation.
  *
@@ -30,14 +30,14 @@
 /* #define L3GD20_LOG */
 #ifdef L3GD20_LOG
 	#define l3gd20_log(fmt, ...) \
-	printk(KERN_DEBUG "\n%s(%d): " fmt, __func__, \
+	pr_debug("\n%s(%d): " fmt, __func__, \
 					__LINE__, ## __VA_ARGS__)
 #else
 	#define l3gd20_log(x...) do { } while (0)
 #endif
 
 /* runtime pm flag */
-#define RUNTIME_PM		0
+#define RUNTIME_PM
 
 /* I2C info */
 #define L3GD20_I2C_RETRIES			5

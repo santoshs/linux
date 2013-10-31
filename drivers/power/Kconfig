@@ -322,6 +322,15 @@ config CHARGER_SMB358
 	help
 	  Say Y here to enable support for SMB358 Battery Charge Interface.
 
+
+config CHARGER_FAN5405
+	tristate "FAN5405 charger driver"
+	help
+		Say Y here to enable support for
+		Faichild's FAN5405
+		battery charger interface.
+
+
 config CHARGER_LP8727
 	tristate "TI/National Semiconductor LP8727 charger driver"
 	depends on I2C
@@ -431,6 +440,16 @@ config SPA_SUPPLEMENTARY_CHARGING
 	default n
 	help
 		Say Y to add SPA supplementary charging feature.
+
+config EOS2_RMTA_CTRL
+	tristate "eos2_rmta_ctrl"
+	depends on SEC_CHARGING_FEATURE
+	default n
+	help
+		This enables the sysfs entry under /sys/kernel/rmta_control.
+		It can be used to echo appropriate values to
+		charging_status variable.
+		0 indicates charging disabled, 1 indicates charging enabled.
 
 config STC3115_FUELGAUGE
         tristate "STC3115_FUELGAUGE"

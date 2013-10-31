@@ -58,6 +58,11 @@
 #define D2153_AB_Silicon    0x10
 #define D2153_AC_Silicon    0x20
 
+/* used by the USB module to configure the VBUS */
+#define GPIO_TA_ADDR 0x13
+#define TA_TYPE_LOW  0x90
+#define TA_TYPE_HIGH 0x40
+
 typedef struct {
 	unsigned long reg;
 	unsigned short val;
@@ -270,5 +275,7 @@ int  d2153_get_i2c_hwsem(void);
 int  d2153_get_adc_hwsem(void);
 void d2153_put_i2c_hwsem(void);
 void d2153_put_adc_hwsem(void);
+
+extern void send_usb_insert_event(int);
 
 #endif /* __D2153_LEOPARD_CORE_H_ */

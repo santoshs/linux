@@ -40,7 +40,7 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/slab.h>
-#include <asm/gpio.h>
+#include <linux/gpio.h>
 #include <linux/poll.h>
 #include <linux/wakelock.h>
 #include <linux/input.h>
@@ -143,7 +143,10 @@ MODULE_PARM_DESC(debug,
 #define CHIP_ID                         0x3d
 
 /*uncomment for runtime_pm */
-/*#define RUNTIME_PM */
+#define RUNTIME_PM
+
+/*uncomment to support user calibration*/
+/*#define TMD2771_USER_CALIBRATION*/
 
 struct tmd2771x_reg {
 	const char *name;
@@ -188,7 +191,7 @@ static int tmd2771_offset;
 
 #define TAOS_INPUT_NAME_ALS  "TAOS_ALS_SENSOR"
 #define TAOS_INPUT_NAME_PROX  "TAOS_PROX_SENSOR"
-static int isPsensorLocked;
+static int is_psensor_locked;
 static int als_ps_int;
 static int als_ps_gpio_inr;
 
@@ -228,12 +231,12 @@ static int tmd2771_cs_power_on_off(bool flag);
 
 DECLARE_WAIT_QUEUE_HEAD(waitqueue_read);
 #define ALS_PROX_DEBUG
-unsigned int ReadEnable;
-struct ReadData {
+unsigned int read_enable;
+struct read_data {
 	unsigned int data;
 	unsigned int interrupt;
 };
-struct ReadData readdata[2];
+struct read_data readdata[2];
 
 /* first device number */
 static dev_t taos_dev_number;
@@ -279,7 +282,7 @@ static struct i2c_driver taos_driver = {
 		   },
 	.id_table = taos_idtable,
 	.probe = taos_probe,
-	.remove = __devexit_p(taos_remove),
+	.remove = taos_remove,
 };
 
 /* per-device data */
@@ -340,8 +343,8 @@ struct time_scale_factor {
 	u16 denominator;
 	u16 saturation;
 };
-struct time_scale_factor TritonTime = { 1, 0, 0 };
-struct time_scale_factor *lux_timep = &TritonTime;
+struct time_scale_factor triton_time = { 1, 0, 0 };
+struct time_scale_factor *lux_timep = &triton_time;
 
 /* gain table */
 static u8 taos_triton_gain_table[] = { 1, 8, 16, 120 };
@@ -352,14 +355,14 @@ struct lux_data {
 	u16 clear;
 	u16 ir;
 };
-struct lux_data TritonFN_lux_data[] = {
+struct lux_data tritonfn_lux_data[] = {
 	{9830, 8320, 15360},
 	{12452, 10554, 22797},
 	{14746, 6234, 11430},
 	{17695, 3968, 6400},
 	{0, 0, 0}
 };
-struct lux_data *lux_tablep = TritonFN_lux_data;
+struct lux_data *lux_tablep = tritonfn_lux_data;
 static int lux_history[TAOS_FILTER_DEPTH] = { -ENODATA, -ENODATA, -ENODATA };
 
 static irqreturn_t taos_irq_handler(int irq, void *dev_id)
@@ -386,9 +389,9 @@ static int taos_get_data(void)
 		/*set_threshold();*/
 		ret = taos_prox_threshold_set();
 		if (ret >= 0)
-			ReadEnable = 1;
+			read_enable = 1;
 	} else if ((status & 0x10) == 0x10) {
-		ReadEnable = 1;
+		read_enable = 1;
 		taos_als_threshold_set();
 		ret = taos_als_get_data();
 	}
@@ -949,7 +952,7 @@ static int __taos_early_suspend(struct i2c_client *client, pm_message_t mesg)
 	int ret = -1;
 
 	pr_taos(DEBUG, "taos enter suspend\n");
-	if (isPsensorLocked) {
+	if (is_psensor_locked) {
 		/*tmd2771_power_on_off(0);*/
 		return -1;
 	}
@@ -1005,17 +1008,23 @@ static struct early_suspend taos_early_suspend_desc = {
 #ifdef RUNTIME_PM
 static int tmd2771_power_on_off(bool flag)
 {
+	int ret;
+
 	if (!prxamlite_regltr_3v) {
 		pr_taos(ERROR, "prxamlite_regltr_3v is unavailable\n");
 		return -1;
 	}
 
 	if ((flag == 1)) {
-		printk("\n LDO on %s ", __func__);
-		regulator_enable(prxamlite_regltr_3v);
+		pr_taos(INFO, "\n LDO on %s ", __func__);
+		ret = regulator_enable(prxamlite_regltr_3v);
+		if (ret)
+			pr_taos(ERROR, "Proxy 3v Regulator-enable failed\n");
 	} else if ((flag == 0)) {
-		printk("\n LDO off %s ", __func__);
-		regulator_disable(prxamlite_regltr_3v);
+		pr_taos(INFO, "\n LDO off %s ", __func__);
+		ret = regulator_disable(prxamlite_regltr_3v);
+		if (ret)
+			pr_taos(ERROR, "Proxy 3v Regulator disable failed\n");
 	}
 	return 0;
 }
@@ -1025,17 +1034,23 @@ static int tmd2771_power_on_off(bool flag)
 #ifdef RUNTIME_PM
 static int tmd2771_cs_power_on_off(bool flag)
 {
+	int ret;
+
 	if (!prxamlite_regltr_18v) {
 		pr_taos(ERROR, "prxamlite_regltr_18v is unavailable\n");
 		return -1;
 	}
 
 	if ((flag == 1)) {
-		printk("\n LDO on %s ", __func__);
-		regulator_enable(prxamlite_regltr_18v);
+		pr_taos(INFO, "\n LDO on %s ", __func__);
+		ret = regulator_enable(prxamlite_regltr_18v);
+		if (ret)
+			pr_taos(ERROR, "Proxy 1v8 Regulator enable failed\n");
 	} else if ((flag == 0)) {
-		printk("\n LDO off %s ", __func__);
-		regulator_disable(prxamlite_regltr_18v);
+		pr_taos(INFO, "\n LDO off %s ", __func__);
+		ret = regulator_disable(prxamlite_regltr_18v);
+		if (ret)
+			pr_taos(ERROR, "Proxy 1v8 Regulator disable failed\n");
 	}
 	return 0;
 }
@@ -1404,24 +1419,28 @@ static int taos_probe(struct i2c_client *clientp,
 #endif
 
 #ifdef RUNTIME_PM
-	printk("%s: Proxy amlite setting up regulators\n", __func__);
-	prxamlite_regltr_3v = regulator_get(NULL, "sensor_proxy_amlite_3v");
+	pr_taos(INFO, "%s: Proxy amlite setting up regulators\n", __func__);
+	prxamlite_regltr_3v = regulator_get(NULL, "sensor_3v");
 	if (IS_ERR_OR_NULL(prxamlite_regltr_3v)) {
 		pr_taos(ERROR, "%s: Proxy amlite_3v Failed to get regulator\n",
 			__func__);
 		return 0;
 	}
 	regulator_set_voltage(prxamlite_regltr_3v, 3000000, 3000000);
-	regulator_enable(prxamlite_regltr_3v);
+	ret = regulator_enable(prxamlite_regltr_3v);
+	if (ret)
+		pr_taos(ERROR, "Proximity 3v Regulator Enable Failed\n");
 
-	prxamlite_regltr_18v = regulator_get(NULL, "sensor_proxy_amlite_18v");
+	prxamlite_regltr_18v = regulator_get(NULL, "sensor_1v8");
 	if (IS_ERR_OR_NULL(prxamlite_regltr_18v)) {
 		pr_taos(ERROR, "%s: Proxy amlite_18v Failed to get regulator\n",
 			__func__);
 		return 0;
 	}
 	regulator_set_voltage(prxamlite_regltr_18v, 1800000, 1800000);
-	regulator_enable(prxamlite_regltr_18v);
+	ret = regulator_enable(prxamlite_regltr_18v);
+	if (ret)
+		pr_taos(ERROR, "Proximity 1v8 Regulator enable failed\n");
 #endif
 
 	if (!i2c_check_functionality(clientp->adapter,
@@ -1553,9 +1572,13 @@ static int taos_probe(struct i2c_client *clientp,
 		ret = -EIO;
 		goto err_write_ctr_reg;
 	}
-	if (clientp->dev.platform_data)
+	if (clientp->dev.platform_data) {
 		pdata = clientp->dev.platform_data;
-	else {
+		taos_cfgp = pdata->cfg_data;
+		val = pdata->tmd2771_port;
+		als_ps_int = gpio_to_irq(val);
+		als_ps_gpio_inr = val;
+	} else {
 		if (taos_datap->client->irq)
 			val = taos_datap->client->irq;
 		else {
@@ -1729,7 +1752,7 @@ err_alloc_input_taos_prox:
 	input_free_device(taos_datap->input_dev_als);
 err_alloc_input_taos_light:
 err_i2c_check_function:
-#ifdef  RUNTIME_PM
+#ifdef RUNTIME_PM
 	if (prxamlite_regltr_3v) {
 		tmd2771_power_on_off(0);
 		regulator_put(prxamlite_regltr_3v);
@@ -1741,11 +1764,11 @@ err_i2c_check_function:
 	return ret;
 }
 
-static int __devexit taos_remove(struct i2c_client *client)
+static int taos_remove(struct i2c_client *client)
 {
 	int ret = 0;
 
-#ifdef  RUNTIME_PM
+#ifdef RUNTIME_PM
 	if (prxamlite_regltr_3v) {
 		tmd2771_power_on_off(0);
 		regulator_put(prxamlite_regltr_3v);
@@ -1780,7 +1803,7 @@ static int taos_open(struct inode *inode, struct file *file)
 		ret = -ENODEV;
 	}
 
-	memset(readdata, 0, sizeof(struct ReadData) * 2);
+	memset(readdata, 0, sizeof(struct read_data) * 2);
 	disable_irq(als_ps_int);
 	enable_irq(als_ps_int);
 	return ret;
@@ -1808,7 +1831,7 @@ static int taos_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 	unsigned long flags;
 	int realmax;
 	int err;
-	if ((!ReadEnable) && (file->f_flags & O_NONBLOCK))
+	if ((!read_enable) && (file->f_flags & O_NONBLOCK))
 		return -EAGAIN;
 	local_save_flags(flags);
 	local_irq_disable();
@@ -1817,18 +1840,18 @@ static int taos_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 		pr_taos(ERROR, "taos_get_data device isbusy\n");
 		return -ERESTARTSYS;
 	}
-	if (ReadEnable > 0) {
-		if (sizeof(struct ReadData) * 2 < count)
-			realmax = sizeof(struct ReadData) * 2;
+	if (read_enable > 0) {
+		if (sizeof(struct read_data) * 2 < count)
+			realmax = sizeof(struct read_data) * 2;
 		else
 			realmax = count;
 		err = copy_to_user(buf, readdata, realmax);
 		if (err)
 			return -EAGAIN;
-		ReadEnable = 0;
+		read_enable = 0;
 	}
 	mutex_unlock(&taos_datap->update_lock);
-	memset(readdata, 0, sizeof(struct ReadData) * 2);
+	memset(readdata, 0, sizeof(struct read_data) * 2);
 	local_irq_restore(flags);
 	return realmax;
 }
@@ -2244,9 +2267,9 @@ static long taos_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case TAOS_IOCTL_PROX_ON:
 		pr_taos(DEBUG, "ioctl: TAOS_IOCTL_PROX_ON\n");
 		PROX_ON = 1;
-		if (isPsensorLocked == 0) {
+		if (is_psensor_locked == 0) {
 			wake_lock(&taos_datap->taos_wake_lock);
-			isPsensorLocked = 1;
+			is_psensor_locked = 1;
 		}
 		ret = i2c_smbus_write_byte_data(taos_datap->client,
 						TAOS_TRITON_CMD_REG | 0x01,
@@ -2312,9 +2335,9 @@ static long taos_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		else
 			cancel_work_sync(&taos_datap->work);
 		PROX_ON = 0;
-		if (isPsensorLocked == 1) {
+		if (is_psensor_locked == 1) {
 			wake_unlock(&taos_datap->taos_wake_lock);
-			isPsensorLocked = 0;
+			is_psensor_locked = 0;
 		}
 		break;
 
@@ -2430,7 +2453,7 @@ static int taos_get_lux(void)
 	struct lux_data *p;
 	int ret = 0;
 	u8 chdata[4];
-	u16 Tint;
+	u16 tint;
 	int tmp = 0, i = 0;
 
 	for (i = 0; i < 4; i++) {
@@ -2446,13 +2469,13 @@ static int taos_get_lux(void)
 	pr_taos(DEBUG, "ch1=%d\n", chdata[2] + chdata[3] * 256);
 
 	tmp = (taos_cfgp->als_time + 25) / 50;
-	TritonTime.numerator = 1;
-	TritonTime.denominator = tmp;
+	triton_time.numerator = 1;
+	triton_time.denominator = tmp;
 
 	tmp = 300 * taos_cfgp->als_time;
 	if (tmp > 65535)
 		tmp = 65535;
-	TritonTime.saturation = tmp;
+	triton_time.saturation = tmp;
 	raw_clear = chdata[1];
 	raw_clear <<= 8;
 	raw_clear |= chdata[0];
@@ -2492,12 +2515,12 @@ static int taos_get_lux(void)
 	if (!p->ratio)
 		return 0;
 
-	Tint = taos_cfgp->als_time;
+	tint = taos_cfgp->als_time;
 	raw_clear =
 	    ((raw_clear * 400 + (dev_gain >> 1)) / dev_gain +
-	     (Tint >> 1)) / Tint;
+	     (tint >> 1)) / tint;
 	raw_ir =
-	    ((raw_ir * 400 + (dev_gain >> 1)) / dev_gain + (Tint >> 1)) / Tint;
+	    ((raw_ir * 400 + (dev_gain >> 1)) / dev_gain + (tint >> 1)) / tint;
 	lux = ((raw_clear * (p->clear)) - (raw_ir * (p->ir)));
 	lux = 4 * (lux + 32000) / 64000;
 	if (lux > TAOS_MAX_LUX)

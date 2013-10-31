@@ -3,4 +3,3 @@
 #
 
 source "drivers/input/touchscreen/zinitix/loganlte/Kconfig"
-source "drivers/input/touchscreen/zinitix/lt02lte/Kconfig"

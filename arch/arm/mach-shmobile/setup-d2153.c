@@ -146,6 +146,7 @@ static struct regulator_init_data d2153_ldo1 = {
 __weak struct regulator_consumer_supply d2153_ldo2_supplies[] = {
 	REGULATOR_SUPPLY("vdd_mhl", NULL),	// VDDR
 	REGULATOR_SUPPLY("vlcd_1v2", NULL),	// VLCD_1V2
+	REGULATOR_SUPPLY("vcam_sense_1v5", NULL),/*VCAM_SENSE_1V5 for amethyst*/
 };
 
 static struct regulator_init_data d2153_ldo2 = {
@@ -340,6 +341,7 @@ static struct regulator_init_data d2153_ldo13 = {
 __weak struct regulator_consumer_supply d2153_ldo14_supplies[] = {
 	REGULATOR_SUPPLY("vt_cam", NULL),	 /* vt_cam */
 	REGULATOR_SUPPLY("sensor_led_3v", NULL), /* sensor_led_3v */
+	REGULATOR_SUPPLY("vusim2", NULL), /* vusim2 for amethyst */
 };
 
 static struct regulator_init_data d2153_ldo14 = {

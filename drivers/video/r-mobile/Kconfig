@@ -18,6 +18,9 @@ choice
 config FB_R_MOBILE_NT35510
         boolean "NT35510 PANEL(COMMAND MODE)"
 
+config FB_R_MOBILE_NT35516
+        boolean "NT35516 PANEL(VIDEO MODE)"
+
 config FB_R_MOBILE_VX5B3D
         boolean "VX5B3D PANEL(VIDEO MODE)"
 

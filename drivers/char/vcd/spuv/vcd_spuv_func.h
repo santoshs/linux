@@ -612,9 +612,9 @@ struct vcd_spuv_func_read_fw_info {
 };
 
 struct vcd_spuv_func_fw_info {
-	unsigned int base_addr[VCD_SPUV_FUNC_PAGE_SIZE];
-	unsigned int reg_addr[VCD_SPUV_FUNC_PAGE_SIZE];
-	unsigned int reg_addr_physcal[VCD_SPUV_FUNC_PAGE_SIZE];
+	void *base_addr[VCD_SPUV_FUNC_PAGE_SIZE];
+	void *reg_addr[VCD_SPUV_FUNC_PAGE_SIZE];
+	phys_addr_t reg_addr_physcal[VCD_SPUV_FUNC_PAGE_SIZE];
 	unsigned int page_size[VCD_SPUV_FUNC_PAGE_SIZE];
 	unsigned int global_size;
 };
@@ -630,26 +630,26 @@ struct vcd_spuv_func_fw_info {
  */
 extern bool g_spuv_func_is_spuv_clk;
 
-extern unsigned int g_spuv_func_sdram_static_area_top_phy;
-extern unsigned int g_spuv_func_sdram_static_non_cache_area_top;
-extern unsigned int g_spuv_func_sdram_static_cache_area_top;
-extern unsigned int g_spuv_func_hpb_register_top;
-extern unsigned int g_spuv_func_cpg_register_top;
-extern unsigned int g_spuv_func_crmu_register_top;
-extern unsigned int g_spuv_func_gtu_register_top;
-extern unsigned int g_spuv_func_voiceif_register_top;
-extern unsigned int g_spuv_func_intcvo_register_top;
-extern unsigned int g_spuv_func_spuv_register_top;
-extern unsigned int g_spuv_func_dsp0_register_top;
+extern phys_addr_t g_spuv_func_sdram_static_area_top_phy;
+extern void *g_spuv_func_sdram_static_non_cache_area_top;
+extern void *g_spuv_func_sdram_static_cache_area_top;
+extern void __iomem *g_spuv_func_hpb_register_top;
+extern void __iomem *g_spuv_func_cpg_register_top;
+extern void __iomem *g_spuv_func_crmu_register_top;
+extern void __iomem *g_spuv_func_gtu_register_top;
+extern void __iomem *g_spuv_func_voiceif_register_top;
+extern void __iomem *g_spuv_func_intcvo_register_top;
+extern void __iomem *g_spuv_func_spuv_register_top;
+extern void __iomem *g_spuv_func_dsp0_register_top;
 
 /*
  * prototype declaration
  */
 /* Internal public functions */
-extern void vcd_spuv_func_cacheflush_sdram(unsigned int logical_addr,
+extern void vcd_spuv_func_cacheflush_sdram(const void *logical_addr,
 	unsigned int size);
-extern void vcd_spuv_func_cacheflush(unsigned int physical_addr,
-	unsigned int logical_addr, unsigned int size);
+extern void vcd_spuv_func_cacheflush(phys_addr_t physical_addr,
+	const void *logical_addr, unsigned int size);
 extern void vcd_spuv_func_ipc_semaphore_init(void);
 extern int vcd_spuv_func_control_power_supply(int effective);
 extern int vcd_spuv_func_check_power_supply(void);
@@ -664,9 +664,9 @@ extern void vcd_spuv_func_get_fw_request(void);
 extern void vcd_spuv_func_set_hpb_register(void);
 extern void vcd_spuv_func_set_cpg_register(void);
 
-extern unsigned int vcd_spuv_func_get_spuv_static_buffer(void);
-extern unsigned int vcd_spuv_func_get_pcm_static_buffer(void);
-extern unsigned int vcd_spuv_func_get_diamond_sdram_buffer(void);
+extern void *vcd_spuv_func_get_spuv_static_buffer(void);
+extern void *vcd_spuv_func_get_pcm_static_buffer(void);
+extern void *vcd_spuv_func_get_diamond_sdram_buffer(void);
 
 /* Synchronous conversion functions */
 extern void vcd_spuv_func_start_wait(void);

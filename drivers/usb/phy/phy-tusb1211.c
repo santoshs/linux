@@ -153,9 +153,6 @@ static void usb_host_port_power(struct tusb1211 *tusb)
 #ifdef CONFIG_MFD_TPS80031
 		disable_irq_nosync(602);
 #endif
-#if defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_USB_OTG)
-		disable_irq_nosync(595);
-#endif
 		ret = pm_runtime_get_sync(tusb->otg.dev);
 		if (ret < 0)
 			printk(KERN_ERR"Error in pm runtime syncing.\n");
@@ -230,9 +227,6 @@ static void usb_host_port_power(struct tusb1211 *tusb)
 		tusb->pdata->module_start();
 #ifdef CONFIG_MFD_TPS80031
 		enable_irq(602);
-#endif
-#if defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_USB_OTG)
-		enable_irq(595);
 #endif
 		otg_write_reg(&tusb->otg, 0x05, BWAIT);
 		otg_io_set_bits(&tusb->otg, HSE, SYSCFG);

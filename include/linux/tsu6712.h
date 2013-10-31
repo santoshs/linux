@@ -17,10 +17,17 @@
  *
  */
 
+
 #ifndef TSU6712_H
 #define TSU6712_H
 
 #include <linux/types.h>
+
+#define UART_AT_MODE           1001
+#define UART_INVALID_MODE      1002
+#define UART_EMPTY_CR          1003
+#define UART_EMPTY_CRLF        1004
+#define UART_AT_MODE_MODECHAN  1005
 
 enum {
 	TSU6712_DETACHED,
@@ -41,12 +48,6 @@ enum {
 	SWITCH_PORT_VAUDIO,
 	SWITCH_PORT_USB_OPEN,
 	SWITCH_PORT_ALL_OPEN,
-};
-
-enum cable_type_t{
-   CABLE_TYPE_NONE,
-   CABLE_TYPE_USB,
-   CABLE_TYPE_AC
 };
 
 extern void tsu6712_manual_switching(int path);

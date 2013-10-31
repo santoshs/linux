@@ -59,9 +59,7 @@
 #define ACC_ENABLED 1
 
  /* For movement recognition*/
-#define USES_MOVEMENT_RECOGNITION
-
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
 #define DEFAULT_CTRL3_SETTING		0x60 /* INT enable */
 #define DEFAULT_INTERRUPT_SETTING	0x0A /* INT1 XH,YH : enable */
 #define DEFAULT_INTERRUPT2_SETTING	0x20 /* INT2 ZH enable */
@@ -127,7 +125,7 @@ struct k3dh_data {
 	u8 ctrl_reg1_shadow;
 	atomic_t opened; /* opened implies enabled */
         s8 orientation[9];
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
 	int movement_recog_flag;
 	unsigned char interrupt_state;
 	struct wake_lock reactive_wake_lock;
@@ -413,7 +411,7 @@ void accsns_activate(int flgatm, int flg, int dtime)
     //Power modes
     if (flg == 0) //sleep
     {
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
 	if (g_k3dh->movement_recog_flag == ON) {
 		acc_data[0] = CTRL_REG1;
 		acc_data[1] = LOW_PWR_MODE;
@@ -866,7 +864,7 @@ static ssize_t accel_calibration_store(struct device *dev,  struct device_attrib
 	return size;
 }
 
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
 static ssize_t k3dh_accel_reactive_alert_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
@@ -1027,7 +1025,7 @@ static irqreturn_t k3dh_accel_interrupt_thread(int irq, void *k3dh_data_p)
 
 static DEVICE_ATTR(calibration, S_IRUGO|S_IWUSR|S_IWGRP, accel_calibration_show, accel_calibration_store);
 static DEVICE_ATTR(raw_data, S_IRUGO, k3dh_fs_read, NULL);
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
 static DEVICE_ATTR(reactive_alert, S_IRUGO | S_IWUSR | S_IWGRP,
         k3dh_accel_reactive_alert_show,
         k3dh_accel_reactive_alert_store);
@@ -1124,7 +1122,7 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
     	struct k3dh_platform_data *platform_data;
 	int err, tempvalue;
     	int ii = 0;
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
         unsigned char acc_data[2] = {0};
 #endif
 	printk(KERN_INFO "[K3DH] %s\n",__FUNCTION__);
@@ -1253,7 +1251,7 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
         g_k3dh->cal_data.y=0;
         g_k3dh->cal_data.z=0;        
         
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
 	g_k3dh->pdata = g_k3dh->client->dev.platform_data;
 	g_k3dh->movement_recog_flag = OFF;
 
@@ -1335,7 +1333,7 @@ static int k3dh_probe(struct i2c_client *client, const struct i2c_device_id *id)
   
 	return 0;
 
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
 err_request_irq:
 	wake_lock_destroy(&g_k3dh->reactive_wake_lock);
 #endif
@@ -1360,13 +1358,13 @@ exit:
 static int k3dh_remove(struct i2c_client *client)
 {
 	struct k3dh_data *k3dh = i2c_get_clientdata(client);
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
         wake_lock_destroy(&g_k3dh->reactive_wake_lock);
 #endif
 	sysfs_remove_group(&k3dh->acc_input_dev->dev.kobj, &acc_attribute_group);
 
 	input_unregister_device(k3dh->acc_input_dev);
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
         free_irq(g_k3dh->irq, g_k3dh);
 #endif
 	misc_deregister(&k3dh->k3dh_device);
@@ -1452,7 +1450,7 @@ static int __init k3dh_init(void)
 		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_raw_data.attr.name);
 	if (device_create_file(dev_t, &dev_attr_calibration) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_calibration.attr.name);
-#if defined(USES_MOVEMENT_RECOGNITION)
+#if defined(CONFIG_USES_MOVEMENT_RECOGINATION)
 	if (device_create_file(dev_t, &dev_attr_reactive_alert) < 0)
 		printk(KERN_ERR "Failed to create device file(%s)!\n", dev_attr_reactive_alert.attr.name);
 #endif

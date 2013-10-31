@@ -56,33 +56,21 @@ extern int fsi_dai_trigger_in_fm(
  */
 
 /* Proc read for sndp (DEBUG LOG) */
-static int sndp_proc_read(
-	char *page,
-	char **start,
-	off_t offset,
-	int count,
-	int *eof,
-	void *data);
-/* Proc write for sndp (DEBUG LOG) */
-static int sndp_proc_write(
-	struct file *filp,
-	const char __user *buffer,
-	unsigned long count,
-	void *data);
-/* Proc read for Register dump (DEBUG LOG) */
 static int sndp_proc_reg_dump_read(
-	char *page,
-	char **start,
-	off_t offset,
-	int count,
-	int *eof,
-	void *data);
-/* Proc write for Register dump (DEBUG LOG) */
+		struct file *file, char __user *buf,
+			size_t size, loff_t *ppos);
 static int sndp_proc_reg_dump_write(
 	struct file *filp,
 	const char __user *buffer,
-	unsigned long count,
-	void *data);
+	size_t count,
+	loff_t *ppos);
+static int sndp_proc_read(struct file *file, char __user *buf,
+	size_t size, loff_t *ppos);
+static int sndp_proc_write(
+	struct file *filp,
+	const char __user *buffer,
+	size_t count,
+	loff_t *ppos);
 
 #if 0
 /* SOC INFO */

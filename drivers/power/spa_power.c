@@ -33,7 +33,7 @@
 #define CONFIG_SEC_BATT_EXT_ATTRS
 #define SPA_FAKE_FULL_CAPACITY
 #include <linux/spa_power.h>
-
+#include <mach/setup-u2usb.h>
 #ifdef CONFIG_BATTERY_D2153
 #include <linux/d2153/d2153_battery.h>
 extern int d2153_battery_set_status(int type, int status);
@@ -77,6 +77,14 @@ static unsigned int spa_log_offset=0;
 #define SPA_PROBE_STATUS_BEGIN	0
 #define SPA_PROBE_STATUS_READY	1
 static unsigned char probe_status = SPA_PROBE_STATUS_BEGIN;
+
+static enum cable_type_t cable_status;
+
+int get_cable_type(void)
+{
+	return cable_status;
+}
+EXPORT_SYMBOL(get_cable_type);
 
 static void spa_log_internal(const char *log, ...)
 {
@@ -754,6 +762,93 @@ static ssize_t ss_batt_ext_attrs_store(struct device *pdev, struct device_attrib
 	}
 
 	return count;
+}
+
+#endif
+
+#if defined(CONFIG_EOS2_RMTA_CTRL)
+static ssize_t charging_status_show(struct kobject *kobj,
+					struct kobj_attribute *attr, char *buf)
+{
+	int ret = 0;
+	struct power_supply *ps;
+	union power_supply_propval value;
+	struct spa_power_desc *spa_power_iter = g_spa_power;
+	printk(KERN_INFO "%s called\n", __func__);
+	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
+	ret = ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
+	if (ret != 0)
+		return sprintf(buf, "%d\n", ret);
+	else
+		return sprintf(buf, "%d\n", value.intval);
+}
+
+static ssize_t charging_status_store(struct kobject *kobj,
+		struct kobj_attribute  *attr,
+		const char *buf, size_t count)
+{
+	int charging_enable = 0, ret = 0;
+	struct power_supply *ps;
+	union power_supply_propval value;
+	struct spa_power_desc *spa_power_iter = g_spa_power;
+
+	sscanf(buf, "%d", &charging_enable);
+	printk(KERN_INFO "%s: Charging is forcefully %s\n", __func__,
+				charging_enable ? "enabled" : "disabled");
+
+	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
+	switch (charging_enable) {
+	case 0:
+		value.intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		ret = ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
+		break;
+	case 1:
+		value.intval = POWER_SUPPLY_STATUS_CHARGING;
+		ret = ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
+		break;
+	default:
+		break;
+	}
+	if (ret != 0)
+		printk(KERN_INFO "%s:set propery error\n", __func__);
+
+	return count;
+}
+
+static struct kobj_attribute charging_status_attribute = __ATTR(charging_status,
+		S_IRUGO | S_IWUSR, charging_status_show,
+		charging_status_store);
+
+static struct attribute *charger_attributes[] = {
+	&charging_status_attribute.attr,
+	NULL,
+};
+
+static const struct attribute_group charger_group = {
+	.attrs = charger_attributes,
+};
+
+static struct kobject *charger_kobj;
+static int rmta_sysfs_init(void)
+{
+	int retval;
+
+	printk(KERN_INFO "Creating charger sysfs entries ... ");
+	charger_kobj = kobject_create_and_add("rmta_control", kernel_kobj);
+	if (!charger_kobj) {
+		printk(KERN_ERR"[FAILED]\n");
+		return -ENOMEM;
+	}
+
+	retval = sysfs_create_group(charger_kobj, &charger_group);
+	if (retval)
+		kobject_put(charger_kobj);
+	return retval;
+}
+
+static void rmta_sysfs_exit(void)
+{
+	kobject_put(charger_kobj);
 }
 
 #endif
@@ -1497,14 +1592,17 @@ static void spa_fast_charging_work(struct work_struct *work)
 
 	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
 
-
 	value.intval = spa_power_iter->charger_info.charging_current;
 	ps->set_property(ps, POWER_SUPPLY_PROP_CURRENT_NOW, &value);
 
-	/* 2. eoc current*/
+	value.intval = spa_power_iter->charger_info.top_voltage;
+	ps->set_property(ps, POWER_SUPPLY_PROP_VOLTAGE_NOW, &value);
+
+	/* 2. eoc current */
+#if 0	/* Charging is monitored by Fuel gauge. Hence disabling this code */
 	value.intval = spa_power_iter->charger_info.eoc_current;
 	ps->set_property(ps, POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, &value);
-
+#endif
 	/*3. charging now.*/
 	value.intval = POWER_SUPPLY_STATUS_CHARGING;
 	ps->set_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
@@ -1654,6 +1752,18 @@ int spa_event_handler(int evt, void *data)
 
 	spa_evt_log[(spa_evt_idx++)%255].evt=evt;
 	spa_evt_log[(spa_evt_idx)%255].data = (int)data;
+
+		switch ((int)data) {
+		case POWER_SUPPLY_TYPE_BATTERY:
+			cable_status =  CABLE_TYPE_NONE;
+			break;
+		case POWER_SUPPLY_TYPE_USB:
+			cable_status =  CABLE_TYPE_USB;
+			break;
+		case POWER_SUPPLY_TYPE_USB_DCP:
+			cable_status =  CABLE_TYPE_AC;
+			break;
+	}
 
 	switch(evt)
 	{
@@ -2110,11 +2220,18 @@ static int __init spa_power_init(void)
 {
 	int ret = 0;
 	ret = platform_driver_register(&spa_power_driver);
+#ifdef CONFIG_EOS2_RMTA_CTRL
+	if (ret == 0)
+		ret = rmta_sysfs_init();
+#endif
 	return ret;
 }
 
 static void __exit spa_power_exit(void)
 {
+#ifdef CONFIG_EOS2_RMTA_CTRL
+	rmta_sysfs_exit();
+#endif
 	platform_driver_unregister(&spa_power_driver);
 }
 

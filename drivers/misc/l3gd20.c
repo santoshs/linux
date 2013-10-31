@@ -1,4 +1,4 @@
-/* drivers/sensor/gyroscope/l3gd20.c
+/* drivers/misc/l3gd20.c
  *
  * Copyright (C) 2012 Renesas Mobile Corporation.
  *
@@ -24,7 +24,7 @@
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/wakelock.h>
-#include <asm/io.h>
+#include <linux/io.h>
 #include <linux/err.h>
 #include <linux/hrtimer.h>
 #include <linux/l3gd20.h>
@@ -68,17 +68,23 @@ static int l3gd20_set_output_data_rate(unsigned long poll_interval);
 static int l3gd20_set_bandwidth(unsigned char bw_value);
 static int l3gd20_enable_high_pass_filter(unsigned char enable);
 static int l3gd20_set_high_pass_filter_mode(unsigned char hpf_mode);
-static int l3gd20_set_high_pass_filter_cutoff_frequency( \
+static int l3gd20_set_high_pass_filter_cutoff_frequency(
 						unsigned char hpf_cf_freq);
 static int l3gd20_set_sensitivity(unsigned char fs_value);
+
+#ifdef RUNTIME_PM
 static int l3gd20_power_on_off(bool flag);
 static int l3gd20_cs_power_on_off(bool flag);
+#endif
 
 /* Define global variable */
 static struct l3gd20_data *l3gd20_info;
 static struct i2c_client *l3gd20_client;
+
+#ifdef RUNTIME_PM
 static struct regulator *gyro_regltr_18v;
 static struct regulator *gyro_regltr_3v;
+#endif
 
 /* Define driver operation structure */
 static const struct i2c_device_id l3gd20_id[] = {
@@ -86,7 +92,7 @@ static const struct i2c_device_id l3gd20_id[] = {
 	{}
 };
 
-static struct dev_pm_ops l3gd20_pm_ops = {
+static const struct dev_pm_ops l3gd20_pm_ops = {
 	.suspend = l3gd20_suspend,
 	.resume = l3gd20_resume,
 };
@@ -103,7 +109,7 @@ static struct i2c_driver l3gd20_i2c_driver = {
 	.id_table = l3gd20_id,
 };
 
-static struct file_operations gyroscope_fops = {
+static const struct file_operations gyroscope_fops = {
 	.owner  = THIS_MODULE,
 	.llseek = no_llseek,
 	.open = l3gd20_misc_open,
@@ -328,7 +334,8 @@ static int l3gd20_suspend(struct device *dev)
 	drv_state = atomic_read(&l3gd20_info->enable);
 	/* Check the activation status of gyroscope driver */
 	if (DISABLE == drv_state) {
-		l3gd20_power_on_off(0);
+		/* should be uncommented during enabling RUNTIME_PM*/
+		/*l3gd20_power_on_off(0);*/
 		mutex_unlock(&l3gd20_info->lock);
 		l3gd20_log("Driver was deactivated before !\n");
 		return 0;
@@ -344,7 +351,8 @@ static int l3gd20_suspend(struct device *dev)
 
 	mutex_unlock(&l3gd20_info->lock);
 
-	l3gd20_power_on_off(0);
+	/* should be uncommented during enabling RUNTIME_PM*/
+	/*l3gd20_power_on_off(0);*/
 
 	l3gd20_log("Suspend successfully !\n");
 	return 0;
@@ -367,7 +375,9 @@ static int l3gd20_resume(struct device *dev)
 
 	mutex_lock(&l3gd20_info->lock);
 
-	l3gd20_power_on_off(1);
+	/* should be uncommented during enabling RUNTIME_PM*/
+	/*l3gd20_power_on_off(1);*/
+
 	drv_state = atomic_read(&l3gd20_info->enable);
 	if (DISABLE == drv_state) {
 		/* Driver is deactivated before */
@@ -383,7 +393,7 @@ static int l3gd20_resume(struct device *dev)
 	if (l3gd20_info->poll_cycle <= POWER_POLLING_THRES) {
 		/* Enable output data & Turn power on */
 		l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0x0F);
-		msleep(11);
+		msleep(20);
 	}
 
 	mutex_unlock(&l3gd20_info->lock);
@@ -398,26 +408,30 @@ static int l3gd20_resume(struct device *dev)
  *      output  =       None
  *      return  =       0
  **************************************************************************/
+#ifdef RUNTIME_PM
 static int l3gd20_power_on_off(bool flag)
 {
-
-#ifdef RUNTIME_PM
+	int ret;
 
 	if (!gyro_regltr_3v) {
-		printk("Error: gyro_regltr_3v is unavailable\n");
+		pr_err("Error: gyro_regltr_3v is unavailable\n");
 		return -1;
 	}
 
 	if ((flag == 1)) {
 		l3gd20_log("\n LDO on %s ", __func__);
-		regulator_enable(gyro_regltr_3v);
+		ret = regulator_enable(gyro_regltr_3v);
+		if (ret)
+			pr_err("Error: Gyro 3v Regulator Enable failed\n");
 	} else if ((flag == 0)) {
 		l3gd20_log("\n LDO off %s ", __func__);
-		regulator_disable(gyro_regltr_3v);
+		ret = regulator_disable(gyro_regltr_3v);
+		if (ret)
+			pr_err("Error: Gyro 3v Regulator disable failed\n");
 	}
-#endif
 	return 0;
 }
+#endif
 
 /*************************************************************************
  *  name    =       l3gd20_power_cs_on_off
@@ -426,26 +440,30 @@ static int l3gd20_power_on_off(bool flag)
  *  output  =       None
  *  return  =       0
  ***************************************************************************/
+#ifdef RUNTIME_PM
 static int l3gd20_cs_power_on_off(bool flag)
 {
-
-#ifdef RUNTIME_PM
+	int ret;
 
 	if (!gyro_regltr_18v) {
-		printk("Error: gyro_regltr_18v is unavailable\n");
+		pr_err("Error: gyro_regltr_18v is unavailable\n");
 		return -1;
 	}
 
 	if ((flag == 1)) {
 		l3gd20_log("\n LDO on %s ", __func__);
-		regulator_enable(gyro_regltr_18v);
+		ret = regulator_enable(gyro_regltr_18v);
+		if (ret)
+			pr_err("Error: Gyro 1v8 Regulator enable failed\n");
 	} else if ((flag == 0)) {
 		l3gd20_log("\n LDO off %s ", __func__);
-		regulator_disable(gyro_regltr_18v);
+		ret = regulator_disable(gyro_regltr_18v);
+		if (ret)
+			pr_err("Error: Gyro 1v8 Regulator disable failed\n");
 	}
-#endif
 	return 0;
 }
+#endif
 
 /*************************************************************************
  *	name	=	l3gd20_i2c_probe
@@ -466,21 +484,25 @@ static int l3gd20_i2c_probe(struct i2c_client *client,
 	err = -1;
 
 #ifdef RUNTIME_PM
-	printk("%s: Gyro - preparing regulators\n", __func__);
-	gyro_regltr_18v = regulator_get(NULL, "sensor_gyro_18v");
+	l3gd20_log("%s: Gyro - preparing regulators\n", __func__);
+	gyro_regltr_18v = regulator_get(NULL, "sensor_1v8");
 	if (IS_ERR_OR_NULL(gyro_regltr_18v)) {
-		printk("%s: Gyro - failed to get regulator\n", __func__);
+		pr_err("%s: Gyro - failed to get regulator\n", __func__);
 		return -EBUSY;
 	}
 	regulator_set_voltage(gyro_regltr_18v, 1800000, 1800000);
-	regulator_enable(gyro_regltr_18v);
-	gyro_regltr_3v = regulator_get(NULL, "sensor_gyro_3v");
+	ret = regulator_enable(gyro_regltr_18v);
+	if (ret)
+		pr_err("Error: Gyro 1v8 regulator enable failed");
+	gyro_regltr_3v = regulator_get(NULL, "sensor_3v");
 	if (IS_ERR_OR_NULL(gyro_regltr_3v)) {
-		printk("%s: Gyro - failed to get regulator\n", __func__);
+		pr_err("%s: Gyro - failed to get regulator\n", __func__);
 		return -EBUSY;
 	}
 	regulator_set_voltage(gyro_regltr_3v, 3000000, 3000000);
-	regulator_enable(gyro_regltr_3v);
+	ret = regulator_enable(gyro_regltr_3v);
+	if (ret)
+		pr_err("Error Gyro 3v regulator enable failed");
 #endif
 	/* Check I2C functionality */
 	err = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
@@ -829,7 +851,7 @@ static void l3gd20_timer_work_func(struct work_struct *work)
 		l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0x0F);
 
 		/* Delay a time period to power on */
-		msleep(2);
+		msleep(20);
 	}
 
 	/* Copy and report data */
@@ -955,28 +977,44 @@ static int l3gd20_get_data(struct l3gd20_triple *data)
 	/* Convert Gyro data base on sensitivity */
 	switch (l3gd20_info->sensitivity) {
 	case SENSITIVE_1:
-		hw_data[0] = (short)((hw_data[0] * CONVERT_SENSITY_250_NUMERATOR)
+		hw_data[0] = (short)((hw_data[0] *
+			CONVERT_SENSITY_250_NUMERATOR)
 			/ CONVERT_SENSITY_250_DENOMINATOR);
-		hw_data[1] = (short)((hw_data[1] * CONVERT_SENSITY_250_NUMERATOR)
-			/ CONVERT_SENSITY_250_DENOMINATOR);
-		hw_data[2] = (short)((hw_data[2] * CONVERT_SENSITY_250_NUMERATOR)
+
+		hw_data[1] = (short)((hw_data[1] *
+				CONVERT_SENSITY_250_NUMERATOR)
+				/ CONVERT_SENSITY_250_DENOMINATOR);
+
+		hw_data[2] = (short)((hw_data[2] *
+				CONVERT_SENSITY_250_NUMERATOR)
 			/ CONVERT_SENSITY_250_DENOMINATOR);
 		break;
+
 	case SENSITIVE_2:
-		hw_data[0] = (short)((hw_data[0] * CONVERT_SENSITY_500_NUMERATOR)
+		hw_data[0] = (short)((hw_data[0] *
+				CONVERT_SENSITY_500_NUMERATOR)
 			/ CONVERT_SENSITY_500_DENOMINATOR);
-		hw_data[1] = (short)((hw_data[1] * CONVERT_SENSITY_500_NUMERATOR)
+
+		hw_data[1] = (short)((hw_data[1] *
+				CONVERT_SENSITY_500_NUMERATOR)
 			/ CONVERT_SENSITY_500_DENOMINATOR);
-		hw_data[2] = (short)((hw_data[2] * CONVERT_SENSITY_500_NUMERATOR)
+
+		hw_data[2] = (short)((hw_data[2] *
+				CONVERT_SENSITY_500_NUMERATOR)
 			/ CONVERT_SENSITY_500_DENOMINATOR);
 		break;
 	case SENSITIVE_3:
 	case SENSITIVE_4:
-		hw_data[0] = (short)((hw_data[0] * CONVERT_SENSITY_2000_NUMERATOR)
+		hw_data[0] = (short)((hw_data[0] *
+				CONVERT_SENSITY_2000_NUMERATOR)
 			/ CONVERT_SENSITY_2000_DENOMINATOR);
-		hw_data[1] = (short)((hw_data[1] * CONVERT_SENSITY_2000_NUMERATOR)
+
+		hw_data[1] = (short)((hw_data[1] *
+				CONVERT_SENSITY_2000_NUMERATOR)
 			/ CONVERT_SENSITY_2000_DENOMINATOR);
-		hw_data[2] = (short)((hw_data[2] * CONVERT_SENSITY_2000_NUMERATOR)
+
+		hw_data[2] = (short)((hw_data[2] *
+				CONVERT_SENSITY_2000_NUMERATOR)
 			/ CONVERT_SENSITY_2000_DENOMINATOR);
 		break;
 	}
@@ -1011,7 +1049,9 @@ static void l3gd20_report_values(struct l3gd20_triple *data)
 			EVENT_TYPE_GYRO_Y, (int)data->y);
 		input_report_abs(l3gd20_info->gyro_input_dev,
 			EVENT_TYPE_GYRO_Z, (int)data->z);
-		l3gd20_info->gyro_input_dev->sync = 0;
+
+		/* sync is removed in Kernel 3.10 */
+		/*l3gd20_info->gyro_input_dev->sync = 0;*/
 		input_sync(l3gd20_info->gyro_input_dev);
 	}
 	l3gd20_log("End of report data !\n");
@@ -1058,10 +1098,12 @@ static int l3gd20_enable(unsigned char enable_state)
 				l3gd20_log("Can not turn power on\n");
 				return -EIO;
 			}
-			msleep(11);
+			msleep(20);
 			/* Start high resolution timer timer */
 			hrtimer_start(&l3gd20_info->timer, ktime_set(0,
-			l3gd20_info->real_dly * MSEC_TO_NSEC), HRTIMER_MODE_REL);
+			l3gd20_info->real_dly * MSEC_TO_NSEC),
+					HRTIMER_MODE_REL);
+
 		} else {
 			/* Start high resolution timer */
 			hrtimer_start(&l3gd20_info->timer, ktime_set(0,
@@ -1165,12 +1207,14 @@ static int l3gd20_set_output_data_rate(unsigned long poll_interval)
 	if (ENABLE == drv_state) {
 		if (l3gd20_info->poll_cycle <= POWER_POLLING_THRES) {
 			/* Power on */
-			ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0x0F);
+			ret =
+			l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0x0F);
+
 			if (ret != 0) {
 				l3gd20_log("Can not turn power on\n");
 				return -EIO;
 			}
-			msleep(11);
+			msleep(20);
 		} else {
 			/* Power off */
 			ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x0F, 0);
@@ -1210,7 +1254,7 @@ static int l3gd20_set_bandwidth(unsigned char bw_value)
 	}
 
 	/* Update bits 4,5 of CTRL_REG1 */
-	ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x30, (bw_value << 4)) ;
+	ret = l3gd20_register_update(L3GD20_CTRL_REG1, 0x30, (bw_value << 4));
 
 
 	l3gd20_log("End of set bandwidth\n");
@@ -1280,7 +1324,7 @@ static int l3gd20_set_high_pass_filter_mode(unsigned char hpf_mode)
  *	output	=	None
  *	return	=	0, -EIO(-5), -EINVAL(-22)
  *************************************************************************/
-static int l3gd20_set_high_pass_filter_cutoff_frequency (
+static int l3gd20_set_high_pass_filter_cutoff_frequency(
 						unsigned char hpf_cf_freq)
 {
 	int ret;

@@ -51,3 +51,5 @@ obj-$(CONFIG_BACKLIGHT_TOSA)		+= tosa_bl.o
 obj-$(CONFIG_BACKLIGHT_TPS65217)	+= tps65217_bl.o
 obj-$(CONFIG_BACKLIGHT_WM831X)		+= wm831x_bl.o
 obj-$(CONFIG_BACKLIGHT_KTD259B) += ktd259b_bl.o
+obj-$(CONFIG_LED_BACKLIGHT_CNTL)	+= led_backlight-cntrl.o
+

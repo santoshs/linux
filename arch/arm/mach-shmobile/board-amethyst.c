@@ -33,18 +33,23 @@
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
 #include <mach/board.h>
+#include <media/soc_camera.h>
+#include <media/soc_camera_platform.h>
 #include <linux/irqchip/arm-gic.h>
 #include <mach/setup-u2timers.h>
 #include <mach/board-amethyst-config.h>
 #include <mach/poweroff.h>
 #include <mach/sbsc.h>
+
+#include<linux/led_backlight-cntrl.h>
+
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #include <linux/d2153/pmic.h>
 #include <linux/d2153/d2153_battery.h>
+#include <linux/d2153/d2153_aad.h>
 #endif
 #include <mach/dev-wifi.h>
-#include <linux/ktd259b_bl.h>
 #include <mach/setup-u2spa.h>
 #include <mach/setup-u2vibrator.h>
 #include <linux/proc_fs.h>
@@ -97,7 +102,7 @@
 #include <mach/dev-nfc.h>
 #endif
 
-#include <mach/dev-touchpanel.h>
+#include <mach/dev-touchpanel-bcmtch15xxx.h>
 
 #ifdef CONFIG_ARCH_R8A7373
 #include <mach/setup-u2stm.h>
@@ -109,6 +114,18 @@
 
 #if defined(CONFIG_SEC_CHARGING_FEATURE)
 #include <linux/spa_power.h>
+#endif
+
+#if defined(CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)
+#include <linux/tmd2771.h>
+#endif
+
+#if defined(CONFIG_SENSOR_LSM303DL)
+#include <linux/lsm303dl.h>
+#endif
+
+#if defined(CONFIG_SENSOR_L3GD20)
+#include <linux/l3gd20.h>
 #endif
 
 #include <mach/sbsc.h>
@@ -145,7 +162,7 @@ void (*shmobile_arch_reset)(char mode, const char *cmd);
 
 static int board_rev_proc_show(struct seq_file *s, void *v)
 {
-	seq_printf(s, "%x", u2_get_board_rev());
+	seq_printf(s, "%x", system_rev);
 
 	return 0;
 }
@@ -161,16 +178,6 @@ static const struct file_operations board_rev_ops = {
 	.release = single_release,
 };
 
-static struct ktd253ehd_led_platform_data ktd253ehd_led_info = {
-	.gpio_port = GPIO_PORT47,
-};
-
-static struct platform_device led_backlight_device = {
-	.name = "ktd253ehd_led",
-	.dev  = {
-		.platform_data  = &ktd253ehd_led_info,
-	},
-};
 
 #if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
 #define BCMBT_VREG_GPIO       (GPIO_PORT268)
@@ -242,6 +249,60 @@ struct fm34_platform_data fm34_data = {
 	.gpio_bp = GPIO_PORT46,
 };
 
+#if defined(CONFIG_SENSOR_L3GD20)
+static struct lsm303dl_platform_data lsm303dl_platdata = {
+
+};
+#endif
+
+#if defined(CONFIG_SENSOR_LSM303DL)
+static struct platform_device lsm303dl_device = {
+	.name           = "lsm303dl",
+	.dev            = {
+	.platform_data  = &lsm303dl_platdata,
+	},
+};
+
+static struct lsm303dl_acc_port_info lsm303dl_acc_platdata = {
+	.lsm303dl_acc_port = GPIO_PORT110,
+};
+
+static struct lsm303dl_mag_port_info lsm303dl_mag_platdata = {
+	.lsm303dl_mag_port = GPIO_PORT109,
+};
+#endif
+
+#if defined(CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)
+
+struct taos_cfg taos_cfg_plat_data = {
+	.calibrate_target = 300000,
+	.als_time = 200,
+	.scale_factor = 1,
+	.gain_trim = 512,
+	.filter_history = 3,
+	.filter_count = 1,
+	.gain = 2,
+	.prox_threshold_hi = 646,
+	.prox_threshold_lo = 638,
+	. als_threshold_hi = 1,
+	. als_threshold_lo = 0,
+	.prox_win_sw = 100,
+	.prox_int_time = 238,
+	.prox_adc_time = 255,
+	.prox_wait_time = 238,
+	.prox_intr_filter = 17,
+	.prox_config = 0,
+	.prox_pulse_cnt = 96,
+	.prox_gain = 34,
+};
+
+static struct tmd2771_platform_data taos_platdata = {
+	.cfg_data = &taos_cfg_plat_data,
+	.tmd2771_port = GPIO_PORT108,
+
+};
+#endif
+
 /* D2153 setup */
 #ifdef CONFIG_MFD_D2153
 struct d2153_battery_platform_data pbat_pdata = {
@@ -308,18 +369,51 @@ static struct i2c_board_info __initdata i2c0_devices_d2153[] = {
 #endif /* CONFIG_MFD_D2153 */
 };
 
-static struct platform_ktd259b_backlight_data bcm_ktd259b_backlight_data = {
-	.max_brightness = 255,
-	.dft_brightness = 143,
-	.ctrl_pin = 47,
+static struct platform_led_backlight_data led_backlight_data = {
+        .max_brightness = 255,
+	.gpio_port	= GPIO_PORT39,
 };
 
-static struct platform_device bcm_backlight_devices = {
+static struct platform_device led_backlight_device = {
 	.name = "panel",
 	.id   = -1,
 	.dev  = {
-		.platform_data = &bcm_ktd259b_backlight_data,
+		.platform_data = &led_backlight_data,
 	},
+};
+
+static struct i2c_board_info __initdata i2c2_devices[] = {
+
+#if defined(CONFIG_SENSOR_L3GD20)
+	{
+		I2C_BOARD_INFO("l3gd20", GYRO_SLAVE_ADDRESS),
+	},
+#endif
+
+#if defined(CONFIG_SENSOR_LSM303DL)
+	{
+		I2C_BOARD_INFO("lsm303dl_acc", ACC_SLAVE_ADDRESS),
+		.platform_data = &lsm303dl_acc_platdata,
+		.irq = irq_pin(ACC_INT),
+		.flags = IORESOURCE_IRQ | IRQ_TYPE_EDGE_FALLING,
+	},
+
+	{
+		I2C_BOARD_INFO("lsm303dl_mag", MAG_SLAVE_ADDRESS),
+		.platform_data = &lsm303dl_mag_platdata,
+		.irq = irq_pin(MAG_INT),
+		.flags = IORESOURCE_IRQ | IRQ_TYPE_EDGE_FALLING,
+	},
+#endif
+
+#if defined(CONFIG_SENSOR_OPTICAL_TAOS_TMD2771)
+	{
+		I2C_BOARD_INFO("tmd2771", PROXIMITY_SLAVE_ADDRESS),
+		.platform_data = &taos_platdata,
+		.irq = irq_pin(ALS_INT),
+		.flags = IORESOURCE_IRQ | IRQ_TYPE_EDGE_FALLING,
+	},
+#endif
 };
 
 static struct i2c_board_info __initdata i2c3_devices[] = {
@@ -342,29 +436,14 @@ static struct i2c_board_info __initdata i2c3_devices[] = {
 		I2C_BOARD_INFO("smb328a", SMB327B_ADDRESS),
 		.irq            = irq_pin(GPIO_CHG_INT),
 	},
-#endif
-
-};
-
-/* Rhea Ray specific platform devices */
-static struct platform_device *plat_devices[] __initdata = {
-	&bcm_backlight_devices,
-};
-
-#if 0
-static struct led_regulator_platform_data key_backlight_data = {
-	.name   = "button-backlight",
-};
-
-static struct platform_device key_backlight_device = {
-	.name = "leds-regulator",
-	.id   = 0,
-	.dev  = {
-		.platform_data = &key_backlight_data,
+#elif defined(CONFIG_CHARGER_FAN5405)
+	{
+		I2C_BOARD_INFO("fan5405", FAN5405_ADDRESS),
+		.irq            = irq_pin(GPIO_CHG_INT),
 	},
-};
 #endif
 
+};
 
 static struct i2c_board_info i2cm_devices_d2153[] = {
 	{
@@ -373,9 +452,35 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 	},
 };
 
-
 static struct platform_device *gpio_i2c_devices[] __initdata = {
 };
+
+static struct i2c_board_info i2c_cameras[] = {
+	{
+		I2C_BOARD_INFO("OV5645", 0x20),
+	},
+	{
+		I2C_BOARD_INFO("HM2056", 0x28), /* TODO::HYCHO (0x61>>1) */
+	},
+};
+
+struct soc_camera_link camera_links[] = {
+	{
+		.bus_id			= 0,
+		.board_info		= &i2c_cameras[0],
+		.i2c_adapter_id	= 1,
+		.module_name	= "OV5645",
+		.power			= OV5645_power,
+	},
+	{
+		.bus_id			= 1,
+		.board_info		= &i2c_cameras[1],
+		.i2c_adapter_id = 1,
+		.module_name	= "HM2056",
+		.power			= HM2056_power,
+	},
+};
+EXPORT_SYMBOL(camera_links);
 
 void board_restart(char mode, const char *cmd)
 {
@@ -422,10 +527,9 @@ static void __init board_init(void)
 	int inx = 0;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-	unsigned int u2_board_rev = 0;
 	u8 reg8 = __raw_readb(STBCHRB3);
 
-	if ((reg8 & 0x80) && ((system_rev & 0xFFFF) >= 0x3E12)) {
+	if ((reg8 & 0x80) && !shmobile_is_older(U2_VERSION_2_2)) {
 		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
 		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
 				__func__, __raw_readl(PLL3CR));
@@ -454,9 +558,6 @@ static void __init board_init(void)
 				  ARRAY_SIZE(loganlte_pinctrl_map));
 	r8a7373_pinmux_init();
 
-	/* set board version */
-	u2_board_rev = u2_get_board_rev();
-
 	if (!proc_create("board_revision", 0444, NULL, &board_rev_ops))
 		pr_warn("creation of /proc/board_revision failed\n");
 
@@ -466,19 +567,25 @@ static void __init board_init(void)
 	r8a7373_hwlock_cpg = hwspin_lock_request_specific(SMCPG);
 	r8a7373_hwlock_sysc = hwspin_lock_request_specific(SMSYSC);
 
-	if(((system_rev & 0xFFFF)>>4) >= 0x3E1)
-	{
+	if (!shmobile_is_older(U2_VERSION_2_0)) {
 		__raw_writew(0x0022, GPIO_DRVCR_SD0);
 		__raw_writew(0x0022, GPIO_DRVCR_SIM1);
 		__raw_writew(0x0022, GPIO_DRVCR_SIM2);
 	}
 	shmobile_arch_reset = board_restart;
 
-	printk(KERN_INFO "%s hw rev : %d\n", __func__, u2_board_rev);
+	printk(KERN_INFO "%s hw rev : %d\n", __func__, system_rev);
 
 	/* Init unused GPIOs */
 	for (inx = 0; inx < ARRAY_SIZE(unused_gpios_amethyst); inx++)
 		unused_gpio_port_init(unused_gpios_amethyst[inx]);
+
+	gpio_request(GPIO_PORT39, NULL);
+	gpio_direction_output(GPIO_PORT39, 1);
+
+	/* SCIFA0 */
+	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
+	gpio_request(GPIO_FN_SCIFA0_RXD, NULL);
 
 	/* Bluetooth UART settings (ttySC4) */
 
@@ -585,15 +692,13 @@ static void __init board_init(void)
 	irq_set_irq_type(irq_pin(28), IRQ_TYPE_LEVEL_LOW);
 #endif /* CONFIG_MFD_D2153 */
 
-	/* Touch */
-	gpio_request(GPIO_PORT32, NULL);
-	gpio_direction_input(GPIO_PORT32);
-	gpio_pull_up_port(GPIO_PORT32);
-
 	USBGpio_init();
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
-	u2audio_init(u2_board_rev);
+	d2153_pdata.audio.fm34_device = DEVICE_NONE;
+	d2153_pdata.audio.aad_codec_detect_enable = false;
+	d2153_pdata.audio.debounce_ms = D2153_AAD_JACK_DEBOUNCE_MS;
+	u2audio_init();
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 
 #ifndef CONFIG_ARM_TZ
@@ -610,7 +715,7 @@ static void __init board_init(void)
 
 	camera_init();
 
-	gpio_key_init(stm_select, u2_board_rev,
+	gpio_key_init(stm_select,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
 			devices_stm_sdhi1,
@@ -629,13 +734,15 @@ static void __init board_init(void)
 	i2c_register_board_info(0, i2c0_devices_d2153,
 					ARRAY_SIZE(i2c0_devices_d2153));
 
-#if defined (CONFIG_AMETHYST_SENSOR)
-	board_sensor_init();
+#if defined(CONFIG_SENSOR_L3GD20)
+	platform_device_register(&lsm303dl_device);
 #endif
+
+	i2c_register_board_info(2, i2c2_devices, ARRAY_SIZE(i2c2_devices));
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if (u2_board_rev == BOARD_REV_0_0 || u2_board_rev > BOARD_REV_0_4) {
+	if (system_rev == BOARD_REV_0_0 || system_rev > BOARD_REV_0_4) {
 		int i;
 		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
 			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {
@@ -645,14 +752,22 @@ static void __init board_init(void)
 	}
 #endif
 
-	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
+	if (MUIC_IS_PRESENT) {
+		i2c_register_board_info(3, i2c3_devices,
+						ARRAY_SIZE(i2c3_devices));
+	} else {
+		int i;
+		for (i = 0; i < sizeof(i2c3_devices)
+					/sizeof(struct i2c_board_info); i++) {
+			if (!(strcmp(i2c3_devices[i].type, "tsu6712") == 0) &&
+			!(strcmp(i2c3_devices[i].type, "rt8973") == 0)) {
+				i2c_register_board_info(3, &i2c3_devices[i],
+								 1);
+			}
+		}
+	}
 
-#if 0 /*dev-touchpanel.c not compiled yet and no config option*/
-	/* Touch Panel auto detection */
-	i2c_add_driver(&tsp_detector_driver);
-#endif
-	i2c_register_board_info(4, i2c4_devices_tsp_detector,
-					ARRAY_SIZE(i2c4_devices_tsp_detector));
+	board_tsp_init();
 
 	i2c_register_board_info(8, i2cm_devices_d2153,
 					ARRAY_SIZE(i2cm_devices_d2153));
@@ -663,20 +778,16 @@ static void __init board_init(void)
 #endif
 
 	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
-	platform_add_devices(plat_devices,
-					ARRAY_SIZE(plat_devices));
-
 	/* PA devices init */
 	spa_init();
-	vibrator_init(u2_board_rev);
+#ifdef CONFIG_VIBRATOR_SS
+	ss_vibrator_data.voltage = 2800000;
+#endif
+	u2_vibrator_init();
 
 	printk(KERN_DEBUG "%s\n", __func__);
-#ifdef CONFIG_MMC_OOPS
-	crashlog_r_local_ver_write(mmcoops_info.soft_version);
-#endif
 #if 0 /*TODO: crashlog.c not compiled in and not config option*/
 	crashlog_reset_log_write();
-	crashlog_init_tmplog();
 #endif
 
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
@@ -690,7 +801,7 @@ static const char *logan_compat_dt[] __initdata = {
 	NULL,
 };
 
-DT_MACHINE_START(U2_LOGANLTE, "LoganLTE")
+DT_MACHINE_START(AMETHYST, "amethyst")
 	.smp		= smp_ops(r8a7373_smp_ops),
 	.map_io		= r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,
@@ -702,7 +813,7 @@ DT_MACHINE_START(U2_LOGANLTE, "LoganLTE")
 	.dt_compat	= logan_compat_dt,
 MACHINE_END
 #else  /* CONFIG_OF */
-MACHINE_START(U2EVM, "u2evm")
+MACHINE_START(AMETHYST, "amethyst")
 	.smp		= smp_ops(r8a7373_smp_ops),
 	.map_io		= r8a7373_map_io,
 	.init_irq       = r8a7373_init_irq,

@@ -76,3 +76,4 @@ obj-$(CONFIG_TOUCHSCREEN_MELFAS)    += melfas/
 obj-$(CONFIG_TOUCHSCREEN_IST30XX)	+= imagis/
 obj-$(CONFIG_TOUCHSCREEN_BT432)   += zinitix/
 obj-$(CONFIG_TOUCHSCREEN_BT532)   += zinitix/
+obj-$(CONFIG_TOUCHSCREEN_BCMTCH15XXX)	+= bcmtch15xxx.o

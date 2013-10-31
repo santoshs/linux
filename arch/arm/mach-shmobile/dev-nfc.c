@@ -3,10 +3,6 @@
 #include <linux/platform_device.h>
 #include <linux/nfc/pn547.h>
 
-#ifdef CONFIG_PMIC_INTERFACE
-#include <linux/pmic/pmic-tps80032.h>
-#endif
-
 #include <mach/r8a7373.h>
 #include <mach/irqs.h>
 

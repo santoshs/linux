@@ -1601,7 +1601,7 @@ static void set_config_by_revision(void)
 {
 	unsigned int hw_id;
 
-	hw_id = u2_get_board_rev();
+	hw_id = system_rev;
 
 	printk(KERN_INFO "%s\n", __func__);
 	printk(KERN_DEBUG "hwid = %d\n", hw_id);
