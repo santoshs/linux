@@ -177,6 +177,9 @@ int atags_to_fdt(void *atag_list, void *fdt, int total_space)
 					initrd_start);
 			setprop_cell(fdt, "/chosen", "linux,initrd-end",
 					initrd_start + initrd_size);
+		} else if (atag->hdr.tag == ATAG_REVISION) {
+			uint32_t revision = atag->u.revision.rev;
+			setprop_cell(fdt, "/", "board-revision", revision);
 		}
 	}
 

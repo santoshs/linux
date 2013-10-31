@@ -25,6 +25,7 @@
 #include <asm/smp_plat.h>
 #include <asm/mach/arch.h>
 #include <asm/mach-types.h>
+#include <asm/system_info.h>
 
 void __init early_init_dt_add_memory_arch(u64 base, u64 size)
 {
@@ -183,6 +184,7 @@ struct machine_desc * __init setup_machine_fdt(unsigned int dt_phys)
 	unsigned int score, mdesc_score = ~1;
 	unsigned long dt_root;
 	const char *model;
+	__be32 *prop;
 
 #ifdef CONFIG_ARCH_MULTIPLATFORM
 	DT_MACHINE_START(GENERIC_DT, "Generic DT based system")
@@ -234,6 +236,10 @@ struct machine_desc * __init setup_machine_fdt(unsigned int dt_phys)
 	if (!model)
 		model = "<unknown>";
 	pr_info("Machine: %s, model: %s\n", mdesc_best->name, model);
+
+	prop = of_get_flat_dt_prop(dt_root, "board-revision", NULL);
+	if (prop)
+		system_rev = be32_to_cpu(*prop);
 
 	/* Retrieve various information from the /chosen node */
 	of_scan_flat_dt(early_init_dt_scan_chosen, boot_command_line);
