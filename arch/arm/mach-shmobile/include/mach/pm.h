@@ -121,6 +121,7 @@ void register_pm_state_notify_confirm(struct pm_state_notify_confirm *h);
 void unregister_pm_state_notify_confirm(struct pm_state_notify_confirm *h);
 unsigned int state_notify_confirm(void);
 unsigned int state_notify(int state);
+extern struct mutex smp_idle_lock;
 #ifdef CONFIG_PM_DEBUG
 extern int control_cpuidle(int is_enable);
 extern int is_cpuidle_enable(void);

@@ -31,18 +31,12 @@
 #include <linux/irqchip/arm-gic.h>
 #include <mach/pm.h>
 #include <linux/delay.h>
-#if 0
-/* TODO - check if replacement for idle wakelock functionality is required */
-#include <linux/wakelock.h>
-#endif
 #include <asm/cacheflush.h>
 
 #include "pm-r8a7373.h"
 
-#ifdef IDLE_WAKELOCK_THING
 static bool init_flag = false;
-static struct wake_lock smp_idle_wakelock;
-#endif
+DEFINE_MUTEX(smp_idle_lock);
 
 #ifdef CONFIG_HAVE_ARM_TWD
 static DEFINE_TWD_LOCAL_TIMER(twd_local_timer, 0xF0000600, 29);
@@ -60,34 +54,22 @@ static void __init r8a7373_smp_init_cpus(void)
 	shmobile_smp_init_cpus(scu_get_core_count(shmobile_scu_base));
 }
 
-#ifdef IDLE_WAKELOCK_THING
 void __cpuinit r8a7373_secondary_init(unsigned int cpu)
 {
 	if (init_flag) {
-		/* merge: TODO: remove wakelock??*/
-		wake_unlock(&smp_idle_wakelock);
+		mutex_unlock(&smp_idle_lock);
 	} else {
 		init_flag = true;
 	}
 }
-#endif
 
 int __cpuinit r8a7373_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long status;
 	cpu = cpu_logical_map(cpu);
 
-#ifdef IDLE_WAKELOCK_THING
-	/* XXX Idle wake locks don't exist any more - if this is necessary,
-	 * find a replacement.
-	 */
-	if (!init_flag) {
-		wake_lock_init(&smp_idle_wakelock, WAKE_LOCK_IDLE, "smp Idle");
-	}
-	else {
-		wake_lock(&smp_idle_wakelock);
-	}
-#endif
+	if (init_flag)
+		mutex_lock(&smp_idle_lock);
 
 	status = (__raw_readl(SCPUSTR) >> (4 * cpu)) & 3;
 	if (status == 3) {

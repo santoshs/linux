@@ -28,8 +28,8 @@
 #include <linux/io.h>
 #include <mach/pm.h>
 #include <linux/slab.h>
+#include <linux/mutex.h>
 #include <mach/system.h>
-#include <linux/wakelock.h>
 #include <linux/spinlock_types.h>
 #include <linux/cpu.h>
 #include <memlog/memlog.h>
@@ -414,15 +414,15 @@ static int shmobile_enter_corestandby(struct cpuidle_device *dev,
 {
 	ktime_t time_start, time_end;
 	s64 diff;
-	long wakelock;
+	int hotplug_in_progress;
 
 	FIQ_DISABLE();
 
 	time_start = ktime_get();
 
-	/* Core Standby wakelock check */
-	wakelock = has_wake_lock(WAKE_LOCK_IDLE);
-	if (!wakelock) {
+	/* Core Standby hotplug lock check */
+	hotplug_in_progress = mutex_is_locked(&smp_idle_lock);
+	if (!hotplug_in_progress) {
 		/* Core Standby State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY);
@@ -496,8 +496,8 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 {
 	ktime_t time_start, time_end;
 	s64 diff;
-	long wakelock;
 	unsigned int dr_WUPSFAC;
+	int hotplug_in_progress;
 	int clocks_ret;
 #if (defined ZB3_CLK_IDLE_ENABLE) && (defined ZB3_CLK_DFS_ENABLE)
 	unsigned int freqD_save = 0;
@@ -510,9 +510,9 @@ static int shmobile_enter_corestandby_2(struct cpuidle_device *dev,
 
 	time_start = ktime_get();
 
-	/* Core Standby wakelock check */
-	wakelock = has_wake_lock(WAKE_LOCK_IDLE);
-	if (!wakelock) {
+	/* Core Standby hotplug in progress check */
+	hotplug_in_progress = mutex_is_locked(&smp_idle_lock);
+	if (!hotplug_in_progress) {
 		/* Core Standby State Notify */
 		if (!state_notify_confirm())
 			state_notify(PM_STATE_NOTIFY_CORESTANDBY_2);
