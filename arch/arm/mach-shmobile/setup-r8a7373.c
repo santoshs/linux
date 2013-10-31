@@ -1273,6 +1273,7 @@ void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
 void mmcif_pwr_control(int onoff)
 {
 	int ret;
+	static unsigned short vmmc_reg_enable;
 	struct regulator *emmc_regulator;
 
 	pr_info("%s %s\n", __func__, (onoff) ? "on" : "off");
@@ -1284,10 +1285,12 @@ void mmcif_pwr_control(int onoff)
 
 	/* always enabling the vmmc */
 	if (onoff == 1) {
-		if (!regulator_is_enabled(emmc_regulator)) {
+		/* always enabling the vmmc */
+		if (vmmc_reg_enable == 0) {
 			pr_info("%s, %d vmmc On\n", __func__,
 				__LINE__);
 			ret = regulator_enable(emmc_regulator);
+			vmmc_reg_enable = 1;
 			pr_info("regulator_enable ret = %d\n", ret);
 		}
 	}
