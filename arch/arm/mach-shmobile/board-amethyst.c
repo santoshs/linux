@@ -583,9 +583,6 @@ static void __init board_init(void)
 	gpio_request(GPIO_PORT39, NULL);
 	gpio_direction_output(GPIO_PORT39, 1);
 
-	/* SCIFA0 */
-	gpio_request(GPIO_FN_SCIFA0_TXD, NULL);
-	gpio_request(GPIO_FN_SCIFA0_RXD, NULL);
 
 	/* Bluetooth UART settings (ttySC4) */
 
