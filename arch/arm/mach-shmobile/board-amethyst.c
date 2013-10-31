@@ -155,6 +155,10 @@ static int unused_gpios_amethyst[] = {
 	GPIO_PORT257, GPIO_PORT258, GPIO_PORT259,
 };
 
+static struct gpio_keys_button gpio_buttons[] = {
+	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     1),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     1),
+};
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
 
@@ -626,6 +630,11 @@ static void __init board_init(void)
 
 	camera_init();
 
+	/*Gpio keys button configuration*/
+	((struct gpio_keys_platform_data *)(gpio_key_device.dev.platform_data))
+		->buttons = gpio_buttons;
+	((struct gpio_keys_platform_data *)(gpio_key_device.dev.platform_data))
+		->nbuttons = ARRAY_SIZE(gpio_buttons);
 	gpio_key_init(stm_select,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
