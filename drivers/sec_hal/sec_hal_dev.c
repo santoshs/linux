@@ -834,7 +834,7 @@ int sec_hal_rpc_init(void);
  * Function name : sec_hal_pdev_probe
  * Description   :
  * *********************************************************************/
-static int sec_hal_pdev_probe(struct platform_device *pdev)
+static int __init sec_hal_pdev_probe(struct platform_device *pdev)
 {
 	int ret, i = 0;
 	sec_hal_init_info_t rt_init;
@@ -967,7 +967,7 @@ static int sec_hal_pdev_remove(struct platform_device *pdev)
 }
 
 
-static struct platform_driver k_sec_hal_platform_device_driver =
+static struct platform_driver __refdata k_sec_hal_platform_device_driver =
 {
 	.probe = sec_hal_pdev_probe,
 	.suspend = sec_hal_pdev_suspend,
