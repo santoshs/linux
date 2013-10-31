@@ -207,10 +207,10 @@ static ssize_t subvendorid_S5K4ECGX_show(struct device *dev,
 	return sprintf(buf, "%s\n", vendorid);
 }
 
-static DEVICE_ATTR(rear_camtype, 0644, subcamtype_S5K4ECGX_show, NULL);
-static DEVICE_ATTR(rear_camfw, 0644, subcamfw_S5K4ECGX_show, NULL);
-static DEVICE_ATTR(rear_flash, 0664, NULL, maincamflash_S5K4ECGX_store);
-static DEVICE_ATTR(rear_vendorid, 0644, subvendorid_S5K4ECGX_show, NULL);
+static DEVICE_ATTR(rear_camtype, S_IRUGO, subcamtype_S5K4ECGX_show, NULL);
+static DEVICE_ATTR(rear_camfw, S_IRUGO, subcamfw_S5K4ECGX_show, NULL);
+static DEVICE_ATTR(rear_flash, S_IWUSR|S_IWGRP, NULL, maincamflash_S5K4ECGX_store);
+static DEVICE_ATTR(rear_vendorid, S_IRUGO, subvendorid_S5K4ECGX_show, NULL);
 
 struct S5K4ECGX_datafmt {
 	enum v4l2_mbus_pixelcode	code;

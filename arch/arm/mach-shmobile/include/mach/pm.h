@@ -487,6 +487,8 @@ extern int pm_disable_clock_change(int clk);
 extern unsigned long pm_get_spinlock(void);
 extern void pm_release_spinlock(unsigned long flag);
 #else
+static inline int disable_early_suspend_clock(void) { return 0; }
+static inline void enable_early_suspend_clock(void) {}
 static inline void start_cpufreq(void) {}
 static inline int stop_cpufreq(void) { return 0; }
 static inline void disable_dfs_mode_min(void) {}

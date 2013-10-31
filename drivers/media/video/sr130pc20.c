@@ -43,8 +43,8 @@ static ssize_t subcamfw_SR130PC20_show(struct device *dev,
 	return sprintf(buf, "%s\n", sensorfw);
 }
 
-static DEVICE_ATTR(front_camtype, 0644, subcamtype_SR130PC20_show, NULL);
-static DEVICE_ATTR(front_camfw, 0644, subcamfw_SR130PC20_show, NULL);
+static DEVICE_ATTR(front_camtype, S_IRUGO, subcamtype_SR130PC20_show, NULL);
+static DEVICE_ATTR(front_camfw, S_IRUGO, subcamfw_SR130PC20_show, NULL);
 
 struct SR130PC20_datafmt {
 	enum v4l2_mbus_pixelcode	code;

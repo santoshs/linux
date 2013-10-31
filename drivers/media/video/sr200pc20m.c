@@ -43,8 +43,8 @@ static ssize_t maincamfw_SR200PC20M_show(struct device *dev,
 	return sprintf(buf, "%s\n", sensorfw);
 }
 
-static DEVICE_ATTR(rear_camtype, 0644, maincamtype_SR200PC20M_show, NULL);
-static DEVICE_ATTR(rear_camfw, 0644, maincamfw_SR200PC20M_show, NULL);
+static DEVICE_ATTR(rear_camtype, S_IRUGO, maincamtype_SR200PC20M_show, NULL);
+static DEVICE_ATTR(rear_camfw, S_IRUGO, maincamfw_SR200PC20M_show, NULL);
 
 struct SR200PC20M_datafmt {
 	enum v4l2_mbus_pixelcode	code;
