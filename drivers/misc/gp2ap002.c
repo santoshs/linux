@@ -690,8 +690,10 @@ static int gp2a_prox_probe(struct i2c_client *client,const struct i2c_device_id 
 		"prx_wake_lock");
             
 	gp2a_data->irq = gpio_to_irq(gp2a_data->irq_gpio);
-    
-	ret= request_threaded_irq(gp2a_data->irq, NULL, gp2a_irq_handler, IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND, "proximity_int", gp2a_data);
+
+	ret = request_threaded_irq(gp2a_data->irq, NULL, gp2a_irq_handler,
+		IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND | IRQF_ONESHOT,
+					"proximity_int", gp2a_data);
 	if (unlikely(ret < 0)) {
 		error("%s: request_irq(%d) failed for gpio %d (%d)\n", __func__, gp2a_data->irq, gp2a_data->irq_gpio, ret);
 		goto DESTROY_WORK_QUEUE;
