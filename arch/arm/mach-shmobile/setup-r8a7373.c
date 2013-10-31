@@ -714,6 +714,12 @@ static struct sh_dmae_pdata r8a7373_dmae_platform_data = {
 
 static struct resource r8a7373_dmae_resources[] = {
 	{
+		/* DescriptorMEM */
+		.start  = 0xFE00A000,
+		.end    = 0xFE00A7FC,
+		.flags  = IORESOURCE_MEM,
+	},
+	{
 		/* Registers including DMAOR and channels including DMARSx */
 		.start	= 0xfe000020,
 		.end	= 0xfe008a00 - 1,

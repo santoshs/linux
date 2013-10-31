@@ -34,6 +34,11 @@ struct sh_dmae_slave_config {
 	u32		burst_sizes; /* XXX not implemented */
 };
 
+struct sh_dmae_regs {
+	u32 sar; /* SAR / source address */
+	u32 dar; /* DAR / destination address */
+	u32 tcr; /* TCR / transfer count */
+};
 struct sh_dmae_channel {
 	unsigned int	offset;
 	unsigned int	dmars;
@@ -68,6 +73,8 @@ struct sh_dmae_pdata {
 #define DAR	0x04
 #define TCR	0x08
 #define CHCR	0x0C
+#define CHCRB   0x1C
+#define DPBASE  0x50
 #define DMAOR	0x40
 
 #define TEND	0x18 /* USB-DMAC */
@@ -99,6 +106,27 @@ struct sh_dmae_pdata {
 #define CHCR_DE	0x00000001
 #define CHCR_TE	0x00000002
 #define CHCR_IE	0x00000004
+
+#define DPBASE_BASE 0xfffffff0
+#define DPBASE_SEL  0x00000001
+#define DPBASE_SHIFT  0x60  /* By using 6 descriptors per channel */
+#define CHCRB_DRST  (1 << 15)
+#define CHCRB_DCNT_SHIFT  (24)
+#define CHCRB_DPTR_MASK  0x00ff0000
+#define CHCRB_DCNT_MASK  0xff000000
+#define CHCRB_DPTR_SHIFT 16
+#define CHCR_DPM_MASK   (3 << 28)
+#define CHCR_DPM_DNM    0x10000000
+#define CHCR_DPM_DRM    0x20000000
+#define CHCR_RPT        0x0E000000
+#define CHCR_DSIE       (1 << 18)
+#define CHCR_DSE        (1 << 19)
+#define CHCR_DPB        (1 << 22)
+
+int sh_dmae_set_rpt_mode(struct dma_chan *chan);
+int sh_dmae_clear_rpt_mode(struct dma_chan *chan);
+void sh_dmae_aquire_desc_config(struct dma_chan *chan,
+				struct sh_dmae_regs *hw);
 
 bool shdma_chan_filter(struct dma_chan *chan, void *arg);
 
