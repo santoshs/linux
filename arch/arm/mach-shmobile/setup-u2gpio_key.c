@@ -6,8 +6,6 @@
 #include <mach/common.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
-#include <linux/input.h>
-#include <linux/gpio_keys.h>
 #include <linux/input/sh_keysc.h>
 #include <linux/platform_device.h>
 
@@ -59,34 +57,18 @@ struct platform_device keysc_device = {
 };
 #endif
 
-#define GPIO_KEY(c, g, d, w) \
-	{.code = c, .gpio = g, .desc = d, .wakeup = w, .active_low = 1,\
-	 .debounce_interval = 20}
-
-static struct gpio_keys_button gpio_buttons[] = {
-#ifdef CONFIG_RENESAS
-	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT18, "Home",  1),
-#else
-	GPIO_KEY(KEY_HOME,       GPIO_PORT18, "Home",  1),
-#endif
-	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     1),
-	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     1),
-};
-
 static int gpio_key_enable(struct device *dev)
 {
-#if !defined(CONFIG_PMIC_INTERFACE) && !defined(CONFIG_MFD_D2153)
-	gpio_pull_up_port(GPIO_PORT24);
-#endif
-	gpio_pull_up_port(GPIO_PORT18);
-	gpio_pull_up_port(GPIO_PORT1);
-	gpio_pull_up_port(GPIO_PORT2);
+	unsigned short inx = 0;
+	struct gpio_keys_platform_data *pdata = dev->platform_data;
+	for (inx = 0; inx < pdata->nbuttons; inx++)
+		gpio_pull_up_port(pdata->buttons[inx].gpio);
 	return 0;
 }
 
 static struct gpio_keys_platform_data gpio_key_info = {
-	.buttons	= gpio_buttons,
-	.nbuttons	= ARRAY_SIZE(gpio_buttons),
+	.buttons	= NULL,
+	.nbuttons	= 0,
 	.rep		= 0,
 	.enable		= gpio_key_enable,
 };
