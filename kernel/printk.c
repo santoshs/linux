@@ -68,6 +68,8 @@ static bool printk_pid = 1;
 module_param_named(pid, printk_pid, bool, S_IRUGO | S_IWUSR);
 #endif
 
+#include <mach/crashlog.h>
+
 /* printk's without a loglevel use this.. */
 #define DEFAULT_MESSAGE_LOGLEVEL CONFIG_DEFAULT_MESSAGE_LOGLEVEL
 
@@ -3018,6 +3020,14 @@ void show_regs_print_info(const char *log_lvl)
 	printk("%stask: %p ti: %p task.ti: %p\n",
 	       log_lvl, current, current_thread_info(),
 	       task_thread_info(current));
+}
+
+void crashlog_kmsg_init()
+{
+	set_log_info(CRASHLOG_KMSG_LOCATE, virt_to_phys(log_buf),
+				virt_to_phys(&log_buf_len),
+				virt_to_phys(&log_first_idx),
+				virt_to_phys(&log_next_idx));
 }
 
 #endif

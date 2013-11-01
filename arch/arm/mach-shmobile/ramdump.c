@@ -31,6 +31,7 @@
 #include <mach/ramdump.h>
 #include <asm/mach/map.h>
 #include <memlog/memlog.h>
+#include <mach/crashlog.h>
 
 static int debug_enabled;
 module_param_named(debug_enabled, debug_enabled, int,
@@ -573,6 +574,8 @@ static int __init ramdump_probe(struct platform_device *pd)
 				__func__, ret);
 		goto panic_notifier_register_failed;
 	}
+
+	crashlog_kmsg_init();
 
 	return 0;
 

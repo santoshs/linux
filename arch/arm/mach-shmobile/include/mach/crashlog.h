@@ -42,4 +42,6 @@ static inline void set_log_info(unsigned long store_addr,
 		unsigned long w_off_add, unsigned long head_addr){}
 #endif
 
+void crashlog_kmsg_init(void);
+
 #endif /* __ARCH_SHMOBILE_CRASHLOG_H__ */
