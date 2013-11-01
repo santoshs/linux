@@ -332,14 +332,14 @@ enum {
 
 static struct device_attribute d2153_battery_attrs[]=
 {
-	__ATTR(display_soc_lut, 0644, d2153_battery_attrs_show, NULL),
-	__ATTR(display_dischg_weight, 0644, d2153_battery_attrs_show, NULL),
-	__ATTR(display_chg_weight, 0644, d2153_battery_attrs_show, NULL),
-	__ATTR(display_weight_offset, 0644, d2153_battery_attrs_show, NULL),
-	__ATTR(display_capacity, 0644, d2153_battery_attrs_show, NULL),
+	__ATTR(display_soc_lut, S_IRUGO, d2153_battery_attrs_show, NULL),
+	__ATTR(display_dischg_weight, S_IRUGO, d2153_battery_attrs_show, NULL),
+	__ATTR(display_chg_weight, S_IRUGO, d2153_battery_attrs_show, NULL),
+	__ATTR(display_weight_offset, S_IRUGO, d2153_battery_attrs_show, NULL),
+	__ATTR(display_capacity, S_IRUGO, d2153_battery_attrs_show, NULL),
 	/* If you want to add a property,
 	   then please add before "D2153_PROP_ALL" attributes */
-	__ATTR(display_all_information, 0644, d2153_battery_attrs_show, NULL),
+	__ATTR(display_all_information, S_IRUGO, d2153_battery_attrs_show, NULL),
 };
 
 static ssize_t d2153_battery_attrs_show(struct device *pdev,
