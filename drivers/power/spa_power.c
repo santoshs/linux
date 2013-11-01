@@ -2129,6 +2129,10 @@ static int spa_power_probe(struct platform_device *pdev)
 
 	probe_status = SPA_PROBE_STATUS_READY;
 
+#ifdef CONFIG_BATTERY_D2153
+	d2153_battery_start();
+#endif
+
 	goto label_SPA_POWER_PROBE_SUCCESS;
 
 label_SPA_POWER_PROBE_ERROR:

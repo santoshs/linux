@@ -30,6 +30,7 @@
 #include <linux/kdebug.h>
 #include <linux/spinlock.h>
 #include <linux/rculist.h>
+#include <memlog/memlog.h>
 
 #include "dmaengine.h"
 #include "shdma.h"
@@ -1116,7 +1117,8 @@ static dma_async_tx_callback __ld_cleanup(struct sh_dmae_chan *sh_chan,
 	dma_async_tx_callback callback = NULL;
 	void *param = NULL;
 	unsigned long flags;
-
+	
+	memory_log_dump_int(DMA_FUNC_ID_LD_CLEANUP, DMA_START);
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
 	list_for_each_entry_safe(desc, _desc, &sh_chan->ld_queue, node) {
 		struct dma_async_tx_descriptor *tx = &desc->async_tx;
@@ -1198,7 +1200,7 @@ static dma_async_tx_callback __ld_cleanup(struct sh_dmae_chan *sh_chan,
 		sh_chan->common.completed_cookie = sh_chan->common.cookie;
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
-
+	memory_log_dump_int(DMA_FUNC_ID_LD_CLEANUP, DMA_END);
 	if (callback)
 		callback(param);
 
@@ -1232,8 +1234,10 @@ static void sh_chan_xfer_ld_queue(struct sh_dmae_chan *sh_chan)
 				desc->async_tx.cookie, sh_chan->id,
 				desc->hw.tcr, desc->hw.sar, desc->hw.dar);
 			/* Get the ld start address from ld_queue */
+			memory_log_dump_int(DMA_FUNC_LD_QUEUE,DMA_START);
 			dmae_set_reg(sh_chan, &desc->hw);
 			dmae_start(sh_chan);
+			memory_log_dump_int(DMA_FUNC_LD_QUEUE,DMA_END);
 			break;
 		}
 }
@@ -1244,12 +1248,14 @@ static void sh_dmae_memcpy_issue_pending(struct dma_chan *chan)
 	unsigned long flags;
 
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
+	memory_log_dump_int(DMA_FUNC_ID_PENDING, DMA_START);
 	if (!sh_chan->desc_mode)
 		sh_chan_xfer_ld_queue(sh_chan);
 	else
 		/* Descriptor memory is already loaded, start the transfer */
 		dmae_rpt_start(sh_chan);
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
+	memory_log_dump_int(DMA_FUNC_ID_PENDING, DMA_END);
 }
 
 static enum dma_status sh_dmae_tx_status(struct dma_chan *chan,
@@ -1402,6 +1408,7 @@ static void dmae_do_tasklet(unsigned long data)
 	unsigned long flags;
 
 	spin_lock_irqsave(&sh_chan->desc_lock, flags);
+	memory_log_dump_int(DMA_FUNC_ID_DO_TASKLET, DMA_START);
 	desc_mode = sh_chan->desc_mode;
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
 	if (desc_mode) {
@@ -1437,7 +1444,7 @@ static void dmae_do_tasklet(unsigned long data)
 	sh_chan_xfer_ld_queue(sh_chan);
 
 	spin_unlock_irqrestore(&sh_chan->desc_lock, flags);
-
+	memory_log_dump_int(DMA_FUNC_ID_DO_TASKLET, DMA_END);
 	sh_dmae_chan_ld_cleanup(sh_chan, false);
 }
 

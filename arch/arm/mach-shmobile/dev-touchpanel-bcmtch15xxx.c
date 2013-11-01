@@ -54,9 +54,9 @@ static struct i2c_board_info __initdata bcmtch15xxx_i2c_boardinfo[] = {
         },
 };
 
-void __init board_tsp_init(void)
+void __init bcmtch15xxx_tsp_init(void)
 {
-	printk(" *** [TSP] board_tsp_init + \n");
+	printk(" *** [TSP] bcmtch15xxx_tsp_init + \n");
 
 	i2c_register_board_info(bcmtch15xxx_i2c_platform_data.i2c_bus_id, bcmtch15xxx_i2c_boardinfo, ARRAY_SIZE(bcmtch15xxx_i2c_boardinfo));
 }

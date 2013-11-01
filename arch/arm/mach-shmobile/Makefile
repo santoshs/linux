@@ -69,6 +69,7 @@ obj-$(CONFIG_MACH_KOTA2)	+= board-kota2.o
 obj-$(CONFIG_MACH_BONITO)	+= board-bonito.o
 obj-$(CONFIG_MACH_MARZEN)	+= board-marzen.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
+obj-$(CONFIG_MACH_AFYONLTE)	+= board-afyonlte.o
 obj-$(CONFIG_MACH_AMETHYST)	+= board-amethyst.o
 
 obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
@@ -109,7 +110,7 @@ obj-y += dev-touchpanel-bcmtch15xxx.o
 
 # touchscreen
 obj-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += setup-u2mxt224.o
-
+obj-$(CONFIG_TOUCHSCREEN_CYTTSP4) += dev-touchpanel_cyttsp4.o
 # vibrator
 obj-y +=  setup-u2vibrator.o
 
@@ -117,6 +118,7 @@ obj-y +=  setup-u2vibrator.o
 ifeq ($(CONFIG_SEC_CHARGING_FEATURE),y)
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte-spa.o
 obj-$(CONFIG_MACH_AMETHYST)	+= board-amethyst-spa.o
+obj-$(CONFIG_MACH_AFYONLTE)	+= board-afyonlte-spa.o
 endif
 
 # common timer setup

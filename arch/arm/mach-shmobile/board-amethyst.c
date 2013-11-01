@@ -674,7 +674,7 @@ static void __init board_init(void)
 		}
 	}
 
-	board_tsp_init();
+	bcmtch15xxx_tsp_init();
 
 	i2c_register_board_info(8, i2cm_devices_d2153,
 					ARRAY_SIZE(i2cm_devices_d2153));

@@ -255,7 +255,11 @@ static struct platform_device i2c3_device = {
 static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
 	.bus_speed	= 400000,
         .pin_multi	= true,
-	.bus_data_delay = I2C_SDA_163NS_DELAY,
+#if defined(CONFIG_MACH_AFYONLTE)
+		.bus_data_delay = MIN_SDA_DELAY,
+#else
+		.bus_data_delay = I2C_SDA_163NS_DELAY,
+#endif
 	.scl_info	= {
 		.port_num	= GPIO_PORT84,
 		.port_func	= GPIO_FN_I2C_SCL0H,
@@ -1273,25 +1277,29 @@ void __init r8a7373_avoid_a2slpowerdown_afterL2sync(void)
 void mmcif_pwr_control(int onoff)
 {
 	int ret;
+	static unsigned short vmmc_reg_enable;
 	struct regulator *emmc_regulator;
 
-	pr_info("%s %s\n", __func__, (onoff) ? "on" : "off");
+	printk(KERN_INFO "%s %s\n", __func__, (onoff) ? "on" : "off");
 	emmc_regulator = regulator_get(NULL, "vmmc");
 	if (IS_ERR(emmc_regulator)) {
-		pr_err("can not get vmmc regulator\n");
+		printk(KERN_INFO "can not get vmmc regulator\n");
 		return;
 	}
 
-	/* always enabling the vmmc */
 	if (onoff == 1) {
-		if (!regulator_is_enabled(emmc_regulator)) {
-			pr_info("%s, %d vmmc On\n", __func__,
+		/* always enabling the vmmc */
+		if (vmmc_reg_enable == 0) {
+			printk(KERN_INFO " %s, %d vmmc On\n", __func__,
 				__LINE__);
 			ret = regulator_enable(emmc_regulator);
-			pr_info("regulator_enable ret = %d\n", ret);
+			vmmc_reg_enable = 1;
+			printk(KERN_INFO "regulator_enable ret = %d\n", ret);
 		}
 	}
+
 	regulator_put(emmc_regulator);
+
 }
 
 void mmcif_set_pwr(struct platform_device *pdev, int state)
@@ -1390,7 +1398,7 @@ inline unsigned int shmobile_rev(void)
 }
 EXPORT_SYMBOL(shmobile_rev);
 
-void r8a7373_l2cache_init(void)
+void __init r8a7373_l2cache_init(void)
 {
 #ifdef CONFIG_CACHE_L2X0
 	/*

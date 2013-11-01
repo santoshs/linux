@@ -5,12 +5,12 @@
 #include "MMS100S_ISC_Updater.h"
 #include <mach/r8a7373.h>
 
-#define GPIO_TOUCH_EN    41
-#define TOUCH_EN       41
-#define TSP_PWR_LDO_GPIO 41
-#define GPIO_TOUCH_INT        27
-#define GPIO_TSP_SCL             35
-#define GPIO_TSP_SDA            40
+#define GPIO_TOUCH_EN    	41
+#define TOUCH_EN       		41
+#define TSP_PWR_LDO_GPIO 	41
+#define GPIO_TOUCH_INT      27
+#define GPIO_TSP_SCL        35
+#define GPIO_TSP_SDA        40
 
 #ifndef GPIO_TOUCH_I2C_SDA
 #define GPIO_TOUCH_I2C_SDA GPIO_TSP_SDA
