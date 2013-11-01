@@ -1470,7 +1470,8 @@ static int tsu6712_irq_init(struct tsu6712_usbsw *usbsw)
 
 	if (client->irq) {
 		ret = request_threaded_irq(client->irq, NULL, tsu6712_irq_thread,
-			(IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND),"tsu6712 micro USB", usbsw);
+			(IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND | IRQF_ONESHOT),
+			"tsu6712 micro USB", usbsw);
 		if (ret) {
 			dev_err(&client->dev, "failed to reqeust IRQ\n");
 			return ret;
