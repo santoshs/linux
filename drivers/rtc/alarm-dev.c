@@ -171,6 +171,9 @@ from_old_alarm_set:
 			tmp_time =
 				ktime_to_timespec(alarm_get_elapsed_realtime());
 			break;
+		case ANDROID_ALARM_SYSTEMTIME:
+		case ANDROID_ALARM_TYPE_COUNT:
+			break;
 		}
 		if (copy_to_user((void __user *)arg, &tmp_time,
 		    sizeof(tmp_time))) {
@@ -178,7 +181,6 @@ from_old_alarm_set:
 			goto err1;
 		}
 		break;
-
 	default:
 		rv = -EINVAL;
 		goto err1;

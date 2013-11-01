@@ -45,4 +45,3 @@
 
 	.macro	waituart, rd, rx
 	.endm
-

@@ -54,6 +54,13 @@
 #define SCREEN0_MODE            (1)
 #endif
 
+#ifdef CONFIG_FB_R_MOBILE_HX8389B
+#define SCREEN0_HEIGHT          (960)
+#define SCREEN0_WIDTH           (540)
+#define SCREEN0_STRIDE          (544)
+#define SCREEN0_MODE		(0)
+#endif
+
 #define SCREEN1_HEIGHT		(0)
 #define SCREEN1_WIDTH		(0)
 #define SCREEN1_STRIDE		(0)

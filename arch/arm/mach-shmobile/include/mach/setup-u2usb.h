@@ -39,7 +39,7 @@
 #define RECOVER_RESUME    0
 #define USB_REINIT_CHANGE 0
 #endif
-#ifdef CONFIG_MACH_LOGANLTE
+#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AFYONLTE) 
 #define USB_DRVSTR_DBG    1
 #define RECOVER_RESUME    1
 #define USB_REINIT_CHANGE 1

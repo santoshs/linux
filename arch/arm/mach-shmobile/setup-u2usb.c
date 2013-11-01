@@ -572,7 +572,6 @@ void __init USBGpio_init(void)
 	if (ret < 0)
 		error_log("ERROR : ULPI_NXT failed ! USB may not function\n");
 
-#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AMETHYST)
 	ret = gpio_request(GPIO_PORT131, NULL);
 	if (ret < 0)
 		error_log("PORT131 failed!USB may not function\n");
@@ -583,7 +582,7 @@ void __init USBGpio_init(void)
 	ret = gpio_direction_output(GPIO_PORT131, 1);
 	if (ret < 0)
 		error_log("PORT131 direction output(1) failed!\n");
-#endif
+
 	ret = gpio_request(GPIO_PORT130, NULL);
 	if (ret < 0)
 		error_log("ERROR : PORT130 failed ! USB may not function\n");

@@ -869,7 +869,7 @@ inline int check_restriction(const struct clk_rate rates)
  *		0: successful
  *		negative: operation fail
  */
-int cpg_set_pll(int pll, unsigned int val)
+static int cpg_set_pll(int pll, unsigned int val)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
@@ -913,7 +913,7 @@ int cpg_set_pll(int pll, unsigned int val)
  *		pll0 mult-ratio
  *		negative: operation fail
  */
-int cpg_get_pll(int pll)
+static int cpg_get_pll(int pll)
 {
 	unsigned int stc_val = 0;
 	unsigned int pllcr = 0;
@@ -952,7 +952,7 @@ int cpg_get_pll(int pll)
  *		0: successful
  * -EBUSY: unsuccessful
  */
-int cpg_wait_kick(unsigned int time)
+static int cpg_wait_kick(unsigned int time)
 {
 	unsigned int wait_time = time;
 
@@ -975,7 +975,7 @@ int cpg_wait_kick(unsigned int time)
  *		0: successful
  *		negative: operation fail
  */
-int cpg_set_kick(unsigned int time)
+static int cpg_set_kick(unsigned int time)
 {
 	unsigned int wait_time = time;
 
@@ -1407,7 +1407,7 @@ EXPORT_SYMBOL(cpg_set_sbsc_freq);
  *		0: successful
  *		negative: operation fail
  */
-int cpg_get_freqval(int clk, int *div)
+static int cpg_get_freqval(int clk, int *div)
 {
 	unsigned long flags;
 	int div_rate = 0;
@@ -1468,7 +1468,7 @@ int cpg_get_freqval(int clk, int *div)
  *		0: successful
  *		negative: operation fail
  */
-int cpg_set_freq(const struct clk_rate rates)
+static int cpg_set_freq(const struct clk_rate rates)
 {
 	struct clk_rate curr_rates;
 	unsigned long cpgflags = 0;
@@ -2111,7 +2111,7 @@ EXPORT_SYMBOL(pm_release_spinlock);
 
 static struct dentry *clk_debugfs_root;
 
-struct dentry *array_dent[ARRAY_SIZE(__shmobile_freq_modes_es2_x)];
+static struct dentry *array_dent[ARRAY_SIZE(__shmobile_freq_modes_es2_x)];
 
 static int clk_debugfs_register_one(unsigned int index)
 {

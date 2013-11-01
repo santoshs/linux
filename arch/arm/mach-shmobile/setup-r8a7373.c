@@ -255,7 +255,11 @@ static struct platform_device i2c3_device = {
 static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
 	.bus_speed	= 400000,
         .pin_multi	= true,
-	.bus_data_delay = I2C_SDA_163NS_DELAY,
+#if defined(CONFIG_MACH_AFYONLTE)
+		.bus_data_delay = MIN_SDA_DELAY,
+#else
+		.bus_data_delay = I2C_SDA_163NS_DELAY,
+#endif
 	.scl_info	= {
 		.port_num	= GPIO_PORT84,
 		.port_func	= GPIO_FN_I2C_SCL0H,
@@ -1283,7 +1287,6 @@ void mmcif_pwr_control(int onoff)
 		return;
 	}
 
-	/* always enabling the vmmc */
 	if (onoff == 1) {
 		/* always enabling the vmmc */
 		if (vmmc_reg_enable == 0) {
@@ -1393,7 +1396,7 @@ inline unsigned int shmobile_rev(void)
 }
 EXPORT_SYMBOL(shmobile_rev);
 
-void r8a7373_l2cache_init(void)
+void __init r8a7373_l2cache_init(void)
 {
 #ifdef CONFIG_CACHE_L2X0
 	/*

@@ -1022,7 +1022,7 @@ static const struct i2c_algorithm sh7730_i2c_algo = {
 	.functionality	= sh7730_i2c_func,
 };
 
-static int __devinit sh7730_i2c_probe(struct platform_device *pdev)
+static int sh7730_i2c_probe(struct platform_device *pdev)
 {
 	struct i2c_sh_mobile_platform_data *pd;
 	struct resource *res;

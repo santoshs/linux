@@ -122,6 +122,11 @@ config MACH_AMETHYST
 	help
 	  Select this to support amethyst board.
 
+config MACH_AFYONLTE
+	bool "AfyonLTE board"
+	select ARCH_REQUIRE_GPIOLIB
+	depends on ARCH_R8A7373
+
 config MACH_U2USB
 	bool "U2USB board"
 	select ARCH_REQUIRE_GPIOLIB
@@ -165,7 +170,7 @@ config MEMORY_START
 	default "0x40000000" if MACH_G4EVM || MACH_AP4EVB || MACH_AG5EVM || \
 				MACH_MACKEREL || MACH_BONITO
 	default "0x41000000" if MACH_KOTA2
-	default "0x49000000" if MACH_LOGANLTE || MACH_AMETHYST
+	default "0x49000000" if MACH_LOGANLTE || MACH_AMETHYST || MACH_AFYONLTE
 	default "0x00000000"
 	---help---
 	  Tweak this only when porting to a new machine which does not
@@ -176,7 +181,7 @@ config MEMORY_SIZE
 	hex "Physical memory size"
 	default "0x08000000" if MACH_G3EVM
 	default "0x08000000" if MACH_G4EVM
-	default "0x20000000" if MACH_AG5EVM || MACH_LOGANLTE || MACH_AMETHYST
+	default "0x20000000" if MACH_AG5EVM || MACH_LOGANLTE || MACH_AMETHYST || MACH_AFYONLTE
 	default "0x1e000000" if MACH_KOTA2
 	default "0x10000000" if MACH_AP4EVB || MACH_MACKEREL
 	default "0x04000000"
@@ -429,8 +434,8 @@ config BCM4334_BT
 	  Adds BCM4334 RFKILL driver for Broadcom BCM4334 chipset
 
 config BCM4330_MODULE
-        bool "Enable BCM4330 driver on Renesas Baseband"
- 	default y
+	bool "Enable BCM4330 driver on Renesas Baseband"
+	default y
 
 config BT_BCM43241
 	bool "Enable BCM43241 driver"
@@ -456,6 +461,14 @@ config FLASH_MIC2871
 	default n
 	---help---
  	    Adds MIC2871 LED Flash driver
+
+config FLASH_RT8547
+        bool "Enable RT8547 driver"
+        default n
+        ---help---
+            Adds RT8547 LED Flash driver
+		It enables Flash
+		Support for Flash Driver
 
 source "arch/arm/mach-shmobile/ramdefrag/Kconfig"
 
