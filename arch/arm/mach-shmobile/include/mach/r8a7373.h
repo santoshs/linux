@@ -364,7 +364,7 @@ extern void __iomem *sbsc_sdmracr1a;
 /*
  * l2cache initialization
  */
-extern void r8a7373_l2cache_init(void);
+extern void __init r8a7373_l2cache_init(void);
 
 /* DMA slave IDs */
 enum {

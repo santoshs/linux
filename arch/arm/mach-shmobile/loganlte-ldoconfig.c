@@ -56,6 +56,7 @@ struct regulator_consumer_supply d2153_ldo1_supplies[] = {
 struct regulator_consumer_supply d2153_ldo2_supplies[] = {
 	REGULATOR_SUPPLY("vdd_mhl", NULL),	/* VDDR */
 	REGULATOR_SUPPLY("vlcd_1v2", NULL),	/* VLCD_1V2 */
+	REGULATOR_SUPPLY("vcam_sense_1v5", NULL),/*VCAM_SENSE_1V5 for amethyst*/
 };
 
 struct regulator_consumer_supply d2153_ldo3_supplies[] = {
@@ -84,6 +85,7 @@ struct regulator_consumer_supply d2153_ldo8_supplies[] = {
 
 struct regulator_consumer_supply d2153_ldo9_supplies[] = {
 	REGULATOR_SUPPLY("vlcd_1v8", NULL),	/* VLDO_1V8 */
+	REGULATOR_SUPPLY("vtsp_1v8", NULL),     // vtsp_1v8
 };
 
 struct regulator_consumer_supply d2153_ldo10_supplies[] = {
@@ -106,6 +108,7 @@ struct regulator_consumer_supply d2153_ldo13_supplies[] = {
 struct regulator_consumer_supply d2153_ldo14_supplies[] = {
 	REGULATOR_SUPPLY("vt_cam", NULL),	 /* vt_cam */
 	REGULATOR_SUPPLY("sensor_led_3v", NULL), /* sensor_led_3v */
+	REGULATOR_SUPPLY("vusim2", NULL), /* vusim2 for amethyst */
 };
 
 struct regulator_consumer_supply d2153_ldo15_supplies[] = {

@@ -91,6 +91,11 @@ MODULE_ALIAS_LDISC(N_PHONET);
 #define LD_SWITCH_ATSTART_RESP    1
 #define LD_SWITCH_MODECHAN02_RESP 2
 
+#define GUID_HEADER_BYTE1 0xdd
+#define GUID_HEADER_BYTE2 0x7f
+#define GUID_HEADER_BYTE3 0x21
+#define GUID_HEADER_BYTE4 0x9a
+
 struct ld_phonet {
 	struct tty_struct *tty;
 	wait_queue_head_t wait;
@@ -287,10 +292,10 @@ static int ld_pn_net_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 	ld_phonet_tx_request_count++;
 	ptr = skb_push(skb, 6);
-	ptr[0] = 0xdd;
-	ptr[1] = 0x7f;
-	ptr[2] = 0x21;
-	ptr[3] = 0x9a;
+	ptr[0] = GUID_HEADER_BYTE1;
+	ptr[1] = GUID_HEADER_BYTE2;
+	ptr[2] = GUID_HEADER_BYTE3;
+	ptr[3] = GUID_HEADER_BYTE4;
 	ptr[4] = skb->data[10];
 	ptr[5] = skb->data[11];
 	PN_PRINTK("ld_pn_net_xmit: send skb to %s", dev->name);
@@ -348,16 +353,19 @@ static const struct net_device_ops ld_pn_netdev_ops = {
 	.ndo_change_mtu	= ld_pn_net_mtu,
 };
 
+#define PN_ADDR_LEN 1
+#define PN_QUEUE_LEN 5
+#define PN_HARD_HEADER_LEN 1
 static void ld_pn_net_setup(struct net_device *dev)
 {
 	dev->features		= 0;
 	dev->type		= ARPHRD_PHONET;
 	dev->flags		= IFF_POINTOPOINT | IFF_NOARP;
 	dev->mtu		= PHONET_DEV_MTU;
-	dev->hard_header_len	= 1;
+	dev->hard_header_len	= PN_HARD_HEADER_LEN;
 	dev->dev_addr[0]	= PN_MEDIA_USB;
-	dev->addr_len		= 1;
-	dev->tx_queue_len	= 5;
+	dev->addr_len		= PN_ADDR_LEN;
+	dev->tx_queue_len	= PN_QUEUE_LEN;
 
 	dev->netdev_ops		= &ld_pn_netdev_ops;
 	dev->destructor		= free_netdev;
@@ -368,6 +376,7 @@ static void ld_pn_net_setup(struct net_device *dev)
 /*****************************************
 *** TTY
 ******************************************/
+#define LD_RECEIVE_ROOM 65536
 static int ld_phonet_ldisc_open(struct tty_struct *tty)
 {
 
@@ -387,7 +396,7 @@ static int ld_phonet_ldisc_open(struct tty_struct *tty)
 	skb_queue_head_init(&ld_pn->head);
 	ld_pn->tty = tty;
 	tty->disc_data = ld_pn;
-	tty->receive_room = 65536;
+	tty->receive_room = LD_RECEIVE_ROOM;
 	ld_pn->dev = dev;
 	ld_pn->skb = NULL;
 	ld_pn->len = 0;
@@ -849,6 +858,8 @@ static void ld_phonet_ldisc_receive
 	spin_unlock_irqrestore(&ld_pn->lock, flags);
 }
 
+#define AT_START_LEN 10
+#define AT_MODECHAN_LEN 15
 static void ld_uart_switch_function(struct work_struct *work)
 {
 	struct ld_uart_switch_work_t *at_mode_work;
@@ -856,9 +867,9 @@ static void ld_uart_switch_function(struct work_struct *work)
 	set_current_state(TASK_INTERRUPTIBLE);
 	if (MUIC_IS_PRESENT) {
 		if (at_mode_work->at_modechan02_mode ==  LD_SWITCH_ATSTART_RESP)
-			ld_set_manualsw(NULL, NULL, "AT+ATSTART", 10);
+			ld_set_manualsw(NULL, NULL, "AT+ATSTART", AT_START_LEN);
 		else
-			ld_set_manualsw(NULL, NULL, "AT+MODECHAN=0,2", 15);
+			ld_set_manualsw(NULL, NULL, "AT+MODECHAN=0,2", AT_MODECHAN_LEN);
 	}
 	ld_uart_switch_work->at_modechan02_mode = 0;
 	return;

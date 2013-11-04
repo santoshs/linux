@@ -94,7 +94,8 @@ static struct i2c_board_info i2c_touchkey[] = {
 	},
 
 };
-int touchkey_i2c_register_board_info(int busnum) {
+int __init touchkey_i2c_register_board_info(int busnum)
+{
 	return i2c_register_board_info(busnum, i2c_touchkey, ARRAY_SIZE(i2c_touchkey));
 }
 

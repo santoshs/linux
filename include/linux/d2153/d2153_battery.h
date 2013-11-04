@@ -223,7 +223,7 @@ struct d2153_battery_data {
 	int current_rf_temperature;
 	int	average_temperature;
 	u32 sum_temperature_adc;
-	
+
 	u32	soc;
 	u32 prev_soc;
 

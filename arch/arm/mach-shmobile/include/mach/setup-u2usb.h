@@ -29,8 +29,22 @@
 #define USB_SPWR		0x0001
 #define USB_SPRD		0x0002
 #define USB_SPADDR		IO_ADDRESS(HSUSB_BASE_PHYS + 0x0138)
-
+#define PHY_SPADDR_INIT 0x0000
+#define PHY_VENDOR_SPECIFIC_ADDR_MASK 0x0020
+#define PHY_SPWDAT_MASK 0x004F
 #define MUIC_IS_PRESENT		muic_is_present()
+
+#ifdef CONFIG_MACH_AMETHYST
+#define USB_DRVSTR_DBG    0
+#define RECOVER_RESUME    0
+#define USB_REINIT_CHANGE 0
+#endif
+#if defined(CONFIG_MACH_LOGANLTE) || defined(CONFIG_MACH_AFYONLTE) 
+#define USB_DRVSTR_DBG    1
+#define RECOVER_RESUME    1
+#define USB_REINIT_CHANGE 1
+#endif
+
 
 #define TUSB1211_POWER_CONTROL_REG			0x3D
 #define TUSB_VENDOR_SPECIFIC1				0x80
@@ -38,9 +52,10 @@
 #define TUSB_VENDOR_SPECIFIC4				0x88
 #define TUSB_DEBUG_REG					0x15
 
+
+
 extern struct platform_device tusb1211_device;
 extern struct platform_device usb_host_device;
-extern struct platform_device usbhs_func_device;
 extern struct platform_device usbhs_func_device_d2153;
 
 #if defined(CONFIG_MACH_U2USB)

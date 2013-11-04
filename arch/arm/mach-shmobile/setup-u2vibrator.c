@@ -75,7 +75,6 @@ struct platform_device ss_vibrator_device = {
 void u2_vibrator_init(void)
 {
 #if defined(CONFIG_VIBRATOR_ISA1000A)
-	{
 		isa1000_vibrator_init();
 #endif
 

@@ -56,7 +56,6 @@ obj-$(CONFIG_CHARGER_BQ2415X)	+= bq2415x_charger.o
 obj-$(CONFIG_POWER_AVS)		+= avs/
 obj-$(CONFIG_PMIC_BAT_INTERFACE)+= pmic_battery.o
 obj-$(CONFIG_STC3115_FUELGAUGE) += stc3115_battery.o
-obj-$(CONFIG_CHARGER_SMB328A)	+= smb328a_charger.o
 obj-$(CONFIG_CHARGER_SMB358)	+= smb358_charger.o
 obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
 obj-$(CONFIG_CHARGER_SMB328A)   += smb328a_charger.o

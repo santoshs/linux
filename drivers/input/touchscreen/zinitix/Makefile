@@ -1,6 +1,7 @@
 #
 # Makefile for the Zinitix touchscreen drivers.
 #
-obj-$(CONFIG_MACH_LOGANLTE)	+= loganlte/
-obj-$(CONFIG_MACH_AMETHYST)	+= loganlte/
+
+# Each configuration option enables a list of files.
+obj-$(CONFIG_TOUCHSCREEN_BT432)    += zinitix_touch.o
 

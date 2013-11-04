@@ -202,7 +202,12 @@ static inline void memory_log_timestamp(unsigned int id)
 #define PM_DUMP_ID_SET_SBSC_FREQ_ZB3_LOCK_ERR			0x0000F0
 #define PM_DUMP_ID_SET_CPU_FREQ_ZB3_LOCK_ERR			0x0000F1
 #define PM_DUMP_ID_SET_CPU_FREQ_ZS_LOCK_ERR			0x0000F2
-
+#define DMA_FUNC_ID_LD_CLEANUP 					0x0000F3
+#define DMA_FUNC_ID_PENDING					0x0000F4
+#define DMA_FUNC_ID_DO_TASKLET 					0x0000F5
+#define DMA_FUNC_LD_QUEUE					0x0000F6	
+#define DMA_START 						1
+#define DMA_END							0
 #define PM_DUMP_START	1
 #define PM_DUMP_END	0
 #endif

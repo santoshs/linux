@@ -35,6 +35,11 @@
 
 #define CAM_FLASH_ENSET     (GPIO_PORT99)
 #define CAM_FLASH_FLEN      (GPIO_PORT100)
+#define CAM_FLASH_FLEN      (GPIO_PORT100)
+#define RT8547_ADDR	0x99
+#define LONG_DELAY	9
+#define SHORT_DELAY	4
+#define START_DELAY	10
 
 /* TODO: this hack is required for compilation
  * any better method needs to be impletemnted */
@@ -56,6 +61,16 @@ struct platform_device camera_devices[] = {
 			      },
 	},
 };
+
+#if defined(CONFIG_FLASH_RT8547)
+static unsigned char reg_value[4] = /*for RT8547 flash */
+{
+	0x03,
+	0x12,
+	0x02,
+	0x0f,
+};
+#endif
 
 int camera_init(void)
 {
@@ -95,6 +110,7 @@ int camera_init(void)
 	return 0;
 }
 
+#if defined(CONFIG_FLASH_MIC2871)
 /* TODO: need to move to flash driver */
 static void MIC2871_write(char addr, char data)
 {
@@ -170,3 +186,155 @@ int main_cam_led(int light, int mode)
 
 	return 0;
 }
+#endif
+
+static inline int camdrv_ss_RT8547_flash_send_bit(unsigned char bit)
+{
+	if (bit > 0) {
+		gpio_set_value(CAM_FLASH_ENSET, 0);
+		udelay(SHORT_DELAY);
+		gpio_set_value(CAM_FLASH_ENSET, 1);
+		udelay(LONG_DELAY);
+	} else {
+		gpio_set_value(CAM_FLASH_ENSET, 0);
+		udelay(LONG_DELAY);
+		gpio_set_value(CAM_FLASH_ENSET, 1);
+		udelay(SHORT_DELAY);
+	}
+	return 0;
+}
+
+static inline int camdrv_ss_RT8547_flash_send_byte(unsigned char byte)
+{
+	int i;
+	/* send order is high bit to low bit */
+	for (i = 7; i >= 0; i--)
+		camdrv_ss_RT8547_flash_send_bit(byte&(0x1<<i));
+	return 0;
+}
+
+static inline int camdrv_ss_RT8547_flash_send_special_byte(unsigned char byte)
+{
+	int i;
+	/* only send three bit for register address */
+	for (i = 2; i >= 0; i--)
+		camdrv_ss_RT8547_flash_send_bit(byte&(0x1<<i));
+	return 0;
+}
+
+static inline int camdrv_ss_RT8547_flash_start_xfer(void)
+{
+	gpio_set_value(CAM_FLASH_ENSET, 1);
+	udelay(START_DELAY);
+	return 0;
+}
+
+static inline int camdrv_ss_RT8547_flash_stop_xfer(void)
+{
+	/* redundant 1 bit as the stop condition */
+	camdrv_ss_RT8547_flash_send_bit(1);
+	return 0;
+}
+
+#if defined(CONFIG_FLASH_RT8547)
+static int camdrv_ss_RT8547_flash_send_data(int reg, unsigned char data)
+{
+
+	unsigned long flags;
+	unsigned char xfer_data[3]; /* 0: adddr, 1: reg, 2: reg data */
+	spinlock_t lock;
+	spin_lock_init(&lock);
+	xfer_data[0] = RT8547_ADDR;
+	xfer_data[1] = (unsigned char)reg;
+	xfer_data[2] = (unsigned char)data;
+	/*CAM_INFO_PRINTK( "rt8547-> 0: 0x%02x, 1: 0x%02x, 2: 0x%02x\n",
+			* xfer_data[0], xfer_data[1], xfer_data[2]));*/
+	spin_lock_irqsave(&lock, flags);
+
+	camdrv_ss_RT8547_flash_start_xfer();
+	/*send order is high bit to low bit */
+	camdrv_ss_RT8547_flash_send_byte(xfer_data[0]);
+	camdrv_ss_RT8547_flash_send_special_byte(xfer_data[1]);
+	camdrv_ss_RT8547_flash_send_byte(xfer_data[2]);
+
+	camdrv_ss_RT8547_flash_stop_xfer();
+
+	spin_unlock_irqrestore(&lock, flags);
+
+	/* write back to reg array */
+	reg_value[reg-1] = data;
+
+	return 0;
+}
+
+#define LED_MODE_MASK	    0x10
+int main_cam_led(int light, int mode)
+{
+	int reg;
+	unsigned char reg_val;
+
+	gpio_request(CAM_FLASH_ENSET, "camacq");
+	gpio_request(CAM_FLASH_FLEN, "camacq");
+
+	switch (light) {
+	case SH_RCU_LED_ON:
+
+		if (mode == SH_RCU_LED_MODE_PRE) {
+			gpio_set_value(CAM_FLASH_FLEN, 0);
+			gpio_set_value(CAM_FLASH_ENSET, 0);
+
+			/* set Low Vin Protection */
+			reg = 0x01;
+			reg_val = reg_value[reg-1];
+			camdrv_ss_RT8547_flash_send_data(reg, reg_val);
+
+			/* set torch current & set torch mode */
+			reg = 0x03;
+			reg_val = (reg_value[reg-1] | LED_MODE_MASK);
+			camdrv_ss_RT8547_flash_send_data(reg, reg_val);
+			/* set ctlen high & flashen high*/
+			gpio_set_value(CAM_FLASH_ENSET, 1);
+			gpio_set_value(CAM_FLASH_FLEN, 1);
+			} else {
+			gpio_set_value(CAM_FLASH_FLEN, 0);
+			gpio_set_value(CAM_FLASH_ENSET, 0);
+
+			/*set Low Vin Protection */
+			reg = 0x01;
+			reg_val = reg_value[reg-1];
+			camdrv_ss_RT8547_flash_send_data(reg, reg_val);
+
+			/* set strobe current */
+			reg = 0x02;
+			reg_val = reg_value[reg-1];
+			camdrv_ss_RT8547_flash_send_data(reg, reg_val);
+			/* set strobe mode */
+			reg = 0x03;
+			reg_val = (reg_value[reg-1] & ~LED_MODE_MASK);
+			camdrv_ss_RT8547_flash_send_data(reg, reg_val);
+			/* set strobe timing to maximum time 0.5s */
+			reg = 0x04;
+			reg_val = reg_value[reg-1];
+			camdrv_ss_RT8547_flash_send_data(reg, reg_val);
+			/* set ctlen high & flashen high */
+			gpio_set_value(CAM_FLASH_ENSET, 1);
+			gpio_set_value(CAM_FLASH_FLEN, 1);
+		}
+		break;
+	case SH_RCU_LED_OFF:
+
+		gpio_set_value(CAM_FLASH_FLEN, 0);
+		gpio_set_value(CAM_FLASH_ENSET, 0);
+		break;
+	default:
+		gpio_set_value(CAM_FLASH_FLEN, 0);
+		gpio_set_value(CAM_FLASH_ENSET, 0);
+		udelay(500);
+		break;
+	}
+	gpio_free(CAM_FLASH_ENSET);
+	gpio_free(CAM_FLASH_FLEN);
+
+	return 0;
+}
+#endif

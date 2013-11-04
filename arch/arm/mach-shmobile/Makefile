@@ -73,6 +73,7 @@ obj-$(CONFIG_MACH_KZM9D)	+= board-kzm9d.o
 obj-$(CONFIG_MACH_KZM9G)	+= board-kzm9g.o
 obj-$(CONFIG_MACH_KZM9G_REFERENCE)	+= board-kzm9g-reference.o
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte.o
+obj-$(CONFIG_MACH_AFYONLTE)	+= board-afyonlte.o
 obj-$(CONFIG_MACH_AMETHYST)	+= board-amethyst.o
 
 obj-$(CONFIG_ARCH_R8A7373)	+= setup-u2stm.o
@@ -106,13 +107,9 @@ obj-$(CONFIG_SEC_DEBUG_INFORM)	+= sec_debug_inform.o
 obj-$(CONFIG_U2_TOUCHPANEL) += dev-touchpanel.o
 obj-$(CONFIG_U2_TOUCHKEY) += setup-u2touchkey.o
 
-#touchscreen BCM15xx
-#obj-$(CONFIG_TOUCHSCREEN_BCMTCH15XXX) += dev-touchpanel-bcmtch15xxx.o
-obj-y += dev-touchpanel-bcmtch15xxx.o
-
 # touchscreen
 obj-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += setup-u2mxt224.o
-
+obj-$(CONFIG_TOUCHSCREEN_CYTTSP4) += dev-touchpanel_cyttsp4.o
 # vibrator
 obj-y +=  setup-u2vibrator.o
 
@@ -120,6 +117,7 @@ obj-y +=  setup-u2vibrator.o
 ifeq ($(CONFIG_SEC_CHARGING_FEATURE),y)
 obj-$(CONFIG_MACH_LOGANLTE)	+= board-loganlte-spa.o
 obj-$(CONFIG_MACH_AMETHYST)	+= board-amethyst-spa.o
+obj-$(CONFIG_MACH_AFYONLTE)	+= board-afyonlte-spa.o
 endif
 
 # common timer setup
@@ -140,6 +138,7 @@ obj-$(CONFIG_MFD_D2153)	+= setup-d2153.o
 ifeq ($(CONFIG_REGULATOR_D2153),y)
 obj-$(CONFIG_MACH_LOGANLTE) += loganlte-ldoconfig.o
 obj-$(CONFIG_MACH_AMETHYST) += loganlte-ldoconfig.o
+obj-$(CONFIG_MACH_AFYONLTE) += loganlte-ldoconfig.o
 endif
 
 #setup-audio

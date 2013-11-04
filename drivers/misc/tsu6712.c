@@ -1499,8 +1499,6 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	int ret;
 	pr_info("%s\n", __func__);
 
-#if defined(CONFIG_MACH_LOGANLTE)  || \
-	defined(CONFIG_MACH_AMETHYST) /* mUSB_temp_20130308 */
 	tsu6712_read_reg(client, TSU6712_REG_CTRL, &value);
 
 
@@ -1509,7 +1507,6 @@ static void tsu6712_reg_init(struct tsu6712_usbsw *usbsw)
 	ret = tsu6712_write_reg(client, TSU6712_REG_CTRL, ctrl);
 	if (ret < 0)
 		dev_err(&client->dev, "%s: err %d\n", __func__, ret);
-#endif
 }
 
 void muic_set_vbus(int vbus)
@@ -1606,7 +1603,6 @@ static void tsu6712_detect_func(struct work_struct *work)
 
 	if(!key_detect)
 		tsu6712_detect_dev(usbsw, dev, adc);
-
 }
 
 static void tsu6712_irq_func(struct work_struct *work)

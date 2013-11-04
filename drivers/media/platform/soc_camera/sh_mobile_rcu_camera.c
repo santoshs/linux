@@ -369,6 +369,8 @@ struct sh_mobile_rcu_snd_cmd {
 
 #define SH_RCU_BUF_INIT		(0x1234)
 
+#define RCU_CUSTOM_CMD_MAX_VALUE	0x7fffffff
+
 #undef DEBUG_GEOMETRY
 #ifdef DEBUG_GEOMETRY
 #define dev_geo	dev_info
@@ -452,6 +454,186 @@ struct sh_mobile_rcu_cam {
 
 	const struct soc_mbus_pixelfmt *extra_fmt;
 	enum v4l2_mbus_pixelcode code;
+};
+
+static int sh_mobile_rcu_send_command(struct i2c_client *client,
+	struct sh_mobile_rcu_snd_cmd *snd_cmd);
+static bool is_state_rear_flash(void);
+
+static int sh_mobile_rcu_s_ctrl(struct v4l2_ctrl *ctrl);
+static int sh_mobile_rcu_g_ctrl(struct v4l2_ctrl *ctrl);
+
+static const struct v4l2_ctrl_ops sh_mobile_rcu_ctrl_ops = {
+	.s_ctrl = sh_mobile_rcu_s_ctrl,
+	.g_volatile_ctrl = sh_mobile_rcu_g_ctrl,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_set_reset_cfg = {
+	.ops	= &sh_mobile_rcu_ctrl_ops,
+	.id	= V4L2_CID_SET_RESET,
+	.type	= V4L2_CTRL_TYPE_INTEGER,
+	.name	= "RCU Set Reset",
+	.min	= 0,
+	.max	= RCU_CUSTOM_CMD_MAX_VALUE,
+	.step	= 1,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_output_mode_cfg = {
+	.ops	= &sh_mobile_rcu_ctrl_ops,
+	.id	= V4L2_CID_SET_OUTPUT_MODE,
+	.type	= V4L2_CTRL_TYPE_INTEGER,
+	.name	= "RCU Set Output Mode",
+	.min	= 0,
+	.max	= RCU_CUSTOM_CMD_MAX_VALUE,
+	.step	= 1,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_output_offset_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SET_OUTPUT_OFFSET,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Output Offset",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_output_pack_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SET_OUTPUT_PACK,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Output Pack",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_output_meram_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SET_OUTPUT_MERAM,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Output Meram",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+};
+static const struct v4l2_ctrl_config rcu_custom_output_ispthinned_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SET_OUTPUT_ISPTHINNED,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Output Ispthinned",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+};
+static const struct v4l2_ctrl_config rcu_custom_led_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SET_LED,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set LED",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+};
+static const struct v4l2_ctrl_config rcu_custom_zsl_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SET_ZSL,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Zsl",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+};
+static const struct v4l2_ctrl_config rcu_custom_mmap_page_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SET_MMAP_PAGE,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Mmap Page",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+};
+static const struct v4l2_ctrl_config rcu_custom_camsts0_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SET_CAMSTS0,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camst0",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+};
+static const struct v4l2_ctrl_config rcu_custom_camsts1_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SET_CAMSTS1,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camst1",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+};
+static const struct v4l2_ctrl_config rcu_custom_sndcmd_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SET_SNDCMD,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set SndCmd",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_get_tuning_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_GET_TUNING,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Get Tuning",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+	.flags  = V4L2_CTRL_FLAG_VOLATILE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_get_dumpsize_all_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_GET_DUMP_SIZE_ALL,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Get Dumpsize All",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+	.flags  = V4L2_CTRL_FLAG_VOLATILE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_get_dumpsize_user_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_GET_DUMP_SIZE_USER,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Get Dumpsize User",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+	.flags  = V4L2_CTRL_FLAG_VOLATILE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_get_camsts0_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_GET_CAMSTS0,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Get Camsts0",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+	.flags  = V4L2_CTRL_FLAG_VOLATILE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_get_camsts1_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_GET_CAMSTS1,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Get Camsts1",
+	.min    = 0,
+	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.step   = 1,
+	.flags  = V4L2_CTRL_FLAG_VOLATILE,
 };
 
 static struct sh_mobile_rcu_buffer *to_rcu_vb(struct vb2_buffer *vb)
@@ -2440,43 +2622,185 @@ static const struct soc_mbus_pixelfmt sh_mobile_rcu_formats[] = {
 
 static int client_g_rect(struct v4l2_subdev *sd, struct v4l2_rect *rect);
 
-#if 0
 static struct soc_camera_device *ctrl_to_icd(struct v4l2_ctrl *ctrl)
 {
 	return container_of(ctrl->handler, struct soc_camera_device,
 							ctrl_handler);
 }
-#endif
 
 static int sh_mobile_rcu_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-#if 0
 	struct soc_camera_device *icd = ctrl_to_icd(ctrl);
 	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
 	struct sh_mobile_rcu_dev *pcdev = ici->priv;
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	struct soc_camera_subdev_desc *sdesc =
+			&to_soc_camera_desc(icd)->subdev_desc;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct sh_mobile_rcu_snd_cmd snd_cmd;
+	unsigned int mmap_page_info[2];
+	unsigned int page_num = 0;
+	int ret = 0;
+	unsigned long flags;
+	int power;
+	struct v4l2_control v4l_ctrl;
 
-	switch (ctrl->id) {
-	case V4L2_CID_SHARPNESS:
-		switch (icd->current_fmt->host_fmt->fourcc) {
-		case V4L2_PIX_FMT_NV12:
-		case V4L2_PIX_FMT_NV21:
-		case V4L2_PIX_FMT_NV16:
-		case V4L2_PIX_FMT_NV61:
-			rcu_write(pcdev, CLFCR, !ctrl->val);
-			return 0;
-		}
+	dev_geo(icd->parent, "%s(): id=0x%x value=0x%x\n",
+			__func__, ctrl->id, ctrl->val);
+	if (ctrl->val != RCU_CUSTOM_CMD_MAX_VALUE) {
+		switch (ctrl->id) {
+		case V4L2_CID_SET_RESET:
+			if (ctrl->val)
+				power = 0;
+			else
+				power = 1;
+			if (sdesc->power) {
+				ret = sdesc->power(icd->pdev, power);
+				if (ret < 0) {
+					dev_err(icd->pdev, "special reset fail(%d)\n",
+						ret);
+					return ret;
+					}
+			}
+			break;
+		case V4L2_CID_SET_SNDCMD:
+			if (copy_from_user(
+				(void *)&snd_cmd, (int __user *) ctrl->val,
+				sizeof(snd_cmd))) {
+				dev_err(&client->dev, "%s[%d]:copy_from_user error\n",
+					__func__, __LINE__);
+				return -EIO;
+			}
+			ret = sh_mobile_rcu_send_command(client, &snd_cmd);
 		break;
-	}
+		case V4L2_CID_SET_OUTPUT_MODE:
+			if (SH_RCU_STREAMING_ON == pcdev->streaming)
+				return -EBUSY;
+			if ((SH_RCU_OUTPUT_ISP     != ctrl->val) &&
+				(SH_RCU_OUTPUT_MEM_ISP != ctrl->val) &&
+				(SH_RCU_OUTPUT_MEM     != ctrl->val) &&
+				(SH_RCU_OUTPUT_MEM_EXT != ctrl->val)) {
+				return -EINVAL;
+			}
+			if (SH_RCU_OUTPUT_MEM_EXT == ctrl->val) {
+				pcdev->output_ext = 1;
+				pcdev->output_mode = SH_RCU_OUTPUT_MEM;
+			} else {
+				pcdev->output_ext = 0;
+				pcdev->output_mode = ctrl->val;
+			}
+			break;
+		case V4L2_CID_SET_OUTPUT_OFFSET:
+			pcdev->output_offset = ctrl->val;
+			break;
+		case V4L2_CID_SET_OUTPUT_PACK:
+			pcdev->output_pack = ctrl->val;
+			break;
+		case V4L2_CID_SET_OUTPUT_MERAM:
+			pcdev->output_meram = ctrl->val;
+			break;
+		case V4L2_CID_SET_OUTPUT_ISPTHINNED:
+			pcdev->output_ispthinned = ctrl->val;
+			break;
+		case V4L2_CID_SET_LED:
+			if ((pcdev->pdata->led) && is_state_rear_flash())
+			ret =  pcdev->pdata->led((ctrl->val & SH_RCU_LED_ON),
+					(ctrl->val & SH_RCU_LED_MODE_PRE));
+			break;
+		case V4L2_CID_SET_ZSL:
+			pcdev->zsl = ctrl->val;
+			if (!pcdev->zsl) {
+				spin_lock_irqsave(&pcdev->lock, flags);
+				rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CE);
+				pcdev->kick++;
+				spin_unlock_irqrestore(&pcdev->lock, flags);
+			}
+			break;
+		case V4L2_CID_SET_MMAP_PAGE:
+			kfree(pcdev->mmap_pages);
+			pcdev->mmap_pages = NULL;
+			if (copy_from_user(mmap_page_info,
+				(int __user *)ctrl->val,
+				sizeof(mmap_page_info))) {
+				dev_err(icd->parent,
+				"%s:copy_from_user error(%d)\n",
+				__func__, ret);
+				return -EIO;
+			}
 
-	return -EINVAL;
-#else
-	return 0;
-#endif
+			page_num = (mmap_page_info[0] + PAGE_SIZE - 1)
+					/ PAGE_SIZE;
+			pcdev->mmap_pages = kmalloc(page_num *
+				sizeof(struct page *), GFP_KERNEL);
+			if (NULL == pcdev->mmap_pages) {
+				dev_err(icd->parent,
+					"%s:kmalloc error\n",
+					__func__);
+				return -1;
+			}
+
+			if (copy_from_user(pcdev->mmap_pages,
+					(int __user *)mmap_page_info[1],
+					page_num * sizeof(struct page *))) {
+					dev_err(icd->parent,
+					"%s:copy_from_user error(%d)\n",
+					__func__, ret);
+				kfree(pcdev->mmap_pages);
+				pcdev->mmap_pages = NULL;
+				return -EIO;
+			}
+			pcdev->mmap_size = page_num;
+			break;
+		case V4L2_CID_SET_CAMSTS0:
+			cam_status0 = ctrl->val;
+			break;
+		case V4L2_CID_SET_CAMSTS1:
+			cam_status1 = ctrl->val;
+			break;
+		default:
+			ret = -ENOIOCTLCMD;
+		}
+		if (ret == -ENOIOCTLCMD) {
+			v4l_ctrl.value = ctrl->val;
+			v4l_ctrl.id = ctrl->id;
+			ret = v4l2_subdev_call(sd, core, s_ctrl, &v4l_ctrl);
+		}
+	}
+	return ret;
+
 }
 
-static const struct v4l2_ctrl_ops sh_mobile_rcu_ctrl_ops = {
-	.s_ctrl = sh_mobile_rcu_s_ctrl,
-};
+static int sh_mobile_rcu_g_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct soc_camera_device *icd = ctrl_to_icd(ctrl);
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	struct v4l2_control v4l_ctrl;
+
+	dev_geo(icd->parent, "%s():\n", __func__);
+
+	v4l_ctrl.value = ctrl->val;
+	v4l_ctrl.id = ctrl->id;
+
+	switch (ctrl->id) {
+	case V4L2_CID_GET_TUNING:
+		return v4l2_subdev_call(sd, core, g_ctrl, &v4l_ctrl);
+	case V4L2_CID_GET_DUMP_SIZE_ALL:
+		dump_addr_flg = true;
+		ctrl->val = SH_RCU_DUMP_LOG_SIZE_ALL;
+		return 0;
+	case V4L2_CID_GET_DUMP_SIZE_USER:
+		ctrl->val = SH_RCU_DUMP_LOG_SIZE_USER;
+		return 0;
+	case V4L2_CID_GET_CAMSTS0:
+		ctrl->val = cam_status0;
+		return 0;
+	case V4L2_CID_GET_CAMSTS1:
+		ctrl->val = cam_status1;
+		return 0;
+	}
+
+	return v4l2_subdev_call(sd, core, g_ctrl, &v4l_ctrl);
+}
 
 static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd,
 		unsigned int idx, struct soc_camera_format_xlate *xlate)
@@ -2490,6 +2814,7 @@ static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd,
 	struct sh_mobile_rcu_cam *cam;
 	enum v4l2_mbus_pixelcode code;
 	const struct soc_mbus_pixelfmt *fmt;
+	struct v4l2_ctrl_config cfg;
 
 	dev_geo(dev, "%s(): idx=%d xlate=%p\n", __func__, idx, xlate);
 
@@ -2517,12 +2842,77 @@ static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd,
 		int shift = 0;
 
 		/* Add our control */
-/*
-		v4l2_ctrl_new_std(&icd->ctrl_handler, &sh_mobile_rcu_ctrl_ops,
-				  V4L2_CID_SHARPNESS, 0, 1, 1, 0);
-		if (icd->ctrl_handler.error)
-			return icd->ctrl_handler.error;
-*/
+
+	cfg = rcu_custom_set_reset_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_output_mode_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_output_offset_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_output_pack_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_output_meram_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_output_ispthinned_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_led_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_zsl_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_mmap_page_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_camsts0_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_camsts1_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_sndcmd_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_get_tuning_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_get_dumpsize_all_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_get_dumpsize_user_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_get_camsts0_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	cfg = rcu_custom_get_camsts1_cfg;
+	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
+	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+
+	if (icd->ctrl_handler.error)
+		return icd->ctrl_handler.error;
 
 		/* FIXME: subwindow is lost between close / open */
 
@@ -2939,6 +3329,7 @@ static int sh_mobile_rcu_try_fmt(struct soc_camera_device *icd,
 			return -EINVAL;
 		break;
 	default:
+
 		break;
 	}
 
@@ -3099,39 +3490,10 @@ static int sh_mobile_rcu_init_videobuf(struct vb2_queue *q,
 	return vb2_queue_init(q);
 }
 
-#if 0
-static int sh_mobile_rcu_get_ctrl(struct soc_camera_device *icd,
-				  struct v4l2_control *ctrl)
-{
-	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
-	dev_geo(icd->parent, "%s():\n", __func__);
-
-	switch (ctrl->id) {
-	case V4L2_CID_GET_TUNING:
-		return v4l2_subdev_call(sd, core, g_ctrl, ctrl);
-	case V4L2_CID_GET_DUMP_SIZE_ALL:
-		dump_addr_flg = true;
-		ctrl->value = SH_RCU_DUMP_LOG_SIZE_ALL;
-		return 0;
-	case V4L2_CID_GET_DUMP_SIZE_USER:
-		ctrl->value = SH_RCU_DUMP_LOG_SIZE_USER;
-		return 0;
-	case V4L2_CID_GET_CAMSTS0:
-		ctrl->value = cam_status0;
-		return 0;
-	case V4L2_CID_GET_CAMSTS1:
-		ctrl->value = cam_status1;
-		return 0;
-	}
-
-	return -ENOIOCTLCMD;
-}
-
 static bool is_state_rear_flash(void)
 {
 	return rear_flash_state;
 }
-#endif
 
 void sh_mobile_rcu_flash(int led)
 {
@@ -3251,7 +3613,6 @@ void sh_mobile_rcu_event_time_data(unsigned short id, unsigned int data)
 	return;
 }
 
-#if 0
 static int sh_mobile_rcu_send_command(struct i2c_client *client,
 	struct sh_mobile_rcu_snd_cmd *snd_cmd)
 {
@@ -3419,122 +3780,6 @@ static int sh_mobile_rcu_send_command(struct i2c_client *client,
 	return 0;
 }
 
-static int sh_mobile_rcu_set_ctrl(struct soc_camera_device *icd,
-				  struct v4l2_control *ctrl)
-{
-	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
-	struct sh_mobile_rcu_dev *pcdev = ici->priv;
-	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct sh_mobile_rcu_snd_cmd snd_cmd;
-	unsigned int mmap_page_info[2];
-	unsigned int page_num = 0;
-	int ret = 0;
-	unsigned long flags;
-
-	dev_geo(icd->parent, "%s(): id=0x%x value=0x%x\n",
-			__func__, ctrl->id, ctrl->value);
-
-	switch (ctrl->id) {
-	case V4L2_CID_SET_SNDCMD:
-		if (copy_from_user(
-			(void *)&snd_cmd, (int __user *) ctrl->value,
-			sizeof(snd_cmd))) {
-			dev_err(&client->dev, "%s[%d]:copy_from_user error\n",
-				__func__, __LINE__);
-			return -EIO;
-		}
-		return sh_mobile_rcu_send_command(client, &snd_cmd);
-	case V4L2_CID_SET_OUTPUT_MODE:
-		if (SH_RCU_STREAMING_ON == pcdev->streaming)
-			return -EBUSY;
-		if ((SH_RCU_OUTPUT_ISP     != ctrl->value) &&
-		    (SH_RCU_OUTPUT_MEM_ISP != ctrl->value) &&
-		    (SH_RCU_OUTPUT_MEM     != ctrl->value) &&
-		    (SH_RCU_OUTPUT_MEM_EXT != ctrl->value)) {
-			return -EINVAL;
-		}
-		if (SH_RCU_OUTPUT_MEM_EXT == ctrl->value) {
-			pcdev->output_ext = 1;
-			pcdev->output_mode = SH_RCU_OUTPUT_MEM;
-		} else {
-			pcdev->output_ext = 0;
-			pcdev->output_mode = ctrl->value;
-		}
-		return 0;
-	case V4L2_CID_SET_OUTPUT_OFFSET:
-		pcdev->output_offset = ctrl->value;
-		return 0;
-	case V4L2_CID_SET_OUTPUT_PACK:
-		pcdev->output_pack = ctrl->value;
-		return 0;
-	case V4L2_CID_SET_OUTPUT_MERAM:
-		pcdev->output_meram = ctrl->value;
-		return 0;
-	case V4L2_CID_SET_OUTPUT_ISPTHINNED:
-		pcdev->output_ispthinned = ctrl->value;
-		return 0;
-	case V4L2_CID_SET_LED:
-		if ((pcdev->pdata->led) && is_state_rear_flash())
-			return pcdev->pdata->led((ctrl->value & SH_RCU_LED_ON),
-			(ctrl->value & SH_RCU_LED_MODE_PRE));
-		return 0;
-	case V4L2_CID_SET_ZSL:
-		pcdev->zsl = ctrl->value;
-		if (!pcdev->zsl) {
-			spin_lock_irqsave(&pcdev->lock, flags);
-			rcu_write(pcdev, RCAPSR, 1 << RCAPSR_CE);
-			pcdev->kick++;
-			spin_unlock_irqrestore(&pcdev->lock, flags);
-		}
-		return 0;
-	case V4L2_CID_SET_MMAP_PAGE:
-		kfree(pcdev->mmap_pages);
-		pcdev->mmap_pages = NULL;
-
-		if (copy_from_user(mmap_page_info,
-				(int __user *)ctrl->value,
-				sizeof(mmap_page_info))) {
-			dev_err(icd->parent,
-				"%s:copy_from_user error(%d)\n",
-				__func__, ret);
-			return -EIO;
-		}
-
-		page_num = (mmap_page_info[0] + PAGE_SIZE - 1)
-				/ PAGE_SIZE;
-		pcdev->mmap_pages = kmalloc(page_num *
-			sizeof(struct page *), GFP_KERNEL);
-		if (NULL == pcdev->mmap_pages) {
-			dev_err(icd->parent,
-				"%s:kmalloc error\n",
-				__func__);
-			return -1;
-		}
-
-		if (copy_from_user(pcdev->mmap_pages,
-				(int __user *)mmap_page_info[1],
-				page_num * sizeof(struct page *))) {
-			dev_err(icd->parent,
-				"%s:copy_from_user error(%d)\n",
-				__func__, ret);
-			kfree(pcdev->mmap_pages);
-			pcdev->mmap_pages = NULL;
-			return -EIO;
-		}
-		pcdev->mmap_size = page_num;
-		return 0;
-	case V4L2_CID_SET_CAMSTS0:
-		cam_status0 = ctrl->value;
-		return 0;
-	case V4L2_CID_SET_CAMSTS1:
-		cam_status1 = ctrl->value;
-		return 0;
-	}
-	return -ENOIOCTLCMD;
-}
-#endif
-
 static struct soc_camera_host_ops sh_mobile_rcu_host_ops = {
 	.owner		= THIS_MODULE,
 	.add		= sh_mobile_rcu_add_device,
@@ -3543,9 +3788,6 @@ static struct soc_camera_host_ops sh_mobile_rcu_host_ops = {
 	.put_formats	= sh_mobile_rcu_put_formats,
 	.set_fmt	= sh_mobile_rcu_set_fmt,
 	.try_fmt	= sh_mobile_rcu_try_fmt,
-// XXX sh_mobile_rcu - set/get_ctrl need to be reworked
-//	.set_ctrl	= sh_mobile_rcu_set_ctrl,
-//	.get_ctrl	= sh_mobile_rcu_get_ctrl,
 	.poll		= sh_mobile_rcu_poll,
 	.querycap	= sh_mobile_rcu_querycap,
 	.set_bus_param	= sh_mobile_rcu_set_bus_param,

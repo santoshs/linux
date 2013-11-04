@@ -1251,6 +1251,11 @@ static int cluster_changed(struct v4l2_ctrl *master)
 	int diff = 0;
 	int i;
 
+	/* The below return statement is added to avoid comparison of the
+	current control value with the previous value. Only if this function
+	returns non zero value, the set_ctrl function will be called */
+	return 1;
+
 	for (i = 0; !diff && i < master->ncontrols; i++) {
 		struct v4l2_ctrl *ctrl = master->cluster[i];
 
