@@ -698,12 +698,12 @@ EXPORT_SYMBOL(is_cpuidle_enable);
 
 
 /*
- * shmobile_init_cpuidle: Initialization of CPU's idle PM
+ * rmobile_cpuidle_init: Initialization of CPU's idle PM
  * return:
  *		0: successful
  *		-EIO: failed ioremap, or failed registering a CPU's idle PM
  */
-static int shmobile_init_cpuidle(void)
+int __init rmobile_cpuidle_init(void)
 {
 	struct cpuidle_device *dev;
 	struct cpuidle_driver *drv = &shmobile_cpuidle_driver;
@@ -756,4 +756,3 @@ static int shmobile_init_cpuidle(void)
 
 	return 0;
 }
-device_initcall(shmobile_init_cpuidle);

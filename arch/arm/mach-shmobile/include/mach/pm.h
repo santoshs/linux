@@ -442,6 +442,11 @@ static inline void samplrate_downfact_get(unsigned int *sampl_rate,
 				unsigned int *down_factor) {}
 #endif /* CONFIG_CPU_FREQ_GOV_ONDEMAND */
 
+extern int rmobile_cpufreq_init(void);
+extern int rmobile_cpuidle_init(void);
+extern int rmobile_suspend_init(void);
+extern int rmobile_dfs_debug_init(void);
+extern int rmobile_pm_late_init(void);
 /* verylow mode enable flag */
 /* #define SH_CPUFREQ_VERYLOW	1 */
 extern int disable_early_suspend_clock(void);

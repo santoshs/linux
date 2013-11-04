@@ -1036,7 +1036,7 @@ struct platform_suspend_ops shmobile_suspend_ops = {
 	.wake			= shmobile_suspend_wake,
 };
 
-int __init shmobile_suspend_init(void)
+int __init rmobile_suspend_init(void)
 {
 	int i;
 	void __iomem *virt;

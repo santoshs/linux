@@ -31,6 +31,7 @@
 #include <mach/serial.h>
 #include <mach/memory-r8a7373.h>
 #include <mach/common.h>
+#include <mach/pm.h>
 #include <linux/gpio.h>
 #include <linux/sched.h>
 #include <mach/setup-u2audio.h>
@@ -1444,7 +1445,9 @@ void __init r8a7373_init_early(void)
 
 void __init r8a7373_init_late(void)
 {
-
+#ifdef CONFIG_PM
+	rmobile_pm_late_init();
+#endif
 }
 
 /*
