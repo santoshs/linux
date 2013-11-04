@@ -16,6 +16,7 @@
 
 #include <linux/proc_fs.h>
 #include <linux/gpio.h>
+#include <mach/gpio.h>
 #include <linux/memblock.h>
 #include <linux/bug.h>
 #include <linux/seq_file.h>

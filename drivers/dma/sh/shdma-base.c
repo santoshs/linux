@@ -24,20 +24,7 @@
 #include <linux/spinlock.h>
 
 #include "../dmaengine.h"
-
-/* DMA descriptor control */
-enum shdma_desc_status {
-	DESC_IDLE,
-	DESC_PREPARED,
-	DESC_SUBMITTED,
-	DESC_COMPLETED,	/* completed, have to call callback */
-	DESC_WAITING,	/* callback called, waiting for ack / re-submit */
-};
-
-#define NR_DESCS_PER_CHANNEL 128
-
-#define to_shdma_chan(c) container_of(c, struct shdma_chan, dma_chan)
-#define to_shdma_dev(d) container_of(d, struct shdma_dev, dma_dev)
+#include "shdma.h"
 
 /*
  * For slave DMA we assume, that there is a finite number of DMA slaves in the
@@ -86,31 +73,6 @@ static dma_cookie_t shdma_tx_submit(struct dma_async_tx_descriptor *tx)
 
 	cookie = dma_cookie_assign(tx);
 
-	/* Mark all chunks of this descriptor as submitted, move to the queue */
-	list_for_each_entry_safe(chunk, c, desc->node.prev, node) {
-		/*
-		 * All chunks are on the global ld_free, so, we have to find
-		 * the end of the chain ourselves
-		 */
-		if (chunk != desc && (chunk->mark == DESC_IDLE ||
-				      chunk->async_tx.cookie > 0 ||
-				      chunk->async_tx.cookie == -EBUSY ||
-				      &chunk->node == &schan->ld_free))
-			break;
-		chunk->mark = DESC_SUBMITTED;
-		/* Callback goes to the last chunk */
-		chunk->async_tx.callback = NULL;
-		chunk->cookie = cookie;
-		list_move_tail(&chunk->node, &schan->ld_queue);
-		last = chunk;
-
-		dev_dbg(schan->dev, "submit #%d@%p on %d\n",
-			tx->cookie, &last->async_tx, schan->id);
-	}
-
-	last->async_tx.callback = callback;
-	last->async_tx.callback_param = tx->callback_param;
-
 	if (power_up) {
 		int ret;
 		schan->pm_state = SHDMA_PM_BUSY;
@@ -132,6 +94,14 @@ static dma_cookie_t shdma_tx_submit(struct dma_async_tx_descriptor *tx)
 			const struct shdma_ops *ops = sdev->ops;
 			dev_dbg(schan->dev, "Bring up channel %d\n",
 				schan->id);
+
+			if (is_desc_mode(schan)) {
+				if (0 != dmae_rpt_init_reg(schan)) {
+					cookie = -EINVAL;
+					goto error;
+				}
+			}
+
 			/*
 			 * TODO: .xfer_setup() might fail on some platforms.
 			 * Make it int then, on error remove chunks from the
@@ -151,6 +121,40 @@ static dma_cookie_t shdma_tx_submit(struct dma_async_tx_descriptor *tx)
 		schan->pm_state = SHDMA_PM_PENDING;
 	}
 
+	/* Mark all chunks of this descriptor as submitted, move to the queue */
+	if (is_desc_mode(schan)) {
+		desc->mark = DESC_SUBMITTED;
+		desc->cookie = cookie;
+		/* Move the only descriptor to the queue */
+		list_add_tail(&desc->node, &schan->ld_queue);
+		spin_unlock_irq(&schan->chan_lock);
+		return cookie;
+	}
+
+	list_for_each_entry_safe(chunk, c, desc->node.prev, node) {
+		/*
+		 * All chunks are on the global ld_free, so, we have to find
+		 * the end of the chain ourselves
+		 */
+		if (chunk != desc && (chunk->mark == DESC_IDLE ||
+				chunk->async_tx.cookie > 0 ||
+				chunk->async_tx.cookie == -EBUSY ||
+				&chunk->node == &schan->ld_free))
+			break;
+		chunk->mark = DESC_SUBMITTED;
+		/* Callback goes to the last chunk */
+		chunk->async_tx.callback = NULL;
+		chunk->cookie = cookie;
+		list_move_tail(&chunk->node, &schan->ld_queue);
+		last = chunk;
+
+		dev_dbg(schan->dev, "submit #%d@%p on %d\n",
+			tx->cookie, &last->async_tx, schan->id);
+	}
+
+	last->async_tx.callback = callback;
+	last->async_tx.callback_param = tx->callback_param;
+error:
 	spin_unlock_irq(&schan->chan_lock);
 
 	return cookie;
@@ -270,6 +274,8 @@ static int shdma_alloc_chan_resources(struct dma_chan *chan)
 		list_add(&desc->node, &schan->ld_free);
 	}
 
+	/* Reset descripotr repeat mode flag */
+	set_desc_mode(schan, 0);
 	return NR_DESCS_PER_CHANNEL;
 
 edescalloc:
@@ -405,7 +411,10 @@ static void shdma_free_chan_resources(struct dma_chan *chan)
 
 	/* Protect against ISR */
 	spin_lock_irq(&schan->chan_lock);
-	ops->halt_channel(schan);
+	if (!is_desc_mode(schan))
+		ops->halt_channel(schan);
+	else
+		dmae_rpt_halt(schan);
 	spin_unlock_irq(&schan->chan_lock);
 
 	/* Now no new interrupts will occur */
@@ -424,6 +433,7 @@ static void shdma_free_chan_resources(struct dma_chan *chan)
 
 	list_splice_init(&schan->ld_free, &list);
 	schan->desc_num = 0;
+	set_desc_mode(schan, 0);
 
 	spin_unlock_irq(&schan->chan_lock);
 
@@ -624,6 +634,10 @@ static struct dma_async_tx_descriptor *shdma_prep_slave_sg(
 
 	slave_addr = ops->slave_addr(schan);
 
+	if (is_desc_mode(schan))
+		return sh_dmae_rpt_prep_sg(schan, sgl, sg_len, &slave_addr,
+				direction, flags);
+
 	return shdma_prep_sg(schan, sgl, sg_len, &slave_addr,
 			      direction, flags);
 }
@@ -641,7 +655,13 @@ static int shdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 	switch (cmd) {
 	case DMA_TERMINATE_ALL:
 		spin_lock_irqsave(&schan->chan_lock, flags);
-		ops->halt_channel(schan);
+		if (!is_desc_mode(schan)) {
+			ops->halt_channel(schan);
+		} else {
+			dmae_rpt_halt(schan);
+			spin_unlock_irqrestore(&schan->chan_lock, flags);
+			return 0;
+		}
 
 		if (ops->get_partial && !list_empty(&schan->ld_queue)) {
 			/* Record partial transfer */
@@ -682,8 +702,14 @@ static void shdma_issue_pending(struct dma_chan *chan)
 	struct shdma_chan *schan = to_shdma_chan(chan);
 
 	spin_lock_irq(&schan->chan_lock);
-	if (schan->pm_state == SHDMA_PM_ESTABLISHED)
-		shdma_chan_xfer_ld_queue(schan);
+	if (schan->pm_state == SHDMA_PM_ESTABLISHED) {
+		if (!is_desc_mode(schan))
+			shdma_chan_xfer_ld_queue(schan);
+		else
+			/* Descriptor memory is already loaded,
+			 * start the transfer */
+			dmae_rpt_start(schan);
+	}
 	else
 		schan->pm_state = SHDMA_PM_PENDING;
 	spin_unlock_irq(&schan->chan_lock);
@@ -697,6 +723,8 @@ static enum dma_status shdma_tx_status(struct dma_chan *chan,
 	enum dma_status status;
 	unsigned long flags;
 
+	if (is_desc_mode(schan))
+		return DMA_SUCCESS;
 	shdma_chan_ld_cleanup(schan, false);
 
 	spin_lock_irqsave(&schan->chan_lock, flags);
@@ -794,6 +822,20 @@ static irqreturn_t chan_irqt(int irq, void *dev)
 	const struct shdma_ops *ops =
 		to_shdma_dev(schan->dma_chan.device)->ops;
 	struct shdma_desc *sdesc;
+	int desc_mode;
+	unsigned long flags;
+
+	spin_lock_irqsave(&schan->chan_lock, flags);
+	desc_mode = is_desc_mode(schan);
+	spin_unlock_irqrestore(&schan->chan_lock, flags);
+	if (desc_mode) {
+		/* We just want to get the only descriptor used */
+		list_for_each_entry(sdesc, &schan->ld_queue, node) {
+			sdesc->async_tx.callback(sdesc->async_tx.callback_param);
+			break;
+		}
+		return IRQ_HANDLED;	/* Check the return type */
+	}
 
 	spin_lock_irq(&schan->chan_lock);
 	list_for_each_entry(sdesc, &schan->ld_queue, node) {
