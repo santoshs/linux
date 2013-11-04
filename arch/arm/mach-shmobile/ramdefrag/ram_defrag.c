@@ -211,10 +211,8 @@ int defrag()
 	drop_slab();
 
 	/* Do defragmentation on all nodes */
-	ret = compact_nodes();
-	if (ret == 3) { /* If compaction is finished */
-		ret = 0;
-	}
+	compact_nodes();
+
 	/* Flush caches again*/
 	iterate_supers(drop_pagecache_sb, NULL);
 	drop_slab();

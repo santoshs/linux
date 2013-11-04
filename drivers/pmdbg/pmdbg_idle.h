@@ -46,12 +46,7 @@ static void get_info(char *buf);
 
 static int monitor_cmd(char *, int);
 static int suppress_cmd(char *, int);
-static int wakelock_cmd(char *, int);
 
-
-#ifdef CONFIG_ARCH_R8A7373
-extern int has_wake_lock_no_expire(int type);
-#endif /*CONFIG_ARCH_R8A7373*/
 
 static int idle_init(void);
 static void idle_exit(void);

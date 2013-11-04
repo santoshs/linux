@@ -527,6 +527,7 @@ extern struct smp_operations r8a7373_smp_ops;
 #define SMGP001_DFS		SMGP001
 #define SMGP100_DFS_ZS	SMGP100
 #define SMGP101_VCD		SMGP101
+#define CMCNT0          IO_ADDRESS(0xE6130014)
 #define CMCSR3		IO_ADDRESS(0xe6130310)
 #define CMCNT3		IO_ADDRESS(0xe6130314)
 #define CMCOR3		IO_ADDRESS(0xe6130318)
@@ -549,6 +550,7 @@ extern struct smp_operations r8a7373_smp_ops;
 #define VCLKCR2	IO_ADDRESS(0xE615000C)
 #define ZBCKCR		IO_ADDRESS(0xE6150010)
 #define VCLKCR3	IO_ADDRESS(0xE6150014)
+#define VCLKCR4		IO_ADDRESS(0xE615001C)
 #define FSIACKCR	IO_ADDRESS(0xE6150018)
 #define RTSTBCR	IO_ADDRESS(0xE6150020)
 #define PLL1CR		IO_ADDRESS(0xE6150028)
@@ -565,12 +567,14 @@ extern struct smp_operations r8a7373_smp_ops;
 #define DSITCKCR	IO_ADDRESS(0xE6150060)
 #define DSI0PCKCR	IO_ADDRESS(0xE6150064)
 #define DSI1PCKCR	IO_ADDRESS(0xE6150068)
+#define DSI0PHYCR	IO_ADDRESS(0xE615006C)
 #define DSI1PHYCR	IO_ADDRESS(0xE6150070)
 #define SD0CKCR	IO_ADDRESS(0xE6150074)
 #define SD1CKCR	IO_ADDRESS(0xE6150078)
 #define SD2CKCR	IO_ADDRESS(0xE615007C)
 #define MPCKCR		IO_ADDRESS(0xE6150080)
 #define SPUACKCR	IO_ADDRESS(0xE6150084)
+#define EXSTMON2        IO_ADDRESS(0xe6180088)
 #define SLIMBCKCR	IO_ADDRESS(0xE6150088)
 #define FSIBCKCR	IO_ADDRESS(0xE6150090)
 /* VCD add end */
@@ -919,6 +923,7 @@ extern struct smp_operations r8a7373_smp_ops;
 extern void r8a7373_init_irq(void);
 extern void r8a7373_map_io(void);
 extern void r8a7373_init_early(void);
+extern void r8a7373_init_late(void);
 extern void r8a7373_reserve(void);
 extern void r8a7373_add_standard_devices(void);
 extern void r8a7373_avoid_a2slpowerdown_afterL2sync(void);

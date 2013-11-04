@@ -647,7 +647,7 @@ static void __init board_init(void)
 	 * registered at the time of L2$ init because "r8a7373l2_cache_init()"
 	 * function called more early.
 	 */
-	l2x0_init_later();
+/*	l2x0_init_later(); */
 #endif
 
 	camera_init();
@@ -736,6 +736,7 @@ DT_MACHINE_START(LOGANLTE, "loganlte")
 	.init_early     = r8a7373_init_early,
 	.init_machine   = board_init,
 	.init_time	= u2_timers_init,
+	.init_late      = r8a7373_init_late,
 	.restart        = board_restart,
 	.reserve        = r8a7373_reserve,
 	.dt_compat	= logan_compat_dt,
@@ -751,5 +752,6 @@ MACHINE_START(LOGANLTE, "loganlte")
 	.init_time	= u2_timers_init,
 	.restart        = board_restart,
 	.reserve        = r8a7373_reserve
+	.init_late      = r8a7373_init_late,
 MACHINE_END
 #endif

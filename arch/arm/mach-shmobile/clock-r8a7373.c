@@ -896,11 +896,11 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP403] = MSTP(4,  3, &cp_clk, 0), /* KEYSC */
 	[MSTP402] = MSTP(4,  2, &cp_clk, 0), /* RWDT0 */
 
-	[MSTP530] = MSTP(5, 30, &div4_clks[DIV4_HP], 0), /* Secure boot ROM */
+	[MSTP530] = MSTP(5, 30, &div4_clks[DIV4_HP], CLK_ENABLE_ON_INIT), /* Secure boot ROM */
 	/* Secure RAM */
 	[MSTP529] = MSTP(5, 29, &div4_clks[DIV4_HP], CLK_ENABLE_ON_INIT),
 	/* Inter connect RAM1 */
-	[MSTP528] = MSTP(5, 28, &div4_clks[DIV4_HP], 0),
+	[MSTP528] = MSTP(5, 28, &div4_clks[DIV4_HP], CLK_ENABLE_ON_INIT),
 	/* Inter connect RAM0 */
 	[MSTP527] = MSTP(5, 27, &div4_clks[DIV4_HP], CLK_ENABLE_ON_INIT),
 	[MSTP526] = MSTP(5, 26, &div4_clks[DIV4_HP], 0), /* Public boot ROM */

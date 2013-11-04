@@ -200,6 +200,7 @@ static int static_gov_flg = 1;
 #endif
 #define DEF_MAX_SAM_IN_US	(FREQ_TRANSITION_LATENCY * 2) /* 50ms * 2 */
 
+static int shmobile_sysfs_init(void);
 static void do_check_cpu(struct work_struct *work);
 /* Hotplug works */
 static struct workqueue_struct *dfs_queue;
@@ -603,14 +604,13 @@ int __clk_get_rate(struct clk_rate *rate)
 static void __notify_all_cpu(unsigned int fold, unsigned int fnew, int flag)
 {
 	struct cpufreq_freqs freqs;
-	int i = 0;
+	struct cpufreq_policy *policy;
 
 	freqs.old = fold;
 	freqs.new = fnew;
-	for (i = 0; i < num_online_cpus(); i++) {
-		freqs.cpu = i;
-		cpufreq_notify_transition(&freqs, flag);
-	}
+	policy = cpufreq_cpu_get(0);
+
+	cpufreq_notify_transition(policy, &freqs, flag);
 }
 
 /*
@@ -1896,7 +1896,7 @@ static struct notifier_block policy_notifier = {
 };
 
 /*
- * shmobile_cpu_init: register the cpufreq driver with the cpufreq
+ * rmobile_cpufreq_init: register the cpufreq driver with the cpufreq
  * governor driver.
  *
  * Arguments:
@@ -1906,7 +1906,7 @@ static struct notifier_block policy_notifier = {
  *		0: normal registration
  *		negative: operation fail
  */
-static int __init shmobile_cpu_init(void)
+int __init rmobile_cpufreq_init(void)
 {
 	int ret = 0;
 	int i = 0;
@@ -1966,6 +1966,9 @@ static int __init shmobile_cpu_init(void)
 	if (ret)
 		pr_err("%s : stop_cpufreq error!!(%d)\n", __func__, ret);
 #endif
+
+	shmobile_sysfs_init();
+
 	return ret;
 }
 /*
@@ -2176,7 +2179,7 @@ static struct attribute_group attr_group = {
 	.attrs = attrs,
 };
 
-static int __init shmobile_sysfs_init(void)
+static int shmobile_sysfs_init(void)
 {
 #if defined(DYNAMIC_HOTPLUG_CPU) && defined(HOTPLUG_IN_ACTIVE)
 	hlg_config.hlg_enabled = 1;
@@ -2184,6 +2187,3 @@ static int __init shmobile_sysfs_init(void)
 	/* Create the files associated with power kobject */
 	return sysfs_create_group(power_kobj, &attr_group);
 }
-
-module_init(shmobile_cpu_init);
-late_initcall(shmobile_sysfs_init);

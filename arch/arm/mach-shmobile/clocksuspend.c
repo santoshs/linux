@@ -29,6 +29,7 @@
 #include <mach/r8a7373.h>
 #include <mach/pm.h>
 #include <mach/sbsc.h>
+#include <memlog/memlog.h>
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -2254,7 +2255,7 @@ err_out:
 	return err;
 }
 
-static int __init clk_debugfs_init(void)
+int __init rmobile_dfs_debug_init(void)
 {
 	struct dentry *d;
 	int err;
@@ -2277,6 +2278,9 @@ err_out:
 	debugfs_remove_recursive(clk_debugfs_root);
 	return err;
 }
-late_initcall(clk_debugfs_init);
-
+#else
+int __init rmobile_dfs_debug_init(void)
+{
+	return 0;
+}
 #endif

@@ -31,6 +31,7 @@
 #include <mach/serial.h>
 #include <mach/memory-r8a7373.h>
 #include <mach/common.h>
+#include <mach/pm.h>
 #include <linux/gpio.h>
 #include <linux/sched.h>
 #include <mach/setup-u2audio.h>
@@ -68,7 +69,6 @@ void __iomem *dummy_write_mem;
 static unsigned int shmobile_revision;
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
-#undef PM_FUNCTION_START
 #ifdef PM_FUNCTION_START
 /* We arrange for some of ICRAM 0 to be MT_MEMORY_NONCACHED, so
  * it can be executed from, for the PM code; it is then Normal Uncached memory,
@@ -1453,6 +1453,13 @@ void __init r8a7373_init_early(void)
 
 #ifdef CONFIG_ARM_TZ
 	r8a7373_l2cache_init();
+#endif
+}
+
+void __init r8a7373_init_late(void)
+{
+#ifdef CONFIG_PM
+	rmobile_pm_late_init();
 #endif
 }
 

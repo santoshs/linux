@@ -39,6 +39,7 @@
 #include <linux/cpufreq.h>
 #include <linux/atomic.h>
 #include <linux/export.h>
+#include <linux/sysfs.h>
 
 #endif /*POWER_DOMAIN_H*/
 
@@ -56,7 +57,7 @@
 #define DELAYED_TIME_IN_US	(200*1000)
 #define CPU0_ID				0
 struct workqueue_struct *pdwait_wq;
-static DECLARE_DEFERRED_WORK(pdwait_work, NULL);
+static DECLARE_DEFERRABLE_WORK(pdwait_work, NULL);
 static atomic_t	pdwait_judge_count;
 static bool a2ri_status_old ;
 static bool a2ri_status_new;
@@ -95,11 +96,11 @@ static int power_areas_status;
 
 
 static struct drv_pd_mapping_table tbl2[] = {
-	/* MFIS		 */	{ "mfis.0",			ID_C4	},
-	/* SGX544MP1 */	{ "pvrsrvkm",			ID_A3SG },
+	/* MFIS		*/	{ "mfis.0",		ID_C4	},
+	/* SGX544MP1	*/	{ "pvrsrvkm",		ID_A3SG },
 	/* SY-DMA0	*/	{ "sh-dma-engine.0",	ID_A3SP },
 	/* CC4.2 0	*/	{ "sep_sec_driver.0",	ID_A3SP },
-	/* MMCIF.0	*/	{ "renesas_mmcif.0",		ID_A3SP },
+	/* MMCIF.0	*/	{ "renesas_mmcif.0",	ID_A3SP },
 	/* MSIOF0	*/	{ "spi_sh_msiof.0",	ID_A3SP },
 	/* MSIOF1	*/	{ "spi_sh_msiof.1",	ID_A3SP },
 	/* MSIOF2	*/	{ "spi_sh_msiof.2",	ID_A3SP },
@@ -108,25 +109,25 @@ static struct drv_pd_mapping_table tbl2[] = {
 	/* USB		*/	{ "r8a66597_hcd.0",	ID_A3SP },
 	/* USB		*/	{ "r8a66597_udc.0",	ID_A3SP },
 	/* USB		*/	{ "usb_mass_storage",	ID_A3SP },
-	/* USB		*/	{ "android_usb",		ID_A3SP },
+	/* USB		*/	{ "android_usb",	ID_A3SP },
 	/* USB_OTG	*/	{ "tusb1211_driver.0",	ID_A3SP },
-	/* SCIFA0	*/	{ "sh-sci.0",			ID_C4	},
-	/* SCIFA1	*/	{ "sh-sci.1",			ID_A3SP },
-	/* SCIFA2	*/	{ "sh-sci.2",			ID_A3SP },
-	/* SCIFA3	*/	{ "sh-sci.3",			ID_A3SP },
-	/* SCIFB0	*/	{ "sh-sci.4",			ID_A3SP },
-	/* SCIFB1	*/	{ "sh-sci.5",			ID_A3SP },
-	/* SCIFB2	*/	{ "sh-sci.6",			ID_A3SP },
-	/* SCIFB3	*/	{ "sh-sci.7",			ID_C4	},
-	/* I2C0		*/	{ "i2c-sh_mobile.0",	ID_A3SP },
-	/* I2C1		*/	{ "i2c-sh_mobile.1",	ID_A3SP },
-	/* I2C2		*/	{ "i2c-sh_mobile.2",	ID_A3SP },
-	/* I2C3		*/	{ "i2c-sh_mobile.3",	ID_A3SP },
-	/* I2C0H	*/	{ "i2c-sh_mobile.4",	ID_A3SP },
-	/* I2C1H	*/	{ "i2c-sh_mobile.5",	ID_A3SP },
-    /* I2CM		*/	{ "i2c-sh7730.8",		ID_A3SP },
-	/* I2C2H	*/	{ "i2c-sh_mobile.6",	ID_A3SP },
-	/* I2C3H	*/	{ "i2c-sh_mobile.7",	ID_A3SP },
+	/* SCIFA0	*/	{ "sh-sci.0",		ID_C4	},
+	/* SCIFA1	*/	{ "sh-sci.1",		ID_A3SP },
+	/* SCIFA2	*/	{ "sh-sci.2",		ID_A3SP },
+	/* SCIFA3	*/	{ "sh-sci.3",		ID_A3SP },
+	/* SCIFB0	*/	{ "sh-sci.4",		ID_A3SP },
+	/* SCIFB1	*/	{ "sh-sci.5",		ID_A3SP },
+	/* SCIFB2	*/	{ "sh-sci.6",		ID_A3SP },
+	/* SCIFB3	*/	{ "sh-sci.7",		ID_C4	},
+	/* I2C0		*/	{ "e6820000.i2c",	ID_A3SP },
+	/* I2C1		*/	{ "e6822000.i2c",	ID_A3SP },
+	/* I2C2		*/	{ "e6824000.i2c",	ID_A3SP },
+	/* I2C3		*/	{ "e6826000.i2c",	ID_A3SP },
+	/* I2C0H	*/	{ "e6828000.i2c",	ID_A3SP },
+	/* I2C1H	*/	{ "e682a000.i2c",	ID_A3SP },
+	/* I2CM		*/	{ "i2c-sh7730.8",	ID_A3SP },
+	/* I2C2H	*/	{ "e682c000.i2c",	ID_A3SP },
+	/* I2C3H	*/	{ "e682e000.i2c",	ID_A3SP },
 	/* SDHI0	*/	{ "renesas_sdhi.0",	ID_A3SP },
 	/* SDHI1	*/	{ "renesas_sdhi.1",	ID_A3SP },
 	/* SDHI2	*/	{ "renesas_sdhi.2",	ID_A3SP },
@@ -134,11 +135,10 @@ static struct drv_pd_mapping_table tbl2[] = {
 	/* HSI		*/	{ "sh_hsi.0",			ID_A3SP },
 	/* MFI		*/	{ "av-domain",		ID_A3R	},
 	/* FSI2/ALSA	*/	{ "snd-soc-fsi",	ID_A4MP },
-	/* SPUV/VOCODER	*/	{ "vcd",			ID_A4MP },
+	/* SPUV/VOCODER	*/	{ "vcd",		ID_A4MP },
 	/* PCM2PWM	*/	{ "pcm2pwm-renesas-sh_mobile.1", ID_A4MP },
-	/* SHX(rtapi) */{ "meram-domain",	ID_A4RM },
+	/* SHX(rtapi)	*/	{ "meram-domain",	ID_A4RM },
 	/* AudioPT	*/	{ "snd-soc-audio-test",	ID_A4MP },
-
 #if 0
 	/* The following device is used for test purpose only */
 	/*	C4 dummy device	*/		{ "dummy_test_c4.0",	 ID_C4},
@@ -153,51 +153,50 @@ static struct drv_pd_mapping_table tbl2[] = {
 
 #define pdi_init_val {{NULL, NULL, NULL}, 0}
 static struct pdi_mapping_table pdi_tb2[] = {
-	/* MFIS		*/ { "mfis.0", pdi_init_val},
-	/* SGX544MP1*/ { "pvrsrvkm", pdi_init_val},
-	/* SY-DMA0	*/ { "sh-dma-engine.0", pdi_init_val},
-	/* CC4.2 0	*/ { "sep_sec_driver.0", pdi_init_val},
-	/* MMCIF.0	*/ { "renesas_mmcif.0", pdi_init_val},
-	/* MSIOF0	*/ { "spi_sh_msiof.0", pdi_init_val},
-	/* MSIOF1	*/ { "spi_sh_msiof.1", pdi_init_val},
-	/* MSIOF2	*/ { "spi_sh_msiof.2", pdi_init_val},
-	/* MSIOF3	*/ { "spi_sh_msiof.3", pdi_init_val},
-	/* MSIOF4	*/ { "spi_sh_msiof.4", pdi_init_val},
-	/* USB		*/ { "r8a66597_hcd.0", pdi_init_val},
-	/* USB		*/ { "r8a66597_udc.0", pdi_init_val},
-	/* USB		*/ { "usb_mass_storage", pdi_init_val},
-	/* USB		*/ { "android_usb", pdi_init_val},
-	/* USB_OTG	*/ { "tusb1211_driver.0", pdi_init_val},
-	/* SCIFA0	*/ { "sh-sci.0", pdi_init_val},
-	/* SCIFA1	*/ { "sh-sci.1", pdi_init_val},
-	/* SCIFA2	*/ { "sh-sci.2", pdi_init_val},
-	/* SCIFA3	*/ { "sh-sci.3", pdi_init_val},
-	/* SCIFB0	*/ { "sh-sci.4", pdi_init_val},
-	/* SCIFB1	*/ { "sh-sci.5", pdi_init_val},
-	/* SCIFB2	*/ { "sh-sci.6", pdi_init_val},
-	/* SCIFB3	*/ { "sh-sci.7", pdi_init_val},
-	/* I2C0		*/ { "i2c-sh_mobile.0", pdi_init_val},
-	/* I2C1		*/ { "i2c-sh_mobile.1", pdi_init_val},
-	/* I2C2		*/ { "i2c-sh_mobile.2", pdi_init_val},
-	/* I2C3		*/ { "i2c-sh_mobile.3", pdi_init_val},
-	/* I2C0H	*/ { "i2c-sh_mobile.4", pdi_init_val},
-	/* I2C1H	*/ { "i2c-sh_mobile.5", pdi_init_val},
-    /* I2CM		*/ { "i2c-sh7730.8", pdi_init_val},
-	/* I2C2H	*/ { "i2c-sh_mobile.6", pdi_init_val},
-	/* I2C3H	*/ { "i2c-sh_mobile.7", pdi_init_val},
-	/* SDHI0	*/ { "renesas_sdhi.0", pdi_init_val},
-	/* SDHI1	*/ { "renesas_sdhi.1", pdi_init_val},
-	/* SDHI2	*/ { "renesas_sdhi.2", pdi_init_val},
-	/* TPU		*/ { "tpu-renesas-sh_mobile.0", pdi_init_val},
-	/* HSI		*/ { "sh_hsi.0", pdi_init_val},
-	/* MFI		*/ { "av-domain", pdi_init_val},
-	/* FSI2/ALSA*/ { "snd-soc-fsi", pdi_init_val},
-	/* SPUV/VOCODER*/ { "vcd", pdi_init_val},
-	/* PCM2PWM	*/ { "pcm2pwm-renesas-sh_mobile.1", pdi_init_val},
-	/* SHX(rtapi) */ { "meram-domain", pdi_init_val},
-	/* AudioPT */ { "snd-soc-audio-test", pdi_init_val },
-
-
+	/* MFIS		*/	{ "mfis.0",		pdi_init_val},
+	/* SGX544MP1	*/	{ "pvrsrvkm",		pdi_init_val},
+	/* SY-DMA0	*/	{ "sh-dma-engine.0",	pdi_init_val},
+	/* CC4.2 0	*/	{ "sep_sec_driver.0",	pdi_init_val},
+	/* MMCIF.0	*/	{ "renesas_mmcif.0",	pdi_init_val},
+	/* MSIOF0	*/	{ "spi_sh_msiof.0",	pdi_init_val},
+	/* MSIOF1	*/	{ "spi_sh_msiof.1",	pdi_init_val},
+	/* MSIOF2	*/	{ "spi_sh_msiof.2",	pdi_init_val},
+	/* MSIOF3	*/	{ "spi_sh_msiof.3",	pdi_init_val},
+	/* MSIOF4	*/	{ "spi_sh_msiof.4",	pdi_init_val},
+	/* USB		*/	{ "r8a66597_hcd.0",	pdi_init_val},
+	/* USB		*/	{ "r8a66597_udc.0",	pdi_init_val},
+	/* USB		*/	{ "usb_mass_storage",	pdi_init_val},
+	/* USB		*/	{ "android_usb",	pdi_init_val},
+	/* USB_OTG	*/	{ "tusb1211_driver.0",	pdi_init_val},
+	/* SCIFA0	*/	{ "sh-sci.0",		pdi_init_val},
+	/* SCIFA1	*/	{ "sh-sci.1",		pdi_init_val},
+	/* SCIFA2	*/	{ "sh-sci.2",		pdi_init_val},
+	/* SCIFA3	*/	{ "sh-sci.3",		pdi_init_val},
+	/* SCIFB0	*/	{ "sh-sci.4",		pdi_init_val},
+	/* SCIFB1	*/	{ "sh-sci.5",		pdi_init_val},
+	/* SCIFB2	*/	{ "sh-sci.6",		pdi_init_val},
+	/* SCIFB3	*/	{ "sh-sci.7",		pdi_init_val},
+	/* I2C0		*/	{ "e6820000.i2c",	pdi_init_val },
+	/* I2C1		*/	{ "e6822000.i2c",	pdi_init_val },
+	/* I2C2		*/	{ "e6824000.i2c",	pdi_init_val },
+	/* I2C3		*/	{ "e6826000.i2c",	pdi_init_val },
+	/* I2C0H	*/	{ "e6828000.i2c",	pdi_init_val },
+	/* I2C1H	*/	{ "e682a000.i2c",	pdi_init_val },
+	/* I2CM		*/	{ "i2c-sh7730.8",	pdi_init_val },
+	/* I2C2H	*/	{ "e682c000.i2c",	pdi_init_val },
+	/* I2C3H	*/	{ "e682e000.i2c",	pdi_init_val },
+	/* SDHI0	*/	{ "renesas_sdhi.0",	pdi_init_val},
+	/* SDHI1	*/	{ "renesas_sdhi.1",	pdi_init_val},
+	/* SDHI2	*/	{ "renesas_sdhi.2",	pdi_init_val},
+	/* TPU		*/	{ "tpu-renesas-sh_mobile.0",	pdi_init_val},
+	/* HSI		*/	{ "sh_hsi.0",		pdi_init_val},
+	/* MFI		*/	{ "av-domain",		pdi_init_val},
+	/* FSI2/ALSA	*/	{ "snd-soc-fsi",	pdi_init_val},
+	/* SPUV/VOCODER	*/	{ "vcd",		pdi_init_val},
+	/* PCM2PWM	*/	{ "pcm2pwm-renesas-sh_mobile.1",
+							pdi_init_val},
+	/* SHX(rtapi)	*/	{ "meram-domain",	pdi_init_val},
+	/* AudioPT	*/	{ "snd-soc-audio-test",	pdi_init_val },
 #if 0
 	/* The following device is used for test purpose only */
 	/*	C4 dummy device */ { "dummy_test_c4.0", pdi_init_val},
@@ -576,6 +575,7 @@ static int power_domain_driver_runtime_suspend(struct device *dev)
 static int power_domain_driver_runtime_resume(struct device *dev)
 {
 	unsigned int area = 1 << (to_platform_device(dev)->id);
+
 	if (POWER_A3R == area)
 		pm_runtime_get_sync(&a4rm_device.dev);
 
@@ -635,10 +635,9 @@ static int power_domain_driver_runtime_resume(struct device *dev)
  */
 static int power_domain_driver_probe(struct device *dev)
 {
+	pm_runtime_enable(dev);
 	if (false != is_power_status_on(1 << to_platform_device(dev)->id))
 		(void)pm_runtime_set_active(dev);
-
-	pm_runtime_enable(dev);
 	pm_runtime_irq_safe(dev);
 	return 0;
 }
@@ -948,7 +947,6 @@ static int __init power_domain_driver_init(void)
 	int i;
 	int j;
 	int delay = 0;
-
 #ifdef CONFIG_PM_DEBUG
 	pdc_enable = 1;
 	old_pdc_enable = 1;
