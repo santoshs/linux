@@ -68,7 +68,6 @@ void __iomem *dummy_write_mem;
 static unsigned int shmobile_revision;
 
 static struct map_desc r8a7373_io_desc[] __initdata = {
-#undef PM_FUNCTION_START
 #ifdef PM_FUNCTION_START
 /* We arrange for some of ICRAM 0 to be MT_MEMORY_NONCACHED, so
  * it can be executed from, for the PM code; it is then Normal Uncached memory,
