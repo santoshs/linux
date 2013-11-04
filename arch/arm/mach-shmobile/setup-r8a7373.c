@@ -1442,6 +1442,11 @@ void __init r8a7373_init_early(void)
 #endif
 }
 
+void __init r8a7373_init_late(void)
+{
+
+}
+
 /*
  * Common reserve for R8 A7373 - for memory carveouts
  */

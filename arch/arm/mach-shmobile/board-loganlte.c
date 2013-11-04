@@ -759,6 +759,7 @@ DT_MACHINE_START(LOGANLTE, "loganlte")
 	.init_early     = r8a7373_init_early,
 	.init_machine   = board_init,
 	.init_time	= u2_timers_init,
+	.init_late      = r8a7373_init_late,
 	.restart        = board_restart,
 	.reserve        = r8a7373_reserve,
 	.dt_compat	= logan_compat_dt,
@@ -774,5 +775,6 @@ MACHINE_START(LOGANLTE, "loganlte")
 	.init_time	= u2_timers_init,
 	.restart        = board_restart,
 	.reserve        = r8a7373_reserve
+	.init_late      = r8a7373_init_late,
 MACHINE_END
 #endif
