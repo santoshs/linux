@@ -490,21 +490,8 @@ void ts_power_control(int en)
 	ts_power_enable(en);
 }
 EXPORT_SYMBOL(ts_power_control);
-#if 0
-static int melfas_init_panel(struct melfas_ts_data *ts)
-{
-	int buf = 0x00;
-	int ret;
-	ret = i2c_master_send(ts->client, (const char*)&buf, 1);
-	ret = i2c_master_send(ts->client, (const char*)&buf, 1);
-	if (ret < 0) {
-		printk(KERN_EMERG "%s : i2c_master_send() failed\n [%d]", __func__, ret);
-		return 0;
-	}
-	return true;
-}
-#endif
-#ifdef TA_DETECTION
+
+ifdef TA_DETECTION
 static void tsp_ta_probe(int ta_status)
 {
 	u8 write_buffer[3];

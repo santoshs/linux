@@ -775,7 +775,8 @@ static ssize_t charging_status_show(struct kobject *kobj,
 	union power_supply_propval value;
 	struct spa_power_desc *spa_power_iter = g_spa_power;
 	printk(KERN_INFO "%s called\n", __func__);
-	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
+	ps = power_supply_get_by_name(spa_power_iter->
+						charger_info.charger_name);
 	ret = ps->get_property(ps, POWER_SUPPLY_PROP_STATUS, &value);
 	if (ret != 0)
 		return sprintf(buf, "%d\n", ret);
@@ -796,7 +797,8 @@ static ssize_t charging_status_store(struct kobject *kobj,
 	printk(KERN_INFO "%s: Charging is forcefully %s\n", __func__,
 				charging_enable ? "enabled" : "disabled");
 
-	ps = power_supply_get_by_name(spa_power_iter->charger_info.charger_name);
+	ps = power_supply_get_by_name(spa_power_iter->
+						charger_info.charger_name);
 	switch (charging_enable) {
 	case 0:
 		value.intval = POWER_SUPPLY_STATUS_DISCHARGING;
@@ -2133,6 +2135,10 @@ static int spa_power_probe(struct platform_device *pdev)
 	schedule_delayed_work(&spa_power_iter->delayed_init_work, msecs_to_jiffies(50));
 
 	probe_status = SPA_PROBE_STATUS_READY;
+
+#ifdef CONFIG_BATTERY_D2153
+	d2153_battery_start();
+#endif
 
 	goto label_SPA_POWER_PROBE_SUCCESS;
 

@@ -36,7 +36,9 @@
 #endif
 
 /* t32 timer overflows at 32 seconds, reset it before that time */
-#define FAN5405_TIMER_RESET_PERIOD (20000)
+#define FAN5405_TIMER_RESET_PERIOD	(20000)
+/* STAT bits = 01 refers to charging status */
+#define STAT_CHARGING			0x1
 
 enum {
 	BAT_NOT_DETECTED,
@@ -73,7 +75,8 @@ struct dict_atom {
 #define DEBUG_LEVEL_MAX	              2
 #define DEBUG_DEFAULT_LEVEL	      0
 
-static unsigned long debug_level_set = DEBUG_DEFAULT_LEVEL;
+static unsigned long debug_level_set = DEBUG_CHARGER_INFO;
+					/* DEBUG_DEFAULT_LEVEL; */
 
 /*
  * Making use of levels for different log levels, so we could have a
@@ -155,7 +158,6 @@ int fan5405_enable_charging(struct i2c_client *client)
 	struct fan5405_chip *chip = i2c_get_clientdata(client);
 
 	pm_charger_info("%s\n", __func__);
-
 	val = fan5405_read_reg(client, fan5405_CONTROL1);
 	if (val >= 0) {
 		val &= ~(CON1_CE_MASK << CON1_CE_SHIFT);
@@ -264,7 +266,7 @@ static int fan5405_set_charge_current(unsigned int curr)
 	val = fan5405_read_reg(client, fan5405_CONTROL1);
 	if (val >= 0) {
 		val &= ~(CON1_IN_LIMIT_MASK << CON1_IN_LIMIT_SHIFT);
-		val |= Iinlimit;
+		val |= Iinlimit << CON1_IN_LIMIT_SHIFT;
 		if (fan5405_write_reg(client, fan5405_CONTROL1, val) < 0) {
 			pr_err("%s : error!\n", __func__);
 			return -1;
@@ -332,6 +334,8 @@ static void fan5405_timer_work_func(struct work_struct *work)
 	struct fan5405_chip *p = container_of(work, struct fan5405_chip,
 						timer_work.work);
 
+	printk(KERN_INFO "%s:is_charging = %d\n", __func__, is_charging);
+
 	/*If charging is enabled, then t32 will be ticking. Reset it */
 	if (is_charging == true) {
 		val = fan5405_read_reg(p->client, fan5405_CONTROL0);
@@ -354,7 +358,7 @@ static void fan5405_intr_work_func(struct work_struct *work)
 								intr_work);
 	int val;
 	int i;
-	pm_charger_info("%s\n", __func__);
+	pr_info("%s\n", __func__);
 
 	if (!p) {
 		pr_err("%s: fan5405_chip is NULL\n", __func__);
@@ -367,7 +371,7 @@ static void fan5405_intr_work_func(struct work_struct *work)
 #ifndef NO_USE_TERMINATION_CURRENT
 #endif
 	/* Read all the registers */
-	for (i = 0; i < 0x6; i++)
+	for (i = 0; i <= 0x6; i++)
 		val = fan5405_read_reg(p->client, i);
 
 	val = fan5405_read_reg(p->client, 0x10);
@@ -378,7 +382,7 @@ static irqreturn_t fan5405_irq_handler(int irq, void *data)
 {
 	struct fan5405_chip *p = (struct fan5405_chip *)data;
 
-	pm_charger_info("%s\n", __func__);
+	pr_info("%s\n", __func__);
 	schedule_work(&(p->intr_work));
 
 	/* There is no interrupt register in FAN5405 */
@@ -394,7 +398,7 @@ static int fan5405_irq_init(struct i2c_client *client)
 		pulses (goes low and then high after 128us)*/
 		ret = request_threaded_irq(client->irq, NULL,
 				fan5405_irq_handler,
-				(IRQF_TRIGGER_RISING |
+				(IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
 				IRQF_ONESHOT |
 				IRQF_NO_SUSPEND),
 				"fan5405_charger", fan_charger);
@@ -421,7 +425,7 @@ static int fan5405_charger_hardware_init(struct i2c_client *client)
 	val = SAFETY_ISAFE_MASK | SAFETY_VSAFE_MASK;
 
 	val = fan5405_write_reg(client, fan5405_SAFETY, val);
-	if (val <= 0) {
+	if (val < 0) {
 		pr_err("%s : error!\n", __func__);
 		return -1;
 	}
@@ -438,6 +442,21 @@ static int fan5405_charger_hardware_init(struct i2c_client *client)
 	}
 
 	return val;
+}
+static int fan5405_get_charging_status(void)
+{
+	struct i2c_client *client = fan_charger->client;
+	int val;
+
+	/* Check CONTROL0 register's STAT bits to know if battery is charging */
+	val = fan5405_read_reg(client, fan5405_CONTROL0);
+	if (val >= 0) {
+		if (((val >> CON0_STAT_SHIFT) & CON0_STAT_MASK)
+						== STAT_CHARGING)
+			return 1;
+	}
+
+	return 0;
 }
 
 static int fan5405_probe(struct i2c_client *client,
@@ -480,6 +499,8 @@ static int fan5405_probe(struct i2c_client *client,
 			(void *)fan5405_set_charge_volt, "fan5405-charger");
 	spa_agent_register(SPA_AGENT_GET_CHARGER_TYPE,
 			(void *)fan5405_get_charger_type, "fan5405-charger");
+	spa_agent_register(SPA_AGENT_GET_CHARGE_STATE,
+			(void *)fan5405_get_charging_status, "fan5405-charger");
 
 	fan5405_charger_hardware_init(client);
 

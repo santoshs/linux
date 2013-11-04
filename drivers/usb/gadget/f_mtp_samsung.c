@@ -60,7 +60,6 @@
 #include <mach/pm.h>
 
 static int dfs_started = -1;
-
 /*-------------------------------------------------------------------------*/
 /*Only for Debug*/
 #define DEBUG_MTP 0
@@ -483,6 +482,7 @@ static int mtp_send_signal(int value)
 
 static int mtpg_open(struct inode *ip, struct file *fp)
 {
+	int ret = -1;
 	printk(KERN_DEBUG "[%s]\tline = [%d]\n", __func__, __LINE__);
         printk("USBD][%s] MTP node open \n",__func__);
 	if (_lock(&the_mtpg->open_excl)) {
@@ -498,7 +498,7 @@ static int mtpg_open(struct inode *ip, struct file *fp)
 
 	the_mtpg->error = 0;
 
-	int ret = stop_cpufreq();
+	ret = stop_cpufreq();
 	DBG(the_mtpg->cdev, "%s(): stop_cpufreq\n", __func__);
 	if (ret) {
 		dfs_started = 1;
@@ -734,16 +734,6 @@ static ssize_t mtpg_write(struct file *fp, const char __user *buf,
 					 __func__, __LINE__, r);
 	return r;
 }
-
-#if 0
-/**
- * Not used function.
- */
-static void interrupt_complete(struct usb_ep *ep, struct usb_request *req)
-{
-	printk(KERN_DEBUG "Finished Writing Interrupt Data\n");
-}
-#endif
 
 static ssize_t interrupt_write(struct file *fd,
 			const char __user *buf, size_t count)
@@ -1107,7 +1097,6 @@ static int mtpg_release_device(struct inode *ip, struct file *fp)
 		DBG(the_mtpg->cdev, "%s(): start_cpufreq\n", __func__);
 		dfs_started = 1;
 	}
-
 	return 0;
 }
 
@@ -1408,69 +1397,6 @@ static int mtpg_function_set_alt(struct usb_function *f,
 	return 0;
 }
 
-#if 0
-static int mtpg_function_set_alt(struct usb_function *f,
-		unsigned intf, unsigned alt)
-{
-	struct mtpg_dev	*dev = mtpg_func_to_dev(f);
-	struct usb_composite_dev *cdev = f->config->cdev;
-	int ret;
-
-	if (dev->int_in->driver_data)
-		usb_ep_disable(dev->int_in);
-
-	ret = usb_ep_enable(dev->int_in,
-			ep_choose(cdev->gadget, &int_hs_notify_desc,
-						&int_fs_notify_desc));
-	if (ret) {
-		usb_ep_disable(dev->int_in);
-		dev->int_in->driver_data = NULL;
-		printk(KERN_ERR "[%s]Error in enabling INT EP\n", __func__);
-		return ret;
-	}
-	dev->int_in->driver_data = dev;
-
-	if (dev->bulk_in->driver_data)
-		usb_ep_disable(dev->bulk_in);
-
-	ret = usb_ep_enable(dev->bulk_in,
-			ep_choose(cdev->gadget, &hs_mtpg_in_desc,
-						&fs_mtpg_in_desc));
-	if (ret) {
-		usb_ep_disable(dev->bulk_in);
-		dev->bulk_in->driver_data = NULL;
-		 printk(KERN_ERR "[%s] Enable Bulk-IN EP error%d\n",
-							__func__, __LINE__);
-		 return ret;
-	}
-	dev->bulk_in->driver_data = dev;
-
-	if (dev->bulk_out->driver_data)
-		usb_ep_disable(dev->bulk_out);
-
-	ret = usb_ep_enable(dev->bulk_out,
-			ep_choose(cdev->gadget, &hs_mtpg_out_desc,
-						&fs_mtpg_out_desc));
-	if (ret) {
-		usb_ep_disable(dev->bulk_out);
-		dev->bulk_out->driver_data = NULL;
-		 printk(KERN_ERR "[%s] Enable Bulk-Out EP error%d\n",
-							__func__, __LINE__);
-		return ret;
-	}
-	dev->bulk_out->driver_data = dev;
-
-	dev->online = 1;
-	dev->error = 0;
-	dev->read_ready = 1;
-	dev->cancel_io = 0;
-
-	/* readers may be blocked waiting for us to go online */
-	wake_up(&dev->read_wq);
-
-	return 0;
-}
-#endif
 static void mtpg_function_disable(struct usb_function *f)
 {
 	struct mtpg_dev	*dev = mtpg_func_to_dev(f);

@@ -23,13 +23,10 @@
 #include <linux/gpio.h>
 #include <linux/hwspinlock.h>
 #include <mach/common.h>
-#include <mach/r8a7373.h>
 #include <mach/setup-u2usb.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
-#include <asm/mach/map.h>
-#include <asm/mach/time.h>
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
 #include <mach/board.h>
@@ -42,11 +39,8 @@
 #include <mach/sbsc.h>
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
-#include <linux/d2153/pmic.h>
-#include <linux/d2153/d2153_battery.h>
 #include <linux/d2153/d2153_aad.h>
 #endif
-#include <mach/dev-wifi.h>
 #include <linux/ktd259b_bl.h>
 #include <mach/setup-u2spa.h>
 #include <mach/setup-u2vibrator.h>
@@ -77,18 +71,14 @@
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
-#include <linux/leds-regulator.h>
-#if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
-#include <linux/broadcom/bcmbt_rfkill.h>
+#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
+#include <linux/broadcom/bcm-bt-rfkill.h>
 #endif
 #ifdef CONFIG_BCM_BT_LPM
-#include <linux/broadcom/bcmbt_lpm.h>
+#include <linux/broadcom/bcm-bt-lpm.h>
 #endif
 #ifdef CONFIG_BCM_BZHW
 #include <linux/broadcom/bcm_bzhw.h>
-#endif
-#if defined(CONFIG_BCMI2CNFC)
-#include <linux/bcmi2cnfc.h>
 #endif
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 #include <linux/nfc/pn547.h>
@@ -100,21 +90,14 @@
 #include <mach/dev-nfc.h>
 #endif
 
+#include <mach/dev-wifi.h>
+
 #include <mach/dev-touchpanel.h>
 
 #ifdef CONFIG_ARCH_R8A7373
 #include <mach/setup-u2stm.h>
 #endif
 
-#if defined(CONFIG_RT8969) || defined(CONFIG_RT8973)
-#include <linux/platform_data/rtmusc.h>
-#endif
-
-#if defined(CONFIG_SEC_CHARGING_FEATURE)
-#include <linux/spa_power.h>
-#endif
-
-#include <mach/sbsc.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinconf-generic.h>
 
@@ -187,28 +170,20 @@ static struct platform_device led_backlight_device = {
 	},
 };
 
-#if (defined(CONFIG_BCM_RFKILL) || defined(CONFIG_BCM_RFKILL_MODULE))
+#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
 #define BCMBT_VREG_GPIO       (GPIO_PORT268)
 #define BCMBT_N_RESET_GPIO    (GPIO_PORT15) //(-1)
-/* clk32 */
-#define BCMBT_AUX0_GPIO       (-1)
-/* UARTB_SEL */
-#define BCMBT_AUX1_GPIO       (-1)
 
-static struct bcmbt_rfkill_platform_data board_bcmbt_rfkill_cfg = {
-	.vreg_gpio    = BCMBT_VREG_GPIO,
-	.n_reset_gpio = BCMBT_N_RESET_GPIO,
-	/* CLK32 */
-	.aux0_gpio    = BCMBT_AUX0_GPIO,
-	/* UARTB_SEL, probably not required */
-	.aux1_gpio    = BCMBT_AUX1_GPIO,
+static struct bcm_bt_rfkill_platform_data bcm_bt_rfkill_data = {
+	.bcm_bt_rfkill_vreg_gpio = BCMBT_VREG_GPIO,
+	.bcm_bt_rfkill_n_reset_gpio = BCMBT_N_RESET_GPIO,
 };
 
-static struct platform_device board_bcmbt_rfkill_device = {
-	.name = "bcmbt-rfkill",
+struct platform_device board_bcmbt_rfkill_device = {
+	.name = "bcm-bt-rfkill",
 	.id   = -1,
 	.dev  = {
-		.platform_data=&board_bcmbt_rfkill_cfg,
+		.platform_data=&bcm_bt_rfkill_data,
 	},
 };
 #endif
@@ -233,16 +208,16 @@ static struct platform_device board_bcm_bzhw_device = {
 #endif
 
 #ifdef CONFIG_BCM_BT_LPM
-#define GPIO_BT_WAKE   6
-#define GPIO_HOST_WAKE 14
+#define GPIO_BT_WAKE	GPIO_PORT262
+#define GPIO_HOST_WAKE	GPIO_PORT272
 
 static struct bcm_bt_lpm_platform_data brcm_bt_lpm_data = {
-	.gpio_bt_wake = GPIO_BT_WAKE,
-	.gpio_host_wake = GPIO_HOST_WAKE,
+	.bt_wake_gpio = GPIO_BT_WAKE,
+	.host_wake_gpio = GPIO_HOST_WAKE,
 };
 
-static struct platform_device board_bcmbt_lpm_device = {
-	.name = "bcmbt-lpm",
+struct platform_device board_bcmbt_lpm_device = {
+	.name = "bcm-bt-lpm",
 	.id   = -1,
 	.dev  = {
 		.platform_data=&brcm_bt_lpm_data,
@@ -264,6 +239,7 @@ struct d2153_battery_platform_data pbat_pdata = {
 	.battery_capacity = BAT_CAPACITY_1800MA,
 	.vf_lower = 250,
 	.vf_upper = 510,
+	.bat_temp_adc = D2153_ADC_TEMPERATURE_1
 };
 
 struct d2153_platform_data d2153_pdata = {
@@ -615,8 +591,13 @@ static void __init board_init(void)
 		gpio_pull_up_port(GPIO_PORT290);
 		gpio_pull_up_port(GPIO_PORT289);
 		/* move gpio request to board-renesas_wifi.c */
+                /* WLAN Init API call */
+#if defined(CONFIG_BRCM_UNIFIED_DHD_SUPPORT) || defined(CONFIG_RENESAS_WIFI)
+                printk(KERN_ERR "Calling WLAN_INIT!\n");
+                renesas_wlan_init();
+                printk(KERN_ERR "DONE WLAN_INIT!\n");
+#endif
 	}
-
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
@@ -681,10 +662,6 @@ static void __init board_init(void)
 
 	platform_device_register(&led_backlight_device);
 
-#if defined(CONFIG_SAMSUNG_MHL)
-	board_mhl_init();
-	board_edid_init();
-#endif
 
 	d2153_init_board_defaults();
 	i2c_register_board_info(0, i2c0_devices_d2153,

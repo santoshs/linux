@@ -7501,7 +7501,6 @@ static int32_t bcmtch_i2c_remove(struct i2c_client *p_i2c_client)
 
 static int32_t __init bcmtch_i2c_init(void)
 {
-printk("\n ** In bcmtch_i2c_init");
 	return i2c_add_driver(&bcmtch_i2c_driver);
 }
 

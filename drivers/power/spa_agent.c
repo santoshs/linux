@@ -1,5 +1,5 @@
 /* Samsung Power and Charger Agent
- * 
+ *
  * drivers/power/spa_agent.c
  *
  * Agent driver for SPA driver.
@@ -7,7 +7,7 @@
  * Copyright (C) 2012, Samsung Electronics.
  *
  * This program is free software. You can redistribute it and/or modify
- * it under the terms of the GNU(General Public License version 2) as 
+ * it under the terms of the GNU(General Public License version 2) as
  * published by the Free Software Foundation.
  */
 
@@ -67,22 +67,24 @@ static enum power_supply_property spa_agent_props[] = {
 };
 #endif
 
+static enum spa_agent_feature gbat_presence;
+
 int spa_agent_register(unsigned int agent_id, void *fn, const char *agent_name)
 {
 	int ret=0;
 
-	if(agent_id >= SPA_AGENT_MAX)
+	if (agent_id >= SPA_AGENT_MAX)
 	{
-		pr_spa_agent_dbg(LEVEL1, "%s: agent id is wrong(agent_id = %d), failed to register agent fn \n", __func__, agent_id);
+		pr_spa_agent_dbg(LEVEL1, "%s: agent id is wrong(agent_id = %d), failed to register agent fn\n", __func__, agent_id);
 		return -1;
 	}
-	if(fn == NULL)
+	if (fn == NULL)
 	{
 		pr_spa_agent_dbg(LEVEL1, "%s: agent fn is NULL(agent_id = %d), failed to register agent fn\n", __func__, agent_id);
 		return -1;
 	}
 
-	if(spa_agent_fn[agent_id].fn.dummy == NULL)
+	if (spa_agent_fn[agent_id].fn.dummy == NULL)
 	{
 		spa_agent_fn[agent_id].fn.dummy = (int (*)(void))fn;
 		spa_agent_fn[agent_id].agent_name = (char *)agent_name;
@@ -100,11 +102,14 @@ int spa_agent_register(unsigned int agent_id, void *fn, const char *agent_name)
 EXPORT_SYMBOL_GPL(spa_agent_register);
 
 #if defined(SPA_AGENT_PS_INTERMEDIATE)
-static int spa_agent_get_property(struct power_supply *ps, enum power_supply_property prop, union power_supply_propval *propval)
+static int spa_agent_get_property(struct power_supply *ps,
+				enum power_supply_property prop,
+				union power_supply_propval *propval)
 {
 	int ret = 0;
 
-	pr_spa_agent_dbg(LEVEL3, "%s : agent get request = %d \n", __func__, prop);
+	pr_spa_agent_dbg(LEVEL3, "%s : agent get request = %d\n", __func__,
+									prop);
 	propval->intval = 0;
 
 	switch(prop) {
@@ -112,8 +117,11 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 	case POWER_SUPPLY_PROP_STATUS:
 		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_GET_CHARGE_STATE);
-		if (spa_agent_fn[SPA_AGENT_GET_CHARGE_STATE].fn.get_charge_state)
-			propval->intval = spa_agent_fn[SPA_AGENT_GET_CHARGE_STATE].fn.get_charge_state();
+		if (spa_agent_fn[SPA_AGENT_GET_CHARGE_STATE].fn.
+							get_charge_state)
+			propval->intval =
+				spa_agent_fn[SPA_AGENT_GET_CHARGE_STATE].fn.
+							get_charge_state();
 		else
 			ret = -ENODATA;
 
@@ -121,8 +129,11 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 	case POWER_SUPPLY_PROP_TYPE:
 		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_GET_CHARGER_TYPE);
-		if (spa_agent_fn[SPA_AGENT_GET_CHARGER_TYPE].fn.get_charger_type)
-			propval->intval = spa_agent_fn[SPA_AGENT_GET_CHARGER_TYPE].fn.get_charger_type();
+		if (spa_agent_fn[SPA_AGENT_GET_CHARGER_TYPE].fn.
+							get_charger_type)
+			propval->intval =
+				spa_agent_fn[SPA_AGENT_GET_CHARGER_TYPE].fn.
+							get_charger_type();
 		else {
 			propval->intval = POWER_SUPPLY_TYPE_BATTERY;
 			ret = -ENODATA;
@@ -132,7 +143,8 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_GET_TEMP);
 		if (spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp)
-			propval->intval = spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp(0);
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_TEMP].fn
+								.get_temp(0);
 		else
 			ret = -ENODATA;
 		break;
@@ -140,7 +152,8 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_GET_TEMP);
 		if (spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp)
-			propval->intval = spa_agent_fn[SPA_AGENT_GET_TEMP].fn.get_temp(1);
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_TEMP].fn
+								.get_temp(1);
 		else
 			ret = -ENODATA;
 		break;
@@ -148,7 +161,9 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_GET_CAPACITY);
 		if (spa_agent_fn[SPA_AGENT_GET_CAPACITY].fn.get_capacity)
-			propval->intval = spa_agent_fn[SPA_AGENT_GET_CAPACITY].fn.get_capacity();
+			propval->intval =
+				spa_agent_fn[SPA_AGENT_GET_CAPACITY].fn.
+								get_capacity();
 		else
 			ret = -ENODATA;
 		break;
@@ -156,19 +171,42 @@ static int spa_agent_get_property(struct power_supply *ps, enum power_supply_pro
 		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_GET_VOLTAGE);
 		if (spa_agent_fn[SPA_AGENT_GET_VOLTAGE].fn.get_voltage)
-			propval->intval = spa_agent_fn[SPA_AGENT_GET_VOLTAGE].fn.get_voltage(0);
+			propval->intval = spa_agent_fn[SPA_AGENT_GET_VOLTAGE].
+							fn.get_voltage(0);
 		else
 			ret = -ENODATA;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
-					__func__, SPA_AGENT_GET_BATT_PRESENCE);
-		if (spa_agent_fn[SPA_AGENT_GET_BATT_PRESENCE].fn.get_batt_presence)
-			propval->intval = spa_agent_fn[SPA_AGENT_GET_BATT_PRESENCE].fn.get_batt_presence(0);
-		else {
+		if (gbat_presence == SPA_AGENT_GET_BATT_PRESENCE_PMIC) {
+			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, gbat_presence);
+			if (spa_agent_fn[gbat_presence].fn.
+							get_batt_presence_pmic)
+				propval->intval =
+					spa_agent_fn[gbat_presence].fn
+						.get_batt_presence_pmic();
+			else {
+				propval->intval = 1;
+				ret = -ENODATA;
+			}
+		} else if (gbat_presence ==
+					SPA_AGENT_GET_BATT_PRESENCE_CHARGER) {
+			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
+					__func__, gbat_presence);
+			if (spa_agent_fn[gbat_presence].fn.
+						get_batt_presence_charger)
+				propval->intval =
+					spa_agent_fn[gbat_presence].fn
+						.get_batt_presence_charger();
+			else {
+				propval->intval = 1;
+				ret = -ENODATA;
+			}
+		} else {
 			propval->intval = 1;
 			ret = -ENODATA;
 		}
+
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
@@ -201,19 +239,19 @@ static int spa_agent_set_property(struct power_supply *ps,
 
 	switch (prop) {
 		case POWER_SUPPLY_PROP_STATUS:
+
 			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_SET_CHARGE);
 			{
-				int en = 0;
-				if (propval->intval ==
-						POWER_SUPPLY_STATUS_CHARGING)
-					en = 1;
+			int en = 0;
+			if (propval->intval == POWER_SUPPLY_STATUS_CHARGING)
+				en = 1;
 
 			if (spa_agent_fn[SPA_AGENT_SET_CHARGE].fn.set_charge)
-			retval =
-			spa_agent_fn[SPA_AGENT_SET_CHARGE].fn.set_charge(en);
-				else
-					ret = -ENODATA;
+				retval = spa_agent_fn[SPA_AGENT_SET_CHARGE].fn
+					.set_charge(en);
+			else
+				ret = -ENODATA;
 			}
 			break;
 		case POWER_SUPPLY_PROP_CURRENT_NOW:
@@ -242,32 +280,30 @@ static int spa_agent_set_property(struct power_supply *ps,
 						set_charge_voltage(mvolt);
 			else
 				ret = -ENODATA;
-
 			}
+			break;
 
 		case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_SET_FULL_CHARGE);
 			{
-				int eoc_current=propval->intval;
-				if (spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE].fn.
-								set_full_charge)
-					retval =
-					spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE].
-						fn.set_full_charge(eoc_current);
-				else
-					ret = -ENODATA;
+			int eoc_current = propval->intval;
+			if (spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE].fn
+							.set_full_charge)
+				retval = spa_agent_fn[SPA_AGENT_SET_FULL_CHARGE]
+					.fn.set_full_charge(eoc_current);
+			else
+				ret = -ENODATA;
 			}
 			break;
 		case POWER_SUPPLY_PROP_CAPACITY:
 			pr_spa_agent_dbg(LEVEL3, "%s : agent id = %d\n",
 					__func__, SPA_AGENT_CTRL_FG);
-			{
-				if(spa_agent_fn[SPA_AGENT_CTRL_FG].fn.ctrl_fg)
-				{
-					int opt = propval->intval;
-					spa_agent_fn[SPA_AGENT_CTRL_FG].fn.ctrl_fg((void *)opt);
-				}
+
+			if (spa_agent_fn[SPA_AGENT_CTRL_FG].fn.ctrl_fg) {
+				int opt = propval->intval;
+				spa_agent_fn[SPA_AGENT_CTRL_FG].fn.
+					ctrl_fg((void *)opt);
 			}
 			break;
 		default:
@@ -301,7 +337,7 @@ static int spa_agent_probe(struct platform_device *pdev)
 	pr_spa_agent_dbg(LEVEL1, "%s : called\n", __func__);
 
 	spa_agent = kzalloc(sizeof(struct spa_agent), GFP_KERNEL);
-	if(spa_agent == NULL)
+	if (spa_agent == NULL)
 	{
 		dev_err(&pdev->dev, "failed to alloc mem : %d\n", ret);
 		return -ENOMEM;
@@ -314,8 +350,10 @@ static int spa_agent_probe(struct platform_device *pdev)
 	spa_agent->agent_power.set_property = spa_agent_set_property;
 	spa_agent->agent_power.name = "spa_agent_chrg";
 
+	gbat_presence = *(enum spa_agent_feature *)pdev->dev.platform_data;
+
 	ret = power_supply_register(&pdev->dev, &spa_agent->agent_power);
-	if(ret)
+	if (ret)
 	{
 		dev_err(&pdev->dev, "failed to register spa_agent: %d\n", ret);
 		goto SPA_AGENT_ERR;

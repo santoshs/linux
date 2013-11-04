@@ -69,6 +69,7 @@ struct spa_power_data spa_power_pdata = {
 	.charge_timer_limit = CHARGE_TIMER_6HOUR,
 #if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
 	.backcharging_time = 30,
+/* .regulated_vol=4080, if device powerd up with power supply or any adapter */
 #endif
 	.regulated_vol = 4350,
 	.batt_temp_tb = &batt_temp_tb[0],
@@ -82,9 +83,13 @@ static struct platform_device spa_power_device = {
 	.dev.platform_data = &spa_power_pdata,
 };
 
+static enum spa_agent_feature bat_check_method =
+					SPA_AGENT_GET_BATT_PRESENCE_PMIC;
+
 static struct platform_device spa_agent_device = {
 	.name = "spa_agent",
 	.id = -1,
+	.dev.platform_data = &bat_check_method,
 };
 
 static int spa_power_init(void)

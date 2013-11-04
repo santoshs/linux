@@ -73,7 +73,7 @@ static	DEFINE_SPINLOCK(timer_lock);
 #define RX_EXTRA	22	/* bytes guarding against rx overflows */
 
 #define DEFAULT_QLEN	2	/* double buffering by default */
-
+#define MAX_HOST_TRANSFER_SIZE 0x4000
 static unsigned qmult = 5;
 module_param(qmult, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(qmult, "queue length multiplier at high/super speed");
@@ -627,7 +627,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		*(sizeof(struct ethhdr) + dev->port_usb->header_len) + (RNDIS_FRAME_BYTE_ALIGMENT - 1))
 		+ dev->net->mtu + dev->port_usb->header_len +sizeof(struct ethhdr)
 		>= dev->max_host_transfer_size) ||
-		(dev->max_host_transfer_size != 0x4000)) {
+		(dev->max_host_transfer_size != MAX_HOST_TRANSFER_SIZE)) {
 
 		eth_start_xmit_usb(multiframe);
 	}

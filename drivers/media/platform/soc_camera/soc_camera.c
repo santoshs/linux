@@ -19,6 +19,7 @@
  * published by the Free Software Foundation.
  */
 
+
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
@@ -1165,7 +1166,7 @@ static int soc_camera_probe(struct soc_camera_device *icd)
 	 * small and there is a (very) small performance hit when looking up
 	 * controls in the internal hash.
 	 */
-	ret = v4l2_ctrl_handler_init(&icd->ctrl_handler, 16);
+	ret = v4l2_ctrl_handler_init(&icd->ctrl_handler, 20);
 	if (ret < 0)
 		return ret;
 
