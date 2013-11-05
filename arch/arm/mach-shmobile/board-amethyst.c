@@ -88,8 +88,8 @@
 #ifdef CONFIG_BCM_BZHW
 #include <linux/broadcom/bcm_bzhw.h>
 #endif
-#if defined(CONFIG_BCMI2CNFC)
-#include <linux/bcmi2cnfc.h>
+#if defined(CONFIG_NFC_BCM2079X)
+#include <linux/nfc/bcm2079x.h>
 #endif
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 #include <linux/nfc/pn547.h>
@@ -97,7 +97,7 @@
 
 #include <mach/dev-sensor.h>
 
-#if defined(CONFIG_BCMI2CNFC) || defined(CONFIG_PN547_NFC)  || defined(CONFIG_NFC_PN547)
+#if defined(CONFIG_PN547_NFC)  || defined(CONFIG_NFC_PN547)
 #include <mach/dev-nfc.h>
 #endif
 
@@ -288,6 +288,70 @@ static struct tmd2771_platform_data taos_platdata = {
 #endif
 
 /* I2C */
+#if defined(CONFIG_NFC_BCM2079X)
+
+static int bcm2079x_gpio_setup(void *);
+static int bcm2079x_gpio_clear(void *);
+static struct bcm2079x_i2c_platform_data bcm2079x_pdata = {
+	.irq_gpio = 13,
+	.en_gpio = 12,
+	.wake_gpio = 101,
+	.init = bcm2079x_gpio_setup,
+	.reset = bcm2079x_gpio_clear,
+};
+
+static int bcm2079x_gpio_setup(void *this)
+{
+
+	struct bcm2079x_i2c_platform_data *p;
+	p = (struct bcm2079x_i2c_platform_data *) this;
+	if (!p)
+		return -1;
+	pr_info("bcm2079x_gpio_setup nfc en %d, wake %d, irq %d\n",
+		p->en_gpio, p->wake_gpio, p->irq_gpio);
+
+	gpio_request(p->irq_gpio, "nfc_irq");
+	gpio_direction_input(p->irq_gpio);
+
+	gpio_request(p->en_gpio, "nfc_en");
+	gpio_direction_output(p->en_gpio, 1);
+
+	gpio_request(p->wake_gpio, "nfc_wake");
+	gpio_direction_output(p->wake_gpio, 0);
+
+	return 0;
+}
+static int bcm2079x_gpio_clear(void *this)
+{
+
+	struct bcm2079x_i2c_platform_data *p;
+	p = (struct bcm2079x_i2c_platform_data *) this;
+	if (!p)
+		return -1;
+
+	pr_info("bcm2079x_gpio_clear nfc en %d, wake %d, irq %d\n",
+		p->en_gpio, p->wake_gpio, p->irq_gpio);
+
+	gpio_direction_output(p->en_gpio, 0);
+	gpio_direction_output(p->wake_gpio, 1);
+	gpio_free(p->en_gpio);
+	gpio_free(p->wake_gpio);
+	gpio_free(p->irq_gpio);
+
+	return 0;
+}
+
+static struct i2c_board_info __initdata bcm2079x[] = {
+	{
+	 I2C_BOARD_INFO("bcm2079x", 0x77),
+	 .platform_data = (void *)&bcm2079x_pdata,
+	 //.irq = gpio_to_irq(13),
+	 },
+
+};
+#endif
+
+
 static struct i2c_board_info __initdata i2c0_devices_d2153[] = {
 #if defined(CONFIG_MFD_D2153)
 	{
@@ -691,6 +755,10 @@ static void __init board_init(void)
 #if defined(CONFIG_GPS_BCM4752)
 	/* GPS Init */
 	gps_gpio_init();
+#endif
+
+#if defined(CONFIG_NFC_BCM2079X)
+	i2c_register_board_info(7, bcm2079x, ARRAY_SIZE(bcm2079x));
 #endif
 
 	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
