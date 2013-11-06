@@ -5,7 +5,7 @@
 obj-y				+= mfis/
 obj-y				+= rtapi/
 obj-y				+= composer/
-#obj-y				+= vcd/		# merge: TODO: uncomment and resolve
+obj-y				+= vcd/
 
 obj-y				+= mem.o random.o
 obj-$(CONFIG_TTY_PRINTK)	+= ttyprintk.o

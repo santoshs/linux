@@ -253,6 +253,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 				goto rtn;
 			}
 
+#ifdef CONFIG_PDC
 			/* recovery power supply */
 			for (g_spuv_func_pm_runtime_count = 0;
 			g_spuv_func_pm_runtime_count < power_domain_count;
@@ -268,6 +269,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 				}
 			}
 
+#endif
 			vcd_pr_if_pm_runtime(SPUV_FUNC_PM_RUNTIME_GET_LOG);
 
 		}
@@ -409,6 +411,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 
 		vcd_pr_if_pm_runtime(SPUV_FUNC_PM_RUNTIME_PUT_LOG);
 
+#ifdef CONFIG_PDC
 		/* release power supply */
 		for (loop_count = 0;
 			loop_count < g_spuv_func_pm_runtime_count;
@@ -419,6 +422,7 @@ int vcd_spuv_func_control_power_supply(int effective)
 				vcd_pr_err("pm_runtime_put_sync[%d].\n", ret);
 		}
 
+#endif
 		/* mp-shwy dynamic module stop check */
 		vcd_spuv_func_register(SPUV_FUNC_RW_32_HPB_HPBCTRL2, hpbctrl2);
 		vcd_pr_spuv_debug("HPB_HPBCTRL2[%08x].\n", hpbctrl2);
