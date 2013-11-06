@@ -1,6 +1,7 @@
 /*
  * R8A66597 UDC
  *
+ * Copyright 2013  Broadcom Corporation
  * Copyright (C) 2007-2009 Renesas Solutions Corp.
  * Copyright (C) 2012 Renesas Mobile Corporation
  *
@@ -131,8 +132,10 @@ struct r8a66597 {
 	void __iomem		*reg;
 	void __iomem		*dmac_reg;
 
+#ifdef CONFIG_HAVE_CLK
 	struct clk *clk;
 	struct clk *clk_dmac;
+#endif
 	struct r8a66597_platdata	*pdata;
 
 	struct usb_gadget		gadget;

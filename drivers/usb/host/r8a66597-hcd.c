@@ -3,6 +3,7 @@
  *
  * drivers/usb/host/r8a66597-hcd.c
  *
+ * Copyright 2013  Broadcom Corporation
  * Copyright (C) 2006-2007 Renesas Solutions Corp.
  * Copyright (C) 2012 Renesas Mobile Corporation
  * Portions Copyright (C) 2004 Psion Teklogix (for NetBook PRO)
