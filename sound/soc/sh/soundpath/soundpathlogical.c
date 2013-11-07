@@ -278,9 +278,11 @@ static bool g_dfs_mode_min_flag;
 /* Callback function for audience */
 static struct sndp_extdev_callback_func *g_sndp_extdev_callback;
 
+#ifdef CONFIG_PDC
 /* for PM ctrl check */
 static int g_pm_cnt;
 
+#endif
 /*!
    @brief Print Log informs of data receiving
 
@@ -422,6 +424,7 @@ static int sndp_pm_runtime_sync(const enum sndp_pm_runtime_kind kind,
 				const u_int new_value,
 				const u_int other_value)
 {
+#ifdef CONFIG_PDC
 	int			ret;
 	int			err_flag = ERROR_NONE;
 
@@ -479,6 +482,9 @@ static int sndp_pm_runtime_sync(const enum sndp_pm_runtime_kind kind,
 
 	sndp_log_debug_func("end\n");
 	return err_flag;
+#else
+	return 0;
+#endif
 }
 
 /*!
@@ -713,6 +719,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		goto power_domain_err;
 	}
 
+#ifdef CONFIG_PDC
 	/* RuntimePM */
 	pm_runtime_enable(g_sndp_power_domain);
 	iRet = pm_runtime_resume(g_sndp_power_domain);
@@ -722,6 +729,7 @@ int sndp_init(struct snd_soc_dai_driver *fsi_port_dai_driver,
 		goto power_domain_err;
 	}
 
+#endif
 	/* create work queue for call */
 	iRet = call_create_workque();
 	if (ERROR_NONE != iRet) {
@@ -757,10 +765,12 @@ mkproc_sub_err:
 workque_create_err:
 	remove_proc_entry(SNDP_DRV_NAME, NULL);
 power_domain_err:
+#ifdef CONFIG_PDC
 	if (g_sndp_power_domain) {
 		pm_runtime_disable(g_sndp_power_domain);
 		g_sndp_power_domain = NULL;
 	}
+#endif
 mkproc_err:
 	return iRet;
 
@@ -779,6 +789,7 @@ void sndp_exit(void)
 {
 	/* iounmap */
 	common_iounmap();
+#ifdef CONFIG_PDC
 
 	/* RuntimePM */
 	if (g_sndp_power_domain) {
@@ -786,6 +797,7 @@ void sndp_exit(void)
 		g_sndp_power_domain = NULL;
 	}
 
+#endif
 	/* Proc entry remove */
 	if (NULL != g_sndp_parent)
 		remove_proc_entry(SNDP_DRV_NAME, NULL);
