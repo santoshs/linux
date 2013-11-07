@@ -36,6 +36,7 @@
 #include <mach/sbsc.h>
 
 #include <memlog/memlog.h>
+#include <mach/common.h>
 
 static struct delayed_work *dwork;
 static struct delayed_work *dwork_wa_zq;
@@ -83,6 +84,8 @@ static void __iomem *sbsc_sdmra_28200;
 static void __iomem *sbsc_sdmra_38200;
 
 #define CONFIG_RMU2_RWDT_ZQ_CALIB	(500)
+
+#define	CPG_PLL3CR_WDT			IO_ADDRESS(CPG_BASE_PHYS + 0x00DC)
 
 /*
  * Modify register
