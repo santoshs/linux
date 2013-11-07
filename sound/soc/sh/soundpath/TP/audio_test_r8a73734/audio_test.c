@@ -664,7 +664,9 @@ error:
 static int audio_test_proc_stop_scuw_loopback(void)
 {
 	int ret = 0;
+#ifdef CONFIG_PDC
 	int i;
+#endif
 
 	audio_test_log_efunc("");
 
@@ -695,6 +697,7 @@ static int audio_test_proc_stop_scuw_loopback(void)
 	audio_test_audio_ctrl_func(AUDIO_TEST_HW_CLKGEN,
 				AUDIO_TEST_DRV_STATE_OFF);
 
+#ifdef CONFIG_PDC
 	/* Disable the power domain */
 	for (i = 0; i < g_audio_test_power_domain_count; i++) {
 		ret = pm_runtime_put_sync(g_audio_test_power_domain[i]);
@@ -703,6 +706,7 @@ static int audio_test_proc_stop_scuw_loopback(void)
 				"pm_runtime_put_sync res[%d]\n", ret);
 	}
 
+#endif
 	fsi_d2153_loopback_notify(FSI_D2153_LOOPBACK_STOP);
 
 	/* Add not to be suspend in loopback */
@@ -1255,8 +1259,11 @@ static void audio_test_rel_logic_addr(void)
 static int audio_test_loopback_setup(void)
 {
 	int ret = 0;
+
+#ifdef CONFIG_PDC
 	int res = 0;
 	int i;
+#endif
 	struct snd_pcm_hw_params params;
 
 	audio_test_log_efunc("");
@@ -1271,6 +1278,7 @@ static int audio_test_loopback_setup(void)
 		goto error;
 	}
 
+#ifdef CONFIG_PDC
 	/* Enable the power domain */
 	for (i = 0; i < g_audio_test_power_domain_count; i++) {
 		res = pm_runtime_get_sync(g_audio_test_power_domain[i]);
@@ -1282,6 +1290,7 @@ static int audio_test_loopback_setup(void)
 		}
 	}
 
+#endif
 	/***********************************/
 	/* Wait VCD                        */
 	/***********************************/
@@ -1337,8 +1346,10 @@ error:
 */
 static void audio_test_loopback_remove(void)
 {
+#ifdef CONFIG_PDC
 	int res = 0;
 	int i;
+#endif
 	struct snd_pcm_hw_params params;
 
 	audio_test_log_efunc("");
@@ -1352,6 +1363,7 @@ static void audio_test_loopback_remove(void)
 		msecs_to_jiffies(AUDIO_TEST_WATCH_CLK_TIME_OUT));
 	atomic_set(&g_audio_test_watch_stop_clk, 0);
 
+#ifdef CONFIG_PDC
 	/* Disable the power domain */
 	for (i = 0; i < g_audio_test_power_domain_count; i++) {
 		res = pm_runtime_put_sync(g_audio_test_power_domain[i]);
@@ -1360,6 +1372,7 @@ static void audio_test_loopback_remove(void)
 				"pm_runtime_put_sync res[%d]\n", res);
 	}
 
+#endif
 	params.intervals[SNDRV_PCM_HW_PARAM_RATE
 		- SNDRV_PCM_HW_PARAM_FIRST_INTERVAL].min = 48000;
 	fsi_d2153_set_sampling_rate(&params);
@@ -2140,7 +2153,9 @@ done:
 static int __init audio_test_init(void)
 {
 	int ret = 0;
+#ifdef CONFIG_PDC
 	int i;
+#endif
 	struct audio_test_priv *dev_conf = NULL;
 
 	audio_test_log_efunc("");
@@ -2196,6 +2211,7 @@ static int __init audio_test_init(void)
 		goto error;
 	}
 
+#ifdef CONFIG_PDC
 	/* RuntimePM */
 	for (i = 0; i < g_audio_test_power_domain_count; i++) {
 		pm_runtime_enable(g_audio_test_power_domain[i]);
@@ -2207,6 +2223,7 @@ static int __init audio_test_init(void)
 		}
 	}
 
+#endif
 	/***********************************/
 	/* Regist callback for VCD         */
 	/***********************************/
@@ -2234,11 +2251,13 @@ destroy_wakelock:
 	/* Add not to be suspend in loopback */
 	wake_lock_destroy(&g_audio_test_wake_lock);
 error:
+#ifdef CONFIG_PDC
 	for (i = 0; i < g_audio_test_power_domain_count; i++) {
 		pm_runtime_disable(g_audio_test_power_domain[i]);
 		g_audio_test_power_domain[i] = NULL;
 	}
 
+#endif
 	if (audio_test_conf->log_entry)
 		remove_proc_entry(AUDIO_TEST_LOG_LEVEL,
 				audio_test_conf->proc_parent);
@@ -2269,7 +2288,9 @@ rtn:
 */
 static void __exit audio_test_exit(void)
 {
+#ifdef CONFIG_PDC
 	int i;
+#endif
 	audio_test_log_efunc("");
 
 	misc_deregister(&audio_test_misc_dev);
@@ -2300,11 +2321,13 @@ static void __exit audio_test_exit(void)
 	kfree(audio_test_conf);
 	audio_test_conf = NULL;
 
+#ifdef CONFIG_PDC
 	for (i = 0; i < g_audio_test_power_domain_count; i++) {
 		pm_runtime_disable(g_audio_test_power_domain[i]);
 		g_audio_test_power_domain[i] = NULL;
 	}
 
+#endif
 	audio_test_log_rfunc("");
 }
 

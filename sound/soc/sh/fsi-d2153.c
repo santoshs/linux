@@ -692,13 +692,13 @@ static int vclk4_supply_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		ret = clk_enable(vclk4_clk);
-		sndp_log_info("VCLKCR4[0x%x] ret[%d]\n",
-			__raw_readl(VCLKCR4), ret);
+		/*sndp_log_info("VCLKCR4[0x%x] ret[%d]\n",
+			__raw_readl(VCLKCR4), ret);*/
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		clk_disable(vclk4_clk);
-		sndp_log_info("VCLKCR4[0x%x]\n",
-			__raw_readl(VCLKCR4));
+		/*sndp_log_info("VCLKCR4[0x%x]\n",
+			__raw_readl(VCLKCR4));*/
 		break;
 	}
 	return 0;
