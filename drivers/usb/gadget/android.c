@@ -43,7 +43,10 @@
 #else
 #include "f_mtp.c"
 #endif
+#include "f_adb.c"
+#ifdef CONFIG_HID
 #include "f_accessory.c"
+#endif
 #define USB_ETH_RNDIS y
 #include "f_rndis.c"
 #include "rndis.c"
@@ -265,6 +268,99 @@ static void android_disable(struct android_dev *dev)
 		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 		usb_remove_config(cdev, &android_config_driver);
 	}
+}
+
+struct adb_data {
+	bool opened;
+	bool enabled;
+};
+
+static int
+adb_function_init(struct android_usb_function *f,
+		struct usb_composite_dev *cdev)
+{
+	NPRINTK("\n");
+	f->config = kzalloc(sizeof(struct adb_data), GFP_KERNEL);
+	if (!f->config)
+		return -ENOMEM;
+
+	return adb_setup();
+}
+
+static void adb_function_cleanup(struct android_usb_function *f)
+{
+	adb_cleanup();
+	kfree(f->config);
+}
+
+static int
+adb_function_bind_config(struct android_usb_function *f,
+		struct usb_configuration *c)
+{
+	return adb_bind_config(c);
+}
+
+static void adb_android_function_enable(struct android_usb_function *f)
+{
+	struct android_dev *dev = _android_dev;
+	struct adb_data *data = f->config;
+
+	data->enabled = true;
+
+	/* Disable the gadget until adbd is ready */
+	if (!data->opened)
+		android_disable(dev);
+}
+
+static void adb_android_function_disable(struct android_usb_function *f)
+{
+	struct android_dev *dev = _android_dev;
+	struct adb_data *data = f->config;
+
+	data->enabled = false;
+
+	/* Balance the disable that was called in closed_callback */
+	if (!data->opened)
+		android_enable(dev);
+}
+
+static struct android_usb_function adb_function = {
+	.name		= "adb",
+	.enable		= adb_android_function_enable,
+	.disable	= adb_android_function_disable,
+	.init		= adb_function_init,
+	.cleanup	= adb_function_cleanup,
+	.bind_config	= adb_function_bind_config,
+};
+
+static void adb_ready_callback(void)
+{
+	struct android_dev *dev = _android_dev;
+	struct adb_data *data = adb_function.config;
+
+	mutex_lock(&dev->mutex);
+
+	data->opened = true;
+
+	if (data->enabled)
+		android_enable(dev);
+
+	mutex_unlock(&dev->mutex);
+}
+
+static void adb_closed_callback(void)
+{
+	struct android_dev *dev = _android_dev;
+	struct adb_data *data = adb_function.config;
+
+	mutex_lock(&dev->mutex);
+
+	data->opened = false;
+
+	if (data->enabled)
+		android_disable(dev);
+
+	mutex_unlock(&dev->mutex);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -903,7 +999,7 @@ static struct android_usb_function mass_storage_function = {
 	.attributes	= mass_storage_function_attributes,
 };
 
-
+#ifdef CONFIG_HID
 static int accessory_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
@@ -936,6 +1032,8 @@ static struct android_usb_function accessory_function = {
 	.bind_config	= accessory_function_bind_config,
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
+#endif
+
 
 static int audio_source_function_init(struct android_usb_function *f,
 			struct usb_composite_dev *cdev)
@@ -1025,13 +1123,16 @@ static struct android_usb_function phonet_function = {
 };
 
 static struct android_usb_function *supported_functions[] = {
+	&adb_function,
 	&ffs_function,
 	&acm_function,
 	&mtp_function,
 	&ptp_function,
 	&rndis_function,
 	&mass_storage_function,
+#ifdef CONFIG_HID
 	&accessory_function,
+#endif
 	&audio_source_function,
 	&phonet_function,
 	NULL
@@ -1539,12 +1640,13 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 				break;
 		}
 	}
-
+#ifdef CONFIG_HID
 	/* Special case the accessory function.
 	 * It needs to handle control requests before it is enabled.
 	 */
 	if (value < 0)
 		value = acc_ctrlrequest(cdev, c);
+#endif
 
 	if (value < 0)
 		value = composite_setup_func(gadget, c);
@@ -1565,12 +1667,13 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 static void android_disconnect(struct usb_composite_dev *cdev)
 {
 	struct android_dev *dev = _android_dev;
-
+#ifdef CONFIG_HID
 	/* accessory HID support can be active while the
 	   accessory function is not actually enabled,
 	   so we need to inform it when we are disconnected.
 	 */
 	acc_disconnect();
+#endif
 
 	dev->connected = 0;
 	schedule_work(&dev->work);

@@ -13,6 +13,7 @@
 #include <mach/hardware.h>
 #include <mach/r8a7373.h>
 #include <mach/irqs.h>
+#include <mach/gpio.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <linux/gpio_keys.h>
 #include <linux/usb/r8a66597.h>
@@ -23,8 +24,7 @@
 #include <linux/usb/tusb1211.h>
 #endif
 #include <mach/r8a7373.h>
-#define ENT_TPS80031_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
-#define ENT_TPS80032_IRQ_BASE	(IRQPIN_IRQ_BASE + 64)
+
 #define error_log(fmt, ...) printk(fmt, ##__VA_ARGS__)
 
 #define TUSB_VENDOR_SPECIFIC1 0x80
@@ -399,7 +399,7 @@ static struct r8a66597_platdata usbhs_func_data_d2153 = {
 	.on_chip	= 1,
 	.buswait	= 5,
 	.max_bufnum	= 0xff,
-	.vbus_irq	= ENT_TPS80031_IRQ_BASE + 19,
+	.vbus_irq	= irq_pin(19),
 	.port_cnt		= ARRAY_SIZE(r8a66597_gpio_setting_info),
 	.usb_gpio_setting_info  = r8a66597_gpio_setting_info,
 	.dmac		= 1,
@@ -490,7 +490,7 @@ static struct resource tusb1211_resource[] = {
 	},
 	[1] = {
 		.name	= "INT_ID",
-		.start	= ENT_TPS80031_IRQ_BASE + TPS80031_INT_ID,
+		.start	= irq_pin(18),
 		.flags	= IORESOURCE_IRQ,
 	},
 };

@@ -1,6 +1,7 @@
 /*
  * R8A66597 UDC (USB gadget)
  *
+ * Copyright 2013  Broadcom Corporation
  * Copyright (C) 2006-2009 Renesas Solutions Corp.
  * Copyright (C) 2012 Renesas Mobile Corporation
  *
@@ -309,6 +310,7 @@ static void r8a66597_inform_vbus_power(struct r8a66597 *r8a66597, int ma)
 		r8a66597->pdata->vbus_power(ma);
 }
 
+#ifdef CONFIG_HAVE_CLK
 static void r8a66597_clk_enable(struct r8a66597 *r8a66597)
 {
 	struct clk *uclk;
@@ -385,6 +387,17 @@ static void r8a66597_clk_put(struct r8a66597 *r8a66597)
 	clk_put(r8a66597->clk_dmac);
 	clk_put(r8a66597->clk);
 }
+
+#else
+static int r8a66597_clk_get(struct r8a66597 *r8a66597,
+			    struct platform_device *pdev)
+{
+	return 0;
+}
+#define r8a66597_clk_put(x)
+#define r8a66597_clk_enable(x)
+#define r8a66597_clk_disable(x)
+#endif
 
 static void r8a66597_dma_reset(struct r8a66597 *r8a66597)
 {
@@ -1154,8 +1167,8 @@ static int dmac_alloc_channel(struct r8a66597 *r8a66597,
 	}
 
 	if (ep->ep.desc->bEndpointAddress & USB_DIR_IN) {
-		 dma->dir = 1;
-		 dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch);
+		dma->dir = 1;
+		dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch);
 	} else {
 		 dma->dir = 0;
 		 dma->expect_dmicr = USBHS_DMAC_DMICR_TE(ch) |
@@ -2081,8 +2094,8 @@ __acquires(r8a66597->lock)
 		ep = &r8a66597->ep[0];
 		req = get_request_from_ep(ep);
 		transfer_complete(ep, req, 0);
-		}
 		break;
+	}
 
 	case CS_RDDS:
 	case CS_WRDS:
@@ -2641,6 +2654,7 @@ static int r8a66597_stop(struct usb_gadget *gadget,
 
 	wake_lock_destroy(&r8a66597->wake_lock);
 
+#ifdef CONFIG_HAVE_CLK
 	if (r8a66597->pdata->vbus_irq) {
 		if (r8a66597->is_active) {
 			udc_log("%s: USB clock disable called by\n", __func__);
@@ -2650,6 +2664,7 @@ static int r8a66597_stop(struct usb_gadget *gadget,
 			, __func__, r8a66597->is_active ? "up" : "down");
 		}
 	}
+#endif
 
 	r8a66597->driver = NULL;
 	return 0;
@@ -2660,6 +2675,18 @@ static int r8a66597_get_frame(struct usb_gadget *_gadget)
 {
 	struct r8a66597 *r8a66597 = gadget_to_r8a66597(_gadget);
 	return r8a66597_read(r8a66597, FRMNUM) & FRAME_MASK;
+}
+
+static int r8a66597_set_selfpowered(struct usb_gadget *gadget, int is_self)
+{
+	struct r8a66597 *r8a66597 = gadget_to_r8a66597(gadget);
+
+	if (is_self)
+		r8a66597->device_status |= 1 << USB_DEVICE_SELF_POWERED;
+	else
+		r8a66597->device_status &= ~(1 << USB_DEVICE_SELF_POWERED);
+
+	return 0;
 }
 
 static int r8a66597_vbus_draw(struct usb_gadget *gadget, unsigned mA)
@@ -2778,7 +2805,6 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	/* Clear VBUS Interrupt after reading */
 	if (r8a66597_read(r8a66597, INTSTS0) & VBINT)
 		r8a66597_bclr(r8a66597, VBINT, INTSTS0);
-	udc_log("%s: IN\n", __func__);
 	dev_dbg(r8a66597_to_dev(r8a66597), "VBUS %s => %s\n",
 	r8a66597->vbus_active ? "on" : "off",
 		r8a66597->is_active ? "on" : "off");
@@ -2795,8 +2821,8 @@ static void r8a66597_vbus_work(struct work_struct *work)
 	}
 
 	if (vbus_state) {
-		udc_log("%s: IN,r8a-isactive=%d\n",
-			__func__, r8a66597->is_active);
+		udc_log("%s: IN,vbus_state=%d\n",
+			__func__, gIsConnected);
 		/* start clock */
 		r8a66597_write(r8a66597, bwait, SYSCFG1);
         if(chirp_count ==0)
@@ -2806,8 +2832,8 @@ static void r8a66597_vbus_work(struct work_struct *work)
 		chirp_count=0;
 		r8a66597_usb_connect(r8a66597);
 	} else {
-		udc_log("%s: IN,r8a-isactive=%d\n",
-			__func__, r8a66597->is_active);
+		udc_log("%s: IN,vbus_state=%d\n",
+			__func__, gIsConnected);
 		spin_lock_irqsave(&r8a66597->lock, flags);
 		r8a66597_usb_disconnect(r8a66597);
 		spin_unlock_irqrestore(&r8a66597->lock, flags);
@@ -2829,18 +2855,6 @@ static void r8a66597_vbus_work(struct work_struct *work)
 
 	r8a66597->vbus_active = vbus_state;
 	r8a66597->is_active = vbus_state;
-}
-
-static int r8a66597_set_selfpowered(struct usb_gadget *gadget, int is_self)
-{
-	struct r8a66597 *r8a66597 = gadget_to_r8a66597(gadget);
-
-	if (is_self)
-		r8a66597->device_status |= 1 << USB_DEVICE_SELF_POWERED;
-	else
-		r8a66597->device_status &= ~(1 << USB_DEVICE_SELF_POWERED);
-
-	return 0;
 }
 
 static const struct usb_gadget_ops r8a66597_gadget_ops = {
@@ -2884,6 +2898,7 @@ static int __exit r8a66597_remove(struct platform_device *pdev)
 		pm_runtime_disable(r8a66597_to_dev(r8a66597));
 	}
 
+	device_unregister(&r8a66597->gadget.dev);
 	dev_set_drvdata(&pdev->dev, NULL);
 	kfree(r8a66597);
 	return 0;
@@ -2993,11 +3008,15 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	r8a66597->phy_active = 1;
 	udc_log("%s: IN\n", __func__);
 
+	ret = usb_add_gadget_udc(&pdev->dev, &r8a66597->gadget);
+		if (ret)
+			goto err_add_udc;
+
 	if (r8a66597->pdata->on_chip) {
 		pm_runtime_enable(&pdev->dev);
 		ret = r8a66597_clk_get(r8a66597, pdev);
 		if (ret < 0)
-			goto clean_up;
+			goto clean_up_dev;
 		if (!r8a66597->is_active) {
 			udc_log("%s: USB clock enable called by\n", __func__);
 			usb_core_clk_ctrl(r8a66597, 1);
@@ -3024,7 +3043,7 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 	ret = request_irq(irq1, r8a66597_dma_irq, 0, usbhs_dma_name, r8a66597);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "request_irq error (%d)\n", ret);
-		goto clean_up3;
+		goto clean_up4;
 	}
 
 	INIT_LIST_HEAD(&r8a66597->gadget.ep_list);
@@ -3059,13 +3078,9 @@ static int __init r8a66597_probe(struct platform_device *pdev)
 							GFP_KERNEL);
 	if (r8a66597->ep0_req == NULL) {
 		ret = -ENOMEM;
-		goto clean_up4;
+		goto clean_up3;
 	}
 	r8a66597->ep0_req->complete = nop_completion;
-
-	ret = usb_add_gadget_udc(&pdev->dev, &r8a66597->gadget);
-	if (ret)
-		goto err_add_udc;
 
 	dev_info(&pdev->dev, "version %s\n", DRIVER_VERSION);
 	udc_log("%s: USB clock disable called by\n", __func__);
@@ -3089,6 +3104,8 @@ clean_up2:
 		r8a66597_clk_put(r8a66597);
 		pm_runtime_disable(r8a66597_to_dev(r8a66597));
 	}
+clean_up_dev:
+	device_unregister(&r8a66597->gadget.dev);
 clean_up:
 	dev_set_drvdata(&pdev->dev, NULL);
 	if (r8a66597) {

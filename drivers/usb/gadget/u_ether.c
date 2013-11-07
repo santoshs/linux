@@ -49,9 +49,6 @@
 
 #define UETH__VERSION	"29-May-2008"
 
-
-
-
 static struct rndis_multiframe {
 	struct net_device       *net;
 	struct usb_ep		*in;
