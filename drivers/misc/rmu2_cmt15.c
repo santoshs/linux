@@ -29,9 +29,8 @@
 #include <linux/sched.h>
 #include <linux/uaccess.h>
 
+#include <mach/hardware.h>
 #include <mach/irqs.h>
-#include <mach/r8a7373.h>
-
 #include <memlog/memlog.h>
 #define ISREQ_TIMEOUT_MONITOR_S		IO_ADDRESS(0xE6150440)
 #define PDACK_TIMEOUT_MONITOR_A		IO_ADDRESS(0xE615047C)
@@ -51,6 +50,15 @@
 /* Note this option only controls behaviour on non-secure images. In secure
  * images, it's up to the secure code whether the CMT is a FIQ or not. */
 #define CONFIG_RMU2_CMT_FIQ
+/* CMT-1 Clock */
+#define CMCLKE		IO_ADDRESS(0xE6131000)
+#define CMSTR15		IO_ADDRESS(0xe6130500)
+#define CMCNT15		IO_ADDRESS(0xe6130514)
+#define CMCOR15		IO_ADDRESS(0xe6130518)
+#define CMCSR15		IO_ADDRESS(0xe6130510)
+#define STBCHR2		IO_ADDRESS(0xE6180002)
+#define RWTCNT		IO_ADDRESS(0xE6020000)
+#define GIC_DIST_BASE	IO_ADDRESS(0xF0001000)
 
 #define CMT15_SPI		98U
 
@@ -606,17 +614,20 @@ static struct platform_driver rmu2_cmt_driver = {
 };
 
 #ifdef CONFIG_RWDT_CMT15_TEST
-int read_proc(char *buf, char **start, off_t offset,
-						int count, int *eof, void *data)
-{
-	int len = 0;
-	len = sprintf(buf, "%u", test_mode);
 
-	return len;
+static int read_proc_show(struct seq_file *s, void *v)
+{
+	seq_printf(s, "%x\n", test_mode);
+	return 0;
+}
+
+static int proc_watch_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, read_proc_show, NULL);
 }
 
 int write_proc(struct file *file, const char __user *buf,
-						unsigned int count, void *data)
+						size_t count, loff_t *pos)
 {
 	char buffer[4];
 
@@ -666,15 +677,21 @@ int write_proc(struct file *file, const char __user *buf,
 	return test_mode;
 }
 
+static const struct file_operations proc_watch_entry_ops = {
+	.open = proc_watch_open,
+	.read = seq_read,
+	.write = write_proc,
+	.release = single_release,
+};
+
 void create_new_proc_entry(void)
 {
-	proc_watch_entry = create_proc_entry("proc_watch_entry", 0666, NULL);
+	proc_watch_entry = proc_create("proc_watch_entry", 0666, NULL,
+							&proc_watch_entry_ops);
 	if (!proc_watch_entry) {
 		printk(KERN_INFO "Error creating proc entry");
 		return;
 	}
-	proc_watch_entry->read_proc = (read_proc_t *)read_proc;
-	proc_watch_entry->write_proc = (write_proc_t *)write_proc;
 }
 
 #endif
