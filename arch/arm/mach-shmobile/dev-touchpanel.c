@@ -31,6 +31,13 @@
 #include <mach/irqs.h>
 
 #include <linux/i2c/bcmtch15xxx.h>
+#include <linux/input/mt.h>
+
+#define BCMTCH_BUTTON_COUNT 3
+unsigned int BCMTCH_MAPPING_KEY[3] = {
+		KEY_BACK, KEY_HOME, KEY_MENU};
+
+
 #include <mach/bcmtch15xxx_settings.h>
 
 #define BCMTCH15XXX_TSC_NAME	"bcmtch15xxx"
@@ -138,17 +145,8 @@ static struct bcmtch_platform_data bcmtch15xxx_i2c_platform_data = {
 	.gpio_reset_polarity   = BCMTCH_HW_GPIO_RESET_POLARITY,
 	.gpio_reset_time_ms = BCMTCH_HW_GPIO_RESET_TIME_MS,
 
-#if 0
 	.ext_button_count = BCMTCH_BUTTON_COUNT,
-	.ext_button_map   = bcmtch_button_map,
-
-	.axis_orientation_flag =
-		((BCMTCH_HW_AXIS_ REVERSE _X << BCMTCH_AXIS_FLAG_X_BIT_POS)
-		|(BCMTCH_HW_AXIS_ REVERSE _Y << BCMTCH_AXIS_FLAG_Y_BIT_POS)
-		|(BCMTCH_HW_AXIS_SWAP_X_Y << BCMTCH_AXIS_FLAG_X_Y_BIT_POS)),
-
-	.bcmtch_on = BCMTCH_TSP_PowerOnOff,
-#endif
+	.ext_button_map   = BCMTCH_MAPPING_KEY,
 };
 
 static struct i2c_board_info __initdata bcmtch15xxx_i2c_boardinfo[] = {
