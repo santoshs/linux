@@ -120,6 +120,16 @@ static int unused_gpios_afyon_rev0[] = {
 				GPIO_PORT311, GPIO_PORT312, GPIO_PORT325,
 };
 
+static struct gpio_keys_button gpio_buttons[] = {
+#ifdef CONFIG_RENESAS
+	GPIO_KEY(KEY_HOMEPAGE,   GPIO_PORT18, "Home",  1),
+#else
+	GPIO_KEY(KEY_HOME,       GPIO_PORT18, "Home",  1),
+#endif
+	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     1),
+	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     1),
+};
+
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
 static int board_rev_proc_show(struct seq_file *s, void *v)
@@ -617,6 +627,11 @@ static void __init board_init(void)
 
 	camera_init();
 
+	/* gpio keys button configuration*/
+	((struct gpio_keys_platform_data *)(gpio_key_device.dev.platform_data))
+		->buttons = gpio_buttons;
+	((struct gpio_keys_platform_data *)(gpio_key_device.dev.platform_data))
+		->nbuttons = ARRAY_SIZE(gpio_buttons);
 	gpio_key_init(stm_select,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
