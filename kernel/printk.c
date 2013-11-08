@@ -48,9 +48,8 @@
 
 #include <asm/uaccess.h>
 
-#if defined (CONFIG_SEC_DEBUG)
 #include <mach/sec_debug.h>
-#endif
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 #ifdef CONFIG_PRINTK_CPU_ID
@@ -3028,6 +3027,7 @@ void crashlog_kmsg_init()
 				virt_to_phys(&log_buf_len),
 				virt_to_phys(&log_first_idx),
 				virt_to_phys(&log_next_idx));
+	sec_getlog_supply_kloginfo(log_buf);
 }
 
 #endif

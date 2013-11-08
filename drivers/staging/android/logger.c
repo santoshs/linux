@@ -34,6 +34,7 @@
 #include <asm/ioctls.h>
 
 #include <mach/crashlog.h>
+#include <mach/sec_debug.h>
 
 /**
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
@@ -843,6 +844,29 @@ static inline void crashlog_set_log_info(void)
 	}
 }
 
+static inline void sec_setlog_supply_loggerinfo(void)
+{
+	struct logger_log *log;
+	void *p_main = NULL;
+	void *p_radio = NULL;
+	void *p_events = NULL;
+	void *p_system = NULL;
+
+	list_for_each_entry(log, &log_list, logs) {
+		if (strcmp(log->misc.name, LOGGER_LOG_MAIN) == 0)
+			p_main = log->buffer;
+		else if (strcmp(log->misc.name, LOGGER_LOG_EVENTS) == 0)
+			p_events = log->buffer;
+		else if (strcmp(log->misc.name, LOGGER_LOG_RADIO) == 0)
+			p_radio = log->buffer;
+		else if (strcmp(log->misc.name, LOGGER_LOG_SYSTEM) == 0)
+			p_system = log->buffer;
+		else
+			continue;
+	}
+	sec_getlog_supply_loggerinfo(p_main, p_radio, p_events, p_system);
+}
+
 static int __init logger_init(void)
 {
 	int ret;
@@ -864,6 +888,9 @@ static int __init logger_init(void)
 		goto out;
 
 	crashlog_set_log_info();
+#if defined(CONFIG_SEC_DEBUG)
+	sec_setlog_supply_loggerinfo();
+#endif
 out:
 	return ret;
 }
