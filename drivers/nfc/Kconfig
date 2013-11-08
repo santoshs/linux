@@ -62,5 +62,14 @@ config NFC_MEI_PHY
 
 source "drivers/nfc/pn544/Kconfig"
 source "drivers/nfc/microread/Kconfig"
+config NFC_BCM2079X
+	bool "Broadcom 2079x NFC Controller Driver"
+	depends on I2C
+	default n
+	help
+	  Broadcom 2079x Near Field Communication Controller Support.
+
+	  Say Y here to compile support for bcm2079x devices into the
+	  kernel
 
 endmenu
