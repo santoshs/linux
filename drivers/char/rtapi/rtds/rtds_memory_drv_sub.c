@@ -3837,6 +3837,7 @@ void rtds_memory_flush_mmu(
 	phy_pgd = virt_to_phys(pgd);
 	phy_pte = virt_to_phys(pte + RTDS_PTE_OFFSET);
 
+	flush_cache_all();
 	outer_flush_range(phy_pgd, phy_pgd + sizeof(*pgd));
 	outer_flush_range(phy_pte, phy_pte + sizeof(*pte));
 
