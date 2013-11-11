@@ -546,6 +546,33 @@ extern char pmdbg_get_enable_cpu_profile(void);
 extern void pmdbg_dump_suspend(void);
 extern void pmdbg_pmic_dump_suspend(void *pmic_data);
 extern char pmdbg_get_enable_dump_suspend(void);
+#else
+#define PMDBG_MAX_CPUS         2
+void pmdbg_mon(int cpum, unsigned int max_load, unsigned int load0, \
+       unsigned int load1, unsigned int cur, unsigned int req) {
+
+       return;
+}
+char pmdbg_get_enable_cpu_profile(void)
+{
+       return 0; /* disabled */
+}
+
+/* Common functions of the PM debug */
+void pmdbg_dump_suspend(void)
+{
+       return;
+}
+
+void pmdbg_pmic_dump_suspend(void *pmic_data)
+{
+       return;
+}
+
+char pmdbg_get_enable_dump_suspend(void)
+{
+       return 0; /* disabled */
+}
 #endif /* CONFIG_ARCH_R8A7373 */
 
 #endif /* __ASM_ARCH_PM_H */

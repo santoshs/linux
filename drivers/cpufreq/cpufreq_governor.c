@@ -26,6 +26,7 @@
 #include <linux/tick.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
+#include <mach/pm.h>
 
 #include "cpufreq_governor.h"
 
@@ -92,8 +93,11 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
 	struct cpufreq_policy *policy;
 	unsigned int max_load = 0;
+	unsigned int cpu_load, max_cpu_load = 0;
 	unsigned int ignore_nice;
 	unsigned int j;
+	unsigned int loads[PMDBG_MAX_CPUS];
+
 
 	if (dbs_data->cdata->governor == GOV_ONDEMAND)
 		ignore_nice = od_tuners->ignore_nice_load;
@@ -101,6 +105,11 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 		ignore_nice = cs_tuners->ignore_nice_load;
 
 	policy = cdbs->cur_policy;
+
+	if (pmdbg_get_enable_cpu_profile()) {
+		for (j = 0; j < PMDBG_MAX_CPUS; j++)
+		loads[j] = 0;
+	}
 
 	/* Get Absolute Load (in terms of freq for ondemand gov) */
 	for_each_cpu(j, policy->cpus) {
@@ -152,18 +161,30 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 			continue;
 
 		load = 100 * (wall_time - idle_time) / wall_time;
+		cpu_load = load;
+
+		if (pmdbg_get_enable_cpu_profile())
+			loads[j] = cpu_load;
+
+		if (cpu_load > max_cpu_load)
+			max_cpu_load = load;
 
 		if (dbs_data->cdata->governor == GOV_ONDEMAND) {
 			int freq_avg = __cpufreq_driver_getavg(policy, j);
 			if (freq_avg <= 0)
 				freq_avg = policy->cur;
 
-			load *= freq_avg;
+			load *= freq_avg; /* load in terms of frequency */
 		}
 
 		if (load > max_load)
-			max_load = load;
+			max_load = load; /* max load in terms of frequency */
 	}
+
+	if (pmdbg_get_enable_cpu_profile())
+		pmdbg_mon(cdbs->cpu, max_cpu_load, loads[0],
+			loads[1], policy->cur, max_load);
+
 
 	dbs_data->cdata->gov_check_cpu(cpu, max_load);
 }
