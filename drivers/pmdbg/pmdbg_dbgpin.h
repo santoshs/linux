@@ -60,7 +60,6 @@
 #define GPIO_MSEL03CR_MSEL15_KEY	0
 #define GPIO_MSEL03CR_MSEL15_BSC	1
 
-extern int arch_hw_breakpoint_init_late(void);
 extern int init_hw_perf_events_late(void);
 
 #endif /*__TST_PM_DBGPIN__*/

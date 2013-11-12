@@ -330,7 +330,7 @@ static int monitor_cmd(char *para, int size)
 #endif
 		}
 #ifdef CONFIG_HAVE_HW_BREAKPOINT
-		arch_hw_breakpoint_init_late();
+		/* arch_hw_breakpoint_init_late(); */
 #endif
 #ifdef CONFIG_HW_PERF_EVENTS
 /* Needs to be re-enabled once hardware performance events
@@ -385,7 +385,7 @@ void pmdbg_dbgpin_to_dbgmode()
 	mreg32(DBGREG9_PTR, 0,
 		DBGREG9_AID_MASK & (DBGREG9_AID << DBGREG9_AID_SHIFT));
 #ifdef CONFIG_HAVE_HW_BREAKPOINT
-	arch_hw_breakpoint_init_late();
+	/* arch_hw_breakpoint_init_late(); */
 #endif
 #ifdef CONFIG_HW_PERF_EVENTS
 /* Needs to be re-enabled once hardware performance events
