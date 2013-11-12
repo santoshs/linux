@@ -33,43 +33,47 @@
 
 /* Samsung charging feature
  +++ for board files, it may contain changeable values */
+
+/* Based on ERTJ0EG103FA NTC's R-T curve data*/
+/* TODO: These values are to be used in d2153_battery.c also */
 static struct spa_temp_tb batt_temp_tb[] = {
-	{3000, -250},		/* -25 */
-	{2350, -200},		/* -20 */
-	{1850, -150},		/* -15 */
-	{1480, -100},		/* -10 */
-	{1180, -50},		/* -5  */
-	{945,  0},			/* 0    */
-	{765,  50},			/* 5    */
-	{620,  100},		/* 10  */
-	{510,  150},		/* 15  */
-	{420,  200},		/* 20  */
-	{345,  250},		/* 25  */
-	{285,  300},		/* 30  */
-	{240,  350},		/* 35  */
-	{200,  400},		/* 40  */
-	{170,  450},		/* 45  */
-	{143,  500},		/* 50  */
-	{122,  550},		/* 55  */
-	{104,  600},		/* 60  */
-	{89,  650},			/* 65  */
-	{77,  700},			/* 70  */
+	{1486, -250},		/* -25 */
+	{1153, -200},		/* -20 */
+	{902, -150},		/* -15 */
+	{712, -100},		/* -10 */
+	{566, -50},		/* -5  */
+	{453,  0},		/* 0   */
+	{365,  50},		/* 5   */
+	{296,  100},		/* 10  */
+	{241,  150},		/* 15  */
+	{198,  200},		/* 20  */
+	{164,  250},		/* 25  */
+	{136,  300},		/* 30  */
+	{114,  350},		/* 35  */
+	{95,  400},		/* 40  */
+	{81,  450},		/* 45  */
+	{68,  500},		/* 50  */
+	{58,  550},		/* 55  */
+	{50,  600},		/* 60  */
+	{43,  650},		/* 65  */
+	{37,  700},		/* 70  */
 };
 
+/* Operating temp range taken from spec of
+ * 1YSYS06F01 Li Polymer rechargeable battery pack*/
 struct spa_power_data spa_power_pdata = {
 	.charger_name = "spa_agent_chrg",
 	.eoc_current = 180,
 	.recharge_voltage = 4300,
 	.charging_cur_usb = 500,
 	.charging_cur_wall = 1200,
-	.suspend_temp_hot = 600,
+	.suspend_temp_hot = 450,
 	.recovery_temp_hot = 400,
-	.suspend_temp_cold = -50,
-	.recovery_temp_cold = 0,
+	.suspend_temp_cold = 0,
+	.recovery_temp_cold = 50,
 	.charge_timer_limit = CHARGE_TIMER_6HOUR,
 #if defined(CONFIG_SPA_SUPPLEMENTARY_CHARGING)
 	.backcharging_time = 30,
-/* .regulated_vol=4080, if device powerd up with power supply or any adapter */
 #endif
 	.regulated_vol = 4350,
 	.batt_temp_tb = &batt_temp_tb[0],
