@@ -19,6 +19,7 @@
  */
 
 #include "pmdbg_dbgpin.h"
+#include <linux/hw_breakpoint.h>
 
 #ifdef CONFIG_ARM_TZ
 /* Call the secure-API@SEC_HAL-Driver when TZ env.
@@ -329,9 +330,7 @@ static int monitor_cmd(char *para, int size)
 					(DBGREG9_AID << DBGREG9_AID_SHIFT));
 #endif
 		}
-#ifdef CONFIG_HAVE_HW_BREAKPOINT
-		/* arch_hw_breakpoint_init_late(); */
-#endif
+		arch_hw_breakpoint_init();
 #ifdef CONFIG_HW_PERF_EVENTS
 /* Needs to be re-enabled once hardware performance events
  * 3.4.5 to 3.10 migration support is complete.
@@ -384,9 +383,7 @@ void pmdbg_dbgpin_to_dbgmode()
 		| (key << DBGREG9_KEY_SHIFT), 0);
 	mreg32(DBGREG9_PTR, 0,
 		DBGREG9_AID_MASK & (DBGREG9_AID << DBGREG9_AID_SHIFT));
-#ifdef CONFIG_HAVE_HW_BREAKPOINT
-	/* arch_hw_breakpoint_init_late(); */
-#endif
+	arch_hw_breakpoint_init();
 #ifdef CONFIG_HW_PERF_EVENTS
 /* Needs to be re-enabled once hardware performance events
  * 3.4.5 to 3.10 migration support is complete.
