@@ -54,7 +54,10 @@ static int cpu_hotplug_disabled;
 static u32 hotplugcpu_mgr_clsts[NR_CPUS];
 DEFINE_MUTEX(hotplugcpu_mgr_mutex);
 
-int cpu_up_manager(unsigned int cpu, u32 cli)
+/* cpu_up_manager is marked __ref as it calls cpu_up
+ * which is marked as __cpuinit
+ */
+int __ref cpu_up_manager(unsigned int cpu, u32 cli)
 {
 	int ret;
 
