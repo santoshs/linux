@@ -112,7 +112,7 @@ static void fsi_d2153_set_active(struct snd_soc_codec *codec,
 	}
 
 	mutex_lock_nested(&codec->card->dapm_mutex,
-		SND_SOC_DAPM_CLASS_PCM);
+		SND_SOC_DAPM_CLASS_RUNTIME);
 	dapm_mark_dirty(w, "fsi_d2153_set_active");
 	w->active = active;
 	mutex_unlock(&codec->card->dapm_mutex);
@@ -190,7 +190,7 @@ void fsi_d2153_set_dac_power(struct snd_kcontrol *kcontrol,
 	sndp_log_info("start\n");
 
 	mutex_lock_nested(&codec->card->dapm_mutex,
-		SND_SOC_DAPM_CLASS_PCM);
+		SND_SOC_DAPM_CLASS_RUNTIME);
 	if (!status) {
 		snd_soc_dapm_disable_pin(&codec->dapm, "Headphone Jack Left");
 		snd_soc_dapm_disable_pin(&codec->dapm, "Headphone Jack Right");

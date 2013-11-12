@@ -652,7 +652,7 @@ static void d2153_aad_jackdet_monitor_timer_work(struct work_struct *work)
 	}
 
 	mutex_lock_nested(&codec->card->dapm_mutex,
-		SND_SOC_DAPM_CLASS_PCM);
+		SND_SOC_DAPM_CLASS_RUNTIME);
 	if (state == D2153_NO_JACK)
 		snd_soc_dapm_disable_pin(&d2153_aad->d2153_codec->codec->dapm,
 			"Headphone Enable");
@@ -773,7 +773,7 @@ static void d2153_aad_gpio_monitor_timer_work(struct work_struct *work)
 	}
 
 	mutex_lock_nested(&codec->card->dapm_mutex,
-		SND_SOC_DAPM_CLASS_PCM);
+		SND_SOC_DAPM_CLASS_RUNTIME);
 	if (state == D2153_NO_JACK)
 		snd_soc_dapm_disable_pin(&d2153_aad->d2153_codec->codec->dapm,
 			"Headphone Enable");

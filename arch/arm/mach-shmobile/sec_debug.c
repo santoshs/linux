@@ -869,38 +869,14 @@ static struct notifier_block nb_panic_block = {
 };
 
 static void sec_kmsg_dump(struct kmsg_dumper *dumper,
-			  enum kmsg_dump_reason reason, const char *s1,
-			  unsigned long l1, const char *s2, unsigned long l2)
+			  enum kmsg_dump_reason reason)
 {
 	char *ptr = (char *)SEC_DEBUG_MAGIC_VA + SZ_1K;
 	int total_chars = SZ_4K - SZ_1K;
-	int total_lines = 50;
+	int len;
 	/* no of chars which fits in total_chars *and* in total_lines */
-	int last_chars;
 	int flush = 0;
-
-	for (last_chars = 0;
-	     l2 && l2 > last_chars && total_lines > 0
-	     && total_chars > 0; ++last_chars, --total_chars) {
-		if (s2[l2 - last_chars] == '\n')
-			--total_lines;
-	}
-	s2 += (l2 - last_chars);
-	l2 = last_chars;
-
-	for (last_chars = 0;
-	     l1 && l1 > last_chars && total_lines > 0
-	     && total_chars > 0; ++last_chars, --total_chars) {
-		if (s1[l1 - last_chars] == '\n')
-			--total_lines;
-	}
-	s1 += (l1 - last_chars);
-	l1 = last_chars;
-
-	while (l1-- > 0)
-		*ptr++ = *s1++;
-	while (l2-- > 0)
-		*ptr++ = *s2++;
+	kmsg_dump_get_buffer(dumper, true, ptr, total_chars, &len);
 
 	switch (reason) {
 		case KMSG_DUMP_HALT:
@@ -1598,17 +1574,13 @@ static struct sec_debug_inform sec_cp_crash_reason_inform = {
 	.size = 128,
 };
 
-static ssize_t sec_read_cp_crash_reason(char *buffer, char **start, off_t offset, int count, int *peor, void *dat)
+static ssize_t sec_read_cp_crash_reason(struct file *file, char __user *buffer, size_t len, loff_t *ppos)
 {
-
-
 	char *nv_p = (unsigned char*)(sec_cp_crash_reason_inform.virt);
 
-	memcpy(buffer,nv_p,sec_cp_crash_reason_inform.size);
-
-	return 0;
+	return simple_read_from_buffer(buffer, len, ppos, nv_p, sec_cp_crash_reason_inform.size);
 }
-static ssize_t sec_write_cp_crash_reason(struct file *file, const char __user *buf, unsigned long count, void *data)
+static ssize_t sec_write_cp_crash_reason(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
 {
 
 
@@ -1623,21 +1595,21 @@ static ssize_t sec_write_cp_crash_reason(struct file *file, const char __user *b
 	memset(nv_p,0x00,sec_cp_crash_reason_inform.size);
 	if(copy_from_user(nv_p, buf, count) != 0)
 		return -EFAULT;
+
 	return count;
 }
+
+static const struct file_operations cp_crash_fops = {
+		.read	= sec_read_cp_crash_reason,
+		.write	= sec_write_cp_crash_reason,
+};
 static __init int sec_debug_cp_crash_reason_init(void)
 {
 
 	sec_cp_crash_reason_inform.virt = ioremap_nocache(sec_cp_crash_reason_inform.phys, sec_cp_crash_reason_inform.size);
 	printk(KERN_INFO"%s VIRT[0x%p] PHYS[0x%08x]",__func__,sec_cp_crash_reason_inform.virt,(u32)sec_cp_crash_reason_inform.phys);
 
-	sec_cp_crash_proc = create_proc_entry("sec_cp_crash",S_IFREG|S_IRUGO,NULL);
-	if(!sec_cp_crash_proc)
-		printk(KERN_ERR "%s : failed to creating proc file\n",__func__);
-	else{
-		sec_cp_crash_proc->read_proc = sec_read_cp_crash_reason;
-		sec_cp_crash_proc->write_proc = sec_write_cp_crash_reason;
-	}
+	sec_cp_crash_proc = proc_create("sec_cp_crash", S_IFREG|S_IRUGO, NULL, &cp_crash_fops);
 	return 0;
 }
 
