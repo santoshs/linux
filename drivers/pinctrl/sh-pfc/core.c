@@ -388,6 +388,12 @@ int sh_pfc_config_mux(struct sh_pfc *pfc, unsigned mark, int pinmux_type)
 
 #ifdef CONFIG_OF
 static const struct of_device_id sh_pfc_of_table[] = {
+#ifdef CONFIG_PINCTRL_PFC_R8A7373
+	{
+		.compatible = "renesas,pfc-r8a7373",
+		.data = &r8a7373_pinmux_info,
+	},
+#endif
 #ifdef CONFIG_PINCTRL_PFC_R8A73A4
 	{
 		.compatible = "renesas,pfc-r8a73a4",
