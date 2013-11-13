@@ -88,7 +88,7 @@ static ssize_t show_headset(struct device *dev,
 
 #define HEADSET_ATTR(_name)						\
 {									\
-	.attr = { .name = #_name, .mode = 0644, },			\
+	.attr = { .name = #_name, .mode = 0444, },			\
 	.show = show_headset,						\
 }
 
