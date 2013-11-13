@@ -10,28 +10,14 @@
 #ifndef SH_DMA_H
 #define SH_DMA_H
 
-#include <linux/dmaengine.h>
 #include <linux/list.h>
-#include <linux/shdma-base.h>
-#include <linux/types.h>
-
-struct device;
+#include <linux/dmaengine.h>
 
 /* Used by slave DMA clients to request DMA to/from a specific peripheral */
 struct sh_dmae_slave {
-	struct shdma_slave		shdma_slave;	/* Set by the platform */
-};
-
-/*
- * Supplied by platforms to specify, how a DMA channel has to be configured for
- * a certain peripheral
- */
-struct sh_dmae_slave_config {
-	int		slave_id;
-	dma_addr_t	addr;
-	u32		chcr;
-	char		mid_rid;
-	u32		burst_sizes; /* XXX not implemented */
+	unsigned int			slave_id; /* Set by the platform */
+	struct device			*dma_dev; /* Set by the platform */
+	const struct sh_dmae_slave_config *config;  /* Set by the driver */
 };
 
 struct sh_dmae_regs {
@@ -39,6 +25,26 @@ struct sh_dmae_regs {
 	u32 dar; /* DAR / destination address */
 	u32 tcr; /* TCR / transfer count */
 };
+
+struct sh_desc {
+	struct sh_dmae_regs hw;
+	struct list_head node;
+	struct dma_async_tx_descriptor async_tx;
+	enum dma_transfer_direction direction;
+	dma_cookie_t cookie;
+	size_t partial;
+	int chunks;
+	int mark;
+};
+
+struct sh_dmae_slave_config {
+	unsigned int			slave_id;
+	dma_addr_t			addr;
+	u32				chcr;
+	char				mid_rid;
+	u32				burst_sizes;
+};
+
 struct sh_dmae_channel {
 	unsigned int	offset;
 	unsigned int	dmars;
@@ -61,6 +67,8 @@ struct sh_dmae_pdata {
 	unsigned int chcr_offset;
 	u32 chcr_ie_bit;
 
+#define WORKAROUND_APE5R_E157_DMAC		BIT(0)
+
 	unsigned int dmaor_is_32bit:1;
 	unsigned int needs_tend_set:1;
 	unsigned int no_dmars:1;
@@ -70,12 +78,13 @@ struct sh_dmae_pdata {
 
 /* DMA register */
 #define SAR	0x00
-#define DAR	0x04
-#define TCR	0x08
-#define CHCR	0x0C
+#define DAR     0x04
+#define TCR     0x08
+#define CHCR    0x0C
 #define CHCRB   0x1C
 #define DPBASE  0x50
-#define DMAOR	0x40
+
+#define DMAOR   0x40
 
 #define TEND	0x18 /* USB-DMAC */
 
@@ -106,14 +115,16 @@ struct sh_dmae_pdata {
 #define CHCR_DE	0x00000001
 #define CHCR_TE	0x00000002
 #define CHCR_IE	0x00000004
+#define CHCR_CAE (1<<31)
+#define CHCR_CAIE (1<<30)
 
 #define DPBASE_BASE 0xfffffff0
 #define DPBASE_SEL  0x00000001
 #define DPBASE_SHIFT  0x60  /* By using 6 descriptors per channel */
 #define CHCRB_DRST  (1 << 15)
+#define CHCRB_DCNT_MASK  0xff000000
 #define CHCRB_DCNT_SHIFT  (24)
 #define CHCRB_DPTR_MASK  0x00ff0000
-#define CHCRB_DCNT_MASK  0xff000000
 #define CHCRB_DPTR_SHIFT 16
 #define CHCR_DPM_MASK   (3 << 28)
 #define CHCR_DPM_DNM    0x10000000
@@ -127,7 +138,5 @@ int sh_dmae_set_rpt_mode(struct dma_chan *chan);
 int sh_dmae_clear_rpt_mode(struct dma_chan *chan);
 void sh_dmae_aquire_desc_config(struct dma_chan *chan,
 				struct sh_dmae_regs *hw);
-
-bool shdma_chan_filter(struct dma_chan *chan, void *arg);
 
 #endif

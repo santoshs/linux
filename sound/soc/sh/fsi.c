@@ -718,13 +718,13 @@ static int fsi_dma_init(struct fsi_priv *fsi,
 	dai = fsi_get_dai(substream);
 
 	if (is_play == 1 && fsi_is_port_a(fsi) == 1)
-		param->shdma_slave.slave_id = SHDMA_SLAVE_FSI2A_TX;
+		param->slave_id = SHDMA_SLAVE_FSI2A_TX;
 	if (is_play == 0 && fsi_is_port_a(fsi) == 1)
-		param->shdma_slave.slave_id = SHDMA_SLAVE_FSI2A_RX;
+		param->slave_id = SHDMA_SLAVE_FSI2A_RX;
 	if (is_play == 1 && fsi_is_port_a(fsi) == 0)
-		param->shdma_slave.slave_id = SHDMA_SLAVE_FSI2B_TX;
+		param->slave_id = SHDMA_SLAVE_FSI2B_TX;
 	if (is_play == 0 && fsi_is_port_a(fsi) == 0)
-		param->shdma_slave.slave_id = SHDMA_SLAVE_FSI2B_RX;
+		param->slave_id = SHDMA_SLAVE_FSI2B_RX;
 
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
@@ -760,9 +760,9 @@ static int fsi_dma_init_in_fm(
 	dai = fsi_get_dai(substream);
 
 	if (is_play)
-		param->shdma_slave.slave_id = SHDMA_SLAVE_SCUW_FFD_TX;
+		param->slave_id = SHDMA_SLAVE_SCUW_FFD_TX;
 	else
-		param->shdma_slave.slave_id = SHDMA_SLAVE_SCUW_CPUFIFO_2_RX;
+		param->slave_id = SHDMA_SLAVE_SCUW_CPUFIFO_2_RX;
 
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);

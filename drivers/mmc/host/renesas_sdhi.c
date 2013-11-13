@@ -812,9 +812,9 @@ static void renesas_sdhi_request_dma(struct renesas_sdhi_host *host)
 		return;
 
 	tx = &host->dma_slave_tx;
-	tx->shdma_slave.slave_id = pdata->slave_id_tx;
+	tx->slave_id = pdata->slave_id_tx;
 	rx = &host->dma_slave_rx;
-	rx->shdma_slave.slave_id = pdata->slave_id_rx;
+	rx->slave_id = pdata->slave_id_rx;
 
 	if (!host->dma_tx && !host->dma_rx) {
 		dma_cap_mask_t mask;
