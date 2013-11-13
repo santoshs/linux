@@ -646,9 +646,12 @@ static void mipi_display_reset(void)
 		goto out;
 	}
 
-	regulator_enable(power_ldo_1v8);
+	if (regulator_enable(power_ldo_1v8))
+		pr_err("Failed to enable regulator\n");
+
 	usleep_range(1000, 1000);
-	regulator_enable(power_ldo_3v);
+	if (regulator_enable(power_ldo_3v))
+		pr_err("Failed to enable regulator\n");
 
 	gpio_direction_output(reset_gpio, 0);
 
@@ -726,9 +729,16 @@ static int NT35516_panel_init(unsigned int mem_size)
 	 * enable calls only correct the initial enable reference count;
 	 * hence no need for delays.
 	 */
-	regulator_enable(power_ldo_1v8);
+	if (regulator_enable(power_ldo_1v8)) {
+		pr_err("Failed to enable regulator\n");
+		goto out;
+	}
+
 	usleep_range(1000, 1000);
-	regulator_enable(power_ldo_3v);
+	if (regulator_enable(power_ldo_3v)) {
+		pr_err("Failed to enable regulator\n");
+		goto out;
+	}
 
 	power_supplied = true;
 	/* Setting peculiar to panel */
