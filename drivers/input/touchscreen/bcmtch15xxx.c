@@ -1021,9 +1021,7 @@ struct bcmtch_data {
 
 	/* BCM Button elements */
 	uint16_t button_status;
-#ifdef CONFIG_OF
 	const int32_t bcmtch_button_map[BCMTCH_MAX_BUTTONS];
-#endif
 
 	/* DMA transfer mode */
 	bool has_dma_channel;
@@ -4075,27 +4073,22 @@ static int32_t bcmtch_dev_init_platform(struct device *p_device)
 {
 	int32_t ret_val = 0;
 	struct bcmtch_data *local_bcmtch_data_p = NULL;
-#ifdef CONFIG_OF
 	int32_t	idx;
 	int32_t btn_count;
 	int32_t of_ret_val;
 	struct device_node *np;
 	enum of_gpio_flags gpio_flags;
-#else
 	struct bcmtch_platform_data *p_platform_data = NULL;
-#endif
 
 	if (p_device) {
 		local_bcmtch_data_p =
 				dev_get_drvdata(p_device);
 
-#ifdef CONFIG_OF
 		np = p_device->of_node;
 		if (!np) {
 			BCMTCH_ERR(
 				" Device tree (DT) error! of_node is NULL.\n");
-			ret_val = -ENODEV;
-			return ret_val;
+			goto nodt;
 		}
 
 		/*
@@ -4262,8 +4255,8 @@ static int32_t bcmtch_dev_init_platform(struct device *p_device)
 						.ext_button_map[idx]);
 			}
 		}
-#else /* CONFIG_OF */
-
+		return ret_val;
+nodt:
 		p_platform_data =
 			(struct bcmtch_platform_data *)p_device->platform_data;
 
@@ -4295,7 +4288,6 @@ static int32_t bcmtch_dev_init_platform(struct device *p_device)
 		local_bcmtch_data_p->platform_data.axis_orientation_flag =
 			p_platform_data->axis_orientation_flag;
 
-#endif /* CONFIG_OF */
 
 		/*
 		 * FIXME - these values would come from DT or FW or insmod
@@ -4313,13 +4305,11 @@ static int32_t bcmtch_dev_init_platform(struct device *p_device)
 
 	return ret_val;
 
-#ifdef CONFIG_OF
 of_read_error:
 	if (!ret_val)
 		ret_val = -ENODEV;
 
 	return ret_val;
-#endif
 }
 
 static int32_t bcmtch_dev_request_power_mode(
