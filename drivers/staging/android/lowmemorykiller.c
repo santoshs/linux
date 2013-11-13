@@ -268,7 +268,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	struct zone *zone;
 
 #ifdef CONFIG_ZRAM_FOR_ANDROID
-	other_file -= total_swapcache_pages;
+	other_file -= total_swapcache_pages();
 #endif
 
 	if (offlining) {
@@ -940,7 +940,7 @@ void could_cswap(void)
 	if (atomic_read(&s_reclaim.lmk_running) == 1 || atomic_read(&kswapd_thread_on) == 1) 
 		return;
 
-	if (nr_swap_pages < minimum_freeswap_pages)
+	if (atomic_read(&nr_swap_pages) < minimum_freeswap_pages)
 		return;
 
 	if (unlikely(s_reclaim.kcompcached == NULL))
