@@ -1066,8 +1066,6 @@ static int __init arch_hw_breakpoint_init(void)
 		return 0;
 	}
 
-	has_ossr = core_has_os_save_restore();
-
 	/* Determine how many BRPs/WRPs are available. */
 	core_num_brps = get_num_brps();
 	core_num_wrps = get_num_wrps();
@@ -1080,10 +1078,21 @@ static int __init arch_hw_breakpoint_init(void)
 	register_undef_hook(&debug_reg_hook);
 
 	/*
+	 * Check for OS save/restore - this shouldn't trap, but it can
+	 * due to Cortex A9 erratum 764319.
+	 */
+	has_ossr = core_has_os_save_restore();
+	if (!cpumask_empty(&debug_err_mask)) {
+		has_ossr = false;
+		goto trapped;
+	}
+
+	/*
 	 * Reset the breakpoint resources. We assume that a halting
 	 * debugger will leave the world in a nice state for us.
 	 */
 	on_each_cpu(reset_ctrl_regs, NULL, 1);
+trapped:
 	unregister_undef_hook(&debug_reg_hook);
 	if (!cpumask_empty(&debug_err_mask)) {
 		core_num_brps = 0;
