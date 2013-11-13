@@ -169,9 +169,7 @@ struct smp_operations r8a7373_smp_ops  __initdata = {
 	.smp_init_cpus		= r8a7373_smp_init_cpus,
 	.smp_prepare_cpus	= r8a7373_smp_prepare_cpus,
 	.smp_boot_secondary	= r8a7373_boot_secondary,
-#ifdef IDLE_WAKELOCK_THING
 	.smp_secondary_init	= r8a7373_secondary_init,
-#endif
 #ifdef CONFIG_HOTPLUG_CPU
 	.cpu_kill		= r8a7373_cpu_kill,
 	.cpu_die		= r8a7373_cpu_die,
