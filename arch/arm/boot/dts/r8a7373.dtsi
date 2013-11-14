@@ -224,4 +224,18 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 	};
+
+	mmcif: mmcif@e6bd0000 {
+		compatible = "renesas,renesas-mmcif";
+		reg = <0xe6bd0000 0x100>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 122 0x4>;
+		bus-width = <8>;
+		max-frequency = <52000000>;
+		non-removable;
+		cap-mmc-highspeed;
+		renesas,sup-pclk = <0>;
+		renesas,dma-min-size = <0>;
+		renesas,buf-acc = <0>;
+	};
 };
