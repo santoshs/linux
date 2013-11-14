@@ -24,6 +24,9 @@
 #include "gadget_chips.h"
 
 
+#define MODEM_PORT_INST  0x00
+#define SERIAL_PORT_INST  0xFF
+
 /*
  * This CDC ACM function support just wraps control functions and
  * notifications around the generic serial-over-usb code.
@@ -623,6 +626,14 @@ acm_bind(struct usb_configuration *c, struct usb_function *f)
 	acm_control_interface_desc.iInterface = us[ACM_CTRL_IDX].id;
 	acm_data_interface_desc.iInterface = us[ACM_DATA_IDX].id;
 	acm_iad_descriptor.iFunction = us[ACM_IAD_IDX].id;
+
+	if (acm->port_num == 0) {
+		/* make the first ACM instance as a modem device */
+		acm_data_interface_desc.bInterfaceProtocol = MODEM_PORT_INST;
+	} else if (acm->port_num == 1) {
+		/* make the second ACM instance as a serial comm. device */
+		acm_data_interface_desc.bInterfaceProtocol = SERIAL_PORT_INST;
+	}
 
 	/* allocate instance-specific interface IDs, and patch descriptors */
 	status = usb_interface_id(c, f);
