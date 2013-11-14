@@ -209,6 +209,23 @@ int OV5645_power(struct device *dev, int power_on)
 	return 0;
 }
 
+static int ov5645_s_power(struct v4l2_subdev *sd, int on)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct soc_camera_subdev_desc *ssdd = soc_camera_i2c_to_desc(client);
+	int ret;
+	if (on) {
+		ret = soc_camera_power_on(&client->dev, ssdd);
+		if (ret < 0)
+			return ret;
+	} else{
+		ret = soc_camera_power_off(&client->dev, ssdd);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
 
 /*extern int hawaii_camera_AF_power(int on);*/
 
@@ -3360,6 +3377,7 @@ static void ov5645_video_remove(struct soc_camera_device *icd)
 }
 
 static struct v4l2_subdev_core_ops ov5645_subdev_core_ops = {
+	.s_power = ov5645_s_power,
 	.g_chip_ident = ov5645_g_chip_ident,
 	.g_ctrl = ov5645_g_ctrl,
 	.s_ctrl = ov5645_s_ctrl,

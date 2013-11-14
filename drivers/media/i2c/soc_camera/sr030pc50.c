@@ -30,6 +30,7 @@
 #include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
 
+#include <mach/r8a7373.h>
 
 /* CAM1 Power function */
 int SR030PC50_power(struct device *dev, int power_on)
@@ -67,7 +68,8 @@ int SR030PC50_power(struct device *dev, int power_on)
 		regulator = regulator_get(NULL, "cam_sensor_a");
 		if (IS_ERR(regulator))
 			return -1;
-		regulator_enable(regulator);
+		if (regulator_enable(regulator))
+			dev_warn(dev, "Could not enable regulator\n");
 		regulator_put(regulator);
 		mdelay(1);
 
@@ -75,7 +77,8 @@ int SR030PC50_power(struct device *dev, int power_on)
 		regulator = regulator_get(NULL, "cam_sensor_io");
 		if (IS_ERR(regulator))
 			return -1;
-		regulator_enable(regulator);
+		if (regulator_enable(regulator))
+			dev_warn(dev, "Could not enable regulator\n");
 		regulator_put(regulator);
 		mdelay(1);
 
@@ -149,6 +152,25 @@ int SR030PC50_power(struct device *dev, int power_on)
 
 	clk_put(vclk1_clk);
 	clk_put(vclk2_clk);
+
+	return 0;
+}
+
+static int sr030pc50_s_power(struct v4l2_subdev *sd, int on)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct soc_camera_subdev_desc *ssdd = soc_camera_i2c_to_desc(client);
+	int ret;
+
+	if (on) {
+		ret = soc_camera_power_on(&client->dev, ssdd);
+		if (ret < 0)
+			return ret;
+	} else{
+		ret = soc_camera_power_off(&client->dev, ssdd);
+		if (ret < 0)
+			return ret;
+	}
 
 	return 0;
 }
@@ -479,6 +501,7 @@ static struct v4l2_subdev_video_ops SR030PC50_subdev_video_ops = {
 };
 
 static struct v4l2_subdev_core_ops SR030PC50_subdev_core_ops = {
+	.s_power	= sr030pc50_s_power,
 	.g_chip_ident	= SR030PC50_g_chip_ident,
 	.g_ctrl		= SR030PC50_g_ctrl,
 };

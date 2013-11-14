@@ -29,9 +29,9 @@
 #include <media/v4l2-chip-ident.h>
 #include <media/v4l2-ctrls.h>
 #include <media/sh_mobile_csi2.h>
-
 #include <media/sh_mobile_rcu.h>
 
+#include <mach/r8a7373.h>
 
 /* CAM0 Power function */
 int S5K4ECGX_power(struct device *dev, int power_on)
@@ -66,7 +66,9 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 		regulator = regulator_get(NULL, "cam_sensor_a");
 		if (IS_ERR(regulator))
 			return -1;
-		regulator_enable(regulator);
+		if (regulator_enable(regulator))
+			dev_warn(dev, "Could not enable regulator\n");
+
 		regulator_put(regulator);
 
 		mdelay(2);
@@ -75,7 +77,8 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 		regulator = regulator_get(NULL, "cam_sensor_io");
 		if (IS_ERR(regulator))
 			return -1;
-		regulator_enable(regulator);
+		if (regulator_enable(regulator))
+			dev_warn(dev, "Could not enable regulator\n");
 		regulator_put(regulator);
 
 		mdelay(2);
@@ -119,7 +122,8 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 		regulator = regulator_get(NULL, "cam_af");
 		if (IS_ERR(regulator))
 			return -1;
-		regulator_enable(regulator);
+		if (regulator_enable(regulator))
+			dev_warn(dev, "Could not enable regulator\n");
 		regulator_put(regulator);
 
 		printk(KERN_ALERT "%s PowerON fin\n", __func__);
@@ -169,6 +173,24 @@ int S5K4ECGX_power(struct device *dev, int power_on)
 
 	clk_put(vclk1_clk);
 	clk_put(vclk2_clk);
+
+	return 0;
+}
+
+static int s5k4ecgx_s_power(struct v4l2_subdev *sd, int on)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct soc_camera_subdev_desc *ssdd = soc_camera_i2c_to_desc(client);
+	int ret;
+	if (on) {
+		ret = soc_camera_power_on(&client->dev, ssdd);
+		if (ret < 0)
+			return ret;
+	} else{
+		ret = soc_camera_power_off(&client->dev, ssdd);
+		if (ret < 0)
+			return ret;
+	}
 
 	return 0;
 }
@@ -469,6 +491,7 @@ static struct v4l2_subdev_video_ops S5K4ECGX_subdev_video_ops = {
 };
 
 static struct v4l2_subdev_core_ops S5K4ECGX_subdev_core_ops = {
+	.s_power	= s5k4ecgx_s_power,
 	.g_chip_ident	= S5K4ECGX_g_chip_ident,
 	.g_ctrl		= S5K4ECGX_g_ctrl,
 };
