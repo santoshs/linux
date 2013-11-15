@@ -41,10 +41,6 @@
 #define SHORT_DELAY	4
 #define START_DELAY	10
 
-/* TODO: this hack is required for compilation
- * any better method needs to be impletemnted */
-extern struct soc_camera_desc camera_links[];
-
 struct platform_device camera_devices[] = {
 	{
 		.name   = "soc-camera-pdrv",

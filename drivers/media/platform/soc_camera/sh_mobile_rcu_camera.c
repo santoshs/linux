@@ -141,7 +141,7 @@ static spinlock_t lock_log;
 #define RCU_IPMMU_IMTTBR	(0x14)
 #define RCU_IPMMU_IMTTBCR	(0x18)
 
-//#define RCU_POWAREA_MNG_ENABLE
+#define RCU_POWAREA_MNG_ENABLE
 
 #ifdef RCU_POWAREA_MNG_ENABLE
 #include <rtapi/system_pwmng.h>
@@ -4344,6 +4344,9 @@ exit_free_clk:
 	if (platform_get_resource(pdev, IORESOURCE_MEM, 1))
 		dma_release_declared_memory(&pdev->dev);
 exit_iounmap:
+	clk_disable(pcdev->iclk);
+	clk_disable(pcdev->fclk);
+	clk_disable(pcdev->mclk);
 	if (pcdev->base)
 		iounmap(pcdev->base);
 	if (pcdev->base_meram)
@@ -4374,6 +4377,9 @@ static int sh_mobile_rcu_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	if (platform_get_resource(pdev, IORESOURCE_MEM, 1))
 		dma_release_declared_memory(&pdev->dev);
+	clk_disable(pcdev->iclk);
+	clk_disable(pcdev->fclk);
+	clk_disable(pcdev->mclk);
 	iounmap(pcdev->base);
 	iounmap(pcdev->base_meram);
 	iounmap(pcdev->base_meram_ch);

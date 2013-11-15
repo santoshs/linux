@@ -25,6 +25,7 @@
  */
 
 extern struct platform_device camera_devices[];
+extern struct soc_camera_desc camera_links[];
 
 #if defined(CONFIG_SOC_CAMERA)
 int camera_init(void);
