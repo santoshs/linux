@@ -138,17 +138,8 @@ static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
 };
 
 static struct resource i2c0_resources[] = {
-	[0] = {
-		.name	= "IIC0",
-		.start	= 0xe6820000,
-		.end	= 0xe6820425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(184),
-		.end	= gic_spi(184),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe6820000, 0x425, "IIC0"),
+	DEFINE_RES_IRQ(gic_spi(184)),
 };
 
 static struct platform_device i2c0_device = {
@@ -170,17 +161,8 @@ static struct i2c_sh_mobile_platform_data i2c1_platform_data = {
 };
 
 static struct resource i2c1_resources[] = {
-	[0] = {
-		.name	= "IIC1",
-		.start	= 0xe6822000,
-		.end	= 0xe6822425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(185),
-		.end	= gic_spi(185),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe6822000, 0x425, "IIC1"),
+	DEFINE_RES_IRQ(gic_spi(185)),
 };
 
 static struct platform_device i2c1_device = {
@@ -202,17 +184,8 @@ static struct i2c_sh_mobile_platform_data i2c2_platform_data = {
 };
 
 static struct resource i2c2_resources[] = {
-	[0] = {
-		.name	= "IIC2",
-		.start	= 0xe6824000,
-		.end	= 0xe6824425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(186),
-		.end	= gic_spi(186),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe6824000, 0x425, "IIC2"),
+	DEFINE_RES_IRQ(gic_spi(186)),
 };
 
 static struct platform_device i2c2_device = {
@@ -234,17 +207,8 @@ static struct i2c_sh_mobile_platform_data i2c3_platform_data = {
 };
 
 static struct resource i2c3_resources[] = {
-	[0] = {
-		.name	= "IIC3",
-		.start	= 0xe6826000,
-		.end	= 0xe6826425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(187),
-		.end	= gic_spi(187),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe6826000, 0x425, "IIC3"),
+	DEFINE_RES_IRQ(gic_spi(187)),
 };
 
 static struct platform_device i2c3_device = {
@@ -278,17 +242,8 @@ static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
 };
 
 static struct resource i2c4_resources[] = {
-	[0] = {
-		.name	= "IIC4",
-		.start	= 0xe6828000,
-		.end	= 0xe6828425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(188),
-		.end	= gic_spi(188),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe6828000, 0x425, "IIC4"),
+	DEFINE_RES_IRQ(gic_spi(188)),
 };
 
 static struct platform_device i2c4_device = {
@@ -319,18 +274,8 @@ static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 };
 
 static struct resource i2c5_resources[] = {
-	[0] = {
-		.name	= "IIC5",
-		.start	= 0xe682a000,
-		.end	= 0xe682a425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-	/* In ES2, 189 is for I2C5 and 190 for I2CB. */
-		.start	= gic_spi(189),
-		.end	= gic_spi(189),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe682a000, 0x425, "IIC5"),
+	DEFINE_RES_IRQ(gic_spi(189)),
 };
 
 static struct platform_device i2c5_device = {
@@ -361,17 +306,8 @@ static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
 	.clks_per_count = 2,
 };
 static struct resource i2c6_resources[] = {
-	[0] = {
-		.name	= "IIC6",
-		.start	= 0xe682c000,
-		.end	= 0xe682c425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(128),
-		.end	= gic_spi(128),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe682c000, 0x425, "IIC6"),
+	DEFINE_RES_IRQ(gic_spi(128)),
 };
 
 static struct platform_device i2c6_device = {
@@ -401,17 +337,8 @@ static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
 };
 
 static struct resource i2c7_resources[] = {
-	[0] = {
-		.name	= "IIC7",
-		.start	= 0xe682e000,
-		.end	= 0xe682e425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(181),
-		.end	= gic_spi(181),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe682e000, 0x425, "IIC7"),
+	DEFINE_RES_IRQ(gic_spi(181)),
 };
 static struct platform_device i2c7_device = {
 	.name		= "i2c-sh_mobile",
@@ -432,18 +359,8 @@ static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
 };
 
 static struct resource i2c8_resources[] = {
-	[0] = {
-		.name	= "IICM",
-		.start	= 0xe6d20000,
-		.end	= 0xe6d20009 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(191),
-		.end	= gic_spi(191),
-		.flags	= IORESOURCE_IRQ,
-	},
-
+	DEFINE_RES_MEM_NAMED(0xe6d20000, 0x9, "IICM"),
+	DEFINE_RES_IRQ(gic_spi(191)),
 };
 
 static struct platform_device i2c8_device = {
@@ -765,18 +682,8 @@ struct hwspinlock *r8a7373_hwlock_sysc;
 EXPORT_SYMBOL(r8a7373_hwlock_sysc);
 
 static struct resource pmu_resources[] = {
-	[0] = {
-		.name	= "cpu0",
-		.start	= gic_spi(77),
-		.end	= gic_spi(77),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[1] = {
-		.name	= "cpu1",
-		.start	= gic_spi(78),
-		.end	= gic_spi(78),
-		.flags	= IORESOURCE_IRQ,
-	},
+	[0] = DEFINE_RES_IRQ_NAMED(gic_spi(77), "cpu0"),
+	[1] = DEFINE_RES_IRQ_NAMED(gic_spi(78), "cpu1"),
 };
 
 static struct platform_device pmu_device = {
@@ -787,26 +694,10 @@ static struct platform_device pmu_device = {
 
 #ifdef CONFIG_SMECO
 static struct resource smc_resources[] = {
-	[0] = {
-		.start	= gic_spi(193),
-		.end	= gic_spi(193),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[1] = {
-		.start	= gic_spi(194),
-		.end	= gic_spi(194),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[2] = {
-		.start	= gic_spi(195),
-		.end	= gic_spi(195),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[3] = {
-		.start	= gic_spi(196),
-		.end	= gic_spi(196),
-		.flags	= IORESOURCE_IRQ,
-	},
+	[0] = DEFINE_RES_IRQ(gic_spi(193)),
+	[1] = DEFINE_RES_IRQ(gic_spi(194)),
+	[2] = DEFINE_RES_IRQ(gic_spi(195)),
+	[3] = DEFINE_RES_IRQ(gic_spi(196)),
 };
 
 static struct platform_device smc_netdevice0 = {
@@ -957,15 +848,8 @@ static struct platform_device hwsem2_device = {
 
 
 static struct resource sgx_resources[] = {
-	{
-		.start	= 0xfd000000,
-		.end	= 0xfd00bfff,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= gic_spi(92),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM(0xfd000000, 0xc000),
+	DEFINE_RES_IRQ(gic_spi(92)),
 };
 
 static struct platform_device sgx_device = {
