@@ -177,16 +177,8 @@ static struct intc_prio_reg intcs_prio_registers[] = {
 };
 
 static struct resource intcs_resources[] __initdata = {
-	[0] = {
-		.start	= 0xffd20000,
-		.end	= 0xffd201ff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= 0xffd50000,
-		.end	= 0xffd501ff,
-		.flags	= IORESOURCE_MEM,
-	},
+	[0] = DEFINE_RES_MEM(0xffd20000, 0x200),
+	[1] = DEFINE_RES_MEM(0xffd50000, 0x200),
 };
 
 static struct intc_desc intcs_desc __initdata = {
