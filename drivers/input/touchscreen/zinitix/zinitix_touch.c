@@ -270,9 +270,9 @@ static ssize_t menu_sensitivity_show(struct device *dev, struct device_attribute
 static ssize_t back_sensitivity_show(struct device *dev, struct device_attribute *attr, char *buf);
 static ssize_t touchkey_threshold_show(struct device *dev, struct device_attribute *attr, char *buf);
 
-static DEVICE_ATTR(tsp_firm_version_phone, S_IRUGO | S_IWUSR | S_IWGRP, phone_firmware_show, NULL);
-static DEVICE_ATTR(tsp_firm_version_panel, S_IRUGO | S_IWUSR | S_IWGRP, part_firmware_show, NULL);
-static DEVICE_ATTR(tsp_threshold, S_IRUGO | S_IWUSR | S_IWGRP, threshold_firmware_show, NULL);
+static DEVICE_ATTR(tsp_firm_version_phone, S_IRUGO, phone_firmware_show, NULL);
+static DEVICE_ATTR(tsp_firm_version_panel, S_IRUGO, part_firmware_show, NULL);
+static DEVICE_ATTR(tsp_threshold, S_IRUGO, threshold_firmware_show, NULL);
 static DEVICE_ATTR(touchkey_menu, S_IRUGO, menu_sensitivity_show, NULL);
 static DEVICE_ATTR(touchkey_back, S_IRUGO, back_sensitivity_show, NULL);
 static DEVICE_ATTR(touchkey_threshold, S_IRUGO, touchkey_threshold_show, NULL);
@@ -3816,7 +3816,7 @@ static ssize_t show_cmd_result(struct device *dev, struct device_attribute
 }
 
 
-static DEVICE_ATTR(cmd, S_IWUSR | S_IWGRP, NULL, store_cmd);
+static DEVICE_ATTR(cmd, S_IWUSR , NULL, store_cmd);
 static DEVICE_ATTR(cmd_status, S_IRUGO, show_cmd_status, NULL);
 static DEVICE_ATTR(cmd_result, S_IRUGO, show_cmd_result, NULL);
 
