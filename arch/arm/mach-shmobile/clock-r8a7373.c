@@ -492,6 +492,8 @@ SH_FIXED_RATIO_CLK(zb30d2_clk,		ddr_clk,	div4);
 SH_FIXED_RATIO_CLK(ddr_div2_clk,	ddr_clk,	div2);
 SH_FIXED_RATIO_CLK(ddr_div4_clk,	ddr_clk,	div4);
 
+static struct clk extcki_clk = { };
+
 static struct clk *ddr_clks[] = {
 	&zb30_clk,
 	&zb30d2_clk,
@@ -503,6 +505,25 @@ static struct clk *zb30sl_parent[] = {
 	[0] = &ddr_div2_clk,
 	[1] = &ddr_div4_clk,
 };
+
+
+static struct clk *dsi0p_parent[] = {
+        [0] = &pll1_div2_clk,
+        [1] = &pll2_clk,
+        [2] = &main_clk,
+        [3] = &extal2_clk,
+        [4] = &extcki_clk,
+};
+
+static struct clk *dsi1p_parent[] = {
+        [0] = &pll2_clk,
+        [1] = &pll1_div2_clk,
+        [2] = &main_clk,
+        [3] = &extal2_clk,
+        [4] = &extcki_clk,
+};
+
+
 
 static struct clk zb30sl_clk = SH_CLK_CKSEL(FRQCRD, 0, 0,
 					    zb30sl_parent,
@@ -544,8 +565,11 @@ static struct clk div6_clks[DIV6_NR] = {
 			hsi_parent, ARRAY_SIZE(hsi_parent), 6, 2),
 	[DIV6_DSIT] = SH_CLK_DIV6_EXT(DSITCKCR, 0,
 			exsrc_parent, ARRAY_SIZE(exsrc_parent), 7, 1),
-	[DIV6_DSI0P] = SH_CLK_DIV6(&pll1_div2_clk, DSI0PCKCR, 0),
-	[DIV6_DSI1P] = SH_CLK_DIV6(&pll2_clk, DSI1PCKCR, 0),
+        [DIV6_DSI0P] = SH_CLK_DIV6_EXT(DSI0PCKCR, 0,
+                       dsi0p_parent, ARRAY_SIZE(dsi0p_parent), 12, 3),
+        [DIV6_DSI1P] = SH_CLK_DIV6_EXT(DSI1PCKCR, 0,
+                       dsi1p_parent, ARRAY_SIZE(dsi1p_parent), 12, 3),
+
 };
 
 enum {
@@ -617,80 +641,8 @@ static struct sh_clk_ops div_clk_ops = {
 	.recalc = div_recalc,
 };
 
-static struct clk extcki_clk = { };
 
 
-static struct clk *dsi0p_parent[] = {
-	[0] = &pll1_div2_clk,
-	[1] = &pll2_clk,
-	[2] = &main_clk,
-	[3] = &extal2_clk,
-	[4] = &extcki_clk,
-};
-
-static struct clk dsi0p0_cksel_clk = SH_CLK_CKSEL(DSI0PCKCR,
-						  8, CLK_CKSEL_CKSTP,
-						  dsi0p_parent,
-						  ARRAY_SIZE(dsi0p_parent), 24,
-						  3);
-
-static struct clk dsi0p0_clk = {
-	.parent = &dsi0p0_cksel_clk,
-	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)DSI0PCKCR,
-	.src_shift = 16,
-	.src_width = 6,
-};
-
-static struct clk dsi0p1_cksel_clk = SH_CLK_CKSEL(DSI0PCKCR,
-						  8, CLK_CKSEL_CKSTP,
-						  dsi0p_parent,
-						  ARRAY_SIZE(dsi0p_parent), 12,
-						  3);
-
-static struct clk dsi0p1_clk = {
-	.parent = &dsi0p1_cksel_clk,
-	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)DSI0PCKCR,
-	.src_shift = 0,
-	.src_width = 6,
-};
-
-
-static struct clk *dsi1p_parent[] = {
-	[0] = &pll2_clk,
-	[1] = &pll1_div2_clk,
-	[2] = &main_clk,
-	[3] = &extal2_clk,
-	[4] = &extcki_clk,
-};
-
-static struct clk dsi1p0_cksel_clk = SH_CLK_CKSEL(DSI1PCKCR,
-						  8, CLK_CKSEL_CKSTP,
-						  dsi1p_parent,
-						  ARRAY_SIZE(dsi1p_parent), 24,
-						  3);
-static struct clk dsi1p0_clk = {
-	.parent = &dsi1p0_cksel_clk,
-	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)DSI1PCKCR,
-	.src_shift = 16,
-	.src_width = 6,
-};
-
-static struct clk dsi1p1_cksel_clk = SH_CLK_CKSEL(DSI1PCKCR,
-						  8, CLK_CKSEL_CKSTP,
-						  dsi1p_parent,
-						  ARRAY_SIZE(dsi1p_parent), 12,
-						  3);
-
-static struct clk dsi1p1_clk = {
-	.parent = &dsi1p1_cksel_clk,
-	.ops = &div_clk_ops,
-	.enable_reg = (void *__iomem)DSI1PCKCR,
-	.src_shift = 0,
-	.src_width = 6,
-};
 
 static int selmon_reparent(struct clk *clk, struct clk *parent)
 {
@@ -717,45 +669,6 @@ static struct sh_clk_ops selmon_clk_ops = {
 	.set_parent = selmon_reparent,
 	.enable = selmon_enable,
 	.disable = selmon_disable,
-};
-
-static struct clk *selmon0_parent[2] = {
-	[0] = &dsi0p0_clk,
-	[1] = &dsi0p1_clk,
-};
-
-static struct clk *selmon1_parent[2] = {
-	[0] = &dsi1p0_clk,
-	[1] = &dsi1p1_clk,
-};
-
-static struct clk dsi0p_clk = {
-	.ops = &selmon_clk_ops,
-	.enable_reg = (void *__iomem)DSI0PCKCR,
-	.enable_bit = 8,
-	.parent_table = selmon0_parent,
-	.src_shift = 27,
-	.src_width = 1,
-};
-
-static struct clk *dsi0p_clks[] = {
-	&dsi0p0_clk,
-	&dsi0p1_clk,
-	&dsi0p_clk,
-};
-
-static struct clk dsi1p_clk = {
-	.enable_reg = (void *__iomem)DSI1PCKCR,
-	.enable_bit = 8,
-	.parent_table = selmon1_parent,
-	.src_shift = 27,
-	.src_width = 1,
-};
-
-static struct clk *dsi1p_clks[] = {
-	&dsi1p0_clk,
-	&dsi1p1_clk,
-	&dsi1p_clk,
 };
 
 enum {
@@ -983,6 +896,8 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_CON_ID("slimb_clk", &div6_clks[DIV6_SLIMB]),
 	CLKDEV_ICK_ID("dsit_clk", "sh-mipi-dsi.0", &div6_clks[DIV6_DSIT]),
 	CLKDEV_ICK_ID("dsip_clk", "sh-mipi-dsi.0", &div6_clks[DIV6_DSI0P]),
+	CLKDEV_ICK_ID("dsit_clk", "sh_mobile_lcdc_fb.0", &div6_clks[DIV6_DSIT]),
+	CLKDEV_ICK_ID("dsip_clk", "sh_mobile_lcdc_fb.0", &div6_clks[DIV6_DSI0P]),
 
 	CLKDEV_CON_ID("icb", &mstp_clks[MSTP007]), /* ICB */
 	CLKDEV_CON_ID("meram", &mstp_clks[MSTP113]), /* S3$ */
@@ -1059,15 +974,6 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("pcm2pwm-renesas-sh_mobile.1", &mstp_clks[MSTP523]),
 	/* Thermal Sensor */
 	CLKDEV_DEV_ID("thermal_sensor.0", &mstp_clks[MSTP522]),
-
-	/* DSI0P clocks */
-	CLKDEV_CON_ID("dsi0p_clk", &div6_clks[DIV6_DSI0P]),
-	CLKDEV_CON_ID("dsi0p0_clk", &dsi0p0_clk),
-	CLKDEV_CON_ID("dsi0p1_clk", &dsi0p1_clk),
-	/* DSI1P clocks */
-	CLKDEV_CON_ID("dsi1p_clk", &div6_clks[DIV6_DSI1P]),
-	CLKDEV_CON_ID("dsi1p0_clk", &dsi1p0_clk),
-	CLKDEV_CON_ID("dsi1p1_clk", &dsi1p1_clk),
 
 	CLKDEV_CON_ID("csi21", &mstp_clks[MSTP128]), /* CSI2-RX1 */
 	CLKDEV_CON_ID("csi20", &mstp_clks[MSTP126]), /* CSI2-RX0 */
@@ -1177,15 +1083,6 @@ void __init r8a7373_clock_init(void)
 		ret = clk_register(ddr_clks[k]);
 
 	r8a7373_clk_cksel_register(&zb30sl_clk, 1);
-	r8a7373_clk_cksel_register(&dsi0p0_cksel_clk, 1);
-	r8a7373_clk_cksel_register(&dsi0p1_cksel_clk, 1);
-	for (k = 0; !ret && (k < ARRAY_SIZE(dsi0p_clks)); k++)
-		ret = clk_register(dsi0p_clks[k]);
-
-	r8a7373_clk_cksel_register(&dsi1p0_cksel_clk, 1);
-	r8a7373_clk_cksel_register(&dsi1p1_cksel_clk, 1);
-	for (k = 0; !ret && (k < ARRAY_SIZE(dsi1p_clks)); k++)
-		ret = clk_register(dsi1p_clks[k]);
 
 	for (k = 0; !ret && (k < ARRAY_SIZE(late_main_clks)); k++)
 		ret = clk_register(late_main_clks[k]);
