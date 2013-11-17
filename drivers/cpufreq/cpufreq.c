@@ -1707,7 +1707,7 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 	if (ret)
 		goto error_out;
 
-	/* notification of the new policy */
+	/* notification of the intended new policy (or pre-policy notification) */
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 			CPUFREQ_NOTIFY, policy);
 
@@ -1769,6 +1769,10 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 				}
 				ret = -EINVAL;
 				goto error_out;
+			} else {
+				/* notification after governor has changed  */
+				blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
+					CPUFREQ_GOVERNOR_CHANGE_NOTIFY, policy);
 			}
 			/* might be a policy change, too, so fall through */
 		}
