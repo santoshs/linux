@@ -211,6 +211,24 @@ config CPU_FREQ_GOV_CONSERVATIVE
 
 	  If in doubt, say N.
 
+config DYNAMIC_DOWN_DIFF
+	bool "Dynamic down differential support for ondemand governors"
+	depends on CPU_FREQ_GOV_ONDEMAND
+	default n
+	help
+	  This enables move down_differential parameter.
+	  y : down_differential will decrease on each "CPU Frequency sampling" work.
+	  n : down_differential is fixed value.
+
+config DYNAMIC_SAMPLING_RATE
+	bool "Enables Dynamic Sampling Rate change for ondemand governors"
+	depends on CPU_FREQ_GOV_ONDEMAND
+	default n
+	help
+	 This enables runtime configuration of sampling rate in ondemand governor.
+	 This is useful when you want ondemand governor to run with different sampling
+	 rates.
+
 config GENERIC_CPUFREQ_CPU0
 	tristate "Generic CPU0 cpufreq driver"
 	depends on HAVE_CLK && REGULATOR && PM_OPP && OF

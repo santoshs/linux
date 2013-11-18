@@ -26,17 +26,13 @@
 #include <linux/tick.h>
 #include <linux/types.h>
 #include <linux/workqueue.h>
-#ifdef CONFIG_ARCH_R8A7373
-#include <mach/pm.h>
-#endif /* CONFIG_ARCH_R8A7373 */
 
 #include "cpufreq_governor.h"
 
-#ifdef ENABLE_SAMPLING_CHANGE
+#ifdef CONFIG_DYNAMIC_SAMPLING_RATE
 unsigned int dfs_low_flag;
-static unsigned int init_flag;
 DEFINE_SPINLOCK(sampling_lock);
-#endif /* ENABLE_SAMPLING_CHANGE */
+#endif /* CONFIG_DYNAMIC_SAMPLING_RATE */
 
 static struct kobject *get_governor_parent_kobj(struct cpufreq_policy *policy)
 {
@@ -98,10 +94,6 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 	unsigned int max_load = 0;
 	unsigned int ignore_nice;
 	unsigned int j;
-#ifdef CONFIG_ARCH_R8A7373
-	unsigned int max_load_nonfreq, load_nonfreq;
-	unsigned int loads[PMDBG_MAX_CPUS];
-#endif /* CONFIG_ARCH_R8A7373 */
 
 	if (dbs_data->cdata->governor == GOV_ONDEMAND)
 		ignore_nice = od_tuners->ignore_nice_load;
@@ -109,14 +101,6 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 		ignore_nice = cs_tuners->ignore_nice_load;
 
 	policy = cdbs->cur_policy;
-
-#ifdef CONFIG_ARCH_R8A7373
-	if (pmdbg_get_enable_cpu_profile()) {
-		for (j = 0; j < PMDBG_MAX_CPUS; j++)
-			loads[j] = 0;
-		max_load_nonfreq = 0;
-	}
-#endif /* CONFIG_ARCH_R8A7373 */
 
 	/* Get Absolute Load (in terms of freq for ondemand gov) */
 	for_each_cpu(j, policy->cpus) {
@@ -168,9 +152,6 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 			continue;
 
 		load = 100 * (wall_time - idle_time) / wall_time;
-#ifdef CONFIG_ARCH_R8A7373
-		load_nonfreq = load;
-#endif
 
 		if (dbs_data->cdata->governor == GOV_ONDEMAND) {
 			int freq_avg = __cpufreq_driver_getavg(policy, j);
@@ -180,24 +161,9 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 			load *= freq_avg;
 		}
 
-#ifdef CONFIG_ARCH_R8A7373
-		if (pmdbg_get_enable_cpu_profile()) {
-			if (load > max_load)
-				max_load_nonfreq = load_nonfreq;
-			loads[j] = load;
-		}
-#endif
 		if (load > max_load)
 			max_load = load;
 	}
-
-#ifdef CONFIG_ARCH_R8A7373
-	if (pmdbg_get_enable_cpu_profile()) {
-		pmdbg_mon(cdbs->cpu, max_load_nonfreq,
-			loads[0], loads[1],
-			policy->cur, max_load);
-	}
-#endif /* CONFIG_ARCH_R8A7373 */
 
 	dbs_data->cdata->gov_check_cpu(cpu, max_load);
 }
@@ -305,11 +271,6 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			return -ENOMEM;
 		}
 
-#ifdef ENABLE_SAMPLING_CHANGE
-		dfs_low_flag = 0;
-		init_flag = 0;
-#endif /* ENABLE_SAMPLING_CHANGE */
-
 		dbs_data->cdata = cdata;
 		dbs_data->usage_count = 1;
 		rc = cdata->init(dbs_data);
@@ -334,18 +295,16 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		if (latency == 0)
 			latency = 1;
 
+#ifdef CONFIG_DYNAMIC_SAMPLING_RATE
+		dfs_low_flag = 0;
+#endif
+
 		/* Bring kernel and HW constraints together */
 		dbs_data->min_sampling_rate = max(dbs_data->min_sampling_rate,
 				MIN_LATENCY_MULTIPLIER * latency);
-#ifdef ENABLE_SAMPLING_CHANGE
-		if (0 == init_flag)
-			set_sampling_rate(dbs_data, max(dbs_data->min_sampling_rate,
-						latency * LATENCY_MULTIPLIER));
-		init_flag = 1;
-#else
-		set_sampling_rate(dbs_data, max(dbs_data->min_sampling_rate,
-					latency * LATENCY_MULTIPLIER));
-#endif /* ENABLE_SAMPLING_CHANGE */
+
+                set_sampling_rate(dbs_data, max(dbs_data->min_sampling_rate,
+                                        latency * LATENCY_MULTIPLIER));
 
 		if ((cdata->governor == GOV_CONSERVATIVE) &&
 				(!policy->governor->initialized)) {
@@ -472,3 +431,30 @@ int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(cpufreq_governor_dbs);
+
+#ifdef CONFIG_DYNAMIC_SAMPLING_RATE
+int samplrate_downfact_change(struct cpufreq_policy * policy, unsigned int sampl_rate,
+			unsigned int down_factor, unsigned int flag)
+{
+	struct dbs_data *dbs_data = policy->governor_data;
+	int ret;
+
+	if (dbs_data->cdata->governor != GOV_ONDEMAND)
+		return -EINVAL;
+
+	ret = od_update_sampling_rate_downfact(policy, sampl_rate,
+		down_factor, flag);
+
+	return ret;
+}
+
+void samplrate_downfact_get(struct cpufreq_policy * policy, unsigned int *sampl_rate,
+				unsigned int *down_factor)
+{
+	struct dbs_data *dbs_data = policy->governor_data;
+
+	if (dbs_data->cdata->governor == GOV_ONDEMAND)
+		od_samplrate_downfact_get(policy, sampl_rate, down_factor);
+
+}
+#endif
