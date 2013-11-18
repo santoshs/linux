@@ -1359,17 +1359,6 @@ static int nt35510_panel_init(unsigned int mem_size)
 
 	screen_handle =  screen_display_new();
 
-	/*
-	 * Regulators are already turned on by boot loader, so these
-	 * enable calls only correct the initial enable reference count;
-	 * hence no need for delays.
-	 */
-	/* TODO Use the return value appropriatly */
-	ret = regulator_enable(power_ldo_1v8);
-	usleep_range(1000, 1000);
-	ret = regulator_enable(power_ldo_3v);
-
-	power_supplied = true;
 	/* Setting peculiar to panel */
 	set_lcd_if_param.handle			= screen_handle;
 	set_lcd_if_param.port_no		= irq_portno;
@@ -1754,6 +1743,18 @@ static int nt35510_panel_probe(struct fb_info *info,
 		printk(KERN_ERR "regulator_get failed\n");
 		return -ENODEV;
 	}
+	ret = regulator_enable(power_ldo_1v8);
+	if (ret) {
+		printk(KERN_ERR "regulator_enable failed\n");
+		return -ENODEV;
+	}
+	ret = regulator_enable(power_ldo_3v);
+	if (ret) {
+		printk(KERN_ERR "regulator_enable failed\n");
+		return -ENODEV;
+	}
+	power_supplied = true;
+
 	printk(KERN_INFO "PMIC        : for panel power\n");
 	printk(KERN_INFO "GPIO_PORT%d : for panel reset\n", reset_gpio);
 	printk(KERN_INFO "IRQ%d       : for panel te\n", irq_portno);
