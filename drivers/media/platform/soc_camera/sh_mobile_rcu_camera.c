@@ -57,6 +57,8 @@
 #include <mach/hardware.h>
 #include <mach/pm.h>
 
+#include <linux/videodev2_brcm.h>
+
 /* camera device info */
 bool cam_class_init;
 struct class *camera_class;      /* /sys/class/camera */
@@ -139,7 +141,7 @@ static spinlock_t lock_log;
 #define RCU_IPMMU_IMTTBR	(0x14)
 #define RCU_IPMMU_IMTTBCR	(0x18)
 
-//#define RCU_POWAREA_MNG_ENABLE
+#define RCU_POWAREA_MNG_ENABLE
 
 #ifdef RCU_POWAREA_MNG_ENABLE
 #include <rtapi/system_pwmng.h>
@@ -369,7 +371,11 @@ struct sh_mobile_rcu_snd_cmd {
 
 #define SH_RCU_BUF_INIT		(0x1234)
 
-#define RCU_CUSTOM_CMD_MAX_VALUE	0x7fffffff
+#define RCU_CUSTOM_CMD_DEFAULT_VALUE	0xffffffff
+#define EOS_CAM_STATUS_MAX_VALUE         6
+#define OV5645_SATURATION_MAX			200
+#define OV5645_SHARPNESS_MAX			200
+#define OV5645_MAX_FOCUS_AREAS				5
 
 #undef DEBUG_GEOMETRY
 #ifdef DEBUG_GEOMETRY
@@ -377,6 +383,14 @@ struct sh_mobile_rcu_snd_cmd {
 #else
 #define dev_geo	dev_dbg
 #endif
+
+enum cam_running_rcu_mode {
+	CAM_RUNNING_MODE_NOTREADY,
+	CAM_RUNNING_MODE_PREVIEW,
+	CAM_RUNNING_MODE_CAPTURE,
+	CAM_RUNNING_MODE_CAPTURE_DONE,
+	CAM_RUNNING_MODE_RECORDING,
+};
 
 /* per video frame buffer */
 struct sh_mobile_rcu_buffer {
@@ -470,12 +484,13 @@ static const struct v4l2_ctrl_ops sh_mobile_rcu_ctrl_ops = {
 
 static const struct v4l2_ctrl_config rcu_custom_set_reset_cfg = {
 	.ops	= &sh_mobile_rcu_ctrl_ops,
-	.id	= V4L2_CID_SET_RESET,
+	.id		= V4L2_CID_SET_RESET,
 	.type	= V4L2_CTRL_TYPE_INTEGER,
 	.name	= "RCU Set Reset",
-	.min	= 0,
-	.max	= RCU_CUSTOM_CMD_MAX_VALUE,
+	.min	= INT_MIN,
+	.max	= 1,
 	.step	= 1,
+	.def	= RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 
 static const struct v4l2_ctrl_config rcu_custom_output_mode_cfg = {
@@ -483,9 +498,10 @@ static const struct v4l2_ctrl_config rcu_custom_output_mode_cfg = {
 	.id	= V4L2_CID_SET_OUTPUT_MODE,
 	.type	= V4L2_CTRL_TYPE_INTEGER,
 	.name	= "RCU Set Output Mode",
-	.min	= 0,
-	.max	= RCU_CUSTOM_CMD_MAX_VALUE,
+	.min	= INT_MIN,
+	.max	= SH_RCU_OUTPUT_MEM_EXT,
 	.step	= 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 
 static const struct v4l2_ctrl_config rcu_custom_output_offset_cfg = {
@@ -493,9 +509,10 @@ static const struct v4l2_ctrl_config rcu_custom_output_offset_cfg = {
 	.id     = V4L2_CID_SET_OUTPUT_OFFSET,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Set Output Offset",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = SH_RCU_OUTPUT_OFFSET_32B,
 	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 
 static const struct v4l2_ctrl_config rcu_custom_output_pack_cfg = {
@@ -503,9 +520,10 @@ static const struct v4l2_ctrl_config rcu_custom_output_pack_cfg = {
 	.id     = V4L2_CID_SET_OUTPUT_PACK,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Set Output Pack",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = SH_RCU_OUTPUT_PACKING,
 	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 
 static const struct v4l2_ctrl_config rcu_custom_output_meram_cfg = {
@@ -513,72 +531,80 @@ static const struct v4l2_ctrl_config rcu_custom_output_meram_cfg = {
 	.id     = V4L2_CID_SET_OUTPUT_MERAM,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Set Output Meram",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = SH_RCU_OUTPUT_MERAM + 1824,
 	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 static const struct v4l2_ctrl_config rcu_custom_output_ispthinned_cfg = {
 	.ops    = &sh_mobile_rcu_ctrl_ops,
 	.id     = V4L2_CID_SET_OUTPUT_ISPTHINNED,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Set Output Ispthinned",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = SH_RCU_OUTPUT_ISP_THINNED,
 	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 static const struct v4l2_ctrl_config rcu_custom_led_cfg = {
 	.ops    = &sh_mobile_rcu_ctrl_ops,
 	.id     = V4L2_CID_SET_LED,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Set LED",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = SH_RCU_LED_MODE_PRE,
 	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 static const struct v4l2_ctrl_config rcu_custom_zsl_cfg = {
 	.ops    = &sh_mobile_rcu_ctrl_ops,
 	.id     = V4L2_CID_SET_ZSL,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Set Zsl",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = INT_MAX,
 	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 static const struct v4l2_ctrl_config rcu_custom_mmap_page_cfg = {
 	.ops    = &sh_mobile_rcu_ctrl_ops,
 	.id     = V4L2_CID_SET_MMAP_PAGE,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Set Mmap Page",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = INT_MAX,
 	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 static const struct v4l2_ctrl_config rcu_custom_camsts0_cfg = {
 	.ops    = &sh_mobile_rcu_ctrl_ops,
 	.id     = V4L2_CID_SET_CAMSTS0,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Set Camst0",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = EOS_CAM_STATUS_MAX_VALUE,
 	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 static const struct v4l2_ctrl_config rcu_custom_camsts1_cfg = {
 	.ops    = &sh_mobile_rcu_ctrl_ops,
 	.id     = V4L2_CID_SET_CAMSTS1,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Set Camst1",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = EOS_CAM_STATUS_MAX_VALUE,
 	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 static const struct v4l2_ctrl_config rcu_custom_sndcmd_cfg = {
 	.ops    = &sh_mobile_rcu_ctrl_ops,
 	.id     = V4L2_CID_SET_SNDCMD,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Set SndCmd",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = INT_MAX,
 	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 
 static const struct v4l2_ctrl_config rcu_custom_get_tuning_cfg = {
@@ -586,10 +612,11 @@ static const struct v4l2_ctrl_config rcu_custom_get_tuning_cfg = {
 	.id     = V4L2_CID_GET_TUNING,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Get Tuning",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = INT_MAX,
 	.step   = 1,
 	.flags  = V4L2_CTRL_FLAG_VOLATILE,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 
 static const struct v4l2_ctrl_config rcu_custom_get_dumpsize_all_cfg = {
@@ -597,10 +624,11 @@ static const struct v4l2_ctrl_config rcu_custom_get_dumpsize_all_cfg = {
 	.id     = V4L2_CID_GET_DUMP_SIZE_ALL,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Get Dumpsize All",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = INT_MAX,
 	.step   = 1,
 	.flags  = V4L2_CTRL_FLAG_VOLATILE,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 
 static const struct v4l2_ctrl_config rcu_custom_get_dumpsize_user_cfg = {
@@ -608,10 +636,11 @@ static const struct v4l2_ctrl_config rcu_custom_get_dumpsize_user_cfg = {
 	.id     = V4L2_CID_GET_DUMP_SIZE_USER,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Get Dumpsize User",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = INT_MAX,
 	.step   = 1,
 	.flags  = V4L2_CTRL_FLAG_VOLATILE,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 
 static const struct v4l2_ctrl_config rcu_custom_get_camsts0_cfg = {
@@ -619,10 +648,11 @@ static const struct v4l2_ctrl_config rcu_custom_get_camsts0_cfg = {
 	.id     = V4L2_CID_GET_CAMSTS0,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Get Camsts0",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = INT_MAX,
 	.step   = 1,
 	.flags  = V4L2_CTRL_FLAG_VOLATILE,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 };
 
 static const struct v4l2_ctrl_config rcu_custom_get_camsts1_cfg = {
@@ -630,9 +660,200 @@ static const struct v4l2_ctrl_config rcu_custom_get_camsts1_cfg = {
 	.id     = V4L2_CID_GET_CAMSTS1,
 	.type   = V4L2_CTRL_TYPE_INTEGER,
 	.name   = "RCU Get Camsts1",
-	.min    = 0,
-	.max    = RCU_CUSTOM_CMD_MAX_VALUE,
+	.min    = INT_MIN,
+	.max    = INT_MAX,
 	.step   = 1,
+	.flags  = V4L2_CTRL_FLAG_VOLATILE,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+
+static const struct v4l2_ctrl_config rcu_custom_brightness_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_BRIGHTNESS,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camear Brightness",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_contrast_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_CONTRAST,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera contrast",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_effect_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_EFFECT,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Effect",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_saturation_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SATURATION,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Saturation",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_sharpness_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_SHARPNESS,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Sharpness",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_antibanding_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_ANTI_BANDING,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Antibanding",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_whitebalance_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_WHITE_BALANCE,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera White Balance",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_framerate_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_FRAME_RATE,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Frame Rate",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_focusmode_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_FOCUS_MODE,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Focus Mode",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_touch_afarea_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_TOUCH_AF_AREA,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Touch AF Area",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_set_af_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_SET_AUTO_FOCUS,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Set AF ",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_flash_mode_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_FLASH_MODE,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Flash Mode ",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_preview_onoff_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAM_PREVIEW_ONOFF,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Preview OnOFF ",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_cam_capture_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAM_CAPTURE,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Capture ",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_cam_capture_done_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAM_CAPTURE_DONE,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera Capture Done",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_cam_af_result_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_AUTO_FOCUS_RESULT,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Set Camera AF Result",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
+	.flags	= V4L2_CTRL_FLAG_VOLATILE,
+};
+
+static const struct v4l2_ctrl_config rcu_custom_cam_get_exp_cfg = {
+	.ops    = &sh_mobile_rcu_ctrl_ops,
+	.id     = V4L2_CID_CAMERA_EXP_TIME,
+	.type   = V4L2_CTRL_TYPE_INTEGER,
+	.name   = "RCU Get Exp time",
+	.min    = INT_MIN,
+	.max    = INT_MAX,
+	.step   = 1,
+	.def    = RCU_CUSTOM_CMD_DEFAULT_VALUE,
 	.flags  = V4L2_CTRL_FLAG_VOLATILE,
 };
 
@@ -2647,7 +2868,7 @@ static int sh_mobile_rcu_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	dev_geo(icd->parent, "%s(): id=0x%x value=0x%x\n",
 			__func__, ctrl->id, ctrl->val);
-	if (ctrl->val != RCU_CUSTOM_CMD_MAX_VALUE) {
+	if (ctrl->val != RCU_CUSTOM_CMD_DEFAULT_VALUE) {
 		switch (ctrl->id) {
 		case V4L2_CID_SET_RESET:
 			if (ctrl->val)
@@ -2765,6 +2986,7 @@ static int sh_mobile_rcu_s_ctrl(struct v4l2_ctrl *ctrl)
 			v4l_ctrl.id = ctrl->id;
 			ret = v4l2_subdev_call(sd, core, s_ctrl, &v4l_ctrl);
 		}
+		ctrl->val = RCU_CUSTOM_CMD_DEFAULT_VALUE;
 	}
 	return ret;
 
@@ -2814,7 +3036,6 @@ static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd,
 	struct sh_mobile_rcu_cam *cam;
 	enum v4l2_mbus_pixelcode code;
 	const struct soc_mbus_pixelfmt *fmt;
-	struct v4l2_ctrl_config cfg;
 
 	dev_geo(dev, "%s(): idx=%d xlate=%p\n", __func__, idx, xlate);
 
@@ -2843,73 +3064,107 @@ static int sh_mobile_rcu_get_formats(struct soc_camera_device *icd,
 
 		/* Add our control */
 
-	cfg = rcu_custom_set_reset_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_set_reset_cfg, NULL);
 
-	cfg = rcu_custom_output_mode_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_output_mode_cfg, NULL);
 
-	cfg = rcu_custom_output_offset_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_output_offset_cfg, NULL);
 
-	cfg = rcu_custom_output_pack_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_output_pack_cfg, NULL);
 
-	cfg = rcu_custom_output_meram_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_output_meram_cfg, NULL);
 
-	cfg = rcu_custom_output_ispthinned_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_output_ispthinned_cfg, NULL);
 
-	cfg = rcu_custom_led_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_led_cfg, NULL);
 
-	cfg = rcu_custom_zsl_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_zsl_cfg, NULL);
 
-	cfg = rcu_custom_mmap_page_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_mmap_page_cfg, NULL);
 
-	cfg = rcu_custom_camsts0_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_camsts0_cfg, NULL);
 
-	cfg = rcu_custom_camsts1_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_camsts1_cfg, NULL);
 
-	cfg = rcu_custom_sndcmd_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_sndcmd_cfg, NULL);
 
-	cfg = rcu_custom_get_tuning_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_get_tuning_cfg, NULL);
 
-	cfg = rcu_custom_get_dumpsize_all_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_get_dumpsize_all_cfg, NULL);
 
-	cfg = rcu_custom_get_dumpsize_user_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_get_dumpsize_user_cfg, NULL);
 
-	cfg = rcu_custom_get_camsts0_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_get_camsts0_cfg, NULL);
 
-	cfg = rcu_custom_get_camsts1_cfg;
-	cfg.def = RCU_CUSTOM_CMD_MAX_VALUE;
-	v4l2_ctrl_new_custom(&icd->ctrl_handler, &cfg, NULL);
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_get_camsts1_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				 &rcu_custom_brightness_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_contrast_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_effect_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_saturation_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_sharpness_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_antibanding_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_whitebalance_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_framerate_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_focusmode_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_touch_afarea_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_set_af_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_flash_mode_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_preview_onoff_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_cam_capture_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_cam_capture_done_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_cam_af_result_cfg, NULL);
+
+	v4l2_ctrl_new_custom(&icd->ctrl_handler,
+				&rcu_custom_cam_get_exp_cfg, NULL);
 
 	if (icd->ctrl_handler.error)
 		return icd->ctrl_handler.error;
@@ -3948,17 +4203,20 @@ static int sh_mobile_rcu_probe(struct platform_device *pdev)
 		pcdev->iclk = NULL;
 		dev_err(&pdev->dev, "cannot get clock \"icb\"\n");
 	}
+	clk_enable(pcdev->iclk);
 	pcdev->fclk = clk_get(&pdev->dev, pcdev->pdata->mod_name);
 	if (IS_ERR(pcdev->fclk)) {
 		pcdev->fclk = NULL;
 		dev_err(&pdev->dev, "cannot get clock \"%s\"\n",
 				pcdev->pdata->mod_name);
 	}
+	clk_enable(pcdev->fclk);
 	pcdev->mclk = clk_get(NULL, "meram");
 	if (IS_ERR(pcdev->mclk)) {
 		pcdev->mclk = NULL;
 		dev_err(&pdev->dev, "cannot get clock \"meram\"\n");
 	}
+	clk_enable(pcdev->mclk);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (res) {
 		err = dma_declare_coherent_memory(&pdev->dev, res->start,
@@ -4086,6 +4344,9 @@ exit_free_clk:
 	if (platform_get_resource(pdev, IORESOURCE_MEM, 1))
 		dma_release_declared_memory(&pdev->dev);
 exit_iounmap:
+	clk_disable(pcdev->iclk);
+	clk_disable(pcdev->fclk);
+	clk_disable(pcdev->mclk);
 	if (pcdev->base)
 		iounmap(pcdev->base);
 	if (pcdev->base_meram)
@@ -4116,6 +4377,9 @@ static int sh_mobile_rcu_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	if (platform_get_resource(pdev, IORESOURCE_MEM, 1))
 		dma_release_declared_memory(&pdev->dev);
+	clk_disable(pcdev->iclk);
+	clk_disable(pcdev->fclk);
+	clk_disable(pcdev->mclk);
 	iounmap(pcdev->base);
 	iounmap(pcdev->base_meram);
 	iounmap(pcdev->base_meram_ch);

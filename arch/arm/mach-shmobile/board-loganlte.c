@@ -385,22 +385,31 @@ static struct i2c_board_info i2c_cameras[] = {
 	},
 };
 
-struct soc_camera_link camera_links[] = {
+struct soc_camera_desc camera_links[] = {
 	{
-		.bus_id			= 0,
-		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id = 1,
-		.module_name	= "S5K4ECGX",
-		.power			= S5K4ECGX_power,
+		.subdev_desc = {
+			.power  = S5K4ECGX_power,
+	},
+		.host_desc = {
+			.bus_id                 = 0,
+			.board_info             = &i2c_cameras[0],
+			.i2c_adapter_id = 1,
+			.module_name    = "S5K4ECGX",
+		}
 	},
 	{
-		.bus_id			= 1,
-		.board_info		= &i2c_cameras[1],
-		.i2c_adapter_id = 1,
-		.module_name	= "SR030PC50",
-		.power			= SR030PC50_power,
+		.subdev_desc = {
+			.power			= SR030PC50_power,
+		},
+		.host_desc = {
+			.bus_id                 = 1,
+			.board_info             = &i2c_cameras[1],
+			.i2c_adapter_id = 1,
+			.module_name    = "SR030PC50",
+		}
 	},
 };
+
 EXPORT_SYMBOL(camera_links);
 
 void board_restart(char mode, const char *cmd)

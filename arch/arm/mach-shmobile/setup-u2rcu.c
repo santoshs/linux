@@ -20,7 +20,7 @@
 #include <linux/ioport.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-
+#include <media/soc_camera.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2rcu.h>
 #include <mach/irqs.h>

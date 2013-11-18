@@ -41,10 +41,6 @@
 #define SHORT_DELAY	4
 #define START_DELAY	10
 
-/* TODO: this hack is required for compilation
- * any better method needs to be impletemnted */
-extern struct soc_camera_link camera_links[];
-
 struct platform_device camera_devices[] = {
 	{
 		.name   = "soc-camera-pdrv",
@@ -99,8 +95,9 @@ int camera_init(void)
 		"clk_set_parent(vclk1_clk) failed (ret=%d)\n", iRet);
 	}
 
-	camera_links[0].priv = &csi20_info;
-	camera_links[1].priv = &csi21_info;
+	camera_links[0].subdev_desc.drv_priv = &csi20_info;
+	camera_links[1].subdev_desc.drv_priv = &csi21_info;
+
 	printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
 	csi20_info.clients[0].lanes = 0x3;
 

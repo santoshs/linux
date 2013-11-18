@@ -26,6 +26,7 @@
 #include <media/sh_mobile_csi2.h>
 
 #include <mach/irqs.h>
+#include <media/soc_camera.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2csi2.h>
 #include <mach/r8a7373.h>

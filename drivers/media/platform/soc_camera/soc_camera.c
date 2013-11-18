@@ -688,12 +688,13 @@ static int soc_camera_mmap(struct file *file, struct vm_area_struct *vma)
 
 	dev_dbg(icd->pdev, "mmap called, vma=0x%08lx\n", (unsigned long)vma);
 
+#if 0
 	if (icd->streamer != file)
 		return -EBUSY;
 
 	if (mutex_lock_interruptible(&ici->host_lock))
 		return -ERESTARTSYS;
-#if 0
+/*#if 0*/
 	if (ici->ops->init_videobuf)
 		err = videobuf_mmap_mapper(&icd->vb_vidq, vma);
 	else

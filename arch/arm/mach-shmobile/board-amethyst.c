@@ -526,20 +526,28 @@ static struct i2c_board_info i2c_cameras[] = {
 	},
 };
 
-struct soc_camera_link camera_links[] = {
+struct soc_camera_desc camera_links[] = {
 	{
-		.bus_id			= 0,
-		.board_info		= &i2c_cameras[0],
-		.i2c_adapter_id	= 1,
-		.module_name	= "OV5645",
-		.power			= OV5645_power,
+		.subdev_desc = {
+			.power  = OV5645_power,
+	},
+		.host_desc = {
+			.bus_id                 = 0,
+			.board_info             = &i2c_cameras[0],
+			.i2c_adapter_id = 1,
+			.module_name    = "OV5645",
+		}
 	},
 	{
-		.bus_id			= 1,
-		.board_info		= &i2c_cameras[1],
-		.i2c_adapter_id = 1,
-		.module_name	= "HM2056",
-		.power			= HM2056_power,
+		.subdev_desc = {
+		.power                  = HM2056_power,
+	},
+		.host_desc = {
+			.bus_id                 = 1,
+			.board_info             = &i2c_cameras[1],
+			.i2c_adapter_id = 1,
+			.module_name    = "HM2056",
+		}
 	},
 };
 EXPORT_SYMBOL(camera_links);
