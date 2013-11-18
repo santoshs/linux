@@ -129,9 +129,11 @@ int arch_install_hw_breakpoint(struct perf_event *bp);
 void arch_uninstall_hw_breakpoint(struct perf_event *bp);
 void hw_breakpoint_pmu_read(struct perf_event *bp);
 int hw_breakpoint_slots(int type);
+int arch_hw_breakpoint_init(void);
 
 #else
 static inline void clear_ptrace_hw_breakpoint(struct task_struct *tsk) {}
+static inline int arch_hw_breakpoint_init(void) { return 0; }
 
 #endif	/* CONFIG_HAVE_HW_BREAKPOINT */
 #endif	/* __KERNEL__ */
