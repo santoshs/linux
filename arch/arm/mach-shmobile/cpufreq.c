@@ -381,7 +381,7 @@ static inline void schedule_hlg_work(unsigned int timer_in_us)
 
 	/* Queue new work-queue */
 	if (delayed_work_pending(&hlg_work))
-		__cancel_delayed_work(&hlg_work);
+		cancel_delayed_work(&hlg_work);
 	queue_delayed_work_on(0, dfs_queue, &hlg_work,
 				usecs_to_jiffies(timer_in_us));
 	mutex_unlock(&hlg_config.timer_mutex);
