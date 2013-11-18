@@ -429,19 +429,6 @@ extern void arm_machine_flush_console(void);
 #endif /* validate */
 #define DYNAMIC_HOTPLUG_CPU	1
 
-#ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND
-extern int samplrate_downfact_change(unsigned int sampl_rate,
-			unsigned int down_factor, unsigned int flag);
-extern void samplrate_downfact_get(unsigned int *sampl_rate,
-				unsigned int *down_factor);
-#else
-static inline int samplrate_downfact_change(unsigned int sampl_rate,
-			unsigned int down_factor, unsigned int flag)
-{ return 0; }
-static inline void samplrate_downfact_get(unsigned int *sampl_rate,
-				unsigned int *down_factor) {}
-#endif /* CONFIG_CPU_FREQ_GOV_ONDEMAND */
-
 extern int rmobile_cpufreq_init(void);
 extern int rmobile_cpuidle_init(void);
 extern int rmobile_suspend_init(void);
