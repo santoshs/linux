@@ -479,7 +479,7 @@ void __init board_tsp_init(void)
 
 	gpio_request(CYTTSP4_I2C_IRQ_GPIO, NULL);
 	gpio_direction_input(CYTTSP4_I2C_IRQ_GPIO);
-	gpio_pull_off_port(CYTTSP4_I2C_IRQ_GPIO);
+	gpio_pull_up_port(CYTTSP4_I2C_IRQ_GPIO);
 
 	i2c_register_board_info(4, touch_i2c_devices,
                 ARRAY_SIZE(touch_i2c_devices));
