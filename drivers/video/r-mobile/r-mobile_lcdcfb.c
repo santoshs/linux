@@ -1195,6 +1195,7 @@ static int __init sh_mobile_lcdc_probe(struct platform_device *pdev)
 	int i, j;
 	void __iomem *temp = NULL;
 	struct fb_panel_info panel_info;
+	struct clk *pck, *tck;
 
 #ifndef CONFIG_FB_SH_MOBILE_DOUBLE_BUF
 	void *buf = NULL;
@@ -1484,6 +1485,22 @@ static int __init sh_mobile_lcdc_probe(struct platform_device *pdev)
 	}
 
 	fb_debug = 0;
+
+	tck = clk_get(&pdev->dev, "dsit_clk");
+	if (IS_ERR_OR_NULL(tck)) {
+		pr_err("Error getting dsit_clk\n");
+		goto err1;
+	}
+
+	pck = clk_get(&pdev->dev, "dsip_clk");
+	if (IS_ERR_OR_NULL(pck)) {
+		pr_err("Error getting dsip_clk\n");
+		goto err1;
+	}
+
+	/* This is mainly for usecount, clock handling is done in RT-Domain */
+	clk_enable(tck);
+	clk_enable(pck);
 
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
