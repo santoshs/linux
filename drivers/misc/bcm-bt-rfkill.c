@@ -88,14 +88,11 @@ static int bcm_bt_rfkill_probe(struct platform_device *pdev)
 	struct bcm_bt_rfkill_platform_data *pdata = NULL;
 	struct bcm_bt_rfkill_platform_data *pdata1 = NULL;
 
-#ifdef CONFIG_OF_DEVICE
 	const struct of_device_id *match = NULL;
 	match = of_match_device(bcm_bt_rfkill_of_match, &pdev->dev);
 	if (!match) {
 		pr_err("%s: **ERROR** No matching device found\n", __func__);
-		return -ENODEV;
 	}
-#endif
 
 	pdata = devm_kzalloc(&pdev->dev,
 		sizeof(struct bcm_bt_rfkill_platform_data), GFP_KERNEL);
@@ -103,8 +100,7 @@ static int bcm_bt_rfkill_probe(struct platform_device *pdev)
 	if (pdata == NULL)
 		return -ENOMEM;
 
-#ifndef CONFIG_OF_DEVICE
-	if (pdev->dev.platform_data) {
+	if (!match && pdev->dev.platform_data) {
 		pdata1 = pdev->dev.platform_data;
 		pdata->bcm_bt_rfkill_vreg_gpio =
 				pdata1->bcm_bt_rfkill_vreg_gpio;
@@ -113,13 +109,7 @@ static int bcm_bt_rfkill_probe(struct platform_device *pdev)
 		pr_debug("%s: %d %d\n", __func__,
 			pdata->bcm_bt_rfkill_vreg_gpio,
 			pdata->bcm_bt_rfkill_n_reset_gpio);
-	} else {
-		pr_err("%s: **ERROR** NO platform data available\n", __func__);
-		rc = -ENODEV;
-		goto out;
-	}
-#else
-	if (pdev->dev.of_node) {
+	} else if (match && pdev->dev.of_node) {
 		pdata->bcm_bt_rfkill_vreg_gpio =
 					of_get_named_gpio(pdev->dev.of_node,
 						"bcm-bt-rfkill-vreg-gpio", 0);
@@ -130,11 +120,11 @@ static int bcm_bt_rfkill_probe(struct platform_device *pdev)
 			goto out;
 		}
 		pdata->bcm_bt_rfkill_n_reset_gpio =
-					of_get_named_gpio(pdev->dev.of_node,
-					"bcm-bt-rfkill-n-reset-gpio", 0);
+						of_get_named_gpio(pdev->dev.of_node,
+							"bcm-bt-rfkill-n-reset-gpio", 0);
 		if (!gpio_is_valid(pdata->bcm_bt_rfkill_n_reset_gpio)) {
 			pr_err("%s:ERR Invalid bcm-bt-rfkill-n-reset-gpio\n",
-				__func__);
+					__func__);
 			pdata->bcm_bt_rfkill_n_reset_gpio = -1;
 		}
 		pdev->dev.platform_data = pdata;
@@ -143,7 +133,6 @@ static int bcm_bt_rfkill_probe(struct platform_device *pdev)
 		rc = -ENODEV;
 		goto out;
 	}
-#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	rc = devm_gpio_request_one(&pdev->dev,

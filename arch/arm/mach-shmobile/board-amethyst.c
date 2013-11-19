@@ -231,7 +231,7 @@ static struct bcm_bt_lpm_platform_data brcm_bt_lpm_data = {
 };
 
 struct platform_device board_bcmbt_lpm_device = {
-	.name = "bcmbt-lpm",
+	.name = "bcm-bt-lpm",
 	.id   = -1,
 	.dev  = {
 		.platform_data=&brcm_bt_lpm_data,
