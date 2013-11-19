@@ -74,7 +74,7 @@
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
+#ifndef CONFIG_OF
 #include <linux/broadcom/bcm-bt-rfkill.h>
 #endif
 #ifdef CONFIG_BCM_BT_LPM
@@ -162,7 +162,7 @@ static struct platform_device led_backlight_device = {
 	},
 };
 
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
+#ifndef CONFIG_OF
 #define BCMBT_VREG_GPIO       (GPIO_PORT268)
 #define BCMBT_N_RESET_GPIO    (GPIO_PORT15) //(-1)
 
