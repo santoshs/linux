@@ -623,7 +623,7 @@ static void __init board_init(void)
 
 #ifdef CONFIG_OF
 static const char *logan_compat_dt[] __initdata = {
-	"renesas,loganlte",
+	"renesas,afyonlte",
 	NULL,
 };
 

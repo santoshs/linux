@@ -168,7 +168,9 @@ dtb-$(CONFIG_ARCH_SHMOBILE) += emev2-kzm9d.dtb \
 	sh73a0-kzm9g-reference.dtb \
 	r8a73a4-ape6evm.dtb \
 	sh7372-mackerel.dtb \
-	r8a7373-loganlte.dtb
+	r8a7373-loganlte.dtb \
+	r8a7373-amethyst.dtb \
+	r8a7373-afyonlte.dtb
 dtb-$(CONFIG_ARCH_SOCFPGA) += socfpga_cyclone5.dtb \
 	socfpga_vt.dtb
 dtb-$(CONFIG_ARCH_SPEAR13XX) += spear1310-evb.dtb \
