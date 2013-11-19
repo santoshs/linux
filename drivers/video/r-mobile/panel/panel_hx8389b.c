@@ -1867,6 +1867,18 @@ static int HX8389b_panel_probe(struct fb_info *info,
 		printk(KERN_ERR "regulator_get failed\n");
 		return -ENODEV;
 	}
+	ret = regulator_enable(power_ldo_1v8);
+	if (ret) {
+		pr_err("regulator_enable failed\n");
+		return -ENODEV;
+	}
+	ret = regulator_enable(power_ldo_3v);
+	if (ret) {
+		pr_err("regulator_enable failed\n");
+		return -ENODEV;
+	}
+	power_supplied = true;
+
 	printk(KERN_INFO "PMIC        : for panel power\n");
 	printk(KERN_INFO "GPIO_PORT%d : for panel reset\n", reset_gpio);
 	printk(KERN_INFO "IRQ%d       : for panel te\n", irq_portno);
