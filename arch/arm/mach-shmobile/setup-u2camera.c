@@ -28,29 +28,91 @@
 #include <media/sh_mobile_rcu.h>
 #include <media/soc_camera.h>
 #include <media/soc_camera_platform.h>
+#include <media/s5k4ecgx.h>
+#include <media/sr030pc50.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2csi2.h>
 #include <mach/setup-u2rcu.h>
 
+static struct i2c_board_info s5k4ecgx_i2c_camera = {
+	I2C_BOARD_INFO("S5K4ECGX", 0x56),
+};
 
-struct platform_device camera_devices[] = {
-	{
-		.name   = "soc-camera-pdrv",
-		.id     = 0,
-		.dev    = {
-					.platform_data = &camera_links[0],
-				  },
+static struct i2c_board_info sr030pc50_i2c_camera = {
+	I2C_BOARD_INFO("SR030PC50", 0x30),
+};
+
+static struct i2c_board_info ov5645_i2c_camera = {
+	I2C_BOARD_INFO("OV5645", 0x20),
+};
+
+static struct i2c_board_info hm2056_i2c_camera = {
+	I2C_BOARD_INFO("HM2056", 0x28),
+};
+
+static struct soc_camera_desc primary_camera_link = {
+	.subdev_desc = {
+		.drv_priv	= &csi20_info,
 	},
-	{
-		.name   = "soc-camera-pdrv",
-		.id     = 1,
-		.dev    = {
-					.platform_data = &camera_links[1],
-			      },
+	.host_desc = {
+		.bus_id		= 0,
+		.i2c_adapter_id	= 1,
 	},
 };
 
+static struct soc_camera_desc secondary_camera_link = {
+	.subdev_desc = {
+		.drv_priv		= &csi21_info,
+	},
+	.host_desc = {
+		.bus_id		= 1,
+		.i2c_adapter_id	= 1,
+	}
 };
+
+static struct platform_device primary_camera_device = {
+	.name   = "soc-camera-pdrv",
+	.id     = 0,
+	.dev    = {
+		.platform_data = &primary_camera_link,
+	},
+};
+
+static struct platform_device secondary_camera_device = {
+	.name   = "soc-camera-pdrv",
+	.id     = 1,
+	.dev    = {
+		.platform_data = &secondary_camera_link,
+	},
+};
+
+void add_s5k4ecgx_primary_camera(void)
+{
+	primary_camera_link.host_desc.board_info = &s5k4ecgx_i2c_camera;
+	primary_camera_link.host_desc.module_name = "S5K4ECGX";
+	primary_camera_link.subdev_desc.power = S5K4ECGX_power;
+}
+
+void add_ov5645_primary_camera(void)
+{
+	primary_camera_link.host_desc.board_info = &ov5645_i2c_camera;
+	primary_camera_link.host_desc.module_name = "OV5645";
+	primary_camera_link.subdev_desc.power = OV5645_power;
+}
+
+void add_sr030pc50_secondary_camera(void)
+{
+	secondary_camera_link.host_desc.board_info = &sr030pc50_i2c_camera;
+	secondary_camera_link.host_desc.module_name = "SR030PC50";
+	secondary_camera_link.subdev_desc.power = SR030PC50_power;
+}
+
+void add_hm2056_secondary_camera(void)
+{
+	secondary_camera_link.host_desc.board_info = &hm2056_i2c_camera;
+	secondary_camera_link.host_desc.module_name = "HM2056";
+	secondary_camera_link.subdev_desc.power = HM2056_power;
+}
 
 int camera_init(int gpio_cam_pwr_en, int gpio_cam_rst_n, int gpio_cam_stby)
 {
@@ -78,23 +140,20 @@ int camera_init(int gpio_cam_pwr_en, int gpio_cam_rst_n, int gpio_cam_stby)
 		pr_err("clk_set_parent(vclk1_clk) failed (ret=%d)\n", ret);
 	}
 
-	camera_links[0].subdev_desc.drv_priv = &csi20_info;
-	camera_links[1].subdev_desc.drv_priv = &csi21_info;
-
 	pr_info("Camera ISP ES version switch (ES2)\n");
 	csi20_info.clients[0].lanes = 0x3;
-	csi20_info.clients[0].pdev = &camera_devices[0];
-	csi21_info.clients[0].pdev = &camera_devices[1];
+	csi20_info.clients[0].pdev = &primary_camera_device;
+	csi21_info.clients[0].pdev = &secondary_camera_device;
 
 	clk_put(vclk1_clk);
 	clk_put(pll1_div2_clk);
 
-	ret = platform_device_register(&camera_devices[0]);
+	ret = platform_device_register(&primary_camera_device);
 	if (ret)
 		pr_err("%s failed to add primary_camera_device %d",
 				__func__, ret);
 
-	ret = platform_device_register(&camera_devices[1]);
+	ret = platform_device_register(&secondary_camera_device);
 	if (ret)
 		pr_err("%s failed to add secondary_camera_device %d",
 				__func__, ret);

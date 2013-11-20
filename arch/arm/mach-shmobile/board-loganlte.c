@@ -29,8 +29,6 @@
 #include <asm/mach/arch.h>
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
-#include <media/soc_camera.h>
-#include <media/soc_camera_platform.h>
 #include <linux/irqchip/arm-gic.h>
 #include <mach/setup-u2timers.h>
 #include <mach/board-loganlte-config.h>
@@ -46,6 +44,7 @@
 #include <mach/setup-u2vibrator.h>
 #include <mach/setup-u2ion.h>
 #include <mach/setup-u2rcu.h>
+#include <mach/setup-u2camera.h>
 #include <linux/proc_fs.h>
 #if defined(CONFIG_RENESAS_GPS)|| defined(CONFIG_GPS_CSR_GSD5T)
 #include <mach/dev-gps.h>
@@ -317,42 +316,6 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 	},
 };
 
-static struct i2c_board_info i2c_cameras[] = {
-	{
-		I2C_BOARD_INFO("S5K4ECGX", 0x56),
-	},
-	{
-		I2C_BOARD_INFO("SR030PC50", 0x30), /* TODO::HYCHO (0x61>>1) */
-	},
-};
-
-struct soc_camera_desc camera_links[] = {
-	{
-		.subdev_desc = {
-			.power  = S5K4ECGX_power,
-	},
-		.host_desc = {
-			.bus_id                 = 0,
-			.board_info             = &i2c_cameras[0],
-			.i2c_adapter_id = 1,
-			.module_name    = "S5K4ECGX",
-		}
-	},
-	{
-		.subdev_desc = {
-			.power			= SR030PC50_power,
-		},
-		.host_desc = {
-			.bus_id                 = 1,
-			.board_info             = &i2c_cameras[1],
-			.i2c_adapter_id = 1,
-			.module_name    = "SR030PC50",
-		}
-	},
-};
-
-EXPORT_SYMBOL(camera_links);
-
 struct i2c_board_info i2c4_devices_tsp_detector[] = {
 	{
 		I2C_BOARD_INFO("tsp_detector", 0x7f),
@@ -617,6 +580,8 @@ static void __init board_init(void)
 #endif
 
 	add_primary_cam_flash_mic2871(GPIO_PORT99, GPIO_PORT100);
+	add_s5k4ecgx_primary_camera();
+	add_sr030pc50_secondary_camera();
 	camera_init(GPIO_PORT3, GPIO_PORT20, GPIO_PORT45);
 
 	/* gpio keys button configuration*/

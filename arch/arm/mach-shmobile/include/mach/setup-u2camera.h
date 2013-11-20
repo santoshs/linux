@@ -24,15 +24,16 @@
  * Camera
  */
 
-extern struct platform_device camera_devices[];
-extern struct soc_camera_desc camera_links[];
-
 #if defined(CONFIG_SOC_CAMERA)
 int camera_init(int gpio_cam_pwr_en, int gpio_cam_rst_n, int gpio_cam_stby);
 void add_primary_cam_flash_rt8547(int gpio_cam_flash_enset,
 		int gpio_cam_flash_flen);
 void add_primary_cam_flash_mic2871(int gpio_cam_flash_enset,
 		int gpio_cam_flash_flen);
+void add_s5k4ecgx_primary_camera(void);
+void add_ov5645_primary_camera(void);
+void add_sr030pc50_secondary_camera(void);
+void add_hm2056_secondary_camera(void);
 #else
 static inline int camera_init(int gpio_cam_pwr_en, int gpio_cam_rst_n,
 		int gpio_cam_stby) { return 0; }
@@ -40,6 +41,10 @@ static inline void add_primary_cam_flash_rt8547(int gpio_cam_flash_enset,
 		int gpio_cam_flash_flen) {}
 static inline void add_primary_cam_flash_mic2871(int gpio_cam_flash_enset,
 		int gpio_cam_flash_flen) {}
+static inline void add_s5k4ecgx_primary_camera(void) {}
+static inline void add_ov5645_primary_camera(void) {}
+static inline void add_sr030pc50_secondary_camera(void) {}
+static inline void add_hm2056_secondary_camera(void) {}
 #endif
 
 #if defined(CONFIG_SOC_CAMERA_OV5645)
