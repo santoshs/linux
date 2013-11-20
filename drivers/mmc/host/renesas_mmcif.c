@@ -29,6 +29,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/renesas_mmcif.h>
+#include <linux/of.h>
 #include <linux/pagemap.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
@@ -184,6 +185,7 @@ struct sh_mmcif_host {
 	struct mmc_host *mmc;
 	struct mmc_data *data;
 	struct platform_device *pd;
+	struct sh_mmcif_plat_data *pdata;
 	struct sh_dmae_slave dma_slave_tx;
 	struct sh_dmae_slave dma_slave_rx;
 	struct clk *hclk;
@@ -428,7 +430,7 @@ static void sh_mmcif_release_dma(struct sh_mmcif_host *host)
 
 static void sh_mmcif_clock_control(struct sh_mmcif_host *host, unsigned int clk)
 {
-	struct sh_mmcif_plat_data *p = host->pd->dev.platform_data;
+	struct sh_mmcif_plat_data *p = host->pdata;
 
 	sh_mmcif_bitclr(host, MMCIF_CE_CLK_CTRL, CLK_ENABLE);
 	sh_mmcif_bitclr(host, MMCIF_CE_CLK_CTRL, CLK_CLEAR);
@@ -940,7 +942,7 @@ static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	host->data = mrq->data;
 	if (mrq->data) {
-		pdata = host->pd->dev.platform_data;
+		pdata = host->pdata;
 		if (mrq->data->sg->length < pdata->dma_min_size)
 			host->dma_active = false;
 		else if (mrq->data->flags & MMC_DATA_READ) {
@@ -970,7 +972,7 @@ static void sh_mmcif_request(struct mmc_host *mmc, struct mmc_request *mrq)
 static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct sh_mmcif_host *host = mmc_priv(mmc);
-	struct sh_mmcif_plat_data *p = host->pd->dev.platform_data;
+	struct sh_mmcif_plat_data *p = host->pdata;
 	unsigned long flags;
 
 	spin_lock_irqsave(&host->lock, flags);
@@ -985,7 +987,7 @@ static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	if (ios->power_mode == MMC_POWER_UP) {
 		if (!host->card_present) {
 			/* See if we also get DMA */
-			sh_mmcif_request_dma(host, host->pd->dev.platform_data);
+			sh_mmcif_request_dma(host, host->pdata);
 			host->card_present = true;
 			if (p->set_pwr)
 				p->set_pwr(host->pd, ios->power_mode);
@@ -1034,7 +1036,7 @@ static void sh_mmcif_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 static int sh_mmcif_get_cd(struct mmc_host *mmc)
 {
 	struct sh_mmcif_host *host = mmc_priv(mmc);
-	struct sh_mmcif_plat_data *p = host->pd->dev.platform_data;
+	struct sh_mmcif_plat_data *p = host->pdata;
 
 	if (!p->get_cd)
 		return -ENOSYS;
@@ -1111,6 +1113,58 @@ static irqreturn_t sh_mmcif_intr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_OF
+static struct sh_mmcif_plat_data*
+renesas_mmcif_of_init(struct platform_device *pdev)
+{
+	struct sh_mmcif_plat_data *pdata, *aux_pdata;
+	struct device_node *np = pdev->dev.of_node;
+
+	if (!np) {
+		dev_err(&pdev->dev, "device node not found\n");
+		return NULL;
+	}
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(&pdev->dev, "could not allocate memory for pdata\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	/* Non-existent properties will be left as 0 */
+	of_property_read_u8(np, "renesas,sup-pclk", &pdata->sup_pclk);
+	of_property_read_u32(np, "max-frequency", &pdata->max_clk);
+	of_property_read_u32(np, "renesas,dma-min-size", &pdata->dma_min_size);
+	of_property_read_u32(np, "renesas,buf-acc", &pdata->buf_acc);
+
+	/* if platform data is supplied using AUXDATA, then get the callbacks
+	 * and other params from there.
+	 * TODO:This is a temporary solution until we move all the dependencies
+	 * from board file */
+	if (pdev->dev.platform_data) {
+		aux_pdata = pdev->dev.platform_data;
+		pdata->set_pwr = aux_pdata->set_pwr;
+		pdata->down_pwr = aux_pdata->down_pwr;
+		pdata->get_cd = aux_pdata->get_cd;
+		pdata->slave_id_tx = aux_pdata->slave_id_tx;
+		pdata->slave_id_rx = aux_pdata->slave_id_rx;
+	}
+	return pdata;
+}
+
+static const struct of_device_id renesas_mmcif_of_match[] = {
+	{ .compatible = "renesas,renesas-mmcif" },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, renesas_mmcif_of_match);
+#else /*CONFIG_OF*/
+static inline struct sh_mmcif_plat_data*
+renesas_mmcif_of_init(struct platform_device *pedv)
+{
+	return NULL;
+}
+#endif /*CONFIG_OF*/
+
 static int sh_mmcif_probe(struct platform_device *pdev)
 {
 	int ret = 0, irq[2];
@@ -1121,6 +1175,23 @@ static int sh_mmcif_probe(struct platform_device *pdev)
 	void __iomem *reg;
 	char clk_name[8];
 	const char *name;
+
+	/* If device tree node is present then parse and populate pdata
+	 * Or fallback in platform_data */
+	if (pdev->dev.of_node) {
+		dev_dbg(&pdev->dev, "found device tree node\n");
+		pd = renesas_mmcif_of_init(pdev);
+		if (IS_ERR(pd)) {
+			dev_err(&pdev->dev, "platform data not available\n");
+			return PTR_ERR(pd);
+		}
+	} else if (pdev->dev.platform_data) {
+		dev_err(&pdev->dev, "found platform_data\n");
+		pd = pdev->dev.platform_data;
+	} else {
+		dev_err(&pdev->dev, "platform data not available\n");
+		return -ENODEV;
+	}
 
 	irq[0] = platform_get_irq(pdev, 0);
 	irq[1] = platform_get_irq(pdev, 1);
@@ -1138,12 +1209,7 @@ static int sh_mmcif_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "ioremap error.\n");
 		return -ENOMEM;
 	}
-	pd = pdev->dev.platform_data;
-	if (!pd) {
-		dev_err(&pdev->dev, "sh_mmcif plat data error.\n");
-		ret = -ENXIO;
-		goto clean_up;
-	}
+
 	mmc = mmc_alloc_host(sizeof(struct sh_mmcif_host), &pdev->dev);
 	if (!mmc) {
 		ret = -ENOMEM;
@@ -1166,6 +1232,7 @@ static int sh_mmcif_probe(struct platform_device *pdev)
 	clk_enable(host->hclk);
 	host->clk = clk_get_rate(host->hclk);
 	host->pd = pdev;
+	host->pdata = pd;
 
 	init_completion(&host->intr_wait);
 	spin_lock_init(&host->lock);
@@ -1184,8 +1251,11 @@ static int sh_mmcif_probe(struct platform_device *pdev)
 		mmc->f_min = host->clk / 512;
 	if (pd->ocr)
 		mmc->ocr_avail = pd->ocr;
-	mmc->caps = MMC_CAP_MMC_HIGHSPEED | MMC_CAP_WAIT_WHILE_BUSY
-					| MMC_CAP_ERASE;
+	else
+		mmc->ocr_avail = MMC_VDD_165_195 | MMC_VDD_32_33
+					| MMC_VDD_33_34;
+
+	mmc->caps = MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_ERASE | MMC_CAP_UHS_DDR50;
 	if (pd->caps)
 		mmc->caps |= pd->caps;
 	mmc->max_segs = 128;
@@ -1196,6 +1266,7 @@ static int sh_mmcif_probe(struct platform_device *pdev)
 
 	host->dma_mask = DMA_BIT_MASK(64);
 	mmc_dev(host->mmc)->dma_mask = &host->dma_mask;
+	mmc_of_parse(mmc);
 
 	if (pd->buf_acc)
 		host->buf_acc = pd->buf_acc;
@@ -1306,7 +1377,7 @@ static int sh_mmcif_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sh_mmcif_host *host = platform_get_drvdata(pdev);
-	
+
 	wakeup_from_suspend_emmc = 1;
 	shmmcif_log("%s: In\n", __func__);
 	return mmc_resume_host(host->mmc);
@@ -1327,6 +1398,7 @@ static struct platform_driver sh_mmcif_driver = {
 	.driver		= {
 		.name	= DRIVER_NAME,
 		.pm	= &sh_mmcif_dev_pm_ops,
+		.of_match_table = of_match_ptr(renesas_mmcif_of_match),
 	},
 };
 
