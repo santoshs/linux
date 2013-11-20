@@ -455,9 +455,6 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 	},
 };
 
-static struct platform_device *gpio_i2c_devices[] __initdata = {
-};
-
 static struct i2c_board_info i2c_cameras[] = {
 	{
 		I2C_BOARD_INFO("OV5645", 0x20),
@@ -812,7 +809,6 @@ static void __init board_init(void)
 	i2c_register_board_info(7, bcm2079x, ARRAY_SIZE(bcm2079x));
 #endif
 
-	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	/* PA devices init */
 	spa_init();
 #ifdef CONFIG_VIBRATOR_SS

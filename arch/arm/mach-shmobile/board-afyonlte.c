@@ -299,9 +299,6 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 	},
 };
 
-static struct platform_device *gpio_i2c_devices[] __initdata = {
-};
-
 static struct i2c_board_info i2c_cameras[] = {
 	{
 		I2C_BOARD_INFO("S5K4ECGX", 0x56),
@@ -645,7 +642,6 @@ static void __init board_init(void)
 	gps_gpio_init();
 #endif
 
-	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	platform_add_devices(plat_devices,
 					ARRAY_SIZE(plat_devices));
 
