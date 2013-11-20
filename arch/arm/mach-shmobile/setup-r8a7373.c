@@ -1269,9 +1269,10 @@ void __init r8a7373_pinmux_init(void)
 	/* We need hwspinlocks ready now for the pfc driver */
 	platform_add_devices(r8a7373_hwsem_devices,
 			ARRAY_SIZE(r8a7373_hwsem_devices));
-
+#ifndef CONFIG_OF
 	platform_device_register_simple("pfc-r8a7373", -1, pfc_resources,
 					ARRAY_SIZE(pfc_resources));
+#endif
 }
 
 void __init r8a7373_add_standard_devices(void)
@@ -1451,7 +1452,11 @@ void __init r8a7373_l2cache_init(void)
 
 void __init r8a7373_init_early(void)
 {
+#ifdef CONFIG_OF
+	sh_primary_pfc = "e6050000.pfc";
+#else
 	sh_primary_pfc = "pfc-r8a7373";
+#endif
 
 	shmobile_check_rev();
 
