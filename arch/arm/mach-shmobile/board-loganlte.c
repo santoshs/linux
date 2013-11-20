@@ -419,6 +419,12 @@ struct soc_camera_desc camera_links[] = {
 
 EXPORT_SYMBOL(camera_links);
 
+struct i2c_board_info i2c4_devices_tsp_detector[] = {
+	{
+		I2C_BOARD_INFO("tsp_detector", 0x7f),
+	},
+};
+
 void board_restart(char mode, const char *cmd)
 {
 	printk(KERN_INFO "%s\n", __func__);

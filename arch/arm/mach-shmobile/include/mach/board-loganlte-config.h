@@ -437,9 +437,4 @@ static struct platform_device *u2_devices[] __initdata = {
 #endif
 };
 
-struct i2c_board_info i2c4_devices_tsp_detector[] = {
-	{
-		I2C_BOARD_INFO("tsp_detector", 0x7f),
-	},
-};
 #endif
