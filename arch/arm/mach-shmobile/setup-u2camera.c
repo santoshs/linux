@@ -98,6 +98,8 @@ int camera_init(void)
 
 	pr_info("Camera ISP ES version switch (ES2)\n");
 	csi20_info.clients[0].lanes = 0x3;
+	csi20_info.clients[0].pdev = &camera_devices[0];
+	csi21_info.clients[0].pdev = &camera_devices[1];
 
 	clk_put(vclk1_clk);
 	clk_put(pll1_div2_clk);

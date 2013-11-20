@@ -26,8 +26,6 @@
 #include <media/sh_mobile_csi2.h>
 
 #include <mach/irqs.h>
-#include <media/soc_camera.h>
-#include <mach/setup-u2camera.h>
 #include <mach/setup-u2csi2.h>
 #include <mach/r8a7373.h>
 
@@ -171,7 +169,7 @@ struct sh_csi2_client_config csi20_clients[] = {
 		.phy		= SH_CSI2_PHY_MAIN,
 		.lanes		= 0xF,
 		.channel	= 0,
-		.pdev		= &camera_devices[0],
+		/*.pdev	will be set during camera setup */
 	},
 };
 
@@ -218,7 +216,7 @@ struct sh_csi2_client_config csi21_clients[] = {
 		.phy		= SH_CSI2_PHY_SUB,
 		.lanes		= 1,
 		.channel	= 0,
-		.pdev		= &camera_devices[1],
+		/*.pdev	will be set during camera setup */
 	},
 };
 
