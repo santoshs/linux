@@ -50,10 +50,6 @@
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2gpio_key.h>
-
-#if defined(CONFIG_SAMSUNG_MHL)
-#include <mach/dev-mhl.h>
-#endif
 #include <linux/tpu_pwm_board.h>
 #include <linux/vibrator.h>
 
@@ -543,9 +539,6 @@ static struct platform_device *devices_stm_none[] __initdata = {
 #ifdef CONFIG_PN544_NFC
 	&pn544_i2c_gpio_device,
 #endif
-#endif
-#if defined(CONFIG_SAMSUNG_MHL)
-	&mhl_i2c_gpio_device,
 #endif
 };
 
