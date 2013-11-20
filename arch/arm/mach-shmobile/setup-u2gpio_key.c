@@ -79,26 +79,3 @@ struct platform_device gpio_key_device = {
 		.platform_data	= &gpio_key_info,
 	},
 };
-
-int gpio_key_init(int stm_select,
-		struct platform_device **u2evm_devices_stm_sdhi0,
-		int u2evm_devices_stm_sdhi0_size,
-		struct platform_device **u2evm_devices_stm_none,
-		int u2evm_devices_stm_none_size) {
-
-	struct platform_device **p_dev;
-	int p_dev_cnt;
-	switch (stm_select) {
-	case 0:
-			p_dev = u2evm_devices_stm_sdhi0;
-			p_dev_cnt = u2evm_devices_stm_sdhi0_size;
-			break;
-	default:
-			p_dev = u2evm_devices_stm_none;
-			p_dev_cnt = u2evm_devices_stm_none_size;
-			break;
-	}
-	platform_add_devices(p_dev, p_dev_cnt);
-
-	return 0;
-}

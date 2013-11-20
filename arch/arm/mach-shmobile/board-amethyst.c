@@ -599,6 +599,7 @@ static void __init board_init(void)
 	void __iomem *sbsc_sdmra_28200 = NULL;
 	void __iomem *sbsc_sdmra_38200 = NULL;
 	int inx = 0;
+	int ret;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 	u8 reg8 = __raw_readb(STBCHRB3);
@@ -795,11 +796,21 @@ static void __init board_init(void)
 		->buttons = gpio_buttons;
 	((struct gpio_keys_platform_data *)(gpio_key_device.dev.platform_data))
 		->nbuttons = ARRAY_SIZE(gpio_buttons);
-	gpio_key_init(stm_select,
-			devices_stm_sdhi0,
-			ARRAY_SIZE(devices_stm_sdhi0),
-			devices_stm_none,
-			ARRAY_SIZE(devices_stm_none));
+
+	ret = platform_add_devices(u2_devices, ARRAY_SIZE(u2_devices));
+	if (ret)
+		pr_err("%s failed to add platform devices %d", __func__, ret);
+
+	if (stm_select == 0) {
+		ret = platform_device_register(&stm_device);
+		if (ret)
+			pr_err("%s failed to add stm_device %d", __func__, ret);
+	} else {
+		ret = platform_device_register(&sdhi0_device);
+		if (ret)
+			pr_err("%s failed to add sdhi0_device %d",
+					__func__, ret);
+	}
 
 	platform_device_register(&led_backlight_device);
 
