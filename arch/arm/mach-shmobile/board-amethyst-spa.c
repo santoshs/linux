@@ -112,23 +112,10 @@ static int spa_power_init(void)
 
 void spa_init(void)
 {
-
-#if defined(CONFIG_USE_MUIC)
-	gpio_request(GPIO_PORT97, NULL);
-	gpio_direction_input(GPIO_PORT97);
-	gpio_pull_up_port(GPIO_PORT97);
-#endif
-
 #if defined(CONFIG_CHARGER_FAN5405)
 	gpio_request(GPIO_PORT19, NULL);
 	gpio_direction_input(GPIO_PORT19);
 	gpio_pull_up_port(GPIO_PORT19);
-#endif
-
-#if defined(CONFIG_BATTERY_BQ27425)
-	gpio_request(GPIO_PORT105, NULL);
-	gpio_direction_input(GPIO_PORT105);
-	gpio_pull_up_port(GPIO_PORT105);
 #endif
 
 #if defined(CONFIG_SEC_CHARGING_FEATURE)
