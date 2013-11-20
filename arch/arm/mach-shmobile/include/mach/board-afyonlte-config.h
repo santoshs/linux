@@ -449,11 +449,6 @@ static struct platform_device *u2_devices[] __initdata = {
 	&camera_devices[0],
 	&camera_devices[1],
 #endif
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-	&pn544_i2c_gpio_device,
-#endif
-#endif
 };
 
 struct i2c_board_info i2c4_devices_tsp_detector[] = {
