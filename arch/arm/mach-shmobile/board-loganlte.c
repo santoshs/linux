@@ -31,7 +31,6 @@
 #include <video/sh_mobile_lcdc.h>
 #include <linux/irqchip/arm-gic.h>
 #include <mach/setup-u2timers.h>
-#include <mach/board-loganlte-config.h>
 #include <mach/poweroff.h>
 #include <mach/sbsc.h>
 #ifdef CONFIG_MFD_D2153
@@ -367,7 +366,6 @@ static void __init board_init(void)
 	void __iomem *sbsc_sdmra_28200 = NULL;
 	void __iomem *sbsc_sdmra_38200 = NULL;
 	int inx = 0;
-	int ret;
 
 	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
 	u8 reg8 = __raw_readb(STBCHRB3);
@@ -585,10 +583,6 @@ static void __init board_init(void)
 	add_s5k4ecgx_primary_camera();
 	add_sr030pc50_secondary_camera();
 	camera_init(GPIO_PORT3, GPIO_PORT20, GPIO_PORT45);
-
-	ret = platform_add_devices(u2_devices, ARRAY_SIZE(u2_devices));
-	if (ret)
-		pr_err("%s failed to add platform devices %d", __func__, ret);
 
 	u2_add_gpio_key_devices(gpio_buttons, ARRAY_SIZE(gpio_buttons));
 
