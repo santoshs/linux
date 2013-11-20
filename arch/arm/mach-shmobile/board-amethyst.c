@@ -378,7 +378,7 @@ static struct platform_led_backlight_data led_backlight_data = {
 };
 
 static struct platform_device led_backlight_device = {
-	.name = "panel",
+	.name = "led-backlight",
 	.id   = -1,
 	.dev  = {
 		.platform_data = &led_backlight_data,
