@@ -419,32 +419,10 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 };
 
 static struct i2c_board_info __initdata i2c3_devices[] = {
-#if defined(CONFIG_USE_MUIC)
-	{
-		I2C_BOARD_INFO("rt8973", (0x28 >> 1)),
-			.platform_data = NULL,
-			.irq           = irq_pin(41),
-	},
-#endif
-#if defined(CONFIG_RT8973)
-	{
-		I2C_BOARD_INFO("rt8973", 0x28>>1),
-		.platform_data = NULL,
-		.irq = irq_pin(41),
-	},
-#endif
-#if defined(CONFIG_CHARGER_SMB328A)
-	{
-		I2C_BOARD_INFO("smb328a", (0xA9 >> 1)),
-		.irq            = irq_pin(19),
-	},
-#elif defined(CONFIG_CHARGER_FAN5405)
 	{
 		I2C_BOARD_INFO("fan5405", (0xD5 >> 1)),
 		.irq            = irq_pin(19),
 	},
-#endif
-
 };
 
 static struct i2c_board_info i2cm_devices_d2153[] = {
@@ -694,32 +672,7 @@ static void __init board_init(void)
 
 	i2c_register_board_info(2, i2c2_devices, ARRAY_SIZE(i2c2_devices));
 
-#if defined(CONFIG_CHARGER_SMB328A)
-	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if (system_rev == 0 || system_rev > 4) {
-		int i;
-		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
-			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {
-				i2c3_devices[i].addr = (0x69 >> 1);
-			}
-		}
-	}
-#endif
-
-	if (MUIC_IS_PRESENT) {
-		i2c_register_board_info(3, i2c3_devices,
-						ARRAY_SIZE(i2c3_devices));
-	} else {
-		int i;
-		for (i = 0; i < sizeof(i2c3_devices)
-					/sizeof(struct i2c_board_info); i++) {
-			if (!(strcmp(i2c3_devices[i].type, "tsu6712") == 0) &&
-			!(strcmp(i2c3_devices[i].type, "rt8973") == 0)) {
-				i2c_register_board_info(3, &i2c3_devices[i],
-								 1);
-			}
-		}
-	}
+	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
 	tsp_bcmtch15xxx_init();
 
