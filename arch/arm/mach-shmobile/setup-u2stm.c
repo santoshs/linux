@@ -343,6 +343,41 @@ int u2evm_init_stm_select(void)
 }
 // EXPORT_SYMBOL(u2evm_get_stm_select);
 
+static struct resource stm_res[] = {
+	[0] = {
+		.name   = "stm_ctrl",
+		.start  = 0xe6f89000,
+		.end    = 0xe6f89fff,
+		.flags  = IORESOURCE_MEM,
+	},
+	[1] = {
+		.name   = "stm_ports",
+		.start  = 0xe9000000,
+		.end    = 0xe90fffff,
+		.flags  = IORESOURCE_MEM,
+	},
+	[2] = {
+		.name   = "funnel",
+		.start  = 0xe6f8b000,
+		.end    = 0xe6f8bfff,
+		.flags  = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device stm_device = {
+	.name		= "stm",
+	.num_resources	= ARRAY_SIZE(stm_res),
+	.resource	= stm_res,
+};
+
+void __init u2_add_stm_device(void)
+{
+	int ret = platform_device_register(&stm_device);
+	if (ret)
+		pr_err("%s: failed to register stm device %d\n",
+				__func__, ret);
+}
+
 static int __init stm_sdhi0_regulator_late_init(void)
 {
         int ret = 0;

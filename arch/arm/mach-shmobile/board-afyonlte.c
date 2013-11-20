@@ -555,11 +555,9 @@ static void __init board_init(void)
 	if (ret)
 		pr_err("%s failed to add platform devices %d", __func__, ret);
 
-	if (stm_select == 0) {
-		ret = platform_device_register(&stm_device);
-		if (ret)
-			pr_err("%s failed to add stm_device %d", __func__, ret);
-	} else
+	if (stm_select == 0)
+		u2_add_stm_device();
+	else
 		u2_add_sdhi0_device();
 
 	u2_add_sdhi1_device();
