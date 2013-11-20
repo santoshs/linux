@@ -419,7 +419,7 @@ void board_restart(char mode, const char *cmd)
 }
 
 static unsigned long pin_pullup_conf[] = {
-	PIN_CONF_PACKED(PIN_CONFIG_BIAS_PULL_UP, 0),
+	PIN_CONF_PACKED(PIN_CONFIG_BIAS_PULL_UP, 1),
 };
 
 static struct pinctrl_map loganlte_pinctrl_map[] __initdata = {
