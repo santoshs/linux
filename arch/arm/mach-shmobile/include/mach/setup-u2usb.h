@@ -54,16 +54,25 @@
 
 
 
-extern struct platform_device tusb1211_device;
-extern struct platform_device usb_host_device;
-extern struct platform_device usbhs_func_device_d2153;
 
 #if defined(CONFIG_MACH_U2USB)
 extern unsigned int muic_is_present(void);
-extern void __init USBGpio_init(void);
+extern void __init usb_init(void);
 #else
 static inline unsigned int muic_is_present(void) { return 0; }
-static inline void USBGpio_init(void) {}
+static inline void usb_init(void) {}
+#endif
+
+#if defined(CONFIG_MACH_U2USB) && defined(CONFIG_USB_R8A66597_HCD)
+void __init u2_add_usb_host_device(void);
+#else
+static inline void u2_add_usb_host_device(void) {}
+#endif
+
+#if defined(CONFIG_MACH_U2USB) && defined(CONFIG_USB_OTG)
+void __init u2_add_usb_otg_device(void);
+#else
+static inline void u2_add_usb_otg_device(void) {}
 #endif
 
 #endif /* __ASM_ARCH_U2USB_H */

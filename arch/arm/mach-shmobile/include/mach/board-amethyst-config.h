@@ -416,15 +416,6 @@ static struct platform_device vibrator_device = {
 };
 
 static struct platform_device *u2_devices[] __initdata = {
-#if defined(CONFIG_MACH_U2USB)
-	&usbhs_func_device_d2153,
-#endif
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
 	&mmcif_device,
 #if defined(CONFIG_U2_SDHI)
 	&sdhi1_device,
