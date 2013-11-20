@@ -724,7 +724,7 @@ static void __init board_init(void)
 #endif
 
 	add_primary_cam_flash_mic2871(GPIO_PORT99, GPIO_PORT100);
-	camera_init();
+	camera_init(GPIO_PORT3, GPIO_PORT20, GPIO_PORT45);
 
 	/*Gpio keys button configuration*/
 	((struct gpio_keys_platform_data *)(gpio_key_device.dev.platform_data))

@@ -28,13 +28,14 @@ extern struct platform_device camera_devices[];
 extern struct soc_camera_desc camera_links[];
 
 #if defined(CONFIG_SOC_CAMERA)
-int camera_init(void);
+int camera_init(int gpio_cam_pwr_en, int gpio_cam_rst_n, int gpio_cam_stby);
 void add_primary_cam_flash_rt8547(int gpio_cam_flash_enset,
 		int gpio_cam_flash_flen);
 void add_primary_cam_flash_mic2871(int gpio_cam_flash_enset,
 		int gpio_cam_flash_flen);
 #else
-static inline int camera_init(void) { return 0; }
+static inline int camera_init(int gpio_cam_pwr_en, int gpio_cam_rst_n,
+		int gpio_cam_stby) { return 0; }
 static inline void add_primary_cam_flash_rt8547(int gpio_cam_flash_enset,
 		int gpio_cam_flash_flen) {}
 static inline void add_primary_cam_flash_mic2871(int gpio_cam_flash_enset,

@@ -52,18 +52,18 @@ struct platform_device camera_devices[] = {
 
 };
 
-int camera_init(void)
+int camera_init(int gpio_cam_pwr_en, int gpio_cam_rst_n, int gpio_cam_stby)
 {
 	struct clk *vclk1_clk;
 	struct clk *pll1_div2_clk;
 	int ret;
 
-	gpio_request(GPIO_PORT3, NULL);
-	gpio_direction_output(GPIO_PORT3, 0);   /* CAM_PWR_EN */
-	gpio_request(GPIO_PORT20, NULL);
-	gpio_direction_output(GPIO_PORT20, 0);  /* CAM0_RST_N */
-	gpio_request(GPIO_PORT45, NULL);
-	gpio_direction_output(GPIO_PORT45, 0);  /* CAM0_STBY */
+	gpio_request(gpio_cam_pwr_en, NULL);
+	gpio_direction_output(gpio_cam_pwr_en, 0);   /* CAM_PWR_EN */
+	gpio_request(gpio_cam_rst_n, NULL);
+	gpio_direction_output(gpio_cam_rst_n, 0);  /* CAM0_RST_N */
+	gpio_request(gpio_cam_stby, NULL);
+	gpio_direction_output(gpio_cam_stby, 0);  /* CAM0_STBY */
 
 	pll1_div2_clk = clk_get(NULL, "pll1_div2_clk");
 	if (IS_ERR(pll1_div2_clk))
