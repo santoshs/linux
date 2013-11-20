@@ -49,7 +49,6 @@
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2gpio_key.h>
 #include <linux/tpu_pwm_board.h>
-#include <linux/vibrator.h>
 
 #include <mach/r8a7373.h>
 #include <mach/gpio.h>
@@ -400,18 +399,6 @@ static struct platform_device	tpu_devices[] = {
 	},
 };
 
-static struct vibrator_port_info vibrator_platdata = {
-	.vibrator_port = GPIO_PORT226 ,
-	.tpu_port      = GPIO_PORT36 ,
-};
-
-static struct platform_device vibrator_device = {
-	.name               = "vibrator-renesas-sh_mobile",
-	.id                 = -1,
-	.dev                = {
-		.platform_data  = &vibrator_platdata,
-	},
-};
 
 static struct platform_device *u2_devices[] __initdata = {
 	&mmcif_device,
@@ -430,7 +417,6 @@ static struct platform_device *u2_devices[] __initdata = {
 	&mfis_device,
 	&tpu_devices[TPU_MODULE_0],
 	&mdm_reset_device,
-	&vibrator_device, /* as dependant to h/w rev, add device seperatly */
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
 #endif
