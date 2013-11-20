@@ -71,7 +71,7 @@ int camera_init(void)
 {
 	struct clk *vclk1_clk;
 	struct clk *pll1_div2_clk;
-	int iRet;
+	int ret;
 
 	gpio_request(GPIO_PORT3, NULL);
 	gpio_direction_output(GPIO_PORT3, 0);   /* CAM_PWR_EN */
@@ -82,27 +82,35 @@ int camera_init(void)
 
 	pll1_div2_clk = clk_get(NULL, "pll1_div2_clk");
 	if (IS_ERR(pll1_div2_clk))
-		printk(KERN_ERR "clk_get(pll1_div2_clk) failed\n");
+		pr_err("clk_get(pll1_div2_clk) failed\n");
 
 	vclk1_clk = clk_get(NULL, "vclk1_clk");
 	if (IS_ERR(vclk1_clk))
-		printk(KERN_ERR "clk_get(vclk1_clk) failed\n");
+		pr_err("clk_get(vclk1_clk) failed\n");
 
-	iRet = clk_set_parent(vclk1_clk, pll1_div2_clk);
-	if (0 != iRet) {
-		printk(KERN_ERR
-		"clk_set_parent(vclk1_clk) failed (ret=%d)\n", iRet);
+	ret = clk_set_parent(vclk1_clk, pll1_div2_clk);
+	if (0 != ret) {
+		pr_err("clk_set_parent(vclk1_clk) failed (ret=%d)\n", ret);
 	}
 
 	camera_links[0].subdev_desc.drv_priv = &csi20_info;
 	camera_links[1].subdev_desc.drv_priv = &csi21_info;
 
-	printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
+	pr_info("Camera ISP ES version switch (ES2)\n");
 	csi20_info.clients[0].lanes = 0x3;
 
 	clk_put(vclk1_clk);
 	clk_put(pll1_div2_clk);
 
+	ret = platform_device_register(&camera_devices[0]);
+	if (ret)
+		pr_err("%s failed to add primary_camera_device %d",
+				__func__, ret);
+
+	ret = platform_device_register(&camera_devices[1]);
+	if (ret)
+		pr_err("%s failed to add secondary_camera_device %d",
+				__func__, ret);
 	return 0;
 }
 

@@ -29,7 +29,6 @@
 #include <linux/spi/sh_msiof.h>
 #include <linux/thermal_sensor/ths_kernel.h>
 #include <mach/setup-u2csi2.h>
-#include <mach/setup-u2camera.h>
 #include <mach/setup-u2gpio_key.h>
 #include <linux/tpu_pwm_board.h>
 
@@ -401,10 +400,6 @@ static struct platform_device *u2_devices[] __initdata = {
 	&sh_msiof0_device,
 #endif
 	&thermal_sensor_device,
-#ifdef CONFIG_SOC_CAMERA
-	&camera_devices[0],
-	&camera_devices[1],
-#endif
 };
 
 #endif
