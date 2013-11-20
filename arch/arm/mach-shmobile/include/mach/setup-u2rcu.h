@@ -20,9 +20,6 @@
 #ifndef __ASM_ARCH_RCU_H
 #define __ASM_ARCH_RCU_H
 
-extern struct platform_device rcu0_device;
-extern struct platform_device rcu1_device;
-
 extern struct sh_mobile_rcu_companion csi20;
 extern struct sh_mobile_rcu_companion csi21;
 
@@ -32,5 +29,11 @@ extern struct resource rcu1_resources[];
 
 extern struct sh_mobile_rcu_info sh_mobile_rcu0_info;
 extern struct sh_mobile_rcu_info sh_mobile_rcu1_info;
+
+#if defined(CONFIG_VIDEO_SH_MOBILE_RCU)
+void __init u2_add_rcu_devices(void);
+#else
+static inline void u2_add_rcu_devices(void) {}
+#endif
 
 #endif /* __ASM_ARCH_RCU_H */

@@ -107,3 +107,15 @@ struct platform_device rcu1_device = {
 	},
 };
 
+void __init u2_add_rcu_devices(void)
+{
+	int ret = platform_device_register(&rcu0_device);
+	if (ret)
+		pr_err("%s: failed to register rcu0 device %d\n",
+				__func__, ret);
+
+	ret = platform_device_register(&rcu1_device);
+	if (ret)
+		pr_err("%s: failed to register rcu1 device %d\n",
+				__func__, ret);
+}

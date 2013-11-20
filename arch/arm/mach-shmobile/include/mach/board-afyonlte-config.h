@@ -46,7 +46,6 @@
 #include <linux/spi/sh_msiof.h>
 #include <linux/thermal_sensor/ths_kernel.h>
 #include <mach/setup-u2csi2.h>
-#include <mach/setup-u2rcu.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2gpio_key.h>
 #include <linux/tpu_pwm_board.h>
@@ -446,10 +445,6 @@ static struct platform_device *u2_devices[] __initdata = {
 	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
-#ifdef CONFIG_VIDEO_SH_MOBILE_RCU
-	&rcu0_device,
-	&rcu1_device,
-#endif
 #ifdef CONFIG_SOC_CAMERA
 	&camera_devices[0],
 	&camera_devices[1],
