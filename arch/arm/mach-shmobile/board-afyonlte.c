@@ -241,7 +241,7 @@ static struct platform_ktd259b_backlight_data bcm_ktd259b_backlight_data = {
 };
 
 static struct platform_device bcm_backlight_devices = {
-	.name = "panel",
+	.name = "ktd3102_backlight",
 	.id   = -1,
 	.dev  = {
 		.platform_data = &bcm_ktd259b_backlight_data,
