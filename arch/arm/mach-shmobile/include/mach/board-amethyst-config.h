@@ -387,7 +387,6 @@ static struct platform_device *u2_devices[] __initdata = {
 	&fsi_b_device,
 	&audio_device,
 	&sh_fsi_wireless_transciever_device,
-	&gpio_key_device,
 	&lcdc_device,
 	&mfis_device,
 	&tpu_devices[TPU_MODULE_0],

@@ -79,3 +79,16 @@ struct platform_device gpio_key_device = {
 		.platform_data	= &gpio_key_info,
 	},
 };
+
+void __init u2_add_gpio_key_devices(struct gpio_keys_button *gpio_buttons,
+		int nbuttons)
+{
+	int ret;
+	gpio_key_info.buttons = gpio_buttons;
+	gpio_key_info.nbuttons = nbuttons;
+
+	ret = platform_device_register(&gpio_key_device);
+	if (ret)
+		pr_err("%s: failed to register gpio key device %d\n",
+				__func__, ret);
+}

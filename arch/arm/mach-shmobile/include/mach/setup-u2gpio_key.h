@@ -9,5 +9,6 @@ extern struct platform_device keysc_device;
 #define GPIO_KEY(c, g, d, w) \
 	{.code = c, .gpio = g, .desc = d, .wakeup = w, .active_low = 1,\
 	 .debounce_interval = 20}
-extern struct platform_device gpio_key_device;
+void __init u2_add_gpio_key_devices(struct gpio_keys_button *gpio_buttons,
+		int nbuttons);
 #endif /* __ASM_ARCH_GPIO_KEY_H */

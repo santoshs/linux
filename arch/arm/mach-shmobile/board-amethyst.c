@@ -53,6 +53,7 @@
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2sdhi.h>
+#include <mach/setup-u2gpio_key.h>
 #include <linux/proc_fs.h>
 #if defined(CONFIG_RENESAS_GPS)|| defined(CONFIG_GPS_CSR_GSD5T)
 #include <mach/dev-gps.h>
@@ -693,15 +694,11 @@ static void __init board_init(void)
 	add_hm2056_secondary_camera();
 	camera_init(GPIO_PORT3, GPIO_PORT20, GPIO_PORT45);
 
-	/*Gpio keys button configuration*/
-	((struct gpio_keys_platform_data *)(gpio_key_device.dev.platform_data))
-		->buttons = gpio_buttons;
-	((struct gpio_keys_platform_data *)(gpio_key_device.dev.platform_data))
-		->nbuttons = ARRAY_SIZE(gpio_buttons);
-
 	ret = platform_add_devices(u2_devices, ARRAY_SIZE(u2_devices));
 	if (ret)
 		pr_err("%s failed to add platform devices %d", __func__, ret);
+
+	u2_add_gpio_key_devices(gpio_buttons, ARRAY_SIZE(gpio_buttons));
 
 	if (stm_select == 0)
 		u2_add_stm_device();
