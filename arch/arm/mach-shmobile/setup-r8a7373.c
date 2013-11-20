@@ -1759,7 +1759,7 @@ EXPORT_SYMBOL_GPL(sh_modify_register32);
 
 void __iomem *sbsc_sdmracr1a;
 
-void SBSC_Init_520Mhz(void)
+static void SBSC_Init_520Mhz(void)
 {
 	unsigned long work;
 
@@ -1786,7 +1786,6 @@ void SBSC_Init_520Mhz(void)
 	/* Dummy read */
 	__raw_readl(sbsc_sdmracr1a);
 }
-EXPORT_SYMBOL_GPL(SBSC_Init_520Mhz);
 
 void __init r8a7373_zq_calibration(void)
 {

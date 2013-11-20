@@ -14,8 +14,6 @@ extern unsigned int system_rev;
 void mmcif_set_pwr(struct platform_device *, int);
 void mmcif_down_pwr(struct platform_device *);
 
-void SBSC_Init_520Mhz(void);
-
 /* Pin Function Controller:
  * GPIO_FN_xx - GPIO used to select pin function and MSEL switch
  * GPIO_PORTxx - GPIO mapped to real I/O pin on CPU
