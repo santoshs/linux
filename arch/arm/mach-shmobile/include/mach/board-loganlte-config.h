@@ -44,7 +44,6 @@
 #include <sound/sh_fsi.h>
 #include <linux/platform_data/fsi_d2153_pdata.h>
 #include <linux/spi/sh_msiof.h>
-#include <mach/setup-u2ion.h>
 #include <linux/thermal_sensor/ths_kernel.h>
 #include <mach/setup-u2csi2.h>
 #include <mach/setup-u2rcu.h>
@@ -435,9 +434,6 @@ static struct platform_device *u2_devices[] __initdata = {
 	&vibrator_device, /* as dependant to h/w rev, add device seperatly */
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
-#endif
-#if defined(CONFIG_ION)
-	&u2evm_ion_device,
 #endif
 #if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
 	&board_bcmbt_rfkill_device,

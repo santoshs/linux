@@ -51,6 +51,7 @@
 #include <mach/dev-wifi.h>
 #include <mach/setup-u2spa.h>
 #include <mach/setup-u2vibrator.h>
+#include <mach/setup-u2ion.h>
 #include <linux/proc_fs.h>
 #if defined(CONFIG_RENESAS_GPS)|| defined(CONFIG_GPS_CSR_GSD5T)
 #include <mach/dev-gps.h>
@@ -811,6 +812,8 @@ static void __init board_init(void)
 			pr_err("%s failed to add sdhi0_device %d",
 					__func__, ret);
 	}
+
+	u2_add_ion_device();
 
 	platform_device_register(&led_backlight_device);
 

@@ -60,6 +60,13 @@ struct platform_device u2evm_ion_device = {
 	},
 };
 
+void __init u2_add_ion_device(void)
+{
+	int ret = platform_device_register(&u2evm_ion_device);
+	if (ret)
+		pr_err("%s: failed to register ion device %d\n", __func__, ret);
+}
+
 int u2evm_ion_adjust(void)
 {
 	int i;
