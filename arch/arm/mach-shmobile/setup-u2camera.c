@@ -28,7 +28,6 @@
 #include <media/sh_mobile_rcu.h>
 #include <media/soc_camera.h>
 #include <media/soc_camera_platform.h>
-#include <mach/board.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2csi2.h>
 #include <mach/setup-u2rcu.h>

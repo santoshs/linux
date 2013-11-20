@@ -29,7 +29,6 @@
 #include <asm/mach/arch.h>
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
-#include <mach/board.h>
 #include <media/soc_camera.h>
 #include <media/soc_camera_platform.h>
 #include <linux/irqchip/arm-gic.h>
@@ -41,6 +40,7 @@
 #ifdef CONFIG_MFD_D2153
 #include <linux/d2153/core.h>
 #include <linux/d2153/d2153_aad.h>
+#include <linux/d2153/pmic.h>
 #endif
 #include <linux/ktd259b_bl.h>
 #include <mach/setup-u2spa.h>
@@ -225,6 +225,11 @@ struct fm34_platform_data fm34_data = {
 
 /* D2153 setup */
 #ifdef CONFIG_MFD_D2153
+/*TODO: move these externs to header*/
+extern struct d2153_regl_init_data
+	      d2153_regulators_init_data[D2153_NUMBER_OF_REGULATORS];
+extern struct d2153_regl_map regl_map[D2153_NUMBER_OF_REGULATORS];
+
 struct d2153_battery_platform_data pbat_pdata = {
 	.battery_technology = POWER_SUPPLY_TECHNOLOGY_LION,
 	.battery_capacity = BAT_CAPACITY_1800MA,
@@ -307,22 +312,22 @@ static struct platform_device bcm_backlight_devices = {
 static struct i2c_board_info __initdata i2c3_devices[] = {
 #if defined(CONFIG_USE_MUIC)
 	{
-		I2C_BOARD_INFO(MUIC_NAME, MUIC_I2C_ADDRESS),
+		I2C_BOARD_INFO("rt8973", (0x28 >> 1)),
 			.platform_data = NULL,
-			.irq           = irq_pin(GPIO_MUS_INT),
+			.irq           = irq_pin(41),
 	},
 #endif
 #if defined(CONFIG_RT8973)
 	{
 		I2C_BOARD_INFO("rt8973", 0x28>>1),
 		.platform_data = NULL,
-		.irq = irq_pin(GPIO_MUS_INT),
+		.irq = irq_pin(41),
 	},
 #endif
 #if defined(CONFIG_CHARGER_SMB328A)
 	{
-		I2C_BOARD_INFO("smb328a", SMB327B_ADDRESS),
-		.irq            = irq_pin(GPIO_CHG_INT),
+		I2C_BOARD_INFO("smb328a", (0xA9 >> 1)),
+		.irq            = irq_pin(19),
 	},
 #endif
 
@@ -665,11 +670,11 @@ static void __init board_init(void)
 
 #if defined(CONFIG_CHARGER_SMB328A)
 	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if (system_rev == BOARD_REV_0_0 || system_rev > BOARD_REV_0_4) {
+	if (system_rev == 0 || system_rev > 4) {
 		int i;
 		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
 			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {
-				i2c3_devices[i].addr = SMB328A_ADDRESS;
+				i2c3_devices[i].addr = (0x69 >> 1);
 			}
 		}
 	}

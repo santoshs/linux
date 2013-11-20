@@ -29,7 +29,6 @@
 #include <linux/gpio.h>
 #include <mach/r8a7373.h>
 #include <mach/gpio.h>
-#include <mach/board.h>
 
 #include <linux/sysfs.h>
 #include <linux/proc_fs.h>
