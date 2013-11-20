@@ -29,8 +29,16 @@ extern struct soc_camera_desc camera_links[];
 
 #if defined(CONFIG_SOC_CAMERA)
 int camera_init(void);
+void add_primary_cam_flash_rt8547(int gpio_cam_flash_enset,
+		int gpio_cam_flash_flen);
+void add_primary_cam_flash_mic2871(int gpio_cam_flash_enset,
+		int gpio_cam_flash_flen);
 #else
 static inline int camera_init(void) { return 0; }
+static inline void add_primary_cam_flash_rt8547(int gpio_cam_flash_enset,
+		int gpio_cam_flash_flen) {}
+static inline void add_primary_cam_flash_mic2871(int gpio_cam_flash_enset,
+		int gpio_cam_flash_flen) {}
 #endif
 
 #if defined(CONFIG_SOC_CAMERA_OV5645)
@@ -53,8 +61,6 @@ int SR030PC50_power(struct device *dev, int power_on);
 #else
 static inline int SR030PC50_power(struct device *dev, int power_on) { return 0; }
 #endif
-
-int main_cam_led(int light, int mode);
 
 
 #endif /* __ASM_ARCH_CAMERA_H */

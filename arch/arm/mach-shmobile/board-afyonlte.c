@@ -575,6 +575,7 @@ static void __init board_init(void)
 	/* l2x0_init_later(); */
 #endif
 
+	add_primary_cam_flash_rt8547(GPIO_PORT99, GPIO_PORT100);
 	camera_init();
 
 	/* gpio keys button configuration*/
