@@ -420,73 +420,13 @@ static struct platform_device vibrator_device = {
 };
 
 /**
- * THREE optional devices pointer lists for initializing the platform
+ * TWO optional devices pointer lists for initializing the platform
  * devices
  */
 
-/* For different STM muxing options 0, 1, or None, as given by
- * boot_command_line parameter stm=0/1/n
+/* For different STM muxing options 0 or None, as given by
+ * boot_command_line parameter stm=0/n
  */
-static struct platform_device *devices_stm_sdhi1[] __initdata = {
-#if defined(CONFIG_MACH_U2USB)
-	&usbhs_func_device_d2153,
-#endif
-#ifdef CONFIG_USB_R8A66597_HCD
-	&usb_host_device,
-#endif
-#ifdef CONFIG_USB_OTG
-	&tusb1211_device,
-#endif
-	&mmcif_device,
-#if defined(CONFIG_U2_SDHI)
-	&sdhi0_device,
-#endif
-#if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
-#endif
-	&fsi_device,
-	&fsi_b_device,
-	&audio_device,
-	&sh_fsi_wireless_transciever_device,
-	&gpio_key_device,
-	&lcdc_device,
-	&mfis_device,
-	&mdm_reset_device,
-	&vibrator_device, /* as dependant to h/w rev, add device seperatly */
-#ifdef CONFIG_SPI_SH_MSIOF
-	&sh_msiof0_device,
-#endif
-#if defined(CONFIG_ION)
-	&u2evm_ion_device,
-#endif
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
-	&board_bcmbt_rfkill_device,
-#endif
-
-#ifdef CONFIG_BCM_BZHW
-	&board_bcm_bzhw_device,
-#endif
-
-#ifdef CONFIG_BCM_BT_LPM
-	&board_bcmbt_lpm_device,
-#endif
-	&thermal_sensor_device,
-#ifdef CONFIG_VIDEO_SH_MOBILE_RCU
-	&rcu0_device,
-	&rcu1_device,
-#endif
-#ifdef CONFIG_SOC_CAMERA
-	&camera_devices[0],
-	&camera_devices[1],
-#endif
-	&stm_device,
-#if defined(CONFIG_RENESAS_NFC)
-#ifdef CONFIG_PN544_NFC
-	&pn544_i2c_gpio_device,
-#endif
-#endif
-};
-
 static struct platform_device *devices_stm_sdhi0[] __initdata = {
 #if defined(CONFIG_MACH_U2USB)
 	&usbhs_func_device_d2153,

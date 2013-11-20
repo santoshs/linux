@@ -648,8 +648,6 @@ static void __init board_init(void)
 	gpio_key_init(stm_select,
 			devices_stm_sdhi0,
 			ARRAY_SIZE(devices_stm_sdhi0),
-			devices_stm_sdhi1,
-			ARRAY_SIZE(devices_stm_sdhi1),
 			devices_stm_none,
 			ARRAY_SIZE(devices_stm_none));
 
