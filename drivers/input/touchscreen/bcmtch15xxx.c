@@ -1101,6 +1101,9 @@ struct bcmtch_data {
 	bool abi_suspend;
 };
 
+struct device *sec_touchkey;
+static struct class *sec_class;
+
 /* -------------------------------------------- */
 /* - BCM Touch Controller Function Prototypes - */
 /* -------------------------------------------- */
@@ -1249,6 +1252,63 @@ static int32_t  bcmtch_i2c_read_dma(
 /* ------------------------------------------------- */
 /* - BCM Touch Controller SysFs ABI Implementation - */
 /* ------------------------------------------------- */
+int key_value;
+
+static ssize_t touch_led_show(struct device *dev,
+				struct device_attribute *devattr,
+				char *buf)
+{
+	int count = 0;
+	struct bcmtch_data *bcmtch_data_ptr =
+		dev_get_drvdata(dev);
+
+	count += snprintf(buf + count, PAGE_SIZE - count, "%d\n",
+				key_value ? 1 : 0);
+
+	return count;
+}
+
+
+static ssize_t touch_led_control(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct bcmtch_data *data = dev_get_drvdata(dev);
+	int retval = 0;
+	int input = 0;
+
+	retval = sscanf(buf, "%d", &input);
+	if (retval != 1) {
+		pr_debug(KERN_DEBUG "[TouchKey] %s, %d err\n",
+				 __func__, __LINE__);
+	return size;
+	}
+
+	if (input != 0 && input != 1) {
+		pr_debug(KERN_DEBUG "[TouchKey] %s wrong cmd %x\n",
+				 __func__, input);
+	return size;
+	}
+
+	if (data->regulator_avdd33 == NULL)
+		pr_info(KERN_INFO "[TouchKey] regulator_avdd33 Not initialised\n");
+	else {
+		if (input == 1) {
+			key_value = 1;
+			retval |= regulator_enable(data->regulator_avdd33);
+		} else {
+				key_value = 0;
+				if (data->regulator_avdd33 &&
+				regulator_is_enabled(data->regulator_avdd33))
+					regulator_disable(data->
+						regulator_avdd33);
+		}
+}
+	return size;
+}
+
+static DEVICE_ATTR(brightness, 0644,
+		touch_led_show, touch_led_control);
+
 
 /* -- SYS peek/poke ABI -- */
 static ssize_t bcmtch_os_abi_sys_addr_show(
@@ -1608,6 +1668,7 @@ static struct attribute *bcmtch_abi_attrs[] = {
 	&dev_attr_finger_threshold.attr,
 	&dev_attr_stylus_threshold.attr,
 	&dev_attr_suspend.attr,
+	&dev_attr_brightness.attr,
 	NULL
 };
 
@@ -5862,10 +5923,6 @@ static int32_t bcmtch_dev_power_enable(
 	int32_t ret_val = 0;
 
 	if (enable) {
-		if (p_bcmtch_data->regulator_avdd33)
-			ret_val |= regulator_enable(p_bcmtch_data
-						->regulator_avdd33);
-
 		if (p_bcmtch_data->regulator_vddo)
 			ret_val |= regulator_enable(p_bcmtch_data
 						->regulator_vddo);
@@ -5879,12 +5936,6 @@ static int32_t bcmtch_dev_power_enable(
 				p_bcmtch_data->power_on_delay_us - 500,
 				p_bcmtch_data->power_on_delay_us + 500);
 	} else {
-		if (p_bcmtch_data->regulator_avdd33 &&
-			regulator_is_enabled(
-					p_bcmtch_data->regulator_avdd33))
-			regulator_disable(
-				p_bcmtch_data->regulator_avdd33);
-
 		if (p_bcmtch_data->regulator_vddo &&
 			regulator_is_enabled(
 					p_bcmtch_data->regulator_vddo))
@@ -6628,7 +6679,6 @@ static void bcmtch_reset(
 static int32_t bcmtch_init_gpio(
 		struct bcmtch_data *bcmtch_data_ptr)
 {
-printk("\n *** IN bcmtch_init_gpio ");
 	struct bcmtch_platform_data *p_platform_data;
 	int32_t ret_val = 0;
 
@@ -6729,7 +6779,6 @@ printk("\n *** IN bcmtch_init_gpio ");
 				__func__);
 	}
 
-printk("\n *** In Final ret_val = %d", ret_val);
 	return ret_val;
 }
 
@@ -7375,6 +7424,12 @@ static int32_t bcmtch_i2c_probe(
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 	BCMTCH_INFO("PROBE: success\n");
 
+	sec_touchkey = device_create(sec_class, NULL, 0,
+				bcmtch_data_ptr, "sec_touchkey");
+	if (device_create_file(sec_touchkey, &dev_attr_brightness) < 0)
+		pr_err("Failed to create device file(%s)!\n",
+					dev_attr_brightness.attr.name);
+
 	return 0;
 
 interrupt_error:
@@ -7491,6 +7546,7 @@ static int32_t bcmtch_i2c_remove(struct i2c_client *p_i2c_client)
 
 static int32_t __init bcmtch_i2c_init(void)
 {
+	sec_class = class_create(THIS_MODULE, "sec_touchscreen");
 	return i2c_add_driver(&bcmtch_i2c_driver);
 }
 
