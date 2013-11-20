@@ -10,6 +10,9 @@
 
 /include/ "skeleton.dtsi"
 
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
 /{
 	compatible = "renesas,r8a7373";
 	interrupt-parent = <&gic>;
@@ -58,7 +61,7 @@
 		compatible = "renesas,rmobile-iic";
 		reg = <0xe6820000 0x425>;
 		interrupt-parent = <&gic>;
-		interrupts = <0 184 0x4>;
+		interrupts = <GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <400000>;
 	};
 
@@ -68,7 +71,7 @@
 		compatible = "renesas,rmobile-iic";
 		reg = <0xe6822000 0x425>;
 		interrupt-parent = <&gic>;
-		interrupts = <0 185 0x4>;
+		interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <400000>;
 	};
 
@@ -78,7 +81,7 @@
 		compatible = "renesas,rmobile-iic";
 		reg = <0xe6824000 0x425>;
 		interrupt-parent = <&gic>;
-		interrupts = <0 186 0x4>;
+		interrupts = <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <400000>;
 	};
 
@@ -88,7 +91,7 @@
 		compatible = "renesas,rmobile-iic";
 		reg = <0xe6826000 0x425>;
 		interrupt-parent = <&gic>;
-		interrupts = <0 187 0x4>;
+		interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <400000>;
 	};
 
@@ -98,7 +101,7 @@
 		compatible = "renesas,rmobile-iic";
 		reg = <0xe6828000 0x425>;
 		interrupt-parent = <&gic>;
-		interrupts = <0 188 0x4>;
+		interrupts = <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <400000>;
 		renesas,bus-data-delay = <17>;
 		renesas,clks-per-count = <2>;
@@ -111,7 +114,7 @@
 		compatible = "renesas,rmobile-iic";
 		reg = <0xe682a000 0x425>;
 		interrupt-parent = <&gic>;
-		interrupts = <0 189 0x4>;
+		interrupts = <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <400000>;
 	};
 
@@ -121,7 +124,7 @@
 		compatible = "renesas,rmobile-iic";
 		reg = <0xe682c000 0x425>;
 		interrupt-parent = <&gic>;
-		interrupts = <0 128 0x4>;
+		interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <400000>;
 	};
 
@@ -131,7 +134,7 @@
 		compatible = "renesas,rmobile-iic";
 		reg = <0xe682e000 0x425>;
 		interrupt-parent = <&gic>;
-		interrupts = <0 181 0x4>;
+		interrupts = <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>;
 		clock-frequency = <400000>;
 	};
  };
