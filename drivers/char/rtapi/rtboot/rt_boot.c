@@ -23,6 +23,8 @@
 #include <linux/miscdevice.h>
 #include <linux/io.h>
 #include <linux/sched.h>
+#include <linux/platform_device.h>
+#include <linux/platform_data/rt_boot_pdata.h>
 #include "log_kernel.h"
 #include "rt_boot_drv.h"
 #include "rt_boot_local.h"
@@ -48,16 +50,19 @@ static const struct file_operations g_fops = {
 /* boot_info */
 struct rt_boot_info g_rtboot_info;
 
-static int rtboot_init(void)
+static int rt_boot_probe(struct platform_device *pd)
 {
 	int ret;
 	unsigned int bootaddr = 0;
+	struct rt_boot_platform_data *pdata;
 #ifdef SECURE_BOOT_ENABLE
 	uint32_t phys_cert_addr;
 	uint32_t cert_size;
 #endif
 
 	MSG_MED("[RTBOOTK]IN |[%s]\n", __func__);
+
+	pdata = (struct rt_boot_platform_data *)pd->dev.platform_data;
 
 	memset(&g_rtboot_info, 0, sizeof(g_rtboot_info));
 
@@ -74,7 +79,7 @@ static int rtboot_init(void)
 
 	do_ioremap_register();
 
-	if (0 != read_rt_image(&bootaddr)) {
+	if (0 != read_rt_image(&bootaddr, pdata)) {
 		MSG_ERROR("[RTBOOTK]   |read_rt_image() Error\n");
 		do_iounmap_register();
 		ret = misc_deregister(&g_device);
@@ -201,6 +206,25 @@ int rtboot_get_section_header(struct rt_boot_info *info)
 	return ret;
 }
 EXPORT_SYMBOL(rtboot_get_section_header);
+
+
+static struct platform_driver rt_boot_pdriver = {
+	.probe	= rt_boot_probe,
+	.driver	= {
+		.name	= "rt_boot",
+		.owner	= THIS_MODULE,
+	},
+};
+
+static int rtboot_init(void)
+{
+	int ret = platform_driver_register(&rt_boot_pdriver);
+	if (ret) {
+		pr_err("%s: platform_driver_unregister failed  %d\n",
+				__func__, ret);
+	}
+	return ret;
+}
 
 module_init(rtboot_init);
 module_exit(rtboot_exit);

@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/fs.h>
 #include <linux/delay.h>
+#include <linux/platform_data/rt_boot_pdata.h>
 #include <mach/common.h>
 #include <linux/io.h>
 #include "rt_boot_drv.h"
@@ -76,7 +77,8 @@ static char *kernel_rt_boot_path = "/boot/RTFM_SH4AL_DSP_MU200.bin";
 static char *kernel_rt_cert_path = "/boot/mediafw.cert";
 
 /* prototype */
-static int set_screen_data(unsigned int disp_addr);
+static int set_screen_data(unsigned int disp_addr,
+		struct rt_boot_platform_data *pdata);
 
 void do_ioremap_register(void)
 {
@@ -92,7 +94,7 @@ void do_iounmap_register(void)
 	iounmap(intcrt_base5);
 }
 
-int read_rt_image(unsigned int *addr)
+int read_rt_image(unsigned int *addr, struct rt_boot_platform_data *pdata)
 {
 	struct rt_boot_info info;
 	struct rt_boot_info *bootaddr_info;
@@ -179,7 +181,8 @@ int read_rt_image(unsigned int *addr)
 		bootaddr_info->load_flg = 0;
 
 		/* Set screen data */
-		retval = set_screen_data(info.command_area_address + info.command_area_size - 32);
+		retval = set_screen_data(info.command_area_address +
+				info.command_area_size - 32, pdata);
 		if (0 != retval) {
 			MSG_ERROR("[RTBOOTK]   |Error setting screen info\n");
 			ret = 1;
@@ -302,7 +305,8 @@ void write_req_comp(void)
 	writel(GSR_REQ_COMP, REG_GSR);
 }
 
-static int set_screen_data(unsigned int disp_addr)
+static int set_screen_data(unsigned int disp_addr,
+		struct rt_boot_platform_data *pdata)
 {
 	void __iomem *addr = NULL;
 	struct screen_info screen[2];
@@ -316,32 +320,8 @@ static int set_screen_data(unsigned int disp_addr)
 		return 1;
 	}
 
-	/* LCD default setting */
-	screen[0].height = SCREEN0_HEIGHT;
-	screen[0].width  = SCREEN0_WIDTH;
-	screen[0].stride = SCREEN0_STRIDE;
-	screen[0].mode   = SCREEN0_MODE;
-
-#ifdef CONFIG_FB_R_MOBILE_NT35510
-	MSG_LOW("WVGA(NT35510) command mode setting.\n");
-	screen[0].height = 800;
-	screen[0].width  = 480;
-	screen[0].stride = 480;
-	screen[0].mode   = 1; /* COMMAND MODE */
-#endif /* CONFIG_FB_R_MOBILE_NT35510 */
-
-#ifdef CONFIG_FB_R_MOBILE_VX5B3D
-	MSG_LOW("WSVGA(VX5B3D) video mode setting.\n");
-	screen[0].height = 600;
-	screen[0].width  = 1024;
-	screen[0].stride = 1024;
-	screen[0].mode   = 0; /* VIDEO MODE */
-#endif /* CONFIG_FB_R_MOBILE_VX5B3D */
-
-	screen[1].height = SCREEN1_HEIGHT;
-	screen[1].width  = SCREEN1_WIDTH;
-	screen[1].stride = SCREEN1_STRIDE;
-	screen[1].mode   = SCREEN1_MODE;
+	screen[0] = pdata->screen0;
+	screen[1] = pdata->screen1;
 
 	memcpy_toio(addr, &screen, sizeof(screen));
 

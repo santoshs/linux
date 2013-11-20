@@ -22,6 +22,7 @@
 #include <linux/irq.h>
 #include <linux/gpio.h>
 #include <linux/hwspinlock.h>
+#include <linux/platform_data/rt_boot_pdata.h>
 #include <mach/common.h>
 #include <mach/setup-u2usb.h>
 #include <asm/hardware/cache-l2x0.h>
@@ -320,6 +321,26 @@ struct i2c_board_info i2c4_devices_tsp_detector[] = {
 	{
 		I2C_BOARD_INFO("tsp_detector", 0x7f),
 	},
+};
+
+static struct rt_boot_platform_data rt_boot_pdata = {
+	.screen0 = {
+		.height = 800,
+		.width = 480,
+		.stride = 480,
+		.mode = 1,
+	},
+	.screen1 = {
+		.height = 0,
+		.width = 0,
+		.stride = 0,
+		.mode = 0,
+	},
+};
+
+static struct platform_device rt_boot_device = {
+	.name = "rt_boot",
+	.dev.platform_data = &rt_boot_pdata,
 };
 
 void board_restart(char mode, const char *cmd)
@@ -629,6 +650,7 @@ static void __init board_init(void)
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 	pn547_device_i2c_register();
 #endif
+	platform_device_register(&rt_boot_device);
 }
 
 #ifdef CONFIG_OF

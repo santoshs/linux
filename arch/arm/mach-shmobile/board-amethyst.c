@@ -22,6 +22,7 @@
 #include <linux/irq.h>
 #include <linux/gpio.h>
 #include <linux/hwspinlock.h>
+#include <linux/platform_data/rt_boot_pdata.h>
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 #include <mach/setup-u2usb.h>
@@ -432,6 +433,26 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 	},
 };
 
+static struct rt_boot_platform_data rt_boot_pdata = {
+	.screen0 = {
+		.height = 960,
+		.width = 540,
+		.stride = 544,
+		.mode = 1,
+	},
+	.screen1 = {
+		.height = 0,
+		.width = 0,
+		.stride = 0,
+		.mode = 0,
+	},
+};
+
+static struct platform_device rt_boot_device = {
+	.name = "rt_boot",
+	.dev.platform_data = &rt_boot_pdata,
+};
+
 void board_restart(char mode, const char *cmd)
 {
 	printk(KERN_INFO "%s\n", __func__);
@@ -703,6 +724,7 @@ static void __init board_init(void)
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 	pn547_device_i2c_register();
 #endif
+	platform_device_register(&rt_boot_device);
 }
 
 #ifdef CONFIG_OF
