@@ -24,15 +24,6 @@
 #include <mach/setup-u2sdhi.h>
 #include <mach/setup-u2stm.h>
 #include <mach/crashlog.h>
-
-#if defined(CONFIG_BCM4334_BT)
-#include <mach/board-bcm4334-bt.h>
-#endif
-
-#if defined(CONFIG_RENESAS_BT)
-#include <mach/dev-renesas-bt.h>
-#endif
-
 #include <sound/sh_fsi.h>
 #include <linux/platform_data/fsi_d2153_pdata.h>
 #include <linux/spi/sh_msiof.h>
@@ -396,9 +387,6 @@ static struct platform_device *u2_devices[] __initdata = {
 	&mmcif_device,
 #if defined(CONFIG_U2_SDHI)
 	&sdhi1_device,
-#endif
-#if defined(CONFIG_BCM4334_BT) || defined(CONFIG_RENESAS_BT)
-	&bcm4334_bluetooth_device,
 #endif
 	&fsi_device,
 	&fsi_b_device,
