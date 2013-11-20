@@ -45,6 +45,7 @@
 #include <mach/setup-u2ion.h>
 #include <mach/setup-u2rcu.h>
 #include <mach/setup-u2camera.h>
+#include <mach/setup-u2sdhi.h>
 #include <linux/proc_fs.h>
 #if defined(CONFIG_RENESAS_GPS)|| defined(CONFIG_GPS_CSR_GSD5T)
 #include <mach/dev-gps.h>
@@ -598,13 +599,10 @@ static void __init board_init(void)
 		ret = platform_device_register(&stm_device);
 		if (ret)
 			pr_err("%s failed to add stm_device %d", __func__, ret);
-	} else {
-		ret = platform_device_register(&sdhi0_device);
-		if (ret)
-			pr_err("%s failed to add sdhi0_device %d",
-					__func__, ret);
-	}
+	} else
+		u2_add_sdhi0_device();
 
+	u2_add_sdhi1_device();
 	u2_add_ion_device();
 	u2_add_rcu_devices();
 	add_bcmbt_rfkill_device(GPIO_PORT268, GPIO_PORT15);

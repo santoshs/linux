@@ -255,7 +255,7 @@ static struct resource sdhi0_resources[] = {
 	},
 };
 
-struct platform_device sdhi0_device = {
+static struct platform_device sdhi0_device = {
 	.name		= "renesas_sdhi",
 	.id		= 0,
 	.dev		= {
@@ -264,6 +264,14 @@ struct platform_device sdhi0_device = {
 	.num_resources	= ARRAY_SIZE(sdhi0_resources),
 	.resource	= sdhi0_resources,
 };
+
+void __init u2_add_sdhi0_device(void)
+{
+	int ret = platform_device_register(&sdhi0_device);
+	if (ret)
+		pr_err("%s: failed to register sdhi0 device %d\n",
+				__func__, ret);
+}
 
 static int sdhi1_get_pwr(struct platform_device *pdev)
 {
@@ -333,3 +341,11 @@ struct platform_device sdhi1_device = {
 	.num_resources	= ARRAY_SIZE(sdhi1_resources),
 	.resource	= sdhi1_resources,
 };
+
+void __init u2_add_sdhi1_device(void)
+{
+	int ret = platform_device_register(&sdhi1_device);
+	if (ret)
+		pr_err("%s: failed to register sdhi1 device %d\n",
+				__func__, ret);
+}

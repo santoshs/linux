@@ -21,7 +21,6 @@
 
 #include <linux/platform_device.h>
 #include <linux/mmc/renesas_mmcif.h>
-#include <mach/setup-u2sdhi.h>
 #include <mach/setup-u2stm.h>
 #include <mach/crashlog.h>
 #include <sound/sh_fsi.h>
@@ -384,9 +383,6 @@ static struct platform_device	tpu_devices[] = {
 
 static struct platform_device *u2_devices[] __initdata = {
 	&mmcif_device,
-#if defined(CONFIG_U2_SDHI)
-	&sdhi1_device,
-#endif
 	&fsi_device,
 	&fsi_b_device,
 	&audio_device,
