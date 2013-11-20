@@ -62,6 +62,7 @@
 
 #include <linux/regulator/consumer.h>
 #include <mach/setup-u2sci.h>
+#include <mach/sbsc.h>
 #include <sound/sh_fsi.h>
 #include <linux/platform_data/fsi_d2153_pdata.h>
 #include <linux/spi/sh_msiof.h>
@@ -1786,6 +1787,39 @@ void SBSC_Init_520Mhz(void)
 	__raw_readl(sbsc_sdmracr1a);
 }
 EXPORT_SYMBOL_GPL(SBSC_Init_520Mhz);
+
+void __init r8a7373_zq_calibration(void)
+{
+	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
+	void __iomem *sbsc_sdmra_28200 = NULL;
+	void __iomem *sbsc_sdmra_38200 = NULL;
+	u8 reg8 = __raw_readb(STBCHRB3);
+
+	if ((reg8 & 0x80) && !shmobile_is_older(U2_VERSION_2_2)) {
+		pr_err("< %s >Apply for ZQ calibration\n", __func__);
+		pr_err("< %s > Before CPG_PLL3CR 0x%8x\n",
+				__func__, __raw_readl(PLL3CR));
+		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
+		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
+		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
+		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
+			SBSC_Init_520Mhz();
+			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
+			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
+		} else {
+			pr_err("%s: ioremap failed.\n", __func__);
+		}
+		pr_err("< %s > After CPG_PLL3CR 0x%8x\n",
+				__func__, __raw_readl(PLL3CR));
+		if (sbsc_sdmracr1a)
+			iounmap(sbsc_sdmracr1a);
+		if (sbsc_sdmra_28200)
+			iounmap(sbsc_sdmra_28200);
+		if (sbsc_sdmra_38200)
+			iounmap(sbsc_sdmra_38200);
+	}
+}
 
 static void shmobile_check_rev(void)
 {

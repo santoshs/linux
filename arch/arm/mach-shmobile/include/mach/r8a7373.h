@@ -933,6 +933,7 @@ extern void r8a7373_pinmux_init(void);
 extern void r8a7373_pm_init(void);
 extern void r8a7373_register_twd(void);
 extern void r8a7373_enter_core_standby(void);
+extern void r8a7373_zq_calibration(void);
 #endif
 
 #endif /* __ASM_R8A7373_H__ */

@@ -35,7 +35,6 @@
 #include <linux/irqchip/arm-gic.h>
 #include <mach/setup-u2timers.h>
 #include <mach/poweroff.h>
-#include <mach/sbsc.h>
 
 #include<linux/led_backlight-cntrl.h>
 
@@ -495,37 +494,10 @@ static const struct pinctrl_map loganlte_pinctrl_map[] = {
 static void __init board_init(void)
 {
 	int stm_select = -1;    // Shall tell how to route STM traces. See setup-u2stm.c for details.
-	void __iomem *sbsc_sdmra_28200 = NULL;
-	void __iomem *sbsc_sdmra_38200 = NULL;
 	int inx = 0;
 
-	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-	u8 reg8 = __raw_readb(STBCHRB3);
+	r8a7373_zq_calibration();
 
-	if ((reg8 & 0x80) && !shmobile_is_older(U2_VERSION_2_2)) {
-		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
-		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(PLL3CR));
-		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
-		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
-		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
-			SBSC_Init_520Mhz();
-			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
-			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
-			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
-		} else {
-			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
-		}
-		printk(KERN_ALERT "< %s > After CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(PLL3CR));
-		if(sbsc_sdmracr1a)
-			iounmap(sbsc_sdmracr1a);
-		if(sbsc_sdmra_28200)
-			iounmap(sbsc_sdmra_28200);
-		if(sbsc_sdmra_38200)
-			iounmap(sbsc_sdmra_38200);
-	}
 	r8a7373_avoid_a2slpowerdown_afterL2sync();
 	pinctrl_register_mappings(loganlte_pinctrl_map,
 				  ARRAY_SIZE(loganlte_pinctrl_map));
