@@ -1236,19 +1236,6 @@ static struct platform_device *r8a7373_late_devices_es20_d2153[] __initdata = {
 };
 
 
-static struct resource renesas_mmcif_resources[] = {
-	[0] = {
-		.name	= "MMCIF",
-		.start	= 0xe6bd0000,
-		.end	= 0xe6bd00ff,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(122),
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
 /* For different STM muxing options 0, 1, or None, as given by
  * boot_command_line parameter stm=0/1/n
  */
@@ -1265,6 +1252,20 @@ static struct sh_mmcif_plat_data renesas_mmcif_plat = {
 	.max_clk	= 52000000,
 };
 
+#ifndef CONFIG_OF
+static struct resource renesas_mmcif_resources[] = {
+	[0] = {
+		.name	= "MMCIF",
+		.start	= 0xe6bd0000,
+		.end	= 0xe6bd00ff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= gic_spi(122),
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
 static struct platform_device mmcif_device = {
 	.name		= "renesas_mmcif",
 	.id		= 0,
@@ -1274,6 +1275,7 @@ static struct platform_device mmcif_device = {
 	.resource		= renesas_mmcif_resources,
 	.num_resources	= ARRAY_SIZE(renesas_mmcif_resources),
 };
+#endif
 
 static struct resource fsi_resources[] = {
 	[0] = {
@@ -1583,7 +1585,9 @@ static struct platform_device	tpu_devices[] = {
 };
 
 static struct platform_device *u2_devices[] __initdata = {
+#ifndef CONFIG_OF
 	&mmcif_device,
+#endif
 	&fsi_device,
 	&fsi_b_device,
 	&audio_device,
@@ -1613,6 +1617,9 @@ static const struct of_dev_auxdata r8a7373_auxdata_lookup[] __initconst = {
 	/* Have to pass pdata to get fixed IRQ numbering for non-DT drivers */
 	OF_DEV_AUXDATA("renesas,irqc", 0xe61c0000, NULL, &irqc0_data),
 	OF_DEV_AUXDATA("renesas,irqc", 0xe61c0200, NULL, &irqc1_data),
+	/* mmcif pdata is required to manage platform callbacks */
+	OF_DEV_AUXDATA("renesas,renesas-mmcif", 0xe6bd0000, NULL,
+		       &renesas_mmcif_plat),
 	{},
 };
 #endif
