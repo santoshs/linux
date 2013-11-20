@@ -201,11 +201,6 @@ static void intcs_demux(unsigned int irq, struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
-static int r8a7373_irq_set_wake(struct irq_data *d, unsigned int on)
-{
-	return 0;
-}
-
 void __init r8a7373_init_irq(void)
 {
 #ifdef CONFIG_OF
@@ -213,7 +208,7 @@ void __init r8a7373_init_irq(void)
 #else
 	gic_init(0, 29, GIC_DIST_BASE, GIC_CPU_BASE);
 #endif
-	gic_arch_extn.irq_set_wake = r8a7373_irq_set_wake;
+	gic_arch_extn.flags = IRQCHIP_SKIP_SET_WAKE;
 }
 
 void __init r8a7373_irqc_init(void)
