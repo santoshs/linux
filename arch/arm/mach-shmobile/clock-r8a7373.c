@@ -913,7 +913,7 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP517] = MSTP(5, 17, NULL, 0), /* S2O1 */
 	[MSTP516] = MSTP(5, 16, NULL, 0), /* S2O0 */
 	[MSTP508] = MSTP(5,  8, &div4_clks[DIV4_HP], 0), /* INTC-BB */
-	[MSTP507] = MSTP(5,  7, &div4_clks[DIV4_HP], 0), /* IRQC(INTC-SYS) */
+	[MSTP507] = MSTP(5,  7, &div4_clks[DIV4_HP], CLK_ENABLE_ON_INIT), /* IRQC(INTC-SYS) */
 	[MSTP501] = MSTP(5,  1, &div4_clks[DIV4_HP], 0), /* SPU2A Core1 */
 	[MSTP500] = MSTP(5,  0, &div4_clks[DIV4_HP], 0), /* SPU2A Core0 */
 
