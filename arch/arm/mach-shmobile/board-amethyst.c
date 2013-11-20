@@ -22,6 +22,8 @@
 #include <linux/irq.h>
 #include <linux/gpio.h>
 #include <linux/hwspinlock.h>
+#include <linux/pinctrl/machine.h>
+#include <linux/pinctrl/pinconf-generic.h>
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 #include <mach/setup-u2usb.h>
@@ -128,9 +130,7 @@
 #include <linux/l3gd20.h>
 #endif
 
-#include <mach/sbsc.h>
-#include <linux/pinctrl/machine.h>
-#include <linux/pinctrl/pinconf-generic.h>
+#include "sh-pfc.h"
 
 static int unused_gpios_amethyst[] = {
 	GPIO_PORT3, GPIO_PORT6, GPIO_PORT8, GPIO_PORT10,
@@ -562,29 +562,29 @@ static unsigned long pin_pullup_conf[] = {
 	PIN_CONF_PACKED(PIN_CONFIG_BIAS_PULL_UP, 0),
 };
 
-static const struct pinctrl_map loganlte_pinctrl_map[] = {
-	PIN_MAP_MUX_GROUP_DEFAULT("sh-sci.0", "pfc-r8a7373",
-				  "scifa0_data", "scifa0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas_mmcif.0", "pfc-r8a7373",
-				  "mmc0_data8", "mmc0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas_mmcif.0", "pfc-r8a7373",
-				  "mmc0_ctrl", "mmc0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas_sdhi.0", "pfc-r8a7373",
-				  "sdhi0_data4", "sdhi0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas_sdhi.0", "pfc-r8a7373",
-				  "sdhi0_ctrl", "sdhi0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas_sdhi.0", "pfc-r8a7373",
-				  "sdhi0_cd", "sdhi0"),
+static struct pinctrl_map loganlte_pinctrl_map[] __initdata = {
+	SH_PFC_MUX_GROUP_DEFAULT("sh-sci.0",
+				 "scifa0_data", "scifa0"),
+	SH_PFC_MUX_GROUP_DEFAULT("renesas_mmcif.0",
+				 "mmc0_data8", "mmc0"),
+	SH_PFC_MUX_GROUP_DEFAULT("renesas_mmcif.0",
+				 "mmc0_ctrl", "mmc0"),
+	SH_PFC_MUX_GROUP_DEFAULT("renesas_sdhi.0",
+				 "sdhi0_data4", "sdhi0"),
+	SH_PFC_MUX_GROUP_DEFAULT("renesas_sdhi.0",
+				 "sdhi0_ctrl", "sdhi0"),
+	SH_PFC_MUX_GROUP_DEFAULT("renesas_sdhi.0",
+				 "sdhi0_cd", "sdhi0"),
 #ifdef CONFIG_OF
-	PIN_MAP_MUX_GROUP_DEFAULT("e682e000.i2c", "pfc-r8a7373",
-				  "i2c7_data", "i2c7"),
-	PIN_MAP_CONFIGS_GROUP_DEFAULT("e682e000.i2c", "pfc-r8a7373",
-				      "i2c7_data", pin_pullup_conf),
+	SH_PFC_MUX_GROUP_DEFAULT("e682e000.i2c",
+				 "i2c7_data", "i2c7"),
+	SH_PFC_CONFIGS_GROUP_DEFAULT("e682e000.i2c",
+				     "i2c7_data", pin_pullup_conf),
 #else
-	PIN_MAP_MUX_GROUP_DEFAULT("i2c-sh_mobile.7", "pfc-r8a7373",
-				  "i2c7_data", "i2c7"),
-	PIN_MAP_CONFIGS_GROUP_DEFAULT("i2c-sh_mobile.7", "pfc-r8a7373",
-				      "i2c7_data", pin_pullup_conf),
+	SH_PFC_MUX_GROUP_DEFAULT("i2c-sh_mobile.7",
+				 "i2c7_data", "i2c7"),
+	SH_PFC_CONFIGS_GROUP_DEFAULT("i2c-sh_mobile.7",
+				     "i2c7_data", pin_pullup_conf),
 #endif
 };
 
@@ -624,8 +624,8 @@ static void __init board_init(void)
 			iounmap(sbsc_sdmra_38200);
 	}
 	r8a7373_avoid_a2slpowerdown_afterL2sync();
-	pinctrl_register_mappings(loganlte_pinctrl_map,
-				  ARRAY_SIZE(loganlte_pinctrl_map));
+	sh_pfc_register_mappings(loganlte_pinctrl_map,
+				 ARRAY_SIZE(loganlte_pinctrl_map));
 	r8a7373_pinmux_init();
 
 	if (!proc_create("board_revision", 0444, NULL, &board_rev_ops))

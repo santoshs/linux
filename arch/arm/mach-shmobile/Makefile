@@ -90,6 +90,7 @@ obj-$(CONFIG_BCM4334_BT)		+= board-bcm4334-bt.o
 
 # Framework support
 obj-$(CONFIG_SMP)		+= $(smp-y)
+obj-$(CONFIG_PINCTRL)		+= pfc.o
 
 # LED support
 #obj-y	+= led-control.o
