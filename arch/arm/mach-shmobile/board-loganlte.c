@@ -73,15 +73,6 @@
 #endif /* CONFIG_SND_SOC_SH4_FSI */
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
-#include <linux/broadcom/bcm-bt-rfkill.h>
-#endif
-#ifdef CONFIG_BCM_BT_LPM
-#include <linux/broadcom/bcm-bt-lpm.h>
-#endif
-#ifdef CONFIG_BCM_BZHW
-#include <linux/broadcom/bcm_bzhw.h>
-#endif
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 #include <linux/nfc/pn547.h>
 #endif
@@ -95,6 +86,7 @@
 #include <mach/dev-wifi.h>
 
 #include <mach/dev-touchpanel.h>
+#include <mach/dev-bt.h>
 
 #ifdef CONFIG_ARCH_R8A7373
 #include <mach/setup-u2stm.h>
@@ -180,61 +172,6 @@ static struct platform_device led_backlight_device = {
 		.platform_data  = &ktd253ehd_led_info,
 	},
 };
-
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
-#define BCMBT_VREG_GPIO       (GPIO_PORT268)
-#define BCMBT_N_RESET_GPIO    (GPIO_PORT15) //(-1)
-
-static struct bcm_bt_rfkill_platform_data bcm_bt_rfkill_data = {
-	.bcm_bt_rfkill_vreg_gpio = BCMBT_VREG_GPIO,
-	.bcm_bt_rfkill_n_reset_gpio = BCMBT_N_RESET_GPIO,
-};
-
-struct platform_device board_bcmbt_rfkill_device = {
-	.name = "bcm-bt-rfkill",
-	.id   = -1,
-	.dev  = {
-		.platform_data=&bcm_bt_rfkill_data,
-	},
-};
-#endif
-
-#ifdef CONFIG_BCM_BZHW
-
-#define GPIO_BT_WAKE 	GPIO_PORT262
-#define GPIO_HOST_WAKE 	GPIO_PORT272
-
-static struct bcm_bzhw_platform_data bcm_bzhw_data = {
-	.gpio_bt_wake   = GPIO_BT_WAKE,
-	.gpio_host_wake = GPIO_HOST_WAKE,
-};
-
-static struct platform_device board_bcm_bzhw_device = {
-	.name = "bcm_bzhw",
-	.id = -1,
-	.dev = {
-		.platform_data = &bcm_bzhw_data,
-	},
-};
-#endif
-
-#ifdef CONFIG_BCM_BT_LPM
-#define GPIO_BT_WAKE	GPIO_PORT262
-#define GPIO_HOST_WAKE	GPIO_PORT272
-
-static struct bcm_bt_lpm_platform_data brcm_bt_lpm_data = {
-	.bt_wake_gpio = GPIO_BT_WAKE,
-	.host_wake_gpio = GPIO_HOST_WAKE,
-};
-
-struct platform_device board_bcmbt_lpm_device = {
-	.name = "bcm-bt-lpm",
-	.id   = -1,
-	.dev  = {
-		.platform_data=&brcm_bt_lpm_data,
-	},
-};
-#endif
 
 struct fm34_platform_data fm34_data = {
 	.set_mclk = NULL,
@@ -707,6 +644,8 @@ static void __init board_init(void)
 
 	u2_add_ion_device();
 	u2_add_rcu_devices();
+	add_bcmbt_rfkill_device(GPIO_PORT268, GPIO_PORT15);
+	add_bcmbt_lpm_device(GPIO_PORT262, GPIO_PORT272);
 
 	platform_device_register(&led_backlight_device);
 

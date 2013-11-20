@@ -33,14 +33,6 @@
 #include <mach/dev-renesas-bt.h>
 #endif
 
-#if defined(CONFIG_BCM_BT_RFKILL)
-#include <mach/dev-bt-rfkill.h>
-#endif
-
-#if defined(CONFIG_BCM_BT_LPM)
-#include <mach/dev-bt-lpm.h>
-#endif
-
 #include <sound/sh_fsi.h>
 #include <linux/platform_data/fsi_d2153_pdata.h>
 #include <linux/spi/sh_msiof.h>
@@ -419,16 +411,6 @@ static struct platform_device *u2_devices[] __initdata = {
 	&mdm_reset_device,
 #ifdef CONFIG_SPI_SH_MSIOF
 	&sh_msiof0_device,
-#endif
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
-	&board_bcmbt_rfkill_device,
-#endif
-#ifdef CONFIG_BCM_BZHW
-	&board_bcm_bzhw_device,
-#endif
-
-#ifdef CONFIG_BCM_BT_LPM
-	&board_bcmbt_lpm_device,
 #endif
 	&thermal_sensor_device,
 #ifdef CONFIG_SOC_CAMERA
