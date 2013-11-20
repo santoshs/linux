@@ -56,11 +56,11 @@
 
 
 #if defined(CONFIG_MACH_U2USB)
-extern unsigned int muic_is_present(void);
-extern void __init usb_init(void);
+extern bool muic_is_present(void);
+extern void __init usb_init(bool is_muic_present);
 #else
-static inline unsigned int muic_is_present(void) { return 0; }
-static inline void usb_init(void) {}
+static inline bool muic_is_present(void) { return 0; }
+static inline void usb_init(bool is_muic_present) {}
 #endif
 
 #if defined(CONFIG_MACH_U2USB) && defined(CONFIG_USB_R8A66597_HCD)

@@ -522,23 +522,18 @@ void __init u2_add_usb_otg_device(void)
 }
 #endif /*CONFIG_USB_OTG*/
 
-unsigned int muic_is_present(void)
+static bool is_muic;
+bool muic_is_present(void)
 {
-	unsigned int is_muic = 0;
-	/* implement switch present logic here */
-#ifdef CONFIG_MACH_AMETHYST
-	is_muic = 0;
-#endif
-#ifdef CONFIG_MACH_LOGANLTE
-	is_muic = 1;
-#endif
 	return is_muic;
 }
 EXPORT_SYMBOL_GPL(muic_is_present);
 
-void __init usb_init(void)
+void __init usb_init(bool is_muic_present)
 {
 	int ret = 0;
+	is_muic = is_muic_present;
+
 	/* USBHS */
 	ret = gpio_request(GPIO_FN_ULPI_DATA0, NULL);
 	if (ret < 0)

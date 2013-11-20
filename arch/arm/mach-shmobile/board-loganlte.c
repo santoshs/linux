@@ -519,7 +519,7 @@ static void __init board_init(void)
 	gpio_direction_input(GPIO_PORT32);
 	gpio_pull_up_port(GPIO_PORT32);
 
-	usb_init();
+	usb_init(true);
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
 	if (system_rev < 1)

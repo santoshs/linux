@@ -638,7 +638,7 @@ static void __init board_init(void)
 #endif /* CONFIG_MFD_D2153 */
 
 
-	usb_init();
+	usb_init(false);
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
 	d2153_pdata.audio.fm34_device = DEVICE_NONE;
