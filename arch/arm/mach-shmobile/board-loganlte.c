@@ -683,7 +683,7 @@ MACHINE_START(LOGANLTE, "loganlte")
 	.init_machine   = board_init,
 	.init_time	= u2_timers_init,
 	.restart        = board_restart,
-	.reserve        = r8a7373_reserve
+	.reserve        = r8a7373_reserve,
 	.init_late      = r8a7373_init_late,
 MACHINE_END
 #endif
