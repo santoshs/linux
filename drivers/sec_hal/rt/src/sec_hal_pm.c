@@ -393,8 +393,14 @@ uint32_t sec_hal_pm_l2_enable(uint32_t spinlock_phys_addr)
 			1, /* nonzero == enable */
 			SEC_MSG_PARAM_ID_NONE);
 		sec_msg_param_write32(&in_handle,
-			L2_SPINLOCK_TYPE_DEFAULT,
-			SEC_MSG_PARAM_ID_NONE);
+#ifdef SEC_HAL_TICKET_SPINLOCK_SUPPORT
+/* For kernel release 2.6.25 and onwards */
+				L2_SPINLOCK_TYPE_TICKET,
+#else
+/* For kernel releases earlier than 2.6.25 */
+				L2_SPINLOCK_TYPE_DEFAULT,
+#endif /* SEC_HAL_TICKET_SPINLOCK_SUPPORT*/
+				SEC_MSG_PARAM_ID_NONE);
 		sec_msg_param_write32(&in_handle,
 			spinlock_phys_addr,
 			SEC_MSG_PARAM_ID_NONE);

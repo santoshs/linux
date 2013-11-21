@@ -148,7 +148,7 @@ typedef uint32_t sec_serv_status_t;
  * Spinlock types
  */
 #define L2_SPINLOCK_TYPE_DEFAULT                0x00000001
-
+#define L2_SPINLOCK_TYPE_TICKET                 0x00000002
 
 #ifndef SECURE_ENVIRONMENT
 /* These are return values from the dispatcher. */
