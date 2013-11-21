@@ -594,6 +594,14 @@ static void __init board_init(void)
                 printk(KERN_ERR "DONE WLAN_INIT!\n");
 #endif
 	}
+
+	/* From Afyon rev0.1 onwards sdhi data lines internal pullup
+	 * needs to be enabled */
+	gpio_pull_up_port(GPIO_PORT320);
+	gpio_pull_up_port(GPIO_PORT321);
+	gpio_pull_up_port(GPIO_PORT322);
+	gpio_pull_up_port(GPIO_PORT323);
+
 	/* I2C */
 	gpio_request(GPIO_FN_I2C_SCL0H, NULL);
 	gpio_request(GPIO_FN_I2C_SDA0H, NULL);
