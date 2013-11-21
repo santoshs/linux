@@ -969,7 +969,6 @@ static int d2153_aad_i2c_probe(struct i2c_client *client,
 				gpio_handler_func,
 				IRQF_TRIGGER_FALLING |
 				IRQF_TRIGGER_RISING |
-				IRQF_DISABLED |
 				IRQF_ONESHOT,
 				(d2153_aad->codec_detect_enable ?
 					"GPIO detect" : "Jack detect"),
