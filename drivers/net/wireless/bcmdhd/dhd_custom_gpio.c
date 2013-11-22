@@ -1,6 +1,6 @@
 /*
 * Customer code to add GPIO control during WLAN start/stop
-* Copyright (C) 1999-2012, Broadcom Corporation
+* Copyright (C) 1999-2013, Broadcom Corporation
 * 
 *      Unless you and Broadcom execute a separate written software license
 * agreement governing use of this software, this software is licensed to you
@@ -20,7 +20,7 @@
 * software in any way with any other Broadcom software provided under a license
 * other than the GPL, without Broadcom's express prior written consent.
 *
-* $Id: dhd_custom_gpio.c 353167 2012-08-24 22:11:30Z $
+* $Id: dhd_custom_gpio.c 417465 2013-08-09 11:47:27Z $
 */
 
 #include <typedefs.h>
@@ -41,7 +41,12 @@
 extern  void bcm_wlan_power_off(int);
 extern  void bcm_wlan_power_on(int);
 #endif /* CUSTOMER_HW */
-#if defined(CUSTOMER_HW2) || defined(CUSTOMER_HW4)
+#if defined(CUSTOMER_HW2)
+
+#if defined(PLATFORM_MPS)
+int __attribute__ ((weak)) wifi_get_fw_nv_path(char *fw, char *nv) { return 0;};
+#endif
+
 #ifdef CONFIG_WIFI_CONTROL_FUNC
 int wifi_set_power(int on, unsigned long msec);
 int wifi_get_irq_number(unsigned long *irq_flags_ptr);
@@ -53,15 +58,15 @@ int wifi_get_irq_number(unsigned long *irq_flags_ptr) { return -1; }
 int wifi_get_mac_addr(unsigned char *buf) { return -1; }
 void *wifi_get_country_code(char *ccode) { return NULL; }
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
-#endif /* CUSTOMER_HW2 || CUSTOMER_HW4 */
+#endif 
 
-#if defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID)
+#if defined(OOB_INTR_ONLY)
 
 #if defined(BCMLXSDMMC)
 extern int sdioh_mmc_irq(int irq);
 #endif /* (BCMLXSDMMC)  */
 
-#ifdef CUSTOMER_HW3
+#if defined(CUSTOMER_HW3) 
 #include <mach/gpio.h>
 #endif
 
@@ -86,7 +91,7 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 {
 	int  host_oob_irq = 0;
 
-#if defined(CUSTOMER_HW2) || defined(CUSTOMER_HW4)
+#if defined(CUSTOMER_HW2) 
 	host_oob_irq = wifi_get_irq_number(irq_flags_ptr);
 
 #else
@@ -107,16 +112,16 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 
 #if defined CUSTOMER_HW
 	host_oob_irq = MSM_GPIO_TO_INT(dhd_oob_gpio_num);
-#elif defined CUSTOMER_HW3
+#elif defined CUSTOMER_HW3 
 	gpio_request(dhd_oob_gpio_num, "oob irq");
 	host_oob_irq = gpio_to_irq(dhd_oob_gpio_num);
 	gpio_direction_input(dhd_oob_gpio_num);
 #endif /* CUSTOMER_HW */
-#endif /* CUSTOMER_HW2 || CUSTOMER_HW4 */
+#endif 
 
 	return (host_oob_irq);
 }
-#endif /* defined(OOB_INTR_ONLY) || defined(BCMSPI_ANDROID) */
+#endif 
 
 /* Customer function to control hw specific wlan gpios */
 void
@@ -129,8 +134,8 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 #ifdef CUSTOMER_HW
 			bcm_wlan_power_off(2);
 #endif /* CUSTOMER_HW */
-#if defined(CUSTOMER_HW2) || defined(CUSTOMER_HW4)
-			wifi_set_power(0, 0);
+#if defined(CUSTOMER_HW2)
+			wifi_set_power(0, WIFI_TURNOFF_DELAY);
 #endif
 			WL_ERROR(("=========== WLAN placed in RESET ========\n"));
 		break;
@@ -141,8 +146,8 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 #ifdef CUSTOMER_HW
 			bcm_wlan_power_on(2);
 #endif /* CUSTOMER_HW */
-#if defined(CUSTOMER_HW2) || defined(CUSTOMER_HW4)
-			wifi_set_power(1, 0);
+#if defined(CUSTOMER_HW2)
+			wifi_set_power(1, 200);
 #endif
 			WL_ERROR(("=========== WLAN going back to live  ========\n"));
 		break;
@@ -179,7 +184,7 @@ dhd_custom_get_mac_address(unsigned char *buf)
 		return -EINVAL;
 
 	/* Customer access to MAC address stored outside of DHD driver */
-#if (defined(CUSTOMER_HW4) || defined(CUSTOMER_HW2)) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
+#if defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
 	ret = wifi_get_mac_addr(buf);
 #endif
 
@@ -195,7 +200,6 @@ dhd_custom_get_mac_address(unsigned char *buf)
 }
 #endif /* GET_CUSTOM_MAC_ENABLE */
 
-#ifndef CUSTOMER_HW4
 /* Customized Locale table : OPTIONAL feature */
 const struct cntry_locales_custom translate_custom_table[] = {
 /* Table should be filled out based on custom platform regulatory requirement */
@@ -292,4 +296,3 @@ void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 	return;
 #endif /* defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)) */
 }
-#endif /* CUSTOMER_HW4 */
