@@ -20,13 +20,12 @@
 #ifndef __SETUP_U2ION_H
 #define __SETUP_U2ION_H
 
-extern struct ion_platform_data u2evm_ion_data;
-extern struct platform_device u2evm_ion_device;
-
 #if defined(CONFIG_ION)
 int u2evm_ion_adjust(void);
+void __init u2_add_ion_device(void);
 #else
 static inline void u2evm_ion_adjust(void) {}
+static inline void u2_add_ion_device(void) {}
 #endif
 
 #endif /* __SETUP_U2ION_H */

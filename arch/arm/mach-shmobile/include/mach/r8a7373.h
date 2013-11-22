@@ -14,8 +14,6 @@ extern unsigned int system_rev;
 void mmcif_set_pwr(struct platform_device *, int);
 void mmcif_down_pwr(struct platform_device *);
 
-void SBSC_Init_520Mhz(void);
-
 /* Pin Function Controller:
  * GPIO_FN_xx - GPIO used to select pin function and MSEL switch
  * GPIO_PORTxx - GPIO mapped to real I/O pin on CPU
@@ -933,6 +931,7 @@ extern void r8a7373_pinmux_init(void);
 extern void r8a7373_pm_init(void);
 extern void r8a7373_register_twd(void);
 extern void r8a7373_enter_core_standby(void);
+extern void r8a7373_zq_calibration(void);
 #endif
 
 #endif /* __ASM_R8A7373_H__ */

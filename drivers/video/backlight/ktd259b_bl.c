@@ -293,7 +293,7 @@ static int ktd259b_backlight_probe(struct platform_device *pdev)
 	props.max_brightness = data->max_brightness;
 	props.type = BACKLIGHT_PLATFORM;
 
-	bl = backlight_device_register(pdev->name, &pdev->dev,
+	bl = backlight_device_register("panel", &pdev->dev,
 			ktd259b, &ktd259b_backlight_ops, &props);
 	if (IS_ERR(bl)) {
 		dev_err(&pdev->dev, "failed to register backlight\n");
@@ -350,7 +350,7 @@ static void ktd259b_backlight_shutdown(struct platform_device *pdev)
 
 static struct platform_driver ktd259b_backlight_driver = {
 	.driver		= {
-		.name	= "panel",
+		.name	= "ktd259b_backlight",
 		.owner	= THIS_MODULE,
 	},
 	.probe		= ktd259b_backlight_probe,

@@ -20,8 +20,6 @@
 #include <linux/ioport.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-#include <media/soc_camera.h>
-#include <mach/setup-u2camera.h>
 #include <mach/setup-u2rcu.h>
 #include <mach/irqs.h>
 
@@ -39,7 +37,7 @@ struct sh_mobile_rcu_info sh_mobile_rcu0_info = {
 	.flags		= 0,
 	.csi2		= &csi20,
 	.mod_name	= "sh_mobile_rcu.0",
-	.led		= main_cam_led,
+	/* .led will be set during the camera setup */
 };
 
 struct resource rcu0_resources[] = {
@@ -107,3 +105,15 @@ struct platform_device rcu1_device = {
 	},
 };
 
+void __init u2_add_rcu_devices(void)
+{
+	int ret = platform_device_register(&rcu0_device);
+	if (ret)
+		pr_err("%s: failed to register rcu0 device %d\n",
+				__func__, ret);
+
+	ret = platform_device_register(&rcu1_device);
+	if (ret)
+		pr_err("%s: failed to register rcu1 device %d\n",
+				__func__, ret);
+}

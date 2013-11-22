@@ -3,6 +3,6 @@
 
 extern struct platform_device mhl_i2c_gpio_device;
 
-void board_mhl_init(void);
+int board_mhl_init(void);
 
 #endif // __DEV_MHL_H

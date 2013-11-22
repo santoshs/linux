@@ -13,4 +13,11 @@ struct platform_ss_vibrator_data {
 	int voltage;
 };
 extern struct platform_ss_vibrator_data ss_vibrator_data;
+
+#if defined(CONFIG_VIBRATOR)
+void __init u2_add_vibrator_device(void);
+#else
+static inline void u2_add_vibrator_device(void) {}
+#endif
+
 #endif /* __ASM_ARCH_VIBRATOR_H */

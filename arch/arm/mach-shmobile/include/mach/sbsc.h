@@ -25,6 +25,7 @@
 #include <linux/spinlock.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <mach/r8a7373.h>
 
 #define SBSC_SDWCRC0A		0x40
 #define SBSC_SDWCRC1A		0x44

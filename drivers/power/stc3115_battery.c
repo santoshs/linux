@@ -22,7 +22,6 @@
 #include <linux/stc3115_battery.h>
 #include <linux/slab.h>
 #include <mach/gpio.h>
-#include <mach/board.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/wakelock.h>

@@ -46,6 +46,7 @@ void pn544_i2c_register_board_info(void)
 
 void nfc_gpio_init(void)
 {
+	int ret;
 	/*  NFC Enable */
 	/*
 	gpio_request(GPIO_PORT12, NULL);
@@ -55,5 +56,10 @@ void nfc_gpio_init(void)
 	/* NFC Firmware */
 	gpio_request(GPIO_PORT101, NULL);
 	gpio_direction_output(GPIO_PORT101, 0);
+
+	ret = platform_device_register(&pn544_i2c_gpio_device);
+	if (ret)
+		pr_err("%s: failed to register nfc device %d\n",
+					__func__, ret);
 }
 
