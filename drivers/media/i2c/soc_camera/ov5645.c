@@ -71,11 +71,10 @@ typedef struct touch_area v4l2_touch_area;
 
 #define OV5645_FLASH_THRESHHOLD		32
 
-
 int OV5645_power(struct device *dev, int power_on)
 {
-	struct clk *vclk1_clk, *vclk2_clk;
-	int iRet;
+	struct clk *vclk1_clk;
+	int iret;
 	struct regulator *regulator;
 	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
 
@@ -85,111 +84,96 @@ int OV5645_power(struct device *dev, int power_on)
 		return -1;
 	}
 
-	vclk2_clk = clk_get(NULL, "vclk2_clk");
-	if (IS_ERR(vclk2_clk)) {
-		dev_err(dev, "clk_get(vclk2_clk) failed\n");
-		return -1;
-	}
-
 	if (power_on) {
 		printk(KERN_ALERT "%s PowerON\n", __func__);
 		sh_csi2_power(dev, power_on);
-		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
-		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
 
-		/* CAM_AVDD_2V8  On */
-		regulator = regulator_get(NULL, "cam_sensor_a");
-		if (IS_ERR(regulator))
-			return -1;
-		iRet = regulator_enable(regulator);
-		regulator_put(regulator);
-
-		mdelay(2);
 		/* CAM_VDDIO_1V8 On */
 		regulator = regulator_get(NULL, "cam_sensor_io");
 		if (IS_ERR(regulator))
 			return -1;
-		iRet = regulator_enable(regulator);
+		iret = regulator_enable(regulator);
+		regulator_put(regulator);
+		mdelay(10);
+		/* CAM_AVDD_2V8  On */
+		regulator = regulator_get(NULL, "cam_sensor_a");
+		if (IS_ERR(regulator))
+			return -1;
+		iret = regulator_enable(regulator);
 		regulator_put(regulator);
 
-		mdelay(2);
-		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
-		mdelay(2);
+		mdelay(10);
+		/* CAM_DVDD_1V5 On */
+		regulator = regulator_get(NULL, "vcam_sense_1v5");
+		if (IS_ERR(regulator))
+			return -1;
+		iret = regulator_enable(regulator);
+		regulator_put(regulator);
 
-		iRet = clk_set_rate(vclk1_clk,
+		mdelay(10);
+
+		iret = clk_set_rate(vclk1_clk,
 		clk_round_rate(vclk1_clk, 24000000));
-		if (0 != iRet) {
+		if (0 != iret) {
 			dev_err(dev,
 			"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
-				iRet);
+				iret);
 		}
 
-		iRet = clk_enable(vclk1_clk);
-		if (0 != iRet) {
+		iret = clk_enable(vclk1_clk);
+
+		if (0 != iret) {
 			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
-				iRet);
+				iret);
 		}
-		mdelay(3);
-
-		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
-		mdelay(2);
-
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-		mdelay(2);
-
-		/* CAM_CORE_1V2  On */
-		gpio_set_value(GPIO_PORT3, 1);
-		mdelay(1);
-
+		mdelay(10);
 		gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
-		mdelay(1);
+		mdelay(5);
 
 		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
-		udelay(70);
+		mdelay(30);
 		/* 1ms */
 
 		/* 5M_AF_2V8 On */
 		regulator = regulator_get(NULL, "cam_af");
 		if (IS_ERR(regulator))
 			return -1;
-		iRet = regulator_enable(regulator);
+		iret = regulator_enable(regulator);
 		regulator_put(regulator);
 
 		printk(KERN_ALERT "%s PowerON fin\n", __func__);
 		} else {
 		printk(KERN_ALERT "%s PowerOFF\n", __func__);
-
-		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
 		mdelay(1);
-
-		clk_disable(vclk1_clk);
+		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
+		mdelay(3);
 
 		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
-		mdelay(1);
+		mdelay(5);
 
-		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
-		mdelay(1);
-
-		/* CAM_CORE_1V2  Off */
-		gpio_set_value(GPIO_PORT3, 0);
-		mdelay(1);
-
-		/* CAM_VDDIO_1V8 Off */
-		regulator = regulator_get(NULL, "cam_sensor_io");
+		clk_disable(vclk1_clk);
+		mdelay(5);
+		/* CAM_DVDD_1V5 On */
+		regulator = regulator_get(NULL, "vcam_sense_1v5");
 		if (IS_ERR(regulator))
 			return -1;
-		iRet = regulator_disable(regulator);
+		iret = regulator_disable(regulator);
 		regulator_put(regulator);
-		mdelay(1);
+		mdelay(5);
 
 		/* CAM_AVDD_2V8  Off */
 		regulator = regulator_get(NULL, "cam_sensor_a");
 		if (IS_ERR(regulator))
 			return -1;
-		iRet = regulator_disable(regulator);
+		iret = regulator_disable(regulator);
+		regulator_put(regulator);
+		mdelay(5);
+
+		/* CAM_VDDIO_1V8 Off */
+		regulator = regulator_get(NULL, "cam_sensor_io");
+		if (IS_ERR(regulator))
+			return -1;
+		iret = regulator_disable(regulator);
 		regulator_put(regulator);
 		mdelay(1);
 
@@ -197,14 +181,13 @@ int OV5645_power(struct device *dev, int power_on)
 		regulator = regulator_get(NULL, "cam_af");
 		if (IS_ERR(regulator))
 			return -1;
-		iRet = regulator_disable(regulator);
+		iret = regulator_disable(regulator);
 		regulator_put(regulator);
 		sh_csi2_power(dev, power_on);
 		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
 	}
 
 	clk_put(vclk1_clk);
-	clk_put(vclk2_clk);
 
 	return 0;
 }
@@ -261,9 +244,14 @@ static const struct ov5645_datafmt ov5645_fmts[] = {
 	 * Order important: first natively supported,
 	 *second supported with a GPIO extender
 	 */
-	{V4L2_MBUS_FMT_UYVY8_2X8, V4L2_COLORSPACE_JPEG},
-	{V4L2_MBUS_FMT_YUYV8_2X8, V4L2_COLORSPACE_JPEG},
-/*	{V4L2_MBUS_FMT_JPEG_1X8, V4L2_COLORSPACE_JPEG}, */
+	{V4L2_MBUS_FMT_SBGGR10_1X10,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_SGBRG10_1X10,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_SGRBG10_1X10,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_SRGGB10_1X10,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_UYVY8_2X8,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_VYUY8_2X8,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_YUYV8_2X8,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_YVYU8_2X8,	V4L2_COLORSPACE_SRGB},
 
 };
 
@@ -273,8 +261,9 @@ enum ov5645_size {
 	OV5645_SIZE_720P,
 	OV5645_SIZE_1280x960,	/*  1280 x 960 (1.2M) */
 	OV5645_SIZE_UXGA,	/*  1600 x 1200 (2M) */
-	OV5645_SIZE_QXGA,	/*  2048 x 1536 (3M) */
+	OV5645_SIZE_1080P,
 	OV5645_SIZE_5MP,
+	OV5645_SIZE_QXGA,	/*  2048 x 1536 (3M) */
 	OV5645_SIZE_LAST,
 	OV5645_SIZE_MAX
 };
@@ -296,6 +285,7 @@ static const struct v4l2_frmsize_discrete ov5645_frmsizes[OV5645_SIZE_LAST] = {
 	{1600, 1200},
 	{2048, 1536},
 	{2560, 1920},
+	{1920, 1080},
 };
 
 /* Scalers to map image resolutions into AF 80x60 virtual viewfinder */
@@ -309,6 +299,7 @@ static const struct ov5645_af_zone_scale af_zone_scale[OV5645_SIZE_LAST] = {
 	{32, 32},
 };
 
+static int ov5645_init(struct i2c_client *client);
 /* Find a data format by a pixel code in an array */
 static int ov5645_find_datafmt(enum v4l2_mbus_pixelcode code)
 {
@@ -357,6 +348,8 @@ struct ov5645 {
 	int whitebalance;
 	int framerate;
 	int focus_mode;
+	int width;
+	int height;
 	/*
 	 * focus_status = 1 focusing
 	 * focus_status = 0 focus cancelled or not focusing
@@ -2021,13 +2014,35 @@ static int ov5645_config_preview(struct v4l2_subdev *sd)
 	int ret;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
+	struct ov5645 *ov5645 = to_ov5645(client);
 	ov5645_reg_write(client, 0x3503, 0x00);
 
-	ret = ov5645_reg_writes(client, hawaii_preview_init);
-	/*ret = ov5645_config_timing(client);*/
 	ov5645_set_banding(sd);
 	ov5645_set_night_mode(sd, 0);
 	ov5645_set_AE_target(sd, AE_Target);
+	if (ov5645->i_size == OV5645_SIZE_VGA) {
+		ret = ov5645_reg_writes(client, hawaii_vga_init);
+		 if (ret)
+			return ret;
+	} else if (ov5645->i_size == OV5645_SIZE_5MP) {
+		ret = ov5645_reg_writes(client, hawaii_5M_capture_init);
+		 if (ret)
+			return ret;
+	} else if (ov5645->i_size == OV5645_SIZE_720P) {
+		ret = ov5645_reg_writes(client, hawaii_record_init);
+		 if (ret)
+			return ret;
+	} else if (ov5645->i_size == OV5645_SIZE_1080P) {
+		ret = ov5645_reg_writes(client, hawaii_1080P_init);
+		 if (ret)
+			return ret;
+	} else if (ov5645->i_size == OV5645_SIZE_1280x960) {
+		ret = ov5645_reg_writes(client, hawaii_sxga_capture_init);
+		if (ret)
+			return ret;
+	}
+	ret = ov5645_reg_write(client, 0x3503, 0x00);
+	msleep(300);
 
 	return ret;
 }
@@ -2036,6 +2051,7 @@ static int ov5645_config_capture(struct v4l2_subdev *sd)
 {
 	int ret = 0;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov5645 *ov5645 = to_ov5645(client);
 
 	int preview_shutter, preview_gain16;
 	u8 average /*, preview_uv*/;
@@ -2076,9 +2092,16 @@ static int ov5645_config_capture(struct v4l2_subdev *sd)
 	ov5645_set_night_mode(sd, 0);
 
 	/* Write capture setting */
-	ov5645_reg_writes(client, hawaii_capture_init);
 	ov5645_config_timing(client);
+	if (ov5645->i_size == OV5645_SIZE_5MP)
+		ov5645_reg_writes(client, hawaii_5M_capture_init);
 
+	else if (ov5645->i_size == OV5645_SIZE_1280x960)
+		ov5645_reg_writes(client, hawaii_sxga_capture_init);
+
+	else if (ov5645->i_size == OV5645_SIZE_VGA)
+		ov5645_reg_writes(client, hawaii_vga_init);
+	msleep(300);
 	/* read capture VTS */
 	capture_VTS = ov5645_get_VTS(sd);
 	capture_HTS = ov5645_get_HTS(sd);
@@ -2152,6 +2175,7 @@ static int ov5645_config_capture(struct v4l2_subdev *sd)
 	}
 
 	/* write capture gain */
+
 	red_gain16 = red_gain16 * 94 / 100;
 	green_gain16 = green_gain16 * 100 / 100;
 	blue_gain16 = blue_gain16 * 96 / 100;
@@ -2187,12 +2211,13 @@ static int ov5645_flash_control(struct i2c_client *client, int control)
 	return ret;
 }
 
+#if 0
 static void flash_timer_callback(unsigned long data)
 {
 	gpio_set_value(CAM_FLASH_FLEN, 0);
 	gpio_set_value(CAM_FLASH_ENSET, 0);
 }
-
+#endif
 
 static int ov5645_pre_flash(struct i2c_client *client)
 {
@@ -2410,85 +2435,30 @@ static int stream_mode = -1;
 static int ov5645_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-/*	struct ov5645 *ov5645 = to_ov5645(client); */
 	int ret = 0;
+
 	printk(KERN_INFO "%s: enable:%d runmode:%d  stream_mode:%d\n",
 	       __func__, enable, runmode, stream_mode);
 
-/*	u8 reg; */
 
 	if (enable == stream_mode)
 		return ret;
 	if (enable) {
+		int delayms = 50;
+		if (CAM_RUNNING_MODE_PREVIEW == runmode)
+			delayms = 200;
+
+		ret = ov5645_reg_writes(client, ov5645_stream);
 		ov5645_reg_write(client, 0x4202, 0x00);
-		msleep(50);
+		msleep(delayms);
 	} else {
 		ov5645_reg_write(client, 0x4202, 0x0f);
 	}
 	stream_mode = enable;
-
 	return ret;
 }
 
 static int afFWLoaded = -1;
-static int initNeeded = -1;
-
-#if 0
-static int ov5645_set_bus_param(struct soc_camera_device *icd,
-				unsigned long flags)
-{
-	/* TODO: Do the right thing here, and validate bus params */
-	return 0;
-}
-
-
-static unsigned long ov5645_query_bus_param(struct soc_camera_device *icd)
-{
-	unsigned long flags = SOCAM_PCLK_SAMPLE_FALLING |
-	    SOCAM_HSYNC_ACTIVE_HIGH | SOCAM_VSYNC_ACTIVE_HIGH |
-	    SOCAM_DATA_ACTIVE_HIGH | SOCAM_MASTER;
-
-	/* TODO: Do the right thing here, and validate bus params */
-
-	flags |= SOCAM_DATAWIDTH_10;
-
-	return flags;
-}
-
-/* static int afFWLoaded = -1; */
-/* static int initNeeded = -1; */
-
-
-static int ov5645_enum_input(struct soc_camera_device *icd,
-			     struct v4l2_input *inp)
-{
-	struct soc_camera_link *icl = to_soc_camera_link(icd);
-	struct v4l2_subdev_sensor_interface_parms *plat_parms;
-
-	inp->type = V4L2_INPUT_TYPE_CAMERA;
-	inp->std = V4L2_STD_UNKNOWN;
-	strcpy(inp->name, "ov5645");
-
-	if (icl && icl->priv) {
-
-		plat_parms = icl->priv;
-		inp->status = 0;
-
-		if (plat_parms->orientation == V4L2_SUBDEV_SENSOR_PORTRAIT)
-			inp->status |= V4L2_IN_ST_HFLIP;
-
-		if (plat_parms->facing == V4L2_SUBDEV_SENSOR_BACK)
-			inp->status |= V4L2_IN_ST_BACK;
-
-	}
-	stream_mode = -1;
-	afFWLoaded = -1;
-	initNeeded = 1;
-
-	return 0;
-}
-
-#endif
 
 static int ov5645_g_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *mf)
 {
@@ -2528,44 +2498,30 @@ static int ov5645_s_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *mf)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov5645 *ov5645 = to_ov5645(client);
 	int ret = 0;
-/*	u8 reg; */
 
 	ret = ov5645_try_fmt(sd, mf);
 	if (ret < 0)
 		return ret;
-
 	ov5645->i_size = ov5645_find_framesize(mf->width, mf->height);
 	ov5645->i_fmt = ov5645_find_datafmt(mf->code);
 
-	/*To avoide reentry init sensor, remove from here       */
-	if (initNeeded > 0) {
-		ret = ov5645_reg_writes(client, hawaii_common_init);
-		initNeeded = 0;
-	}
+	/* init the sensor here */
+	ret = ov5645_init(client);
 	if (ret) {
-		printk(KERN_ERR "Error configuring hawaii_common_init\n");
-		return ret;
-	}
+		dev_err(&client->dev, "Failed to initialize sensor\n");
+		ret = -EINVAL;
+		}
 	printk(KERN_INFO "%s: code:0x%x fmt[%d]\n", __func__,
 	       ov5645_fmts[ov5645->i_fmt].code, ov5645->i_size);
 
 	if (CAM_RUNNING_MODE_PREVIEW == runmode)
 		ov5645_config_preview(sd);
-
 	return ret;
 }
 
 static int ov5645_g_chip_ident(struct v4l2_subdev *sd,
 			       struct v4l2_dbg_chip_ident *id)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-	if (id->match.type != V4L2_CHIP_MATCH_I2C_ADDR)
-		return -EINVAL;
-
-	if (id->match.addr != client->addr)
-		return -ENODEV;
-
 	id->ident = V4L2_IDENT_OV5645;
 	id->revision = 0;
 
@@ -3303,24 +3259,6 @@ static int ov5645_init(struct i2c_client *client)
 	struct ov5645 *ov5645 = to_ov5645(client);
 	int ret = 0;
 
-	ret = ov5645_reg_writes(client, hawaii_common_init);
-	if (ret)
-		goto out;
-
-#if defined(CONFIG_RHEA_CLOVER_ICS)
-	/*Code turn off flash led */
-	if (ov5645_reg_write(client, 0x3000, 0x00))
-		goto out;
-	if (ov5645_reg_write(client, 0x3004, 0xFF))
-		goto out;
-	if (ov5645_reg_write(client, 0x3016, 0x02))
-		goto out;
-	if (ov5645_reg_write(client, 0x3b07, 0x0A))
-		goto out;
-	if (ov5645_reg_write(client, 0x3b00, 0x03))
-		goto out;
-#endif
-
 	/* Power Up, Start Streaming for AF Init */
 	/* default brightness and contrast */
 	ov5645->brightness = EV_DEFAULT;
@@ -3336,36 +3274,6 @@ static int ov5645_init(struct i2c_client *client)
 	ov5645->fireflash = 0;
 
 	dev_dbg(&client->dev, "Sensor initialized\n");
-
-out:
-	return ret;
-}
-
-/*
- * Interface active, can use i2c. If it fails, it can indeed mean, that
- *this wasn't our capture interface, so, we wait for the right one
- */
-static int ov5645_video_probe(struct soc_camera_device *icd,
-			      struct i2c_client *client)
-{
-/*	unsigned long flags; */
-	int ret = 0;
-	u8 id_high, id_low;
-
-	/*
-	 * We must have a parent by now. And it cannot be a wrong one.
-	 * So this entire test is completely redundant.
-	 */
-	#if 0
-	if (!icd->dev.parent ||
-	    to_soc_camera_host(icd->dev.parent)->nr != icd->iface)
-		return -ENODEV;
-    #endif
-
-	ret = ov5645_reg_read(client, OV5645_CHIP_ID_HIGH, &id_high);
-	ret += ov5645_reg_read(client, OV5645_CHIP_ID_LOW, &id_low);
-
-	printk(KERN_INFO "OV5645 ID=0x%x%x\n", id_high, id_low);
 
 	return ret;
 }
@@ -3388,6 +3296,47 @@ static struct v4l2_subdev_core_ops ov5645_subdev_core_ops = {
 	.s_register = ov5645_s_register,
 #endif
 };
+
+
+static struct ov5645 *to_OV5645(const struct i2c_client *client)
+{
+	return container_of(i2c_get_clientdata(client), struct ov5645, subdev);
+}
+
+static int ov5645_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov5645 *priv = to_OV5645(client);
+	struct v4l2_rect *rect = &a->c;
+
+	a->type		= V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	rect->top	= 0;
+	rect->left	= 0;
+	rect->width	= priv->width;
+	rect->height	= priv->height;
+	dev_info(&client->dev, "%s: width = %d height = %d\n", __func__
+						, rect->width, rect->height);
+
+	return 0;
+}
+static int ov5645_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov5645 *priv = to_OV5645(client);
+
+	a->bounds.left			= 0;
+	a->bounds.top			= 0;
+	a->bounds.width			= priv->width;
+	a->bounds.height		= priv->height;
+	a->defrect			= a->bounds;
+	a->type				= V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	a->pixelaspect.numerator	= 1;
+	a->pixelaspect.denominator	= 1;
+
+	dev_info(&client->dev, "%s: width =  %d height =  %d\n", __func__
+					, a->bounds.width, a->bounds.height);
+	return 0;
+}
 
 static int ov5645_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 			   enum v4l2_mbus_pixelcode *code)
@@ -3508,6 +3457,8 @@ static struct v4l2_subdev_video_ops ov5645_subdev_video_ops = {
 	.s_stream = ov5645_s_stream,
 	.s_mbus_fmt = ov5645_s_fmt,
 	.g_mbus_fmt = ov5645_g_fmt,
+	.g_crop	    = ov5645_g_crop,
+	.cropcap     = ov5645_cropcap,
 	.try_mbus_fmt = ov5645_try_fmt,
 	.enum_mbus_fmt = ov5645_enum_fmt,
 	.enum_mbus_fsizes = ov5645_enum_framesizes,
@@ -3597,18 +3548,9 @@ static int ov5645_probe(struct i2c_client *client,
 {
 
 	struct ov5645 *ov5645;
-	struct soc_camera_device *icd = NULL;
 	struct soc_camera_link *icl = client->dev.platform_data;
-	int ret;
+	int ret = 0;
 
-/*
-	if (!icd) {
-		dev_err(&client->dev, "OV5645: missing soc-camera data!\n");
-		return -EINVAL;
-	}
-
-	icl = to_soc_camera_link(icd);
-*/
 	if (!icl) {
 		dev_err(&client->dev, "OV5645 driver needs platform data\n");
 		return -EINVAL;
@@ -3633,23 +3575,8 @@ static int ov5645_probe(struct i2c_client *client,
 	ov5645->i_size = OV5645_SIZE_VGA;
 	ov5645->i_fmt = 0;	/* First format in the list */
 	ov5645->plat_parms = icl->priv;
-
-	ret = ov5645_video_probe(icd, client);
-	if (ret) {
-		/* icd->ops = NULL; */
-		kfree(ov5645);
-		return ret;
-	}
-
-	/* init the sensor here */
-	ret = ov5645_init(client);
-	if (ret) {
-		dev_err(&client->dev, "Failed to initialize sensor\n");
-		ret = -EINVAL;
-	}
-
-	init_timer(&flash_timer);
-	setup_timer(&flash_timer, flash_timer_callback, 0);
+	ov5645->width = 640;
+	ov5645->height = 480;
 
 	return ret;
 }

@@ -519,10 +519,10 @@ static struct platform_device *gpio_i2c_devices[] __initdata = {
 
 static struct i2c_board_info i2c_cameras[] = {
 	{
-		I2C_BOARD_INFO("OV5645", 0x20),
+		I2C_BOARD_INFO("OV5645", 0x78>>1),
 	},
 	{
-		I2C_BOARD_INFO("HM2056", 0x28), /* TODO::HYCHO (0x61>>1) */
+		I2C_BOARD_INFO("HM2056", 0x48>>1),
 	},
 };
 
