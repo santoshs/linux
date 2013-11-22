@@ -33,7 +33,7 @@
 #include <mach/dev-renesas-bt.h>
 #endif
 
-#if defined(CONFIG_BCM_BT_RFKILL)
+#ifndef CONFIG_OF
 #include <mach/dev-bt-rfkill.h>
 #endif
 
@@ -459,7 +459,7 @@ static struct platform_device *devices_stm_sdhi1[] __initdata = {
 #if defined(CONFIG_ION)
 	&u2evm_ion_device,
 #endif
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
+#ifndef CONFIG_OF
 	&board_bcmbt_rfkill_device,
 #endif
 
@@ -520,7 +520,7 @@ static struct platform_device *devices_stm_sdhi0[] __initdata = {
 #if defined(CONFIG_ION)
 	&u2evm_ion_device,
 #endif
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
+#ifndef CONFIG_OF
 	&board_bcmbt_rfkill_device,
 #endif
 #ifdef CONFIG_BCM_BZHW
@@ -581,7 +581,7 @@ static struct platform_device *devices_stm_none[] __initdata = {
 #if defined(CONFIG_ION)
 	&u2evm_ion_device,
 #endif
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
+#ifndef CONFIG_OF
 	&board_bcmbt_rfkill_device,
 #endif
 #ifdef CONFIG_BCM_BZHW

@@ -10,6 +10,7 @@
 
 /dts-v1/;
 #include "r8a7373.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 /{
 	model = "LoganLTE";
@@ -19,8 +20,14 @@
 		bootargs = "console=ttySC0,115200 earlyprintk=sh-sci.0,115200 ignore_loglevel";
 	};
 
-	memory@0x49000000 {
+	memory@49000000 {
 		device_type = "memory";
 		reg = <0x49000000 0x37000000>;
+	};
+
+	bcm-bt-rfkill {
+		compatible = "bcm,bcm-bt-rfkill";
+		bcm-bt-rfkill-vreg-gpio = <&pfc 268 GPIO_ACTIVE_HIGH>;
+		bcm-bt-rfkill-n-reset-gpio = <&pfc 15 GPIO_ACTIVE_LOW>;
 	};
  };
