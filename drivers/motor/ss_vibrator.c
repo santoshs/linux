@@ -54,8 +54,12 @@ static void vibrator_ctrl_regulator(int on_off)
 						vib_voltage,
 						 vib_voltage);
 
-			regulator_enable(vib_regulator);
-			printk(KERN_NOTICE "Vibrator: enable\n");
+			ret = regulator_enable(vib_regulator);
+			if (!ret)
+				printk(KERN_NOTICE "Vibrator: enable\n");
+			else
+				printk(KERN_ERR "Vibrator: enable" \
+					" failed : %d\n", ret);
 		}
 	}
 	else
