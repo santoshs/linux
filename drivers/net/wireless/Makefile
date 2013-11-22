@@ -61,3 +61,4 @@ obj-$(CONFIG_BRCMSMAC)	+= brcm80211/
 obj-$(CONFIG_BCMDHD)	+= bcmdhd/
 obj-$(CONFIG_BCM4334)	+= bcmdhd/
 obj-$(CONFIG_BCM4330)	+= bcmdhd/
+obj-$(CONFIG_BCM_WLAN) += bcm_wlan/
