@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/platform_data/rmobile_hwsem.h>
+#include <linux/platform_data/irq-renesas-irqc.h>
 #include <linux/platform_device.h>
 #include <linux/i2c/i2c-sh_mobile.h>
 #include <linux/i2c-gpio.h>
@@ -128,7 +129,94 @@ void __init r8a7373_map_io(void)
 }
 
 
+static struct renesas_irqc_config irqc0_data = {
+	.irq_base = irq_pin(0), /* IRQ0 -> IRQ31 */
+};
+
+static struct renesas_irqc_config irqc1_data = {
+	.irq_base = irq_pin(32), /* IRQ32 -> IRQ63 */
+};
+
 #ifndef CONFIG_OF
+static const struct resource irqc0_resources[] __initconst = {
+	DEFINE_RES_MEM(0xe61c0000, 0x200), /* IRQC Event Detector Block_0 */
+	DEFINE_RES_IRQ(gic_spi(0)), /* IRQ0 */
+	DEFINE_RES_IRQ(gic_spi(1)), /* IRQ1 */
+	DEFINE_RES_IRQ(gic_spi(2)), /* IRQ2 */
+	DEFINE_RES_IRQ(gic_spi(3)), /* IRQ3 */
+	DEFINE_RES_IRQ(gic_spi(4)), /* IRQ4 */
+	DEFINE_RES_IRQ(gic_spi(5)), /* IRQ5 */
+	DEFINE_RES_IRQ(gic_spi(6)), /* IRQ6 */
+	DEFINE_RES_IRQ(gic_spi(7)), /* IRQ7 */
+	DEFINE_RES_IRQ(gic_spi(8)), /* IRQ8 */
+	DEFINE_RES_IRQ(gic_spi(9)), /* IRQ9 */
+	DEFINE_RES_IRQ(gic_spi(10)), /* IRQ10 */
+	DEFINE_RES_IRQ(gic_spi(11)), /* IRQ11 */
+	DEFINE_RES_IRQ(gic_spi(12)), /* IRQ12 */
+	DEFINE_RES_IRQ(gic_spi(13)), /* IRQ13 */
+	DEFINE_RES_IRQ(gic_spi(14)), /* IRQ14 */
+	DEFINE_RES_IRQ(gic_spi(15)), /* IRQ15 */
+	DEFINE_RES_IRQ(gic_spi(16)), /* IRQ16 */
+	DEFINE_RES_IRQ(gic_spi(17)), /* IRQ17 */
+	DEFINE_RES_IRQ(gic_spi(18)), /* IRQ18 */
+	DEFINE_RES_IRQ(gic_spi(19)), /* IRQ19 */
+	DEFINE_RES_IRQ(gic_spi(20)), /* IRQ20 */
+	DEFINE_RES_IRQ(gic_spi(21)), /* IRQ21 */
+	DEFINE_RES_IRQ(gic_spi(22)), /* IRQ22 */
+	DEFINE_RES_IRQ(gic_spi(23)), /* IRQ23 */
+	DEFINE_RES_IRQ(gic_spi(24)), /* IRQ24 */
+	DEFINE_RES_IRQ(gic_spi(25)), /* IRQ25 */
+	DEFINE_RES_IRQ(gic_spi(26)), /* IRQ26 */
+	DEFINE_RES_IRQ(gic_spi(27)), /* IRQ27 */
+	DEFINE_RES_IRQ(gic_spi(28)), /* IRQ28 */
+	DEFINE_RES_IRQ(gic_spi(29)), /* IRQ29 */
+	DEFINE_RES_IRQ(gic_spi(30)), /* IRQ30 */
+	DEFINE_RES_IRQ(gic_spi(31)), /* IRQ31 */
+};
+
+static const struct resource irqc1_resources[] __initconst = {
+	DEFINE_RES_MEM(0xe61c0200, 0x200), /* IRQC Event Detector Block_1 */
+	DEFINE_RES_IRQ(gic_spi(32)), /* IRQ32 */
+	DEFINE_RES_IRQ(gic_spi(33)), /* IRQ33 */
+	DEFINE_RES_IRQ(gic_spi(34)), /* IRQ34 */
+	DEFINE_RES_IRQ(gic_spi(35)), /* IRQ35 */
+	DEFINE_RES_IRQ(gic_spi(36)), /* IRQ36 */
+	DEFINE_RES_IRQ(gic_spi(37)), /* IRQ37 */
+	DEFINE_RES_IRQ(gic_spi(38)), /* IRQ38 */
+	DEFINE_RES_IRQ(gic_spi(39)), /* IRQ39 */
+	DEFINE_RES_IRQ(gic_spi(40)), /* IRQ40 */
+	DEFINE_RES_IRQ(gic_spi(41)), /* IRQ41 */
+	DEFINE_RES_IRQ(gic_spi(42)), /* IRQ42 */
+	DEFINE_RES_IRQ(gic_spi(43)), /* IRQ43 */
+	DEFINE_RES_IRQ(gic_spi(44)), /* IRQ44 */
+	DEFINE_RES_IRQ(gic_spi(45)), /* IRQ45 */
+	DEFINE_RES_IRQ(gic_spi(46)), /* IRQ46 */
+	DEFINE_RES_IRQ(gic_spi(47)), /* IRQ47 */
+	DEFINE_RES_IRQ(gic_spi(48)), /* IRQ48 */
+	DEFINE_RES_IRQ(gic_spi(49)), /* IRQ49 */
+	DEFINE_RES_IRQ(gic_spi(50)), /* IRQ50 */
+	DEFINE_RES_IRQ(gic_spi(51)), /* IRQ51 */
+	DEFINE_RES_IRQ(gic_spi(52)), /* IRQ52 */
+	DEFINE_RES_IRQ(gic_spi(53)), /* IRQ53 */
+	DEFINE_RES_IRQ(gic_spi(54)), /* IRQ54 */
+	DEFINE_RES_IRQ(gic_spi(55)), /* IRQ55 */
+	DEFINE_RES_IRQ(gic_spi(56)), /* IRQ56 */
+	DEFINE_RES_IRQ(gic_spi(57)), /* IRQ57 */
+	DEFINE_RES_IRQ(gic_spi(58)), /* IRQ58 */
+	DEFINE_RES_IRQ(gic_spi(59)), /* IRQ59 */
+	DEFINE_RES_IRQ(gic_spi(60)), /* IRQ60 */
+	DEFINE_RES_IRQ(gic_spi(61)), /* IRQ61 */
+	DEFINE_RES_IRQ(gic_spi(62)), /* IRQ62 */
+	DEFINE_RES_IRQ(gic_spi(63)), /* IRQ63 */
+};
+
+#define r8a7373_register_irqc(idx)					\
+	platform_device_register_resndata(&platform_bus, "renesas_irqc", \
+					  idx, irqc##idx##_resources,	\
+					  ARRAY_SIZE(irqc##idx##_resources), \
+					  &irqc##idx##_data,		\
+					  sizeof(struct renesas_irqc_config))
+
 /* IIC0 */
 static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
 	.bus_speed	= 400000,
@@ -138,17 +226,8 @@ static struct i2c_sh_mobile_platform_data i2c0_platform_data = {
 };
 
 static struct resource i2c0_resources[] = {
-	[0] = {
-		.name	= "IIC0",
-		.start	= 0xe6820000,
-		.end	= 0xe6820425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(184),
-		.end	= gic_spi(184),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe6820000, 0x425, "IIC0"),
+	DEFINE_RES_IRQ(gic_spi(184)),
 };
 
 static struct platform_device i2c0_device = {
@@ -170,17 +249,8 @@ static struct i2c_sh_mobile_platform_data i2c1_platform_data = {
 };
 
 static struct resource i2c1_resources[] = {
-	[0] = {
-		.name	= "IIC1",
-		.start	= 0xe6822000,
-		.end	= 0xe6822425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(185),
-		.end	= gic_spi(185),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe6822000, 0x425, "IIC1"),
+	DEFINE_RES_IRQ(gic_spi(185)),
 };
 
 static struct platform_device i2c1_device = {
@@ -202,17 +272,8 @@ static struct i2c_sh_mobile_platform_data i2c2_platform_data = {
 };
 
 static struct resource i2c2_resources[] = {
-	[0] = {
-		.name	= "IIC2",
-		.start	= 0xe6824000,
-		.end	= 0xe6824425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(186),
-		.end	= gic_spi(186),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe6824000, 0x425, "IIC2"),
+	DEFINE_RES_IRQ(gic_spi(186)),
 };
 
 static struct platform_device i2c2_device = {
@@ -234,17 +295,8 @@ static struct i2c_sh_mobile_platform_data i2c3_platform_data = {
 };
 
 static struct resource i2c3_resources[] = {
-	[0] = {
-		.name	= "IIC3",
-		.start	= 0xe6826000,
-		.end	= 0xe6826425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(187),
-		.end	= gic_spi(187),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe6826000, 0x425, "IIC3"),
+	DEFINE_RES_IRQ(gic_spi(187)),
 };
 
 static struct platform_device i2c3_device = {
@@ -278,17 +330,8 @@ static struct i2c_sh_mobile_platform_data i2c4_platform_data = {
 };
 
 static struct resource i2c4_resources[] = {
-	[0] = {
-		.name	= "IIC4",
-		.start	= 0xe6828000,
-		.end	= 0xe6828425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(188),
-		.end	= gic_spi(188),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe6828000, 0x425, "IIC4"),
+	DEFINE_RES_IRQ(gic_spi(188)),
 };
 
 static struct platform_device i2c4_device = {
@@ -319,18 +362,8 @@ static struct i2c_sh_mobile_platform_data i2c5_platform_data = {
 };
 
 static struct resource i2c5_resources[] = {
-	[0] = {
-		.name	= "IIC5",
-		.start	= 0xe682a000,
-		.end	= 0xe682a425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-	/* In ES2, 189 is for I2C5 and 190 for I2CB. */
-		.start	= gic_spi(189),
-		.end	= gic_spi(189),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe682a000, 0x425, "IIC5"),
+	DEFINE_RES_IRQ(gic_spi(189)),
 };
 
 static struct platform_device i2c5_device = {
@@ -361,17 +394,8 @@ static struct i2c_sh_mobile_platform_data i2c6_platform_data = {
 	.clks_per_count = 2,
 };
 static struct resource i2c6_resources[] = {
-	[0] = {
-		.name	= "IIC6",
-		.start	= 0xe682c000,
-		.end	= 0xe682c425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(128),
-		.end	= gic_spi(128),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe682c000, 0x425, "IIC6"),
+	DEFINE_RES_IRQ(gic_spi(128)),
 };
 
 static struct platform_device i2c6_device = {
@@ -401,17 +425,8 @@ static struct i2c_sh_mobile_platform_data i2c7_platform_data = {
 };
 
 static struct resource i2c7_resources[] = {
-	[0] = {
-		.name	= "IIC7",
-		.start	= 0xe682e000,
-		.end	= 0xe682e425 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(181),
-		.end	= gic_spi(181),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM_NAMED(0xe682e000, 0x425, "IIC7"),
+	DEFINE_RES_IRQ(gic_spi(181)),
 };
 static struct platform_device i2c7_device = {
 	.name		= "i2c-sh_mobile",
@@ -432,18 +447,8 @@ static struct i2c_sh_mobile_platform_data i2c8_platform_data = {
 };
 
 static struct resource i2c8_resources[] = {
-	[0] = {
-		.name	= "IICM",
-		.start	= 0xe6d20000,
-		.end	= 0xe6d20009 - 1,
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.start	= gic_spi(191),
-		.end	= gic_spi(191),
-		.flags	= IORESOURCE_IRQ,
-	},
-
+	DEFINE_RES_MEM_NAMED(0xe6d20000, 0x9, "IICM"),
+	DEFINE_RES_IRQ(gic_spi(191)),
 };
 
 static struct platform_device i2c8_device = {
@@ -765,18 +770,8 @@ struct hwspinlock *r8a7373_hwlock_sysc;
 EXPORT_SYMBOL(r8a7373_hwlock_sysc);
 
 static struct resource pmu_resources[] = {
-	[0] = {
-		.name	= "cpu0",
-		.start	= gic_spi(77),
-		.end	= gic_spi(77),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[1] = {
-		.name	= "cpu1",
-		.start	= gic_spi(78),
-		.end	= gic_spi(78),
-		.flags	= IORESOURCE_IRQ,
-	},
+	[0] = DEFINE_RES_IRQ_NAMED(gic_spi(77), "cpu0"),
+	[1] = DEFINE_RES_IRQ_NAMED(gic_spi(78), "cpu1"),
 };
 
 static struct platform_device pmu_device = {
@@ -787,26 +782,10 @@ static struct platform_device pmu_device = {
 
 #ifdef CONFIG_SMECO
 static struct resource smc_resources[] = {
-	[0] = {
-		.start	= gic_spi(193),
-		.end	= gic_spi(193),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[1] = {
-		.start	= gic_spi(194),
-		.end	= gic_spi(194),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[2] = {
-		.start	= gic_spi(195),
-		.end	= gic_spi(195),
-		.flags	= IORESOURCE_IRQ,
-	},
-	[3] = {
-		.start	= gic_spi(196),
-		.end	= gic_spi(196),
-		.flags	= IORESOURCE_IRQ,
-	},
+	[0] = DEFINE_RES_IRQ(gic_spi(193)),
+	[1] = DEFINE_RES_IRQ(gic_spi(194)),
+	[2] = DEFINE_RES_IRQ(gic_spi(195)),
+	[3] = DEFINE_RES_IRQ(gic_spi(196)),
 };
 
 static struct platform_device smc_netdevice0 = {
@@ -957,15 +936,8 @@ static struct platform_device hwsem2_device = {
 
 
 static struct resource sgx_resources[] = {
-	{
-		.start	= 0xfd000000,
-		.end	= 0xfd00bfff,
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.start	= gic_spi(92),
-		.flags	= IORESOURCE_IRQ,
-	},
+	DEFINE_RES_MEM(0xfd000000, 0xc000),
+	DEFINE_RES_IRQ(gic_spi(92)),
 };
 
 static struct platform_device sgx_device = {
@@ -1262,6 +1234,15 @@ static const struct resource pfc_resources[] = {
 	DEFINE_RES_MEM(0xe6050000, 0x9000),
 };
 
+#ifdef CONFIG_OF
+static const struct of_dev_auxdata r8a7373_auxdata_lookup[] __initconst = {
+	/* Have to pass pdata to get fixed IRQ numbering for non-DT drivers */
+	OF_DEV_AUXDATA("renesas,irqc", 0xe61c0000, NULL, &irqc0_data),
+	OF_DEV_AUXDATA("renesas,irqc", 0xe61c0200, NULL, &irqc1_data),
+	{},
+};
+#endif
+
 void __init r8a7373_pinmux_init(void)
 {
 	/* We need hwspinlocks ready now for the pfc driver */
@@ -1275,10 +1256,13 @@ void __init r8a7373_pinmux_init(void)
 void __init r8a7373_add_standard_devices(void)
 {
 #ifdef CONFIG_OF
-	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+	of_platform_populate(NULL, of_default_bus_match_table,
+				r8a7373_auxdata_lookup, NULL);
+#else
+	r8a7373_register_irqc(0);
+	r8a7373_register_irqc(1);
 #endif
-	/* Consider changing to upstream renesas_irqc driver */
-	r8a7373_irqc_init();
+	r8a7373_irqc_init(); /* Actually just INTCS and FIQ init now... */
 
 	platform_add_devices(r8a7373_early_devices,
 			ARRAY_SIZE(r8a7373_early_devices));
