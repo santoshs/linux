@@ -122,6 +122,7 @@ struct cpufreq_policy {
 #define CPUFREQ_NOTIFY			(2)
 #define CPUFREQ_START			(3)
 #define CPUFREQ_UPDATE_POLICY_CPU	(4)
+#define CPUFREQ_GOVERNOR_CHANGE_NOTIFY	(5)
 
 /* Only for ACPI */
 #define CPUFREQ_SHARED_TYPE_NONE (0) /* None */
@@ -435,4 +436,24 @@ void cpufreq_frequency_table_get_attr(struct cpufreq_frequency_table *table,
 void cpufreq_frequency_table_update_policy_cpu(struct cpufreq_policy *policy);
 
 void cpufreq_frequency_table_put_attr(unsigned int cpu);
+
+#if defined(CONFIG_DYNAMIC_SAMPLING_RATE)
+int samplrate_downfact_change(struct cpufreq_policy *policy, unsigned int sampl_rate,
+	unsigned int down_factor, unsigned int flag);
+void samplrate_downfact_get(struct cpufreq_policy *policy, unsigned int *sampl_rate,
+	unsigned int *down_factor);
+#else
+static inline int samplrate_downfact_change(struct cpufreq_policy *policy, unsigned int sampl_rate,
+	unsigned int down_factor, unsigned int flag)
+{
+	return 0;
+}
+
+static inline void samplrate_downfact_get(struct cpufreq_policy *policy, unsigned int *sampl_rate,
+	unsigned int *down_factor)
+{
+	return;
+}
+
+#endif
 #endif /* _LINUX_CPUFREQ_H */

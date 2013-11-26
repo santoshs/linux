@@ -284,25 +284,26 @@ static void cpufreq_stats_update_policy_cpu(struct cpufreq_policy *policy)
 static int cpufreq_stat_notifier_policy(struct notifier_block *nb,
 		unsigned long val, void *data)
 {
-	int ret;
 	struct cpufreq_policy *policy = data;
 	struct cpufreq_frequency_table *table;
 	unsigned int cpu = policy->cpu;
 
 	if (val == CPUFREQ_UPDATE_POLICY_CPU) {
 		cpufreq_stats_update_policy_cpu(policy);
-		return 0;
+		goto out;
 	}
 
 	if (val != CPUFREQ_NOTIFY)
-		return 0;
+		goto out;
+
 	table = cpufreq_frequency_get_table(cpu);
 	if (!table)
-		return 0;
-	ret = cpufreq_stats_create_table(policy, table);
-	if (ret)
-		return ret;
-	return 0;
+		goto out;
+
+	cpufreq_stats_create_table(policy, table);
+
+out:
+	return NOTIFY_OK;
 }
 
 static int cpufreq_stat_notifier_trans(struct notifier_block *nb,

@@ -327,7 +327,7 @@ int shmobile_init_pm(void)
 	return 0;
 }
 
-int __init rmobile_pm_late_init(void)
+void __init rmobile_pm_late_init(void)
 {
 	rmobile_cpufreq_init();
 	rmobile_cpuidle_init();

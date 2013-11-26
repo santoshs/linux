@@ -39,10 +39,11 @@
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
 
-#ifdef CONFIG_SH_ENABLE_DYNAMIC_DOWN_DIFF
+
+#ifdef CONFIG_DYNAMIC_DOWN_DIFF
 #define DOWN_DIFFERENTIAL_DEC_RATE	(5)
 #define MAX_FREQUENCY_DOWN_DIFFERENTIAL	(45)
-#endif /* CONFIG_SH_ENABLE_DYNAMIC_DOWN_DIFF */
+#endif /* CONFIG_DYNAMIC_DOWN_DIFF */
 
 static DEFINE_PER_CPU(struct od_cpu_dbs_info_s, od_cpu_dbs_info);
 
@@ -149,41 +150,6 @@ static void ondemand_powersave_bias_init(void)
 	}
 }
 
-int samplrate_downfact_change(unsigned int sampl_rate,
-			unsigned int down_factor, unsigned int flag)
-{
-#ifdef ENABLE_SAMPLING_CHANGE
-	unsigned int j;
-
-	if ((down_factor > MAX_SAMPLING_DOWN_FACTOR) || (down_factor < 1))
-		return -EINVAL;
-
-	spin_lock(&sampling_lock);
-	dbs_tuners_ins.sampling_rate = max(sampl_rate, min_sampling_rate);
-	dfs_low_flag = flag;
-	if (dbs_tuners_ins.sampling_down_factor != down_factor) {
-		dbs_tuners_ins.sampling_down_factor = down_factor;
-		/* Reset down sampling multiplier in case it was active */
-		for_each_online_cpu(j) {
-			struct cpu_dbs_info_s *dbs_info;
-			dbs_info = &per_cpu(od_cpu_dbs_info, j);
-			dbs_info->rate_mult = 1;
-		}
-	}
-	spin_unlock(&sampling_lock);
-#endif
-	return 0;
-}
-EXPORT_SYMBOL(samplrate_downfact_change);
-
-void samplrate_downfact_get(unsigned int *sampl_rate,
-				unsigned int *down_factor)
-{
-	*sampl_rate = dbs_tuners_ins.sampling_rate;
-	*down_factor = dbs_tuners_ins.sampling_down_factor;
-}
-EXPORT_SYMBOL(samplrate_downfact_get);
-
 static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 {
 	struct dbs_data *dbs_data = p->governor_data;
@@ -214,16 +180,19 @@ static void od_check_cpu(int cpu, unsigned int load_freq)
 	struct cpufreq_policy *policy = dbs_info->cdbs.cur_policy;
 	struct dbs_data *dbs_data = policy->governor_data;
 	struct od_dbs_tuners *od_tuners = dbs_data->tuners;
+#ifdef CONFIG_DYNAMIC_DOWN_DIFF
+	int down_differential;
+#endif
 
 	dbs_info->freq_lo = 0;
 
 	/* Check for frequency increase */
 	if (load_freq > od_tuners->up_threshold * policy->cur) {
-#ifdef CONFIG_SH_ENABLE_DYNAMIC_DOWN_DIFF
-		od_tuners->down_differential =
-				MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
-#endif /* CONFIG_SH_ENABLE_DYNAMIC_DOWN_DIFF */
 		/* If switching to max speed, apply sampling_down_factor */
+#ifdef CONFIG_DYNAMIC_DOWN_DIFF
+		od_tuners->adj_up_threshold = od_tuners->up_threshold -
+						MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
+#endif
 		if (policy->cur < policy->max)
 			dbs_info->rate_mult =
 				od_tuners->sampling_down_factor;
@@ -241,16 +210,16 @@ static void od_check_cpu(int cpu, unsigned int load_freq)
 	 * support the current CPU usage without triggering the up policy. To be
 	 * safe, we focus 10 points under the threshold.
 	 */
-#ifdef CONFIG_SH_ENABLE_DYNAMIC_DOWN_DIFF
-	if (od_tuners->down_differential >=
-		(MICRO_FREQUENCY_DOWN_DIFFERENTIAL +
-			DOWN_DIFFERENTIAL_DEC_RATE)) {
-		od_tuners->down_differential -= DOWN_DIFFERENTIAL_DEC_RATE;
+#ifdef CONFIG_DYNAMIC_DOWN_DIFF
+	down_differential = od_tuners->up_threshold - od_tuners->adj_up_threshold;
+	if (down_differential >= MICRO_FREQUENCY_DOWN_DIFFERENTIAL + DOWN_DIFFERENTIAL_DEC_RATE) {
+		down_differential -= DOWN_DIFFERENTIAL_DEC_RATE;
 	} else {
-		od_tuners->down_differential =
-				MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
+		down_differential = MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
 	}
-#endif /* CONFIG_SH_ENABLE_DYNAMIC_DOWN_DIFF */
+	od_tuners->adj_up_threshold =  od_tuners->up_threshold - down_differential;
+#endif
+
 	if (load_freq < od_tuners->adj_up_threshold
 			* policy->cur) {
 		unsigned int freq_next;
@@ -271,11 +240,12 @@ static void od_check_cpu(int cpu, unsigned int load_freq)
 		freq_next = od_ops.powersave_bias_target(policy, freq_next,
 					CPUFREQ_RELATION_L);
 		__cpufreq_driver_target(policy, freq_next, CPUFREQ_RELATION_L);
+
+#ifdef CONFIG_DYNAMIC_DOWN_DIFF
+		od_tuners->adj_up_threshold =  od_tuners->up_threshold -
+						MAX_FREQUENCY_DOWN_DIFFERENTIAL;
+#endif
 	}
-#ifdef CONFIG_SH_ENABLE_DYNAMIC_DOWN_DIFF
-		od_tuners->down_differential =
-					MAX_FREQUENCY_DOWN_DIFFERENTIAL;
-#endif /* CONFIG_SH_ENABLE_DYNAMIC_DOWN_DIFF */
 }
 
 static void od_dbs_timer(struct work_struct *work)
@@ -342,20 +312,21 @@ static void update_sampling_rate(struct dbs_data *dbs_data,
 	struct od_dbs_tuners *od_tuners = dbs_data->tuners;
 	int cpu;
 
-#ifdef ENABLE_SAMPLING_CHANGE
+#ifdef CONFIG_DYNAMIC_SAMPLING_RATE
 	spin_lock(&sampling_lock);
-	if (dfs_low_flag != 1)
+	if (dfs_low_flag != 1) {
 		od_tuners->sampling_rate = new_rate = max(new_rate,
-				dbs_data->min_sampling_rate);
-	else {
+			dbs_data->min_sampling_rate);
+	} else {
 		spin_unlock(&sampling_lock);
 		return;
 	}
 	spin_unlock(&sampling_lock);
-#else /* ENABLE_SAMPLING_CHANGE */
+#else /* CONFIG_DYNAMIC_SAMPLING_RATE */
 	od_tuners->sampling_rate = new_rate = max(new_rate,
-			dbs_data->min_sampling_rate);
-#endif /* ENABLE_SAMPLING_CHANGE */
+		dbs_data->min_sampling_rate);
+#endif /* CONFIG_DYNAMIC_SAMPLING_RATE */
+
 	for_each_online_cpu(cpu) {
 		struct cpufreq_policy *policy;
 		struct od_cpu_dbs_info_s *dbs_info;
@@ -462,14 +433,15 @@ static ssize_t store_sampling_down_factor(struct dbs_data *dbs_data,
 	if (ret != 1 || input > MAX_SAMPLING_DOWN_FACTOR || input < 1)
 		return -EINVAL;
 
-#ifdef ENABLE_SAMPLING_CHANGE
+	od_tuners->sampling_down_factor = input;
+#ifdef CONFIG_DYNAMIC_SAMPLING_RATE
 	spin_lock(&sampling_lock);
 	if (dfs_low_flag != 1) {
-		od_tuners->sampling_down_factor = input;
 		/* Reset down sampling multiplier in case it was active */
 		for_each_online_cpu(j) {
-			struct od_cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info,
-					j);
+			struct od_cpu_dbs_info_s *dbs_info;
+
+			dbs_info  = &per_cpu(od_cpu_dbs_info, j);
 			dbs_info->rate_mult = 1;
 		}
 	} else {
@@ -477,16 +449,14 @@ static ssize_t store_sampling_down_factor(struct dbs_data *dbs_data,
 		return -EPERM;
 	}
 	spin_unlock(&sampling_lock);
-#else /* ENABLE_SAMPLING_CHANGE */
-	od_tuners->sampling_down_factor = input;
-
+#else /* CONFIG_DYNAMIC_SAMPLING_RATE */
 	/* Reset down sampling multiplier in case it was active */
 	for_each_online_cpu(j) {
 		struct od_cpu_dbs_info_s *dbs_info = &per_cpu(od_cpu_dbs_info,
 				j);
 		dbs_info->rate_mult = 1;
 	}
-#endif /* ENABLE_SAMPLING_CHANGE */
+#endif /* CONFIG_DYNAMIC_SAMPLING_RATE */
 	return count;
 }
 
@@ -593,6 +563,52 @@ static struct attribute_group od_attr_group_gov_pol = {
 };
 
 /************************** sysfs end ************************/
+#ifdef CONFIG_DYNAMIC_SAMPLING_RATE
+int od_update_sampling_rate_downfact(struct cpufreq_policy *policy, unsigned int sampl_rate,
+			unsigned int down_factor, unsigned int flag)
+{
+	unsigned int j;
+	struct dbs_data *dbs_data = policy->governor_data;
+	struct od_dbs_tuners *od_tuners = dbs_data->tuners;
+
+	if (dbs_data->cdata->governor != GOV_ONDEMAND)
+		return -EINVAL;
+
+	if ((down_factor > MAX_SAMPLING_DOWN_FACTOR) || (down_factor < 1))
+		return -EINVAL;
+
+	spin_lock(&sampling_lock);
+
+	od_tuners->sampling_rate = max(sampl_rate,
+				dbs_data->min_sampling_rate);
+	dfs_low_flag = flag;
+
+	if (od_tuners->sampling_down_factor != down_factor) {
+		od_tuners->sampling_down_factor = down_factor;
+		/* Reset down sampling multiplier in case it was active */
+		for_each_online_cpu(j) {
+			struct od_cpu_dbs_info_s *od_dbs_info;
+
+			od_dbs_info = dbs_data->cdata->get_cpu_dbs_info_s(j);
+			od_dbs_info->rate_mult = 1;
+
+		}
+	}
+	spin_unlock(&sampling_lock);
+
+	return 0;
+}
+
+void od_samplrate_downfact_get(struct cpufreq_policy * policy, unsigned int *sampl_rate,
+				unsigned int *down_factor)
+{
+	struct dbs_data *dbs_data = policy->governor_data;
+	struct od_dbs_tuners *od_tuners = dbs_data->tuners;
+
+	*sampl_rate = od_tuners->sampling_rate;
+	*down_factor = od_tuners->sampling_down_factor;
+}
+#endif
 
 static int od_init(struct dbs_data *dbs_data)
 {

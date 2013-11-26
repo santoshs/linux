@@ -429,24 +429,11 @@ extern void arm_machine_flush_console(void);
 #endif /* validate */
 #define DYNAMIC_HOTPLUG_CPU	1
 
-#ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND
-extern int samplrate_downfact_change(unsigned int sampl_rate,
-			unsigned int down_factor, unsigned int flag);
-extern void samplrate_downfact_get(unsigned int *sampl_rate,
-				unsigned int *down_factor);
-#else
-static inline int samplrate_downfact_change(unsigned int sampl_rate,
-			unsigned int down_factor, unsigned int flag)
-{ return 0; }
-static inline void samplrate_downfact_get(unsigned int *sampl_rate,
-				unsigned int *down_factor) {}
-#endif /* CONFIG_CPU_FREQ_GOV_ONDEMAND */
-
 extern int rmobile_cpufreq_init(void);
 extern int rmobile_cpuidle_init(void);
 extern int rmobile_suspend_init(void);
 extern int rmobile_dfs_debug_init(void);
-extern int rmobile_pm_late_init(void);
+extern void rmobile_pm_late_init(void);
 /* verylow mode enable flag */
 /* #define SH_CPUFREQ_VERYLOW	1 */
 extern int disable_early_suspend_clock(void);
@@ -546,6 +533,33 @@ extern char pmdbg_get_enable_cpu_profile(void);
 extern void pmdbg_dump_suspend(void);
 extern void pmdbg_pmic_dump_suspend(void *pmic_data);
 extern char pmdbg_get_enable_dump_suspend(void);
+#else
+#define PMDBG_MAX_CPUS         2
+void pmdbg_mon(int cpum, unsigned int max_load, unsigned int load0, \
+       unsigned int load1, unsigned int cur, unsigned int req) {
+
+       return;
+}
+char pmdbg_get_enable_cpu_profile(void)
+{
+       return 0; /* disabled */
+}
+
+/* Common functions of the PM debug */
+void pmdbg_dump_suspend(void)
+{
+       return;
+}
+
+void pmdbg_pmic_dump_suspend(void *pmic_data)
+{
+       return;
+}
+
+char pmdbg_get_enable_dump_suspend(void)
+{
+       return 0; /* disabled */
+}
 #endif /* CONFIG_ARCH_R8A7373 */
 
 #endif /* __ASM_ARCH_PM_H */

@@ -173,7 +173,11 @@ static int sampling_flag = INIT_STATE;
 static int sampling_flag = STOP_STATE;
 #endif /* CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND */
 module_param(debug, int, S_IRUGO | S_IWUSR | S_IWGRP);
+#ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND
+static int static_gov_flg = 0;
+#else
 static int static_gov_flg = 1;
+#endif
 #ifdef DYNAMIC_HOTPLUG_CPU
 #define HOTPLUG_IN_ACTIVE	1
 #ifdef CONFIG_RENESAS
@@ -377,7 +381,7 @@ static inline void schedule_hlg_work(unsigned int timer_in_us)
 
 	/* Queue new work-queue */
 	if (delayed_work_pending(&hlg_work))
-		__cancel_delayed_work(&hlg_work);
+		cancel_delayed_work(&hlg_work);
 	queue_delayed_work_on(0, dfs_queue, &hlg_work,
 				usecs_to_jiffies(timer_in_us));
 	mutex_unlock(&hlg_config.timer_mutex);
@@ -687,11 +691,16 @@ static inline void __change_sampling_values(void)
 	int ret = 0;
 	static unsigned int downft = SAMPLING_DOWN_FACTOR_DEF;
 	static unsigned int samrate = SAMPLING_RATE_DEF;
+	struct cpufreq_policy *policy;
+
+	policy = cpufreq_cpu_get(0);
+	if (policy && (strcmp(policy->governor->name, "ondemand") != 0) )
+		return;
 
 	if (STOP_STATE == sampling_flag) /* ondemand gov is stopped! */
 		return;
 	if (INIT_STATE == sampling_flag) {
-		samplrate_downfact_change(SAMPLING_RATE_DEF,
+		samplrate_downfact_change(policy, SAMPLING_RATE_DEF,
 					SAMPLING_DOWN_FACTOR_DEF,
 					0);
 		sampling_flag = NORMAL_STATE;
@@ -700,15 +709,15 @@ static inline void __change_sampling_values(void)
 		the_cpuinfo.freq <= the_cpuinfo.freq_min_upper_limit) ||
 		the_cpuinfo.clk_state == MODE_SUSPEND) {
 		if (NORMAL_STATE == sampling_flag) {/* Backup old values */
-			samplrate_downfact_get(&samrate, &downft);
+			samplrate_downfact_get(policy, &samrate, &downft);
 			sampling_flag = BACK_UP_STATE;
 		}
-		ret = samplrate_downfact_change(SAMPLING_RATE_LOW,
+		ret = samplrate_downfact_change(policy, SAMPLING_RATE_LOW,
 				SAMPLING_DOWN_FACTOR_LOW, 1);
 	} else { /* Need to restore the previous values if any */
 		if (BACK_UP_STATE == sampling_flag) {
 			sampling_flag = NORMAL_STATE;
-			ret = samplrate_downfact_change(samrate, downft, 0);
+			ret = samplrate_downfact_change(policy, samrate, downft, 0);
 		}
 	}
 	if (ret)
@@ -1859,10 +1868,12 @@ static int shmobile_policy_changed_notifier(struct notifier_block *nb,
 		"conservative", "ondemand", "interactive"
 	};
 
-	if (CPUFREQ_NOTIFY != type)
+	if (CPUFREQ_GOVERNOR_CHANGE_NOTIFY != type)
 		return 0;
+
 	policy = (struct cpufreq_policy *)data;
 	len = ARRAY_SIZE(governors);
+
 	if (policy) {
 		spin_lock(&the_cpuinfo.lock);
 		/* validate whether governor supports hotplug */

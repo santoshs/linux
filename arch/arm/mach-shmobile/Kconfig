@@ -425,15 +425,6 @@ config SH_SAMPLING_DOWN_FACTOR
 	help
 	  Multiplier of transition latency.
 
-config SH_ENABLE_DYNAMIC_DOWN_DIFF
-	bool "SH-Mobile Support Dynamic down_differential"
-	depends on SHMOBILE_CPUFREQ
-	default n
-	help
-	  This enables move down_differential parameter.
-	  y : down_differential will decrease on each "CPU Frequency sampling" work.
-	  n : down_differential is fixed value.
-
 endmenu
 
 config PDC

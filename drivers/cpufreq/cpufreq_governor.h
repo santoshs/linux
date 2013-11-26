@@ -37,11 +37,10 @@
 #define MIN_LATENCY_MULTIPLIER			(20)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
-#define ENABLE_SAMPLING_CHANGE	1
-#ifdef ENABLE_SAMPLING_CHANGE
+#ifdef CONFIG_DYNAMIC_SAMPLING_RATE
 extern unsigned int dfs_low_flag;
-extern DEFINE_SPINLOCK(sampling_lock);
-#endif /* ENABLE_SAMPLING_CHANGE */
+extern spinlock_t sampling_lock;
+#endif /* CONFIG_DYNAMIC_SAMPLING_RATE */
 
 /* Ondemand Sampling types */
 enum {OD_NORMAL_SAMPLE, OD_SUB_SAMPLE};
@@ -274,4 +273,22 @@ void od_register_powersave_bias_handler(unsigned int (*f)
 		(struct cpufreq_policy *, unsigned int, unsigned int),
 		unsigned int powersave_bias);
 void od_unregister_powersave_bias_handler(void);
+
+#ifdef CONFIG_CPU_FREQ_GOV_ONDEMAND
+int od_update_sampling_rate_downfact(struct cpufreq_policy *policy, unsigned int sampl_rate,
+                        unsigned int down_factor, unsigned int flag);
+void od_samplrate_downfact_get(struct cpufreq_policy *policy, unsigned int *sampl_rate,
+                                unsigned int *down_factor);
+#else
+int od_update_sampling_rate_downfact(struct cpufreq_policy *policy, unsigned int sampl_rate,
+                        unsigned int down_factor, unsigned int flag)
+{
+	return -EINVAL;
+}
+void od_samplrate_downfact_get(struct cpufreq_policy *policy, unsigned int *sampl_rate,
+                                unsigned int *down_factor)
+{
+	return;
+}
+#endif  /* CONFIG_CPU_FREQ_GOV_ONDEMAND */
 #endif /* _CPUFREQ_GOVERNOR_H */
