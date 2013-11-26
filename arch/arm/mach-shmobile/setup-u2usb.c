@@ -475,6 +475,14 @@ struct platform_device usb_host_device = {
 	.num_resources	= ARRAY_SIZE(usb_host_resources),
 	.resource	= usb_host_resources,
 };
+
+void __init u2_add_usb_host_device(void)
+{
+	int ret = platform_device_register(&usb_host_device);
+	if (ret)
+		pr_err("%s: failed to register usb host device %d\n",
+				__func__, ret);
+}
 #endif /*CONFIG_USB_R8A66597_HCD*/
 #ifdef CONFIG_USB_OTG
 /*TUSB1211 OTG*/
@@ -504,25 +512,28 @@ struct platform_device tusb1211_device = {
 	.num_resources = ARRAY_SIZE(tusb1211_resource),
 	.resource = tusb1211_resource,
 };
+
+void __init u2_add_usb_otg_device(void)
+{
+	int ret = platform_device_register(&tusb1211_device);
+	if (ret)
+		pr_err("%s: failed to register usb host device %d\n",
+				__func__, ret);
+}
 #endif /*CONFIG_USB_OTG*/
 
-unsigned int muic_is_present(void)
+static bool is_muic;
+bool muic_is_present(void)
 {
-	unsigned int is_muic = 0;
-	/* implement switch present logic here */
-#ifdef CONFIG_MACH_AMETHYST
-	is_muic = 0;
-#endif
-#ifdef CONFIG_MACH_LOGANLTE
-	is_muic = 1;
-#endif
 	return is_muic;
 }
 EXPORT_SYMBOL_GPL(muic_is_present);
 
-void __init USBGpio_init(void)
+void __init usb_init(bool is_muic_present)
 {
 	int ret = 0;
+	is_muic = is_muic_present;
+
 	/* USBHS */
 	ret = gpio_request(GPIO_FN_ULPI_DATA0, NULL);
 	if (ret < 0)
@@ -596,4 +607,8 @@ void __init USBGpio_init(void)
 	if (ret < 0)
 		error_log("ERROR : VIO_CKO3 failed ! USB may not function\n");
 	clk_enable(clk_get(NULL, "vclk3_clk"));
+
+	ret = platform_device_register(&usbhs_func_device_d2153);
+	if (ret)
+		error_log("ERROR :failed to register usb device %d\n", ret);
 }

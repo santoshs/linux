@@ -32,7 +32,6 @@
 #include <linux/d2153/d2153_aad.h>
 #endif	/* CONFIG_SND_SOC_D2153_AAD */
 #endif	/* CONFIG_MFD_D2153 */
-#include <mach/board.h>
 
 /* Proc read handler */
 static int proc_read_u2audio_device(struct seq_file *file, void *v)

@@ -21,7 +21,6 @@
 #include <linux/ion.h>
 #include <linux/platform_device.h>
 #include <linux/memblock.h>
-#include <mach/board.h>
 #include <mach/setup-u2ion.h>
 
 
@@ -42,8 +41,8 @@ struct ion_platform_heap u2_ion_heap[] = {
 			.type = ION_HEAP_TYPE_CARVEOUT,
 			.id = ION_HEAP_VIDEO_ID,
 			.name = "video",
-			.base = ION_HEAP_VIDEO_ADDR,
-			.size = ION_HEAP_VIDEO_SIZE,
+			.base = 0x4AE00000,
+			.size = (SZ_16M + SZ_2M),
 		},
 #endif
 };
@@ -60,6 +59,13 @@ struct platform_device u2evm_ion_device = {
 		.platform_data = &u2evm_ion_data,
 	},
 };
+
+void __init u2_add_ion_device(void)
+{
+	int ret = platform_device_register(&u2evm_ion_device);
+	if (ret)
+		pr_err("%s: failed to register ion device %d\n", __func__, ret);
+}
 
 int u2evm_ion_adjust(void)
 {

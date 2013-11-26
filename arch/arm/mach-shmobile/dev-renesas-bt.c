@@ -22,6 +22,13 @@ struct platform_device bcm4334_bluetooth_device = {
 	.id = -1,
 };
 
+void __init add_bcm4334_device(void)
+{
+	int ret = platform_device_register(&bcm4334_bluetooth_device);
+	if (ret)
+		pr_err("%s failed to add bcm_bt_rfkill_data %d", __func__, ret);
+}
+
 static struct rfkill *bt_rfkill;
 static bool bt_enabled;
 

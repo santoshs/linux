@@ -155,7 +155,7 @@ static int __init led_probe(struct platform_device *pdev)
 	gpio_pin = data->gpio_port;
         props.max_brightness = data->max_brightness;
         props.type = BACKLIGHT_PLATFORM;
-	bl = backlight_device_register(pdev->name, &pdev->dev,
+	bl = backlight_device_register("panel", &pdev->dev,
 			pdev, &led_backlight_ops, &props);
         if (IS_ERR(bl)) {
                 dev_err(&pdev->dev, "failed to register backlight\n");
@@ -170,7 +170,7 @@ static int __init led_probe(struct platform_device *pdev)
 
 static struct platform_driver led_drv = {
 	.driver = {
-		.name = "panel",
+		.name = "led-backlight",
 	},
 	.probe = led_probe,
 };

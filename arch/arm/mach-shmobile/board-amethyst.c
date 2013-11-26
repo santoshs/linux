@@ -22,6 +22,9 @@
 #include <linux/irq.h>
 #include <linux/gpio.h>
 #include <linux/hwspinlock.h>
+#include <linux/pinctrl/machine.h>
+#include <linux/pinctrl/pinconf-generic.h>
+#include <linux/platform_data/rt_boot_pdata.h>
 #include <mach/common.h>
 #include <mach/r8a7373.h>
 #include <mach/setup-u2usb.h>
@@ -32,14 +35,9 @@
 #include <asm/mach/time.h>
 #include <linux/mmc/host.h>
 #include <video/sh_mobile_lcdc.h>
-#include <mach/board.h>
-#include <media/soc_camera.h>
-#include <media/soc_camera_platform.h>
 #include <linux/irqchip/arm-gic.h>
 #include <mach/setup-u2timers.h>
-#include <mach/board-amethyst-config.h>
 #include <mach/poweroff.h>
-#include <mach/sbsc.h>
 
 #include<linux/led_backlight-cntrl.h>
 
@@ -52,6 +50,11 @@
 #include <mach/dev-wifi.h>
 #include <mach/setup-u2spa.h>
 #include <mach/setup-u2vibrator.h>
+#include <mach/setup-u2ion.h>
+#include <mach/setup-u2rcu.h>
+#include <mach/setup-u2camera.h>
+#include <mach/setup-u2sdhi.h>
+#include <mach/setup-u2gpio_key.h>
 #include <linux/proc_fs.h>
 #if defined(CONFIG_RENESAS_GPS)|| defined(CONFIG_GPS_CSR_GSD5T)
 #include <mach/dev-gps.h>
@@ -80,15 +83,6 @@
 #include <linux/i2c/fm34_we395.h>
 #include <linux/leds-ktd253ehd.h>
 #include <linux/leds-regulator.h>
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
-#include <linux/broadcom/bcm-bt-rfkill.h>
-#endif
-#ifdef CONFIG_BCM_BT_LPM
-#include <linux/broadcom/bcm-bt-lpm.h>
-#endif
-#ifdef CONFIG_BCM_BZHW
-#include <linux/broadcom/bcm_bzhw.h>
-#endif
 #if defined(CONFIG_NFC_BCM2079X)
 #include <linux/nfc/bcm2079x.h>
 #endif
@@ -103,6 +97,7 @@
 #endif
 
 #include <mach/dev-touchpanel.h>
+#include <mach/dev-bt.h>
 
 #ifdef CONFIG_ARCH_R8A7373
 #include <mach/setup-u2stm.h>
@@ -128,9 +123,7 @@
 #include <linux/l3gd20.h>
 #endif
 
-#include <mach/sbsc.h>
-#include <linux/pinctrl/machine.h>
-#include <linux/pinctrl/pinconf-generic.h>
+#include "sh-pfc.h"
 
 static int unused_gpios_amethyst[] = {
 	GPIO_PORT3, GPIO_PORT6, GPIO_PORT8, GPIO_PORT10,
@@ -181,63 +174,6 @@ static const struct file_operations board_rev_ops = {
 	.read = seq_read,
 	.release = single_release,
 };
-
-
-#if (defined(CONFIG_BCM_BT_RFKILL) || defined(CONFIG_BCM_BT_RFKILL_MODULE))
-#define BCMBT_VREG_GPIO       (GPIO_PORT268)
-#define BCMBT_N_RESET_GPIO    (GPIO_PORT15) //(-1)
-
-static struct bcm_bt_rfkill_platform_data bcm_bt_rfkill_data = {
-	.bcm_bt_rfkill_vreg_gpio = BCMBT_VREG_GPIO,
-	.bcm_bt_rfkill_n_reset_gpio = BCMBT_N_RESET_GPIO,
-};
-
-struct platform_device board_bcmbt_rfkill_device = {
-	.name = "bcm-bt-rfkill",
-	.id   = -1,
-	.dev  = {
-		.platform_data=&bcm_bt_rfkill_data,
-	},
-};
-
-#endif
-
-#ifdef CONFIG_BCM_BZHW
-
-#define GPIO_BT_WAKE 	GPIO_PORT262
-#define GPIO_HOST_WAKE 	GPIO_PORT272
-
-static struct bcm_bzhw_platform_data bcm_bzhw_data = {
-	.gpio_bt_wake   = GPIO_BT_WAKE,
-	.gpio_host_wake = GPIO_HOST_WAKE,
-};
-
-static struct platform_device board_bcm_bzhw_device = {
-	.name = "bcm_bzhw",
-	.id = -1,
-	.dev = {
-		.platform_data = &bcm_bzhw_data,
-	},
-};
-#endif
-
-#ifdef CONFIG_BCM_BT_LPM
-#define GPIO_BT_WAKE	GPIO_PORT262
-#define GPIO_HOST_WAKE	GPIO_PORT272
-
-static struct bcm_bt_lpm_platform_data brcm_bt_lpm_data = {
-	.bt_wake_gpio = GPIO_BT_WAKE,
-	.host_wake_gpio = GPIO_HOST_WAKE,
-};
-
-struct platform_device board_bcmbt_lpm_device = {
-	.name = "bcm-bt-lpm",
-	.id   = -1,
-	.dev  = {
-		.platform_data=&brcm_bt_lpm_data,
-	},
-};
-#endif
 
 struct fm34_platform_data fm34_data = {
 	.set_mclk = NULL,
@@ -302,6 +238,11 @@ static struct tmd2771_platform_data taos_platdata = {
 
 /* D2153 setup */
 #ifdef CONFIG_MFD_D2153
+/*TODO: move these externs to header*/
+extern struct d2153_regl_init_data
+	      d2153_regulators_init_data[D2153_NUMBER_OF_REGULATORS];
+extern struct d2153_regl_map regl_map[D2153_NUMBER_OF_REGULATORS];
+
 struct d2153_battery_platform_data pbat_pdata = {
 	.battery_technology = POWER_SUPPLY_TECHNOLOGY_LION,
 	.battery_capacity = BAT_CAPACITY_1800MA,
@@ -437,7 +378,7 @@ static struct platform_led_backlight_data led_backlight_data = {
 };
 
 static struct platform_device led_backlight_device = {
-	.name = "panel",
+	.name = "led-backlight",
 	.id   = -1,
 	.dev  = {
 		.platform_data = &led_backlight_data,
@@ -479,32 +420,10 @@ static struct i2c_board_info __initdata i2c2_devices[] = {
 };
 
 static struct i2c_board_info __initdata i2c3_devices[] = {
-#if defined(CONFIG_USE_MUIC)
 	{
-		I2C_BOARD_INFO(MUIC_NAME, MUIC_I2C_ADDRESS),
-			.platform_data = NULL,
-			.irq           = irq_pin(GPIO_MUS_INT),
+		I2C_BOARD_INFO("fan5405", (0xD5 >> 1)),
+		.irq            = irq_pin(19),
 	},
-#endif
-#if defined(CONFIG_RT8973)
-	{
-		I2C_BOARD_INFO("rt8973", 0x28>>1),
-		.platform_data = NULL,
-		.irq = irq_pin(GPIO_MUS_INT),
-	},
-#endif
-#if defined(CONFIG_CHARGER_SMB328A)
-	{
-		I2C_BOARD_INFO("smb328a", SMB327B_ADDRESS),
-		.irq            = irq_pin(GPIO_CHG_INT),
-	},
-#elif defined(CONFIG_CHARGER_FAN5405)
-	{
-		I2C_BOARD_INFO("fan5405", FAN5405_ADDRESS),
-		.irq            = irq_pin(GPIO_CHG_INT),
-	},
-#endif
-
 };
 
 static struct i2c_board_info i2cm_devices_d2153[] = {
@@ -514,43 +433,25 @@ static struct i2c_board_info i2cm_devices_d2153[] = {
 	},
 };
 
-static struct platform_device *gpio_i2c_devices[] __initdata = {
+static struct rt_boot_platform_data rt_boot_pdata = {
+	.screen0 = {
+		.height = 960,
+		.width = 540,
+		.stride = 544,
+		.mode = 1,
+	},
+	.screen1 = {
+		.height = 0,
+		.width = 0,
+		.stride = 0,
+		.mode = 0,
+	},
 };
 
-static struct i2c_board_info i2c_cameras[] = {
-	{
-		I2C_BOARD_INFO("OV5645", 0x78>>1),
-	},
-	{
-		I2C_BOARD_INFO("HM2056", 0x48>>1),
-	},
+static struct platform_device rt_boot_device = {
+	.name = "rt_boot",
+	.dev.platform_data = &rt_boot_pdata,
 };
-
-struct soc_camera_desc camera_links[] = {
-	{
-		.subdev_desc = {
-			.power  = OV5645_power,
-	},
-		.host_desc = {
-			.bus_id                 = 0,
-			.board_info             = &i2c_cameras[0],
-			.i2c_adapter_id = 1,
-			.module_name    = "OV5645",
-		}
-	},
-	{
-		.subdev_desc = {
-		.power                  = HM2056_power,
-	},
-		.host_desc = {
-			.bus_id                 = 1,
-			.board_info             = &i2c_cameras[1],
-			.i2c_adapter_id = 1,
-			.module_name    = "HM2056",
-		}
-	},
-};
-EXPORT_SYMBOL(camera_links);
 
 void board_restart(char mode, const char *cmd)
 {
@@ -559,32 +460,32 @@ void board_restart(char mode, const char *cmd)
 }
 
 static unsigned long pin_pullup_conf[] = {
-	PIN_CONF_PACKED(PIN_CONFIG_BIAS_PULL_UP, 0),
+	PIN_CONF_PACKED(PIN_CONFIG_BIAS_PULL_UP, 1),
 };
 
-static const struct pinctrl_map loganlte_pinctrl_map[] = {
-	PIN_MAP_MUX_GROUP_DEFAULT("sh-sci.0", "pfc-r8a7373",
-				  "scifa0_data", "scifa0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas_mmcif.0", "pfc-r8a7373",
-				  "mmc0_data8", "mmc0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas_mmcif.0", "pfc-r8a7373",
-				  "mmc0_ctrl", "mmc0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas_sdhi.0", "pfc-r8a7373",
-				  "sdhi0_data4", "sdhi0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas_sdhi.0", "pfc-r8a7373",
-				  "sdhi0_ctrl", "sdhi0"),
-	PIN_MAP_MUX_GROUP_DEFAULT("renesas_sdhi.0", "pfc-r8a7373",
-				  "sdhi0_cd", "sdhi0"),
+static struct pinctrl_map loganlte_pinctrl_map[] __initdata = {
+	SH_PFC_MUX_GROUP_DEFAULT("sh-sci.0",
+				 "scifa0_data", "scifa0"),
+	SH_PFC_MUX_GROUP_DEFAULT("renesas_mmcif.0",
+				 "mmc0_data8", "mmc0"),
+	SH_PFC_MUX_GROUP_DEFAULT("renesas_mmcif.0",
+				 "mmc0_ctrl", "mmc0"),
+	SH_PFC_MUX_GROUP_DEFAULT("renesas_sdhi.0",
+				 "sdhi0_data4", "sdhi0"),
+	SH_PFC_MUX_GROUP_DEFAULT("renesas_sdhi.0",
+				 "sdhi0_ctrl", "sdhi0"),
+	SH_PFC_MUX_GROUP_DEFAULT("renesas_sdhi.0",
+				 "sdhi0_cd", "sdhi0"),
 #ifdef CONFIG_OF
-	PIN_MAP_MUX_GROUP_DEFAULT("e682e000.i2c", "pfc-r8a7373",
-				  "i2c7_data", "i2c7"),
-	PIN_MAP_CONFIGS_GROUP_DEFAULT("e682e000.i2c", "pfc-r8a7373",
-				      "i2c7_data", pin_pullup_conf),
+	SH_PFC_MUX_GROUP_DEFAULT("e682e000.i2c",
+				 "i2c7_data", "i2c7"),
+	SH_PFC_CONFIGS_GROUP_DEFAULT("e682e000.i2c",
+				     "i2c7_data", pin_pullup_conf),
 #else
-	PIN_MAP_MUX_GROUP_DEFAULT("i2c-sh_mobile.7", "pfc-r8a7373",
-				  "i2c7_data", "i2c7"),
-	PIN_MAP_CONFIGS_GROUP_DEFAULT("i2c-sh_mobile.7", "pfc-r8a7373",
-				      "i2c7_data", pin_pullup_conf),
+	SH_PFC_MUX_GROUP_DEFAULT("i2c-sh_mobile.7",
+				 "i2c7_data", "i2c7"),
+	SH_PFC_CONFIGS_GROUP_DEFAULT("i2c-sh_mobile.7",
+				     "i2c7_data", pin_pullup_conf),
 #endif
 };
 
@@ -592,40 +493,13 @@ static const struct pinctrl_map loganlte_pinctrl_map[] = {
 static void __init board_init(void)
 {
 	int stm_select = -1;    // Shall tell how to route STM traces. See setup-u2stm.c for details.
-	void __iomem *sbsc_sdmra_28200 = NULL;
-	void __iomem *sbsc_sdmra_38200 = NULL;
 	int inx = 0;
 
-	/* ES2.02 / LPDDR2 ZQ Calibration Issue WA */
-	u8 reg8 = __raw_readb(STBCHRB3);
+	r8a7373_zq_calibration();
 
-	if ((reg8 & 0x80) && !shmobile_is_older(U2_VERSION_2_2)) {
-		printk(KERN_ALERT "< %s >Apply for ZQ calibration\n", __func__);
-		printk(KERN_ALERT "< %s > Before CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(PLL3CR));
-		sbsc_sdmracr1a   = ioremap(SBSC_BASE + 0x000088, 0x4);
-		sbsc_sdmra_28200 = ioremap(SBSC_BASE + 0x128200, 0x4);
-		sbsc_sdmra_38200 = ioremap(SBSC_BASE + 0x138200, 0x4);
-		if (sbsc_sdmracr1a && sbsc_sdmra_28200 && sbsc_sdmra_38200) {
-			SBSC_Init_520Mhz();
-			__raw_writel(SBSC_SDMRACR1A_ZQ, sbsc_sdmracr1a);
-			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_28200);
-			__raw_writel(SBSC_SDMRA_DONE, sbsc_sdmra_38200);
-		} else {
-			printk(KERN_ERR "%s: ioremap failed.\n", __func__);
-		}
-		printk(KERN_ALERT "< %s > After CPG_PLL3CR 0x%8x\n",
-				__func__, __raw_readl(PLL3CR));
-		if(sbsc_sdmracr1a)
-			iounmap(sbsc_sdmracr1a);
-		if(sbsc_sdmra_28200)
-			iounmap(sbsc_sdmra_28200);
-		if(sbsc_sdmra_38200)
-			iounmap(sbsc_sdmra_38200);
-	}
 	r8a7373_avoid_a2slpowerdown_afterL2sync();
-	pinctrl_register_mappings(loganlte_pinctrl_map,
-				  ARRAY_SIZE(loganlte_pinctrl_map));
+	sh_pfc_register_mappings(loganlte_pinctrl_map,
+				 ARRAY_SIZE(loganlte_pinctrl_map));
 	r8a7373_pinmux_init();
 
 	if (!proc_create("board_revision", 0444, NULL, &board_rev_ops))
@@ -763,7 +637,7 @@ static void __init board_init(void)
 #endif /* CONFIG_MFD_D2153 */
 
 
-	USBGpio_init();
+	usb_init(false);
 
 #if defined(CONFIG_SND_SOC_SH4_FSI)
 	d2153_pdata.audio.fm34_device = DEVICE_NONE;
@@ -784,20 +658,25 @@ static void __init board_init(void)
 	/* l2x0_init_later(); */
 #endif
 
-	camera_init();
+	add_primary_cam_flash_mic2871(GPIO_PORT99, GPIO_PORT100);
+	add_ov5645_primary_camera();
+	add_hm2056_secondary_camera();
+	camera_init(GPIO_PORT3, GPIO_PORT20, GPIO_PORT45);
 
-	/*Gpio keys button configuration*/
-	((struct gpio_keys_platform_data *)(gpio_key_device.dev.platform_data))
-		->buttons = gpio_buttons;
-	((struct gpio_keys_platform_data *)(gpio_key_device.dev.platform_data))
-		->nbuttons = ARRAY_SIZE(gpio_buttons);
-	gpio_key_init(stm_select,
-			devices_stm_sdhi0,
-			ARRAY_SIZE(devices_stm_sdhi0),
-			devices_stm_sdhi1,
-			ARRAY_SIZE(devices_stm_sdhi1),
-			devices_stm_none,
-			ARRAY_SIZE(devices_stm_none));
+	u2_add_gpio_key_devices(gpio_buttons, ARRAY_SIZE(gpio_buttons));
+
+	if (stm_select == 0)
+		u2_add_stm_device();
+	else
+		u2_add_sdhi0_device();
+
+	u2_add_sdhi1_device();
+	u2_add_ion_device();
+	u2_add_rcu_devices();
+#ifndef CONFIG_OF
+	add_bcmbt_rfkill_device(GPIO_PORT268, GPIO_PORT15);
+#endif
+	add_bcmbt_lpm_device(GPIO_PORT262, GPIO_PORT272);
 
 	platform_device_register(&led_backlight_device);
 
@@ -816,32 +695,7 @@ static void __init board_init(void)
 
 	i2c_register_board_info(2, i2c2_devices, ARRAY_SIZE(i2c2_devices));
 
-#if defined(CONFIG_CHARGER_SMB328A)
-	/* rev0.0 uses SMB328A, rev0.1 uses SMB327B */
-	if (system_rev == BOARD_REV_0_0 || system_rev > BOARD_REV_0_4) {
-		int i;
-		for (i = 0; i < sizeof(i2c3_devices)/sizeof(struct i2c_board_info); i++) {
-			if (strcmp(i2c3_devices[i].type, "smb328a")==0) {
-				i2c3_devices[i].addr = SMB328A_ADDRESS;
-			}
-		}
-	}
-#endif
-
-	if (MUIC_IS_PRESENT) {
-		i2c_register_board_info(3, i2c3_devices,
-						ARRAY_SIZE(i2c3_devices));
-	} else {
-		int i;
-		for (i = 0; i < sizeof(i2c3_devices)
-					/sizeof(struct i2c_board_info); i++) {
-			if (!(strcmp(i2c3_devices[i].type, "tsu6712") == 0) &&
-			!(strcmp(i2c3_devices[i].type, "rt8973") == 0)) {
-				i2c_register_board_info(3, &i2c3_devices[i],
-								 1);
-			}
-		}
-	}
+	i2c_register_board_info(3, i2c3_devices, ARRAY_SIZE(i2c3_devices));
 
 	tsp_bcmtch15xxx_init();
 
@@ -857,7 +711,6 @@ static void __init board_init(void)
 	i2c_register_board_info(7, bcm2079x, ARRAY_SIZE(bcm2079x));
 #endif
 
-	platform_add_devices(gpio_i2c_devices, ARRAY_SIZE(gpio_i2c_devices));
 	/* PA devices init */
 	spa_init();
 #ifdef CONFIG_VIBRATOR_SS
@@ -873,11 +726,12 @@ static void __init board_init(void)
 #if defined(CONFIG_PN547_NFC) || defined(CONFIG_NFC_PN547)
 	pn547_device_i2c_register();
 #endif
+	platform_device_register(&rt_boot_device);
 }
 
 #ifdef CONFIG_OF
 static const char *logan_compat_dt[] __initdata = {
-	"renesas,loganlte",
+	"renesas,amethyst",
 	NULL,
 };
 

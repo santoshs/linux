@@ -14,7 +14,11 @@
 
 #include <linux/device.h>
 
+#if defined(CONFIG_SOC_CAMERA_SR030PC50)
 int SR030PC50_power(struct device *dev, int power_on);
+#else
+static inline int SR030PC50_power(struct device *dev, int power_on) { return 0; }
+#endif
 
 #endif /* __SR030PC50_H__ */
 

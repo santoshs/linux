@@ -28,86 +28,140 @@
 #include <media/sh_mobile_rcu.h>
 #include <media/soc_camera.h>
 #include <media/soc_camera_platform.h>
-#include <mach/board.h>
+#include <media/s5k4ecgx.h>
+#include <media/sr030pc50.h>
 #include <mach/setup-u2camera.h>
 #include <mach/setup-u2csi2.h>
 #include <mach/setup-u2rcu.h>
 
-#define CAM_FLASH_ENSET     (GPIO_PORT99)
-#define CAM_FLASH_FLEN      (GPIO_PORT100)
-#define CAM_FLASH_FLEN      (GPIO_PORT100)
-#define RT8547_ADDR	0x99
-#define LONG_DELAY	9
-#define SHORT_DELAY	4
-#define START_DELAY	10
+static struct i2c_board_info s5k4ecgx_i2c_camera = {
+	I2C_BOARD_INFO("S5K4ECGX", 0x56),
+};
 
-struct platform_device camera_devices[] = {
-	{
-		.name   = "soc-camera-pdrv",
-		.id     = 0,
-		.dev    = {
-					.platform_data = &camera_links[0],
-				  },
+static struct i2c_board_info sr030pc50_i2c_camera = {
+	I2C_BOARD_INFO("SR030PC50", 0x30),
+};
+
+static struct i2c_board_info ov5645_i2c_camera = {
+	I2C_BOARD_INFO("OV5645", 0x3C),
+};
+
+static struct i2c_board_info hm2056_i2c_camera = {
+	I2C_BOARD_INFO("HM2056", 0x24),
+};
+
+static struct soc_camera_desc primary_camera_link = {
+	.subdev_desc = {
+		.drv_priv	= &csi20_info,
 	},
-	{
-		.name   = "soc-camera-pdrv",
-		.id     = 1,
-		.dev    = {
-					.platform_data = &camera_links[1],
-			      },
+	.host_desc = {
+		.bus_id		= 0,
+		.i2c_adapter_id	= 1,
 	},
 };
 
-#if defined(CONFIG_FLASH_RT8547)
-static unsigned char reg_value[4] = /*for RT8547 flash */
+static struct soc_camera_desc secondary_camera_link = {
+	.subdev_desc = {
+		.drv_priv		= &csi21_info,
+	},
+	.host_desc = {
+		.bus_id		= 1,
+		.i2c_adapter_id	= 1,
+	}
+};
+
+static struct platform_device primary_camera_device = {
+	.name   = "soc-camera-pdrv",
+	.id     = 0,
+	.dev    = {
+		.platform_data = &primary_camera_link,
+	},
+};
+
+static struct platform_device secondary_camera_device = {
+	.name   = "soc-camera-pdrv",
+	.id     = 1,
+	.dev    = {
+		.platform_data = &secondary_camera_link,
+	},
+};
+
+void add_s5k4ecgx_primary_camera(void)
 {
-	0x03,
-	0x12,
-	0x02,
-	0x0f,
-};
-#endif
+	primary_camera_link.host_desc.board_info = &s5k4ecgx_i2c_camera;
+	primary_camera_link.host_desc.module_name = "S5K4ECGX";
+	primary_camera_link.subdev_desc.power = S5K4ECGX_power;
+}
 
-int camera_init(void)
+void add_ov5645_primary_camera(void)
+{
+	primary_camera_link.host_desc.board_info = &ov5645_i2c_camera;
+	primary_camera_link.host_desc.module_name = "OV5645";
+	primary_camera_link.subdev_desc.power = OV5645_power;
+}
+
+void add_sr030pc50_secondary_camera(void)
+{
+	secondary_camera_link.host_desc.board_info = &sr030pc50_i2c_camera;
+	secondary_camera_link.host_desc.module_name = "SR030PC50";
+	secondary_camera_link.subdev_desc.power = SR030PC50_power;
+}
+
+void add_hm2056_secondary_camera(void)
+{
+	secondary_camera_link.host_desc.board_info = &hm2056_i2c_camera;
+	secondary_camera_link.host_desc.module_name = "HM2056";
+	secondary_camera_link.subdev_desc.power = HM2056_power;
+}
+
+int camera_init(int gpio_cam_pwr_en, int gpio_cam_rst_n, int gpio_cam_stby)
 {
 	struct clk *vclk1_clk;
 	struct clk *pll1_div2_clk;
-	int iRet;
+	int ret;
 
-	gpio_request(GPIO_PORT3, NULL);
-	gpio_direction_output(GPIO_PORT3, 0);   /* CAM_PWR_EN */
-	gpio_request(GPIO_PORT20, NULL);
-	gpio_direction_output(GPIO_PORT20, 0);  /* CAM0_RST_N */
-	gpio_request(GPIO_PORT45, NULL);
-	gpio_direction_output(GPIO_PORT45, 0);  /* CAM0_STBY */
+	gpio_request(gpio_cam_pwr_en, NULL);
+	gpio_direction_output(gpio_cam_pwr_en, 0);   /* CAM_PWR_EN */
+	gpio_request(gpio_cam_rst_n, NULL);
+	gpio_direction_output(gpio_cam_rst_n, 0);  /* CAM0_RST_N */
+	gpio_request(gpio_cam_stby, NULL);
+	gpio_direction_output(gpio_cam_stby, 0);  /* CAM0_STBY */
 
 	pll1_div2_clk = clk_get(NULL, "pll1_div2_clk");
 	if (IS_ERR(pll1_div2_clk))
-		printk(KERN_ERR "clk_get(pll1_div2_clk) failed\n");
+		pr_err("clk_get(pll1_div2_clk) failed\n");
 
 	vclk1_clk = clk_get(NULL, "vclk1_clk");
 	if (IS_ERR(vclk1_clk))
-		printk(KERN_ERR "clk_get(vclk1_clk) failed\n");
+		pr_err("clk_get(vclk1_clk) failed\n");
 
-	iRet = clk_set_parent(vclk1_clk, pll1_div2_clk);
-	if (0 != iRet) {
-		printk(KERN_ERR
-		"clk_set_parent(vclk1_clk) failed (ret=%d)\n", iRet);
+	ret = clk_set_parent(vclk1_clk, pll1_div2_clk);
+	if (0 != ret) {
+		pr_err("clk_set_parent(vclk1_clk) failed (ret=%d)\n", ret);
 	}
 
-	camera_links[0].subdev_desc.drv_priv = &csi20_info;
-	camera_links[1].subdev_desc.drv_priv = &csi21_info;
-
-	printk(KERN_ALERT "Camera ISP ES version switch (ES2)\n");
+	pr_info("Camera ISP ES version switch (ES2)\n");
 	csi20_info.clients[0].lanes = 0x3;
+	csi20_info.clients[0].pdev = &primary_camera_device;
+	csi21_info.clients[0].pdev = &secondary_camera_device;
 
 	clk_put(vclk1_clk);
 	clk_put(pll1_div2_clk);
 
+	ret = platform_device_register(&primary_camera_device);
+	if (ret)
+		pr_err("%s failed to add primary_camera_device %d",
+				__func__, ret);
+
+	ret = platform_device_register(&secondary_camera_device);
+	if (ret)
+		pr_err("%s failed to add secondary_camera_device %d",
+				__func__, ret);
 	return 0;
 }
 
-#if defined(CONFIG_FLASH_MIC2871)
+static int mic2871_flash_enset;
+static int mic2871_flash_flen;
 /* TODO: need to move to flash driver */
 static void MIC2871_write(char addr, char data)
 {
@@ -115,18 +169,18 @@ static void MIC2871_write(char addr, char data)
 	/* send address */
 	printk(KERN_ALERT "%s addr(%d) data(%d)\n", __func__, addr, data);
 	for (i = 0; i < (addr + 1); i++) {
-		gpio_set_value(CAM_FLASH_ENSET, 0);
+		gpio_set_value(mic2871_flash_enset, 0);
 		udelay(1);
-		gpio_set_value(CAM_FLASH_ENSET, 1);
+		gpio_set_value(mic2871_flash_enset, 1);
 		udelay(1);
 	}
 	/* wait T lat */
 	udelay(97);
 	/* send data */
 	for (i = 0; i < (data + 1); i++) {
-		gpio_set_value(CAM_FLASH_ENSET, 0);
+		gpio_set_value(mic2871_flash_enset, 0);
 		udelay(1);
-		gpio_set_value(CAM_FLASH_ENSET, 1);
+		gpio_set_value(mic2871_flash_enset, 1);
 		udelay(1);
 	}
 /* THis only needs to be 405us */
@@ -134,20 +188,20 @@ static void MIC2871_write(char addr, char data)
 	udelay(405);
 }
 
-int main_cam_led(int light, int mode)
+static int mic2871_led(int light, int mode)
 {
 	unsigned long flags;
 	spinlock_t lock;
 	spin_lock_init(&lock);
 
-	gpio_request(CAM_FLASH_ENSET, "camacq");
-	gpio_request(CAM_FLASH_FLEN, "camacq");
+	gpio_request(mic2871_flash_enset, "camacq");
+	gpio_request(mic2871_flash_flen, "camacq");
 
 	switch (light) {
 	case SH_RCU_LED_ON:
 
 		spin_lock_irqsave(&lock, flags);
-		gpio_set_value(CAM_FLASH_ENSET, 1);
+		gpio_set_value(mic2871_flash_enset, 1);
 
 		/* write "Disabled"(0) to LB_TH(4) */
 		MIC2871_write(4, 0);
@@ -166,8 +220,8 @@ int main_cam_led(int light, int mode)
 	case SH_RCU_LED_OFF:
 
 		/* initailize falsh IC */
-		gpio_set_value(CAM_FLASH_FLEN, 0);
-		gpio_set_value(CAM_FLASH_ENSET, 0);
+		gpio_set_value(mic2871_flash_flen, 0);
+		gpio_set_value(mic2871_flash_enset, 0);
 
 		/* For SWI this only needs to be 400us */
 		/* mdelay(1); */
@@ -178,24 +232,50 @@ int main_cam_led(int light, int mode)
 		return -1;
 		break;
 	}
-	gpio_free(CAM_FLASH_ENSET);
-	gpio_free(CAM_FLASH_FLEN);
+	gpio_free(mic2871_flash_enset);
+	gpio_free(mic2871_flash_flen);
 
 	return 0;
 }
-#endif
+
+void add_primary_cam_flash_mic2871(int gpio_cam_flash_enset,
+		int gpio_cam_flash_flen)
+{
+	mic2871_flash_enset = gpio_cam_flash_enset;
+	mic2871_flash_flen = gpio_cam_flash_flen;
+	sh_mobile_rcu0_info.led = mic2871_led;
+}
+
+
+
+static int rt8547_flash_enset;
+static int rt8547_flash_flen;
+/*TODO: if these values changes, then add these as arguments to
+ * add_primary_cam_flash_rt8547 */
+#define RT8547_ADDR	0x99
+#define LONG_DELAY	9
+#define SHORT_DELAY	4
+#define START_DELAY	10
+
+static unsigned char reg_value[4] = /*for RT8547 flash */
+{
+	0x03,
+	0x12,
+	0x02,
+	0x0f,
+};
 
 static inline int camdrv_ss_RT8547_flash_send_bit(unsigned char bit)
 {
 	if (bit > 0) {
-		gpio_set_value(CAM_FLASH_ENSET, 0);
+		gpio_set_value(rt8547_flash_enset, 0);
 		udelay(SHORT_DELAY);
-		gpio_set_value(CAM_FLASH_ENSET, 1);
+		gpio_set_value(rt8547_flash_enset, 1);
 		udelay(LONG_DELAY);
 	} else {
-		gpio_set_value(CAM_FLASH_ENSET, 0);
+		gpio_set_value(rt8547_flash_enset, 0);
 		udelay(LONG_DELAY);
-		gpio_set_value(CAM_FLASH_ENSET, 1);
+		gpio_set_value(rt8547_flash_enset, 1);
 		udelay(SHORT_DELAY);
 	}
 	return 0;
@@ -221,7 +301,7 @@ static inline int camdrv_ss_RT8547_flash_send_special_byte(unsigned char byte)
 
 static inline int camdrv_ss_RT8547_flash_start_xfer(void)
 {
-	gpio_set_value(CAM_FLASH_ENSET, 1);
+	gpio_set_value(rt8547_flash_enset, 1);
 	udelay(START_DELAY);
 	return 0;
 }
@@ -233,7 +313,6 @@ static inline int camdrv_ss_RT8547_flash_stop_xfer(void)
 	return 0;
 }
 
-#if defined(CONFIG_FLASH_RT8547)
 static int camdrv_ss_RT8547_flash_send_data(int reg, unsigned char data)
 {
 
@@ -265,20 +344,20 @@ static int camdrv_ss_RT8547_flash_send_data(int reg, unsigned char data)
 }
 
 #define LED_MODE_MASK	    0x10
-int main_cam_led(int light, int mode)
+static int rt8547_led(int light, int mode)
 {
 	int reg;
 	unsigned char reg_val;
 
-	gpio_request(CAM_FLASH_ENSET, "camacq");
-	gpio_request(CAM_FLASH_FLEN, "camacq");
+	gpio_request(rt8547_flash_enset, "camacq");
+	gpio_request(rt8547_flash_flen, "camacq");
 
 	switch (light) {
 	case SH_RCU_LED_ON:
 
 		if (mode == SH_RCU_LED_MODE_PRE) {
-			gpio_set_value(CAM_FLASH_FLEN, 0);
-			gpio_set_value(CAM_FLASH_ENSET, 0);
+			gpio_set_value(rt8547_flash_flen, 0);
+			gpio_set_value(rt8547_flash_enset, 0);
 
 			/* set Low Vin Protection */
 			reg = 0x01;
@@ -290,11 +369,11 @@ int main_cam_led(int light, int mode)
 			reg_val = (reg_value[reg-1] | LED_MODE_MASK);
 			camdrv_ss_RT8547_flash_send_data(reg, reg_val);
 			/* set ctlen high & flashen high*/
-			gpio_set_value(CAM_FLASH_ENSET, 1);
-			gpio_set_value(CAM_FLASH_FLEN, 1);
+			gpio_set_value(rt8547_flash_enset, 1);
+			gpio_set_value(rt8547_flash_flen, 1);
 			} else {
-			gpio_set_value(CAM_FLASH_FLEN, 0);
-			gpio_set_value(CAM_FLASH_ENSET, 0);
+			gpio_set_value(rt8547_flash_flen, 0);
+			gpio_set_value(rt8547_flash_enset, 0);
 
 			/*set Low Vin Protection */
 			reg = 0x01;
@@ -314,24 +393,31 @@ int main_cam_led(int light, int mode)
 			reg_val = reg_value[reg-1];
 			camdrv_ss_RT8547_flash_send_data(reg, reg_val);
 			/* set ctlen high & flashen high */
-			gpio_set_value(CAM_FLASH_ENSET, 1);
-			gpio_set_value(CAM_FLASH_FLEN, 1);
+			gpio_set_value(rt8547_flash_enset, 1);
+			gpio_set_value(rt8547_flash_flen, 1);
 		}
 		break;
 	case SH_RCU_LED_OFF:
 
-		gpio_set_value(CAM_FLASH_FLEN, 0);
-		gpio_set_value(CAM_FLASH_ENSET, 0);
+		gpio_set_value(rt8547_flash_flen, 0);
+		gpio_set_value(rt8547_flash_enset, 0);
 		break;
 	default:
-		gpio_set_value(CAM_FLASH_FLEN, 0);
-		gpio_set_value(CAM_FLASH_ENSET, 0);
+		gpio_set_value(rt8547_flash_flen, 0);
+		gpio_set_value(rt8547_flash_enset, 0);
 		udelay(500);
 		break;
 	}
-	gpio_free(CAM_FLASH_ENSET);
-	gpio_free(CAM_FLASH_FLEN);
+	gpio_free(rt8547_flash_enset);
+	gpio_free(rt8547_flash_flen);
 
 	return 0;
 }
-#endif
+
+void add_primary_cam_flash_rt8547(int gpio_cam_flash_enset,
+		int gpio_cam_flash_flen)
+{
+	rt8547_flash_enset = gpio_cam_flash_enset;
+	rt8547_flash_flen = gpio_cam_flash_flen;
+	sh_mobile_rcu0_info.led = rt8547_led;
+}

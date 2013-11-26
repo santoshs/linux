@@ -5,9 +5,11 @@
 #include <linux/irq.h>
 #include <linux/delay.h>
 #include <linux/sii8332_platform.h>
+#include <linux/platform_device.h>
 /*#include "midas.h"*/
 
 #include <rtapi/screen_display.h>
+#include <mach/dev-mhl.h>
 
 #define GPIO_MHL_SDA_1_8V 15
 #define GPIO_MHL_SCL_1_8V 14
@@ -139,21 +141,29 @@ static void mhl_usb_switch_control(bool on)
 }
 
 
-void __init board_mhl_init(void)
+int __init board_mhl_init(void)
 {
 	int ret;
 
 	printk("sii8332: %s : START", __func__);
 
+	ret = platform_device_register(&mhl_i2c_gpio_device);
+	if (ret) {
+		pr_err("%s failed to add mhl device %d\n", __func__, ret);
+		goto err;
+	}
+
 	ret = i2c_register_board_info(I2C_BUS_ID_MHL, i2c_devs_sii9234,
 			ARRAY_SIZE(i2c_devs_sii9234));
-
 	if (ret < 0) {
 		printk(KERN_ERR "[MHL] adding i2c fail - nodevice\n");
-		return;
+		goto err_ic2_device;
 	}
 
 	sii8332_cfg_gpio();
 
-	return;
+err_ic2_device:
+	platform_device_unregister(&mhl_i2c_gpio_device);
+err:
+	return ret;
 }

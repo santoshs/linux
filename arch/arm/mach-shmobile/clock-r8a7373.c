@@ -826,7 +826,7 @@ static struct clk mstp_clks[MSTP_NR] = {
 	[MSTP517] = MSTP(5, 17, NULL, 0), /* S2O1 */
 	[MSTP516] = MSTP(5, 16, NULL, 0), /* S2O0 */
 	[MSTP508] = MSTP(5,  8, &div4_clks[DIV4_HP], 0), /* INTC-BB */
-	[MSTP507] = MSTP(5,  7, &div4_clks[DIV4_HP], 0), /* IRQC(INTC-SYS) */
+	[MSTP507] = MSTP(5,  7, &div4_clks[DIV4_HP], CLK_ENABLE_ON_INIT), /* IRQC(INTC-SYS) */
 	[MSTP501] = MSTP(5,  1, &div4_clks[DIV4_HP], 0), /* SPU2A Core1 */
 	[MSTP500] = MSTP(5,  0, &div4_clks[DIV4_HP], 0), /* SPU2A Core0 */
 
@@ -969,7 +969,9 @@ static struct clk_lookup lookups[] = {
 	CLKDEV_DEV_ID("e6826000.i2c", &mstp_clks[MSTP411]), /* IIC3 */
 	CLKDEV_DEV_ID("sh_keysc.0", &mstp_clks[MSTP403]), /* KEYSC */
 	CLKDEV_DEV_ID("renesas_irqc.0", &mstp_clks[MSTP507]), /* IRQC */
+	CLKDEV_DEV_ID("e61c0000.interrupt-controller", &mstp_clks[MSTP507]),
 	CLKDEV_DEV_ID("renesas_irqc.1", &mstp_clks[MSTP507]), /* IRQC */
+	CLKDEV_DEV_ID("e61c0200.interrupt-controller", &mstp_clks[MSTP507]),
 	/* PCM2PWM */
 	CLKDEV_DEV_ID("pcm2pwm-renesas-sh_mobile.1", &mstp_clks[MSTP523]),
 	/* Thermal Sensor */

@@ -81,6 +81,7 @@ obj-$(CONFIG_MACH_U2USB)	+= setup-u2usb.o
 
 # BT object for renesas reference implementation
 obj-$(CONFIG_RENESAS_BT)	+= dev-renesas-bt.o
+obj-y				+= dev-bt.o
 
 # BT object
 obj-$(CONFIG_BT_BCM4330)		+= board-bcm4334-bt.o
@@ -90,6 +91,7 @@ obj-$(CONFIG_BCM4334_BT)		+= board-bcm4334-bt.o
 
 # Framework support
 obj-$(CONFIG_SMP)		+= $(smp-y)
+obj-$(CONFIG_PINCTRL)		+= pfc.o
 
 # LED support
 #obj-y	+= led-control.o
