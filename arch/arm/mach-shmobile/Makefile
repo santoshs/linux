@@ -130,7 +130,7 @@ obj-$(CONFIG_U2_SDHI)	+= setup-u2sdhi.o
 # gpio_key and keysc
 obj-$(CONFIG_U2_GPIOKEY)	+= setup-u2gpio_key.o
 # WiFi objects
-obj-$(CONFIG_ARCH_SHMOBILE)	+= dev-wifi.o
+#obj-$(CONFIG_ARCH_SHMOBILE)	+= dev-wifi.o
 
 # gpio
 obj-y						+= gpio.o

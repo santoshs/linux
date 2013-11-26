@@ -47,7 +47,7 @@
 #include <linux/d2153/d2153_battery.h>
 #include <linux/d2153/d2153_aad.h>
 #endif
-#include <mach/dev-wifi.h>
+#include <linux/bcm_wlan.h>
 #include <mach/setup-u2spa.h>
 #include <mach/setup-u2vibrator.h>
 #include <mach/setup-u2ion.h>
@@ -169,10 +169,24 @@ static int board_rev_proc_open(struct inode *inode, struct file *file)
 	return single_open(file, board_rev_proc_show, NULL);
 }
 
+#define GPIO_WLAN_REG_ON (GPIO_PORT260)
+#define GPIO_WLAN_OOB_IRQ (GPIO_PORT98)
+static struct wlan_plat_data wlan_sdio_info= {
+       .wl_reset_gpio = GPIO_WLAN_REG_ON,
+       .host_wake_gpio = GPIO_WLAN_OOB_IRQ,
+};
+
 static const struct file_operations board_rev_ops = {
 	.open = board_rev_proc_open,
 	.read = seq_read,
 	.release = single_release,
+};
+
+static struct platform_device wlan_sdio_device = {
+        .name = "bcm-wlan",
+        .dev  = {
+                .platform_data  = &wlan_sdio_info,
+        },
 };
 
 struct fm34_platform_data fm34_data = {
@@ -679,6 +693,7 @@ static void __init board_init(void)
 	add_bcmbt_lpm_device(GPIO_PORT262, GPIO_PORT272);
 
 	platform_device_register(&led_backlight_device);
+	platform_device_register(&wlan_sdio_device);
 
 #if defined(CONFIG_SAMSUNG_MHL)
 	board_mhl_init();
