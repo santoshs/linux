@@ -38,6 +38,7 @@
 #include <linux/irqchip/arm-gic.h>
 #include <mach/setup-u2timers.h>
 #include <mach/poweroff.h>
+#include <mach/gpio.h>
 
 #include<linux/led_backlight-cntrl.h>
 
