@@ -76,13 +76,14 @@ struct hm2056_timing_cfg {
 
 
 static const struct hm2056_datafmt hm2056_fmts[] = {
-	/*
-	 * Order important: first natively supported,
-	 *second supported with a GPIO extender
-	 */
-	{V4L2_MBUS_FMT_UYVY8_2X8, V4L2_COLORSPACE_JPEG},
-	{V4L2_MBUS_FMT_YUYV8_2X8, V4L2_COLORSPACE_JPEG},
-/*	{V4L2_MBUS_FMT_JPEG_1X8, V4L2_COLORSPACE_JPEG}, */
+	{V4L2_MBUS_FMT_SBGGR10_1X10,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_SGBRG10_1X10,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_SGRBG10_1X10,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_SRGGB10_1X10,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_UYVY8_2X8,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_VYUY8_2X8,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_YUYV8_2X8,	V4L2_COLORSPACE_SRGB},
+	{V4L2_MBUS_FMT_YVYU8_2X8,	V4L2_COLORSPACE_SRGB},
 
 };
 
@@ -114,9 +115,8 @@ static const struct v4l2_frmsize_discrete hm2056_frmsizes[hm2056_SIZE_LAST] = {
 int HM2056_power(struct device *dev, int power_on)
 {
 	struct clk *vclk1_clk, *vclk2_clk;
-	int iRet;
+	int iret;
 	struct regulator *regulator;
-	dev_dbg(dev, "%s(): power_on=%d\n", __func__, power_on);
 
 	vclk1_clk = clk_get(NULL, "vclk1_clk");
 	if (IS_ERR(vclk1_clk)) {
@@ -133,95 +133,62 @@ int HM2056_power(struct device *dev, int power_on)
 	if (power_on) {
 		printk(KERN_ALERT "%s PowerON\n", __func__);
 		sh_csi2_power(dev, power_on);
-		gpio_set_value(GPIO_PORT3, 0); /* CAM_PWR_EN Low */
-		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
-
-		/* CAM_AVDD_2V8  On */
-		regulator = regulator_get(NULL, "cam_sensor_a");
-		if (IS_ERR(regulator))
-			return -1;
-		iRet = regulator_enable(regulator);
-		regulator_put(regulator);
-		mdelay(2);
 
 		/* CAM_VDDIO_1V8 On */
 		regulator = regulator_get(NULL, "cam_sensor_io");
 		if (IS_ERR(regulator))
 			return -1;
-		iRet = regulator_enable(regulator);
+		iret = regulator_enable(regulator);
 		regulator_put(regulator);
+		udelay(100);
 
-		mdelay(2);
 
-		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
-		mdelay(2);
-
-		iRet = clk_set_rate(vclk1_clk,
-		clk_round_rate(vclk1_clk, 24000000));
-		if (0 != iRet) {
-			dev_err(dev,
-				"clk_set_rate(vclk1_clk) failed (ret=%d)\n",
-					iRet);
-		}
-
-		iRet = clk_enable(vclk1_clk);
-		if (0 != iRet) {
-			dev_err(dev, "clk_enable(vclk1_clk) failed (ret=%d)\n",
-				iRet);
-		}
-		mdelay(3);
-
-		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
-		mdelay(2);
-
-		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
-		mdelay(2);
-
-		/* CAM_CORE_1V2  On */
-		gpio_set_value(GPIO_PORT3, 1);
-		mdelay(1);
-
-		gpio_set_value(GPIO_PORT45, 1); /* CAM0_STBY */
-		mdelay(1);
-
-		gpio_set_value(GPIO_PORT20, 1); /* CAM0_RST_N Hi */
-		udelay(70);
-		/* 1ms */
-
-		/* 5M_AF_2V8 On */
-		regulator = regulator_get(NULL, "cam_af");
+		/* CAM_AVDD_2V8  On */
+		regulator = regulator_get(NULL, "cam_sensor_a");
 		if (IS_ERR(regulator))
 			return -1;
-		iRet = regulator_enable(regulator);
+		iret = regulator_enable(regulator);
 		regulator_put(regulator);
+		mdelay(1);
 
+		/* MCLK Sub-Camera */
+		iret = clk_set_rate(vclk2_clk,
+			clk_round_rate(vclk2_clk, 24000000));
+		if (0 != iret) {
+			dev_err(dev,
+				"clk_set_rate(vclk2_clk) failed (ret=%d)\n",
+				iret);
+		}
+
+		iret = clk_enable(vclk2_clk);
+		if (0 != iret) {
+			dev_err(dev, "clk_enable(vclk2_clk) failed (ret=%d)\n",
+				iret);
+		}
+		mdelay(1000);
+		gpio_set_value(GPIO_PORT91, 0); /* CAM1_STBY */
+		mdelay(4);
+
+		gpio_set_value(GPIO_PORT16, 1); /* CAM1_RST_N */
+		mdelay(100);
 		printk(KERN_ALERT "%s PowerON fin\n", __func__);
 	} else {
 		printk(KERN_ALERT "%s PowerOFF\n", __func__);
 
-		gpio_set_value(GPIO_PORT20, 0); /* CAM0_RST_N */
-		mdelay(1);
-
-		clk_disable(vclk1_clk);
-
-		gpio_set_value(GPIO_PORT45, 0); /* CAM0_STBY */
-		mdelay(1);
-
 		gpio_set_value(GPIO_PORT16, 0); /* CAM1_RST_N */
 		mdelay(1);
 
-		/* CAM_CORE_1V2  Off */
-		gpio_set_value(GPIO_PORT3, 0);
+		gpio_set_value(GPIO_PORT91, 1); /* CAM1_STBY */
+		mdelay(2);
+
+		clk_disable(vclk2_clk);
 		mdelay(1);
 
 		/* CAM_VDDIO_1V8 Off */
 		regulator = regulator_get(NULL, "cam_sensor_io");
 		if (IS_ERR(regulator))
 			return -1;
-		iRet = regulator_disable(regulator);
+		iret = regulator_disable(regulator);
 		regulator_put(regulator);
 		mdelay(1);
 
@@ -229,16 +196,13 @@ int HM2056_power(struct device *dev, int power_on)
 		regulator = regulator_get(NULL, "cam_sensor_a");
 		if (IS_ERR(regulator))
 			return -1;
-		iRet = regulator_disable(regulator);
+		iret = regulator_disable(regulator);
 		regulator_put(regulator);
 		mdelay(1);
 
-		/* 5M_AF_2V8 Off */
-		regulator = regulator_get(NULL, "cam_af");
-		if (IS_ERR(regulator))
-			return -1;
-		iRet = regulator_disable(regulator);
-		regulator_put(regulator);
+		/* CAM_CORE_1V2  Off */
+		gpio_set_value(GPIO_PORT3, 0);
+		mdelay(1);
 		sh_csi2_power(dev, power_on);
 		printk(KERN_ALERT "%s PowerOFF fin\n", __func__);
 	}
@@ -315,6 +279,8 @@ struct hm2056 {
 	int whitebalance;
 	int framerate;
 	int flashmode;
+	int width;
+	int height;
 };
 
 static struct hm2056 *to_hm2056(const struct i2c_client *client)
@@ -631,27 +597,51 @@ static int hm2056_capture_setting(struct v4l2_subdev *sd)
 	int ret;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
-	ret = hm2056_reg_writes(client, hawaii_capture_init);
+	struct hm2056 *hm2056 = to_hm2056(client);
 
+	if (hm2056->i_size == hm2056_SIZE_VGA)
+		ret = hm2056_reg_writes(client, hawaii_vga_preview);
+
+	if (hm2056->i_size == hm2056_SIZE_QVGA)
+		ret = hm2056_reg_writes(client, hawaii_qvga_init);
+
+	if (hm2056->i_size == hm2056_SIZE_1280x1024)
+		ret = hm2056_reg_writes(client, hawaii_1_2M);
+
+	if (hm2056->i_size == hm2056_SIZE_UXGA)
+		ret = hm2056_reg_writes(client, hawaii_uxga_init);
+
+	mdelay(500);
 	printk(KERN_INFO "hm2056 capture_init_common!");
 
 	return ret;
 }
-
 
 static int hm2056_config_preview(struct v4l2_subdev *sd)
 {
 	int ret;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
-
+	struct hm2056 *hm2056 = to_hm2056(client);
 	if (initialized == 0) {
 		ret = hm2056_reg_writes(client, hawaii_common_init);
 		initialized = 1;
 		msleep(100);
 	}
 
-	ret = hm2056_reg_writes(client, hawaii_preview_init);
+	ret = hm2056_reg_writes(client, hawaii_init);
+	if (hm2056->i_size == hm2056_SIZE_VGA)
+		ret = hm2056_reg_writes(client, hawaii_vga_preview);
+
+	if (hm2056->i_size == hm2056_SIZE_QVGA)
+		ret = hm2056_reg_writes(client, hawaii_qvga_init);
+
+
+	if (hm2056->i_size == hm2056_SIZE_1280x1024)
+		ret = hm2056_reg_writes(client, hawaii_1_2M);
+
+	if (hm2056->i_size == hm2056_SIZE_UXGA)
+		ret = hm2056_reg_writes(client, hawaii_uxga_init);
 
 	return ret;
 }
@@ -659,7 +649,6 @@ static int hm2056_config_preview(struct v4l2_subdev *sd)
 static int hm2056_config_capture(struct v4l2_subdev *sd)
 {
 	int ret = 0;
-
 
 	hm2056_capture_setting(sd);
 
@@ -723,6 +712,8 @@ static int hm2056_s_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *mf)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct hm2056 *hm2056 = to_hm2056(client);
 	int ret = 0;
+	u8 id_high, id_low;
+
 
 	ret = hm2056_try_fmt(sd, mf);
 	if (ret < 0)
@@ -730,6 +721,10 @@ static int hm2056_s_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *mf)
 
 	hm2056->i_size = hm2056_find_framesize(mf->width, mf->height);
 	hm2056->i_fmt = hm2056_find_datafmt(mf->code);
+	ret = hm2056_reg_read(client, HM2056_CHIP_ID_HIGH, &id_high);
+	ret += hm2056_reg_read(client, HM2056_CHIP_ID_LOW, &id_low);
+	dev_info(&client->dev, "-hm2056_video_probe- 0x%x%x detected ---\n",
+							id_high, id_low);
 
 	/*To avoide reentry init sensor, remove from here*/
 
@@ -747,14 +742,6 @@ static int hm2056_s_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *mf)
 static int hm2056_g_chip_ident(struct v4l2_subdev *sd,
 			       struct v4l2_dbg_chip_ident *id)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-	if (id->match.type != V4L2_CHIP_MATCH_I2C_ADDR)
-		return -EINVAL;
-
-	if (id->match.addr != client->addr)
-		return -ENODEV;
-
 	id->ident = V4L2_IDENT_HM2056;
 	id->revision = 0;
 
@@ -986,13 +973,12 @@ static int hm2056_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 		}
 
 	case V4L2_CID_CAM_CAPTURE:
-		printk(KERN_INFO "hm2056 runmode = capture\n");
 		runmode = CAM_RUNNING_MODE_CAPTURE;
 		hm2056_config_capture(sd);
 		break;
 
 	case V4L2_CID_CAM_CAPTURE_DONE:
-		printk(KERN_INFO "hm2056 runmode = capture_done\n");
+
 		runmode = CAM_RUNNING_MODE_CAPTURE_DONE;
 		break;
 
@@ -1099,41 +1085,6 @@ static int hm2056_init(struct i2c_client *client)
 	return ret;
 }
 
-/*
- * Interface active, can use i2c. If it fails, it can indeed mean, that
- *this wasn't our capture interface, so, we wait for the right one
- */
-static int hm2056_video_probe(struct soc_camera_device *icd,
-			      struct i2c_client *client)
-{
-	int ret = 0;
-	u8 id_high, id_low;
-
-	/*
-	 * We must have a parent by now. And it cannot be a wrong one.
-	 * So this entire test is completely redundant.
-	 */
-	/*if (!icd->dev.parent ||
-	to_soc_camera_host(icd->dev.parent)->nr != icd->iface)
-	return -ENODEV;dev field is not part of soc_camera_device on 3.4*/
-
-	ret = hm2056_reg_read(client, HM2056_CHIP_ID_HIGH, &id_high);
-	ret += hm2056_reg_read(client, HM2056_CHIP_ID_LOW, &id_low);
-	if (ret) {
-		printk(KERN_ERR
-		"Failure to detect HM2056 chip for I2c failure\n");
-		goto out;
-	}
-
-	printk(KERN_ERR"-hm2056_video_probe- 0x%x%x detected ---\n",
-	id_high, id_low);
-
-	/* TODO: Do something like hm2056_init */
-
-out:
-	return ret;
-}
-
 static void hm2056_video_remove(struct soc_camera_device *icd)
 {
 	/*dev_dbg(&icd->dev, "Video removed: %p, %p\n",
@@ -1184,6 +1135,45 @@ static int hm2056_enum_fmt(struct v4l2_subdev *sd, unsigned int index,
 	*code = hm2056_fmts[index].code;
 	return 0;
 }
+static struct hm2056 *to_HM2056(const struct i2c_client *client)
+{
+	return container_of(i2c_get_clientdata(client), struct hm2056, subdev);
+}
+
+static int hm2056_g_crop(struct v4l2_subdev *sd, struct v4l2_crop *a)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct hm2056 *priv = to_HM2056(client);
+	struct v4l2_rect *rect = &a->c;
+
+	a->type		= V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	rect->top	= 0;
+	rect->left	= 0;
+	rect->width	= priv->width;
+	rect->height	= priv->height;
+	dev_info(&client->dev, "%s: width = %d height = %d\n", __func__ ,
+						rect->width, rect->height);
+
+	return 0;
+}
+static int hm2056_cropcap(struct v4l2_subdev *sd, struct v4l2_cropcap *a)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct hm2056 *priv = to_HM2056(client);
+
+	a->bounds.left			= 0;
+	a->bounds.top			= 0;
+	a->bounds.width			= priv->width;
+	a->bounds.height		= priv->height;
+	a->defrect			= a->bounds;
+	a->type				= V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	a->pixelaspect.numerator	= 1;
+	a->pixelaspect.denominator	= 1;
+	dev_info(&client->dev, "%s: width = %d height = %d\n", __func__ ,
+					a->bounds.width, a->bounds.height);
+
+	return 0;
+}
 
 static int hm2056_enum_framesizes(struct v4l2_subdev *sd,
 				  struct v4l2_frmsizeenum *fsize)
@@ -1204,6 +1194,7 @@ static int hm2056_enum_frameintervals(struct v4l2_subdev *sd,
 				      struct v4l2_frmivalenum *interval)
 {
 	int size;
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
 	if (interval->index >= 1)
 		return -EINVAL;
@@ -1211,7 +1202,6 @@ static int hm2056_enum_frameintervals(struct v4l2_subdev *sd,
 	interval->type = V4L2_FRMIVAL_TYPE_DISCRETE;
 
 	size = hm2056_find_framesize(interval->width, interval->height);
-
 	switch (size) {
 	case hm2056_SIZE_UXGA:
 		interval->discrete.numerator = 1;
@@ -1223,11 +1213,11 @@ static int hm2056_enum_frameintervals(struct v4l2_subdev *sd,
 		interval->discrete.denominator = 24;
 		break;
 	}
-/*	printk(KERN_ERR"%s: width=%d height=%d fi=%d/%d\n", __func__,
+	dev_info(&client->dev, "%s: width=%d height=%d fi=%d/%d\n", __func__,
 			interval->width,
 			interval->height, interval->discrete.numerator,
 			interval->discrete.denominator);
-			*/
+
 	return 0;
 }
 
@@ -1275,6 +1265,8 @@ static struct v4l2_subdev_video_ops hm2056_subdev_video_ops = {
 	.s_stream = hm2056_s_stream,
 	.s_mbus_fmt = hm2056_s_fmt,
 	.g_mbus_fmt = hm2056_g_fmt,
+	.g_crop		= hm2056_g_crop,
+	.cropcap	= hm2056_cropcap,
 	.try_mbus_fmt = hm2056_try_fmt,
 	.enum_mbus_fmt = hm2056_enum_fmt,
 	.enum_mbus_fsizes = hm2056_enum_framesizes,
@@ -1307,21 +1299,12 @@ static int hm2056_probe(struct i2c_client *client,
 			const struct i2c_device_id *did)
 {
 	struct hm2056 *hm2056;
-	struct soc_camera_device *icd = NULL;
 	struct soc_camera_link *icl = client->dev.platform_data;
 	int ret;
 
 	printk(KERN_ERR"hm2056 probe start\n");
 	client->addr = (0x48>>1);
-	#if 0
-	printk(KERN_ERR"hm2056 i2c addr is 0x%x\n", client->addr);
-	if (!icd) {
-		dev_err(&client->dev, "hm2056: missing soc-camera data!\n");
-		return -EINVAL;
-	}
 
-	icl = to_soc_camera_link(icd);
-	#endif
 	if (!icl) {
 		dev_err(&client->dev, "hm2056 driver needs platform data\n");
 		return -EINVAL;
@@ -1342,11 +1325,8 @@ static int hm2056_probe(struct i2c_client *client,
 	hm2056->i_size = hm2056_SIZE_VGA;
 	hm2056->i_fmt = 0;	/* First format in the list */
 	hm2056->plat_parms = icl->priv;
-	ret = hm2056_video_probe(icd, client);
-	if (ret) {
-		kfree(hm2056);
-		return ret;
-	}
+	hm2056->width = 640;
+	hm2056->height = 480;
 
 	/* init the sensor here */
 	ret = hm2056_init(client);
@@ -1371,6 +1351,8 @@ static int hm2056_remove(struct i2c_client *client)
 
 	return 0;
 }
+
+
 
 static const struct i2c_device_id hm2056_id[] = {
 	{"HM2056", 0},

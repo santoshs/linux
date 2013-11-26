@@ -62,11 +62,6 @@ int S5K4ECGX_power(struct device *dev, int power_on);
 #else
 static inline int S5K4ECGX_power(struct device *dev, int power_on) { return 0; }
 #endif
-#if defined(CONFIG_SOC_CAMERA_SR030PC50)
-int SR030PC50_power(struct device *dev, int power_on);
-#else
-static inline int SR030PC50_power(struct device *dev, int power_on) { return 0; }
-#endif
 
 
 #endif /* __ASM_ARCH_CAMERA_H */

@@ -66,3 +66,10 @@ config FB_SH_MOBILE_RGB888
         default n
         help
           SuperH Mobile LCDC framebuffer support RGB888.
+
+config LDI_MDNIE
+	bool "mobile Digital Natural Image engine"
+	help
+	  This feature is used to control the display sharpness, backlight control
+	  as per the contents to be displayed
+	  This also provides support for CABC feature

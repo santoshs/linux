@@ -43,11 +43,11 @@ static struct i2c_board_info sr030pc50_i2c_camera = {
 };
 
 static struct i2c_board_info ov5645_i2c_camera = {
-	I2C_BOARD_INFO("OV5645", 0x20),
+	I2C_BOARD_INFO("OV5645", 0x3C),
 };
 
 static struct i2c_board_info hm2056_i2c_camera = {
-	I2C_BOARD_INFO("HM2056", 0x28),
+	I2C_BOARD_INFO("HM2056", 0x24),
 };
 
 static struct soc_camera_desc primary_camera_link = {

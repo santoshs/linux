@@ -523,15 +523,12 @@ static int bcm_bt_lpm_probe(struct platform_device *pdev)
 	int rc = -EINVAL;
 	struct bcm_bt_lpm_platform_data *pdata = NULL;
 
-#ifdef CONFIG_OF_DEVICE
 	const struct of_device_id *match = NULL;
 	match = of_match_device(bcm_bt_lpm_of_match, &pdev->dev);
 	if (!match) {
 		pr_err("%s: **ERROR** No matcing device found\n",
 							__func__);
-		return -ENODEV;
 	}
-#endif
 
 	priv_g = devm_kzalloc(&pdev->dev,
 			sizeof(*priv_g),
@@ -575,18 +572,11 @@ static int bcm_bt_lpm_probe(struct platform_device *pdev)
 
 	spin_lock_init(&priv_g->plpm->bcm_bt_lpm_lock);
 
-#ifndef CONFIG_OF_DEVICE
-	if (pdev->dev.platform_data) {
+	if (!match && pdev->dev.platform_data) {
 		pdata = pdev->dev.platform_data;
 		priv_g->pdata->bt_wake_gpio   = pdata->bt_wake_gpio;
 		priv_g->pdata->host_wake_gpio = pdata->host_wake_gpio;
-	} else {
-		pr_err("%s: **ERROR** NO platform data available\n", __func__);
-		rc = -ENODEV;
-		goto out;
-	}
-#else
-	if (pdev->dev.of_node) {
+	} else if (match && pdev->dev.of_node) {
 		priv_g->pdata->bt_wake_gpio =
 					of_get_named_gpio(
 					pdev->dev.of_node,
@@ -613,13 +603,12 @@ static int bcm_bt_lpm_probe(struct platform_device *pdev)
 			goto out;
 		}
 	} else {
-		pr_err("%s: **ERROR** NO platform data available\n",
+		pr_err("%s: **ERROR** NO platform data/device tree available\n",
 							__func__);
 		rc = -ENODEV;
 		goto out;
 	}
 
-#endif
 	priv_g->pdev = pdev;
 
 	pr_info("%s: bt_wake_gpio=%d, host_wake_gpio=%d\n",

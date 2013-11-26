@@ -248,6 +248,10 @@ static struct platform_device bcm_backlight_devices = {
 		.platform_data = &bcm_ktd259b_backlight_data,
 	},
 };
+static void __init ldi_mdnie_init(void)
+{
+	platform_device_register_simple("mdnie", -1, NULL, 0);
+}
 
 static struct i2c_board_info __initdata i2c3_devices[] = {
 #if defined(CONFIG_USE_MUIC)
@@ -619,6 +623,9 @@ static void __init board_init(void)
 	pn547_device_i2c_register();
 #endif
 	platform_device_register(&rt_boot_device);
+
+ldi_mdnie_init();
+
 }
 
 #ifdef CONFIG_OF
