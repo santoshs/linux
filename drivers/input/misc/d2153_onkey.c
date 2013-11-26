@@ -120,7 +120,6 @@ static int __exit d2153_onkey_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver d2153_onkey_driver = {
-	.probe		= d2153_onkey_probe,
 	.remove		= __exit_p(d2153_onkey_remove),
 	.driver		= {
 		.name	= DRIVER_NAME,
@@ -130,7 +129,7 @@ static struct platform_driver d2153_onkey_driver = {
 
 static int __init d2153_onkey_init(void)
 {
-	return platform_driver_register(&d2153_onkey_driver);
+	return platform_driver_probe(&d2153_onkey_driver, d2153_onkey_probe);
 }
 
 static void __exit d2153_onkey_exit(void)
