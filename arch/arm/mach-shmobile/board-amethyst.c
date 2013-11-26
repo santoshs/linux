@@ -154,6 +154,8 @@ static int unused_gpios_amethyst[] = {
 static struct gpio_keys_button gpio_buttons[] = {
 	GPIO_KEY(KEY_VOLUMEUP,   GPIO_PORT1,  "+",     1),
 	GPIO_KEY(KEY_VOLUMEDOWN, GPIO_PORT2,  "-",     1),
+	GPIO_KEY(KEY_CAMERA_FOCUS, GPIO_PORT24, "Focus", 1),
+	GPIO_KEY(KEY_CAMERA, GPIO_PORT25, "Camera", 1),
 };
 void (*shmobile_arch_reset)(char mode, const char *cmd);
 
