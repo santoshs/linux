@@ -40,6 +40,11 @@
 #include <mach/setup-u2usb.h>
 #include <mach/common.h>
 
+enum VBUS_STATUS {
+        VBUS_STATUS_DISCONNECT,
+        VBUS_STATUS_CONNECT,
+};
+
 #define BIT3		(ulong)(0x00000008)
 //#define D2153_REG_DEBUG
 /* #define D2153_SUPPORT_I2C_HIGH_SPEED */
@@ -400,6 +405,7 @@ static irqreturn_t d2153_system_event_handler(int irq, void *data)
 	/* todo DLG export the event?? */
 	return IRQ_HANDLED;
 }
+
 /*
  *  * d2153_VBUS_STATUS_handler
   *   */
@@ -407,35 +413,35 @@ static void d2153_vbus_event_handler(void)
 {
 	/* Register of DA9066AA where VBUS is connected */
 	int ret;
-	static int vbus_status;
 	char gpio_ta;
+	u8 reg;
 	struct d2153 *d2153 = d2153_dev_info;
 
+	ret = d2153_reg_read(d2153, D2153_STATUS_C_REG, &reg);
+	if (ret)
+		printk(KERN_ERR"D2153 i2c read failed for D2153_STATUS_C_REG");
+
 	ret = d2153->read_dev(d2153, GPIO_TA_ADDR, sizeof(char), &gpio_ta);
-	printk(KERN_INFO "D2153_VBUS_WORK %d\n", gpio_ta);
+	printk(KERN_INFO"D2153_VBUS_WORK %d,TA %d\n", gpio_ta, reg);
 	if (ret)
 		printk(KERN_ERR "D2153 i2c read failed on VBUS work");
 
-	if (gpio_ta & TA_TYPE_HIGH) {
+	if (BIT3 & reg) {
 		gpio_ta &= TA_TYPE_LOW;
 		ret = d2153->write_dev(d2153, GPIO_TA_ADDR, sizeof(char),
 				&gpio_ta);
-		vbus_status = 1;
-		send_usb_insert_event(vbus_status);
+		send_usb_insert_event(VBUS_STATUS_CONNECT);
 		if (ret)
 			printk(KERN_ERR
 				"D2153 i2c write failed on VBUS work");
 	} else {
-		if (vbus_status) {
-			gpio_ta |= TA_TYPE_HIGH;
-			ret = d2153->write_dev(d2153, GPIO_TA_ADDR, 
-				sizeof(char), &gpio_ta);
-			vbus_status = 0;
-			send_usb_insert_event(vbus_status);
-			if (ret)
-				printk(KERN_ERR
-					"D2153 i2c write failed on VBUS work");
-		}
+		gpio_ta |= TA_TYPE_HIGH;
+		ret = d2153->write_dev(d2153, GPIO_TA_ADDR,
+			sizeof(char), &gpio_ta);
+		send_usb_insert_event(VBUS_STATUS_DISCONNECT);
+		if (ret)
+			printk(KERN_ERR
+				"D2153 i2c write failed on VBUS work");
 	}
 }
 
