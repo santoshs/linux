@@ -50,6 +50,9 @@ radix__hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	struct hstate *h = hstate_file(file);
 	struct vm_unmapped_area_info info;
 
+	if (unlikely(addr > mm->task_size && addr < TASK_SIZE))
+		mm->task_size = TASK_SIZE;
+
 	if (len & ~huge_page_mask(h))
 		return -EINVAL;
 	if (len > mm->task_size)
@@ -78,5 +81,9 @@ radix__hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 	info.high_limit = current->mm->mmap_base;
 	info.align_mask = PAGE_MASK & ~huge_page_mask(h);
 	info.align_offset = 0;
+
+	if (addr > DEFAULT_MAP_WINDOW)
+		info.high_limit += mm->task_size - DEFAULT_MAP_WINDOW;
+
 	return vm_unmapped_area(&info);
 }
