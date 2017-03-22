@@ -1308,6 +1308,14 @@ void would_dump(struct linux_binprm *bprm, struct file *file)
 }
 EXPORT_SYMBOL(would_dump);
 
+#ifndef arch_init_task_size
+static inline void arch_init_task_size(void)
+{
+	current->mm->task_size = TASK_SIZE;
+}
+#define arch_init_task_size arch_init_task_size
+#endif
+
 void setup_new_exec(struct linux_binprm * bprm)
 {
 	arch_pick_mmap_layout(current->mm);
@@ -1327,7 +1335,7 @@ void setup_new_exec(struct linux_binprm * bprm)
 	 * depend on TIF_32BIT which is only updated in flush_thread() on
 	 * some architectures like powerpc
 	 */
-	current->mm->task_size = TASK_SIZE;
+	arch_init_task_size();
 
 	/* install the new credentials */
 	if (!uid_eq(bprm->cred->uid, current_euid()) ||
