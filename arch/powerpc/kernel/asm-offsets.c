@@ -189,6 +189,10 @@ int main(void)
 #endif /* CONFIG_PPC_MM_SLICES */
 #endif
 
+#ifdef CONFIG_PPC_STD_MMU_64
+	DEFINE(PACATASKSIZE, offsetof(struct paca_struct, task_size));
+#endif
+
 #ifdef CONFIG_PPC_BOOK3E
 	OFFSET(PACAPGD, paca_struct, pgd);
 	OFFSET(PACA_KERNELPGD, paca_struct, kernel_pgd);

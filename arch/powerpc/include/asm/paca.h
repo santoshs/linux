@@ -144,7 +144,9 @@ struct paca_struct {
 	u16 mm_ctx_sllp;
 #endif
 #endif
-
+#ifdef CONFIG_PPC_STD_MMU_64
+	u64 task_size;
+#endif
 	/*
 	 * then miscellaneous read-write fields
 	 */
