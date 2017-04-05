@@ -196,6 +196,11 @@ config KVM_XICS
 	  Specification) interrupt controller architecture used on
 	  IBM POWER (pSeries) servers.
 
+config KVM_XIVE
+	bool
+	default y
+	depends on KVM_XICS && XIVE_NATIVE
+
 source drivers/vhost/Kconfig
 
 endif # VIRTUALIZATION
