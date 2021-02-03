@@ -726,46 +726,6 @@ static inline void *mas_root_locked(struct ma_state *mas)
 	return mas->tree->ma_root;
 }
 
-/*
- * ma_set_slot() - Set a nodes rcu slot.
- * @mn - the maple node for the operation
- * @slot - the slot number to set
- * @type - the maple node type
- * @val - the value to store
- */
-static inline void ma_set_slot(struct maple_node *mn,
-		unsigned char slot, enum maple_type type, void *val)
-{
-	BUG_ON(slot >= mt_slots[type]);
-
-	switch (type) {
-	default:
-	case maple_range_64:
-	case maple_leaf_64:
-		rcu_assign_pointer(mn->mr64.slot[slot], val);
-		break;
-	case maple_arange_64:
-		rcu_assign_pointer(mn->ma64.slot[slot], val);
-		break;
-	case maple_dense:
-		rcu_assign_pointer(mn->slot[slot], val);
-		break;
-	}
-}
-
-/*
- * mte_set_slot() - Set an encoded nodes rcu slot.
- * @mn: The encoded maple node
- * @slot: The offset into the slots array
- * @val: The entry to store into the slot.
- */
-static inline void mte_set_slot(const struct maple_enode *mn,
-				 unsigned char slot, void *val)
-{
-	ma_set_slot(mte_to_node(mn), slot, mte_node_type(mn), val);
-}
-
-
 #define MA_META_END_MASK	0b1111
 #define MA_META_GAP_SHIFT	4
 /*
@@ -1515,27 +1475,22 @@ static inline void mas_adopt_children(struct ma_state *mas,
  * leave the node (true) and handle the adoption and free elsewhere.
  */
 static inline void mas_replace(struct ma_state *mas, bool advanced)
+	__must_hold(mas->tree->lock)
 {
-	struct maple_node *parent, *mn = mas_mn(mas);
-	struct maple_enode *prev, *eparent = NULL;
+	struct maple_node *mn = mas_mn(mas);
+	struct maple_enode *old_enode;
 	unsigned char offset = 0;
-	void **slots;
+	void **slots = NULL;
 
 
 	if (mte_is_root(mas->node)) {
-		prev = mas_root_locked(mas);
+		old_enode = mas_root_locked(mas);
 	} else {
-		enum maple_type ptype = mas_parent_enum(mas, mas->node);
-
-		parent = mte_parent(mas->node);
-		eparent = mt_mk_node(parent, ptype);
 		offset = mte_parent_slot(mas->node);
-		slots = ma_slots(parent, ptype);
-		prev = slots[offset];
+		slots = ma_slots(mte_parent(mas->node),
+				 mas_parent_enum(mas, mas->node));
+		old_enode = slots[offset];
 	}
-
-	if (mte_to_node(prev) == mn)
-		return;
 
 	if (!advanced && !mte_is_leaf(mas->node))
 		mas_adopt_children(mas, mas->node);
@@ -1546,11 +1501,11 @@ static inline void mas_replace(struct ma_state *mas, bool advanced)
 		rcu_assign_pointer(mas->tree->ma_root, mte_mk_root(mas->node));
 		mas_set_height(mas);
 	} else {
-		mte_set_slot(eparent, offset, mas->node);
+		rcu_assign_pointer(slots[offset], mas->node);
 	}
 
 	if (!advanced)
-		mas_free(mas, prev);
+		mas_free(mas, old_enode);
 }
 
 /*
