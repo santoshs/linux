@@ -2822,7 +2822,6 @@ SYSCALL_DEFINE5(remap_file_pages, unsigned long, start, unsigned long, size,
 	unsigned long populate = 0;
 	unsigned long ret = -EINVAL;
 	struct file *file;
-	struct ma_state ma_lock;
 	MA_STATE(mas, &mm->mm_mt, start, start);
 
 	pr_warn_once("%s (%d) uses deprecated remap_file_pages() syscall. See Documentation/vm/remap_file_pages.rst.\n",
@@ -2845,7 +2844,6 @@ SYSCALL_DEFINE5(remap_file_pages, unsigned long, start, unsigned long, size,
 
 	mas_set(&mas, start);
 	vma = mas_walk(&mas);
-	ma_lock = mas;
 
 	if (!vma || !(vma->vm_flags & VM_SHARED))
 		goto out;
