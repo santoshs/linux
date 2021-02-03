@@ -804,7 +804,6 @@ static int vma_replace_policy(struct vm_area_struct *vma,
 static int mbind_range(struct mm_struct *mm, unsigned long start,
 		       unsigned long end, struct mempolicy *new_pol)
 {
-	struct vm_area_struct *next;
 	struct vm_area_struct *prev;
 	struct vm_area_struct *vma;
 	int err = 0;
@@ -813,7 +812,7 @@ static int mbind_range(struct mm_struct *mm, unsigned long start,
 	unsigned long vmend;
 	MA_STATE(mas, &mm->mm_mt, start, start);
 
-	vma = mas_find(&mas, ULONG_MAX);
+	vma = mas_find(&mas, -1);
 	VM_BUG_ON(!vma);
 
 	prev = vma_mas_prev(&mas);
@@ -821,7 +820,6 @@ static int mbind_range(struct mm_struct *mm, unsigned long start,
 		prev = vma;
 
 	mas_for_each(&mas, vma, end - 1) {
-		next = vma_next(mm, vma);
 		vmstart = max(start, vma->vm_start);
 		vmend   = min(end, vma->vm_end);
 
@@ -835,7 +833,6 @@ static int mbind_range(struct mm_struct *mm, unsigned long start,
 				 new_pol, vma->vm_userfaultfd_ctx);
 		if (prev) {
 			vma = prev;
-			next = vma_next(mm, vma);
 			if (mpol_equal(vma_policy(vma), new_pol))
 				continue;
 			/* vma_merge() joined vma && vma->next, case 8 */
@@ -850,9 +847,8 @@ static int mbind_range(struct mm_struct *mm, unsigned long start,
 			err = split_vma(vma->vm_mm, vma, vmend, 0);
 			if (err)
 				goto out;
-			mas_pause(&mas);
 		}
- replace:
+replace:
 		err = vma_replace_policy(vma, new_pol);
 		if (err)
 			goto out;
