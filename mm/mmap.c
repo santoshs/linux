@@ -2974,8 +2974,10 @@ munmap_full_vma:
 	return ret;
 
 mas_store_fail:
-	anon_vma_interval_tree_post_update_vma(vma);
-	anon_vma_unlock_write(vma->anon_vma);
+	if (vma->anon_vma) {
+		anon_vma_interval_tree_post_update_vma(vma);
+		anon_vma_unlock_write(vma->anon_vma);
+	}
 	return -ENOMEM;
 }
 
@@ -3087,8 +3089,10 @@ vma_alloc_fail:
 
 mas_mod_fail:
 	vma->vm_end = addr;
-	anon_vma_interval_tree_post_update_vma(vma);
-	anon_vma_unlock_write(vma->anon_vma);
+	if (vma->anon_vma) {
+		anon_vma_interval_tree_post_update_vma(vma);
+		anon_vma_unlock_write(vma->anon_vma);
+	}
 	return -ENOMEM;
 
 }
