@@ -1623,9 +1623,9 @@ static unsigned long unmapped_area(struct vm_unmapped_area_info *info)
 			rcu_read_unlock();
 			return -ENOMEM;
 		}
-		gap = mas.index & ~(info->align_mask);
-		gap += info->align_offset;
-	} while ((gap < mas.index) && (gap > mas.last - info->length + 1));
+		gap = mas.index;
+		gap += (info->align_offset - mas.index) & info->align_mask;
+	} while ((mas.index > gap) && (gap > mas.last - info->length + 1));
 	rcu_read_unlock();
 
 	return gap;
@@ -1655,10 +1655,9 @@ static unsigned long unmapped_area_topdown(struct vm_unmapped_area_info *info)
 			return -ENOMEM;
 		}
 
-		gap = mas.last - info->length + 1;
-		gap &= ~(info->align_mask);
-		gap += info->align_offset;
-	} while (mas.index > gap);
+		gap = mas.last + 1 - info->length;
+		gap -= (gap - info->align_offset) & info->align_mask;
+	} while ((mas.index > gap) && (mas.last > gap + info->length - 1));
 	rcu_read_unlock();
 
 	return gap;
