@@ -842,7 +842,7 @@ static int show_smaps_rollup(struct seq_file *m, void *v)
 	struct mem_size_stats mss;
 	struct mm_struct *mm = priv->mm;
 	struct vm_area_struct *vma;
-	unsigned long vma_start, last_vma_end = 0;
+	unsigned long vma_start = 0, last_vma_end = 0;
 	int ret = 0;
 	MA_STATE(mas, &mm->mm_mt, 0, 0);
 
@@ -864,11 +864,11 @@ static int show_smaps_rollup(struct seq_file *m, void *v)
 	hold_task_mempolicy(priv);
 	vma = mas_find(&mas, 0);
 
-	if (vma)
-		vma_start = vma->vm_start;
+	if (unlikely(!vma))
+		goto empty_set;
 
-	mas_set(&mas, 0);
-	mas_for_each(&mas, vma, -1) {
+	vma_start = vma->vm_start;
+	do {
 		smap_gather_stats(vma, &mss, 0);
 		last_vma_end = vma->vm_end;
 
@@ -936,8 +936,9 @@ static int show_smaps_rollup(struct seq_file *m, void *v)
 				smap_gather_stats(vma, &mss, last_vma_end);
 		}
 		/* Case 2 above */
-	}
+	} while ((vma = mas_find(&mas, -1)) != NULL);
 
+empty_set:
 	show_vma_header_prefix(m, vma_start, last_vma_end, 0, 0, 0, 0);
 	seq_pad(m, ' ');
 	seq_puts(m, "[rollup]\n");
