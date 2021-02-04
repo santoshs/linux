@@ -975,7 +975,8 @@ static int unmerge_and_remove_all_rmap_items(void)
 	spin_unlock(&ksm_mmlist_lock);
 
 	for (mm_slot = ksm_scan.mm_slot;
-			mm_slot != &ksm_mm_head; mm_slot = ksm_scan.mm_slot, mm = mm_slot->mm) {
+			mm_slot != &ksm_mm_head; mm_slot = ksm_scan.mm_slot) {
+		mm = mm_slot->mm;
 		MA_STATE(mas, &mm->mm_mt, 0, 0);
 
 		mmap_read_lock(mm);
