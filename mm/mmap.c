@@ -312,6 +312,7 @@ static void validate_mm(struct mm_struct *mm)
 	struct vm_area_struct *vma;
 	MA_STATE(mas, &mm->mm_mt, 0, 0);
 
+	mmap_assert_locked(mm);
 
 	mt_validate(&mm->mm_mt);
 	mas_for_each(&mas, vma, ULONG_MAX) {
