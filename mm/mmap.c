@@ -2200,7 +2200,7 @@ static inline void remove_mt(struct mm_struct *mm, struct ma_state *mas)
 			nr_accounted += nrpages;
 		vm_stat_account(mm, vma->vm_flags, -nrpages);
 		remove_vma(vma);
-	} while (vma);
+	}
 	vm_unacct_memory(nr_accounted);
 	validate_mm(mm);
 }
