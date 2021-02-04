@@ -272,10 +272,8 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
 		if (brkvma->vm_start >= oldbrk)
 			goto out; // Trying to map over another vma.
 
-		if (brkvma->vm_end <= min_brk) {
+		if (brkvma->vm_end <= min_brk)
 			brkvma = NULL;
-			ma_neighbour = mas;
-		}
 	}
 
 	/* Ok, looks good - let it rip. */
