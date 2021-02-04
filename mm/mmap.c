@@ -1099,6 +1099,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 		return area;
 	}
 
+	validate_mm(mm);
 	return NULL;
 }
 
@@ -2107,7 +2108,6 @@ int expand_downwards(struct vm_area_struct *vma,
 	}
 	anon_vma_unlock_write(vma->anon_vma);
 	khugepaged_enter_vma_merge(vma, vma->vm_flags);
-	validate_mm(mm);
 	return error;
 }
 
@@ -2341,6 +2341,7 @@ static inline unsigned long detach_range(struct mm_struct *mm,
 	if (!vma)
 		return USER_PGTABLES_CEILING;
 
+	validate_mm(mm);
 	return vma->vm_start;
 }
 
@@ -2367,6 +2368,7 @@ int do_mas_align_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 	struct ma_state tmp;
 	/* we have start < vma->vm_end  */
 
+	validate_mm(mm);
 	 /* arch_unmap() might do unmaps itself.  */
 	arch_unmap(mm, start, end);
 
@@ -2465,6 +2467,7 @@ int do_mas_align_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 
 	mtree_destroy(&mt_detach);
 
+	validate_mm(mm);
 	return downgrade ? 1 : 0;
 }
 
