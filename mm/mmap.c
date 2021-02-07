@@ -2537,6 +2537,8 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	struct ma_state ma_prev, tmp;
 	MA_STATE(mas, &mm->mm_mt, addr, end - 1);
 
+	validate_mm(mm);
+
 	/* Check against address space limit. */
 	if (!may_expand_vm(mm, vm_flags, len >> PAGE_SHIFT)) {
 		unsigned long nr_pages;
@@ -2583,6 +2585,7 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		if (next->vm_start == end && vma_policy(next) &&
 		    can_vma_merge_before(next, vm_flags, NULL, file,
 					 pgoff + pglen, NULL_VM_UFFD_CTX)) {
+			/* Try to expand next back over the requested area */
 			merge_end = next->vm_end;
 			vma = next;
 			vm_pgoff = next->vm_pgoff - pglen;
@@ -2595,17 +2598,17 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	if (prev && prev->vm_end == addr && !vma_policy(prev) &&
 	    can_vma_merge_after(prev, vm_flags, NULL, file, pgoff,
 				NULL_VM_UFFD_CTX)) {
+		/* Try to expand the prev over the requested area */
 		merge_start = prev->vm_start;
 		vma = prev;
 		tmp = ma_prev;
 		vm_pgoff = prev->vm_pgoff;
 	}
 
-
 	/* Actually expand, if possible */
 	if (vma &&
 	    !vma_expand(&tmp, vma, merge_start, merge_end, vm_pgoff, next)) {
-		khugepaged_enter_vma_merge(prev, vm_flags);
+		khugepaged_enter_vma_merge(vma, vm_flags);
 		goto expanded;
 	}
 
@@ -2693,6 +2696,7 @@ cannot_expand:
 			goto free_vma;
 	} else {
 		vma_set_anonymous(vma);
+		vma->vm_pgoff = vma->vm_start >> PAGE_SHIFT;
 	}
 
 	/* Allow architectures to sanity-check the vm_flags */
@@ -2747,6 +2751,7 @@ expanded:
 
 	vma_set_page_prot(vma);
 
+	validate_mm(mm);
 	return addr;
 
 unmap_and_free_vma:
