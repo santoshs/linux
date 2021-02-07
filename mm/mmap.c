@@ -555,9 +555,11 @@ inline int vma_expand(struct ma_state *mas, struct vm_area_struct *vma,
 	bool remove_next = false;
 	int error;
 
+
 	if (next && (vma != next) && (end == next->vm_end)) {
+		/* Expanding existing VMA over a gap and next */
 		remove_next = true;
-		if (next->anon_vma && !vma->anon_vma) {
+		if (next->anon_vma && !anon_vma) {
 			vma->anon_vma = next->anon_vma;
 			error = anon_vma_clone(vma, next);
 			if (error)
@@ -595,9 +597,8 @@ inline int vma_expand(struct ma_state *mas, struct vm_area_struct *vma,
 	}
 
 	/* Expanding over the next vma */
-	if (remove_next && file) {
+	if (remove_next && file)
 		__remove_shared_vm_struct(next, file, mapping);
-	}
 
 	if (anon_vma) {
 		anon_vma_interval_tree_post_update_vma(vma);
@@ -621,7 +622,6 @@ inline int vma_expand(struct ma_state *mas, struct vm_area_struct *vma,
 		vm_area_free(next);
 	}
 
-	validate_mm(mm);
 	return 0;
 }
 /*
