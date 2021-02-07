@@ -2305,8 +2305,8 @@ int split_vma(struct mm_struct *mm, struct vm_area_struct *vma,
 }
 
 static inline unsigned long detach_range(struct mm_struct *mm,
-	 struct ma_state *src, struct ma_state *dst, struct vm_area_struct *vma,
-	 struct vm_area_struct *prev, struct vm_area_struct **last)
+		struct ma_state *src, struct ma_state *dst,
+		struct vm_area_struct **vma, struct vm_area_struct *prev)
 {
 	int count = 0;
 	struct ma_state mas;
@@ -2317,32 +2317,29 @@ static inline unsigned long detach_range(struct mm_struct *mm,
 	 * area.
 	 */
 	mas = *src;
-	mas.last = src->index;
 	do {
-		BUG_ON(vma->vm_start < src->index);
-		BUG_ON(vma->vm_end > (src->last + 1));
-		*last = vma;
+		BUG_ON((*vma)->vm_start < src->index);
+		BUG_ON((*vma)->vm_end > (src->last + 1));
 		count++;
-		if (vma->vm_flags & VM_LOCKED) {
-			mm->locked_vm -= vma_pages(vma);
-			munlock_vma_pages_all(vma);
+		if ((*vma)->vm_flags & VM_LOCKED) {
+			mm->locked_vm -= vma_pages(*vma);
+			munlock_vma_pages_all(*vma);
 		}
-		vma_mas_store(vma, dst);
-	} while ((vma = mas_find(&mas, src->last)) != NULL);
+		vma_mas_store(*vma, dst);
+	} while ((*vma = mas_find(&mas, src->last)) != NULL);
 
-	/* Find the one after the series before overwrite */
-	mas.index = mas.last = src->last + 1;
-	vma = mas_find(&mas, -1);
+	mas_set(&mas, src->last + 1);
 	/* Drop removed area from the tree */
+	*vma = mas_find(&mas, -1);
 	mas_store_gfp(src, NULL, GFP_KERNEL);
 	/* Decrement map_count */
 	mm->map_count -= count;
 	/* Set the upper limit */
-	if (!vma)
+	if (!(*vma))
 		return USER_PGTABLES_CEILING;
 
 	validate_mm(mm);
-	return vma->vm_start;
+	return (*vma)->vm_start;
 }
 
 /* do_mas_align_munmap() - munmap the aligned region from @start to @end.
@@ -2439,7 +2436,8 @@ int do_mas_align_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 	/* Point of no return */
 	mtree_init(&mt_detach, MAPLE_ALLOC_RANGE);
 	dst.tree = &mt_detach;
-	max = detach_range(mm, mas, &dst, vma, prev, &last);
+	mas->last = end - 1;
+	max = detach_range(mm, mas, &dst, &vma, prev);
 
 	/*
 	 * Do not downgrade mmap_lock if we are next to VM_GROWSDOWN or
@@ -2447,7 +2445,7 @@ int do_mas_align_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 	 * down_read(mmap_lock) and collide with the VMA we are about to unmap.
 	 */
 	if (downgrade) {
-		if (last && (last->vm_flags & VM_GROWSDOWN))
+		if (vma && (vma->vm_flags & VM_GROWSDOWN))
 			downgrade = false;
 		else if (prev && (prev->vm_flags & VM_GROWSUP))
 			downgrade = false;
@@ -2458,7 +2456,7 @@ int do_mas_align_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 	/* Unmap the region */
 	mas_set(&dst, start);
 	tmp = dst;
-	vma = mas_find(&dst, end - 1);
+	vma = mas_find(&dst, end - 1); // head of list.
 	unmap_region(mm, vma, &dst, start, end, prev, max);
 
 	/* Statistics and freeing VMAs */
@@ -2932,11 +2930,13 @@ static int do_brk_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 	unmap.vm_start = newbrk;
 	unmap.vm_end = oldbrk;
 	unmap.vm_pgoff = newbrk >> PAGE_SHIFT;
+	if (vma->anon_vma)
+		vma_set_anonymous(&unmap);
 	ret = userfaultfd_unmap_prep(&unmap, newbrk, oldbrk, uf);
 	if (ret)
 		return ret;
-	ret = 1;
 
+	ret = 1;
 	// Change the oldbrk of vma to the newbrk of the munmap area
 	vma_adjust_trans_huge(vma, vma->vm_start, newbrk, 0);
 	if (vma->anon_vma) {
