@@ -2948,6 +2948,8 @@ static int do_brk_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 		return ret;
 
 	ret = 1;
+	ma_next = *mas;
+	next = mas_next(&ma_next, -1);
 	// Change the oldbrk of vma to the newbrk of the munmap area
 	vma_adjust_trans_huge(vma, vma->vm_start, newbrk, 0);
 	if (vma->anon_vma) {
@@ -2972,8 +2974,6 @@ static int do_brk_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 	}
 
 	mmap_write_downgrade(mm);
-	ma_next = *mas;
-	next = mas_next(&ma_next, -1);
 	unmap_region(mm, &unmap, mas, newbrk, oldbrk, vma,
 		     next ? next->vm_start : 0);
 	/* Statistics */
