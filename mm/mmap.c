@@ -625,6 +625,7 @@ inline int vma_expand(struct ma_state *mas, struct vm_area_struct *vma,
 		vm_area_free(next);
 	}
 
+	validate_mm(mm);
 	return 0;
 }
 /*
@@ -2960,6 +2961,7 @@ static int do_brk_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 		anon_vma_unlock_write(vma->anon_vma);
 	}
 
+	validate_mm(mm);
 	unmap_pages = vma_pages(&unmap);
 	if (unmap.vm_flags & VM_LOCKED) {
 		mm->locked_vm -= unmap_pages;
@@ -2977,6 +2979,7 @@ static int do_brk_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 		vm_unacct_memory(unmap_pages);
 
 munmap_full_vma:
+	validate_mm(mm);
 	return ret;
 
 mas_store_fail:
