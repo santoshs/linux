@@ -815,7 +815,7 @@ static int mbind_range(struct mm_struct *mm, unsigned long start,
 	vma = mas_find(&mas, -1);
 	VM_BUG_ON(!vma);
 
-	prev = vma_mas_prev(&mas);
+	prev = mas_prev(&mas, 0);
 	if (start > vma->vm_start)
 		prev = vma;
 
@@ -833,6 +833,7 @@ static int mbind_range(struct mm_struct *mm, unsigned long start,
 				 new_pol, vma->vm_userfaultfd_ctx);
 		if (prev) {
 			vma = prev;
+			mas_set(&mas, vma->vm_end);
 			if (mpol_equal(vma_policy(vma), new_pol))
 				continue;
 			/* vma_merge() joined vma && vma->next, case 8 */
@@ -856,7 +857,7 @@ next:
 		prev = vma;
 	}
 
- out:
+out:
 	return err;
 }
 
