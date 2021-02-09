@@ -1483,7 +1483,7 @@ static inline void mas_replace(struct ma_state *mas, bool advanced)
 	void **slots = NULL;
 
 
-	if (mte_is_root(mas->node)) {
+	if (ma_is_root(mn)) {
 		old_enode = mas_root_locked(mas);
 	} else {
 		offset = mte_parent_slot(mas->node);
