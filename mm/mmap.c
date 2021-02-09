@@ -2927,7 +2927,6 @@ static int do_brk_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 
 	arch_unmap(mm, newbrk, oldbrk);
 
-
 	if (likely((vma->vm_end < oldbrk) ||
 		   ((vma->vm_start == newbrk) && (vma->vm_end == oldbrk)))) {
 		// remove entire mapping(s)
@@ -2943,6 +2942,7 @@ static int do_brk_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 	unmap.vm_pgoff = newbrk >> PAGE_SHIFT;
 	if (vma->anon_vma)
 		vma_set_anonymous(&unmap);
+
 	ret = userfaultfd_unmap_prep(&unmap, newbrk, oldbrk, uf);
 	if (ret)
 		return ret;
