@@ -2789,14 +2789,14 @@ static void task_numa_work(struct callback_head *work)
 		return;
 
 	mas_set(&mas, start);
-	vma = mas_walk(&mas);
+	vma = mas_find(&mas, -1);
 	if (!vma) {
 		reset_ptenuma_scan(p);
 		start = 0;
 		mas_set(&mas, start);
 	}
 
-	mas_for_each(&mas, vma, ULONG_MAX) {
+	mas_for_each(&mas, vma, -1) {
 		if (!vma_migratable(vma) || !vma_policy_mof(vma) ||
 			is_vm_hugetlb_page(vma) || (vma->vm_flags & VM_MIXEDMAP)) {
 			continue;
