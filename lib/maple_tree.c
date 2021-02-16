@@ -1021,6 +1021,7 @@ static inline void mas_push_node(struct ma_state *mas, struct maple_enode *used)
 
 	reuse->total = 1;
 	if ((head) && !(((unsigned long)head & 0x1))) {
+		head->request_count = 0;
 		reuse->slot[0] = head;
 		reuse->total += head->total;
 	}
