@@ -649,6 +649,7 @@ int __vma_adjust(struct vm_area_struct *vma, unsigned long start,
 	long adjust_next = 0;
 	int remove_next = 0;
 
+	validate_mm(mm);
 	if (next && !insert) {
 		struct vm_area_struct *exporter = NULL, *importer = NULL;
 
