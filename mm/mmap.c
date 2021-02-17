@@ -2334,7 +2334,7 @@ static inline unsigned long detach_range(struct mm_struct *mm,
 
 	mas_set(&mas, src->last + 1);
 	/* Drop removed area from the tree */
-	*vma = mas_find(&mas, -1);
+	*vma = mas_find(&mas, ULONG_MAX);
 	mas_store_gfp(src, NULL, GFP_KERNEL);
 	/* Decrement map_count */
 	mm->map_count -= count;
