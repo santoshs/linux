@@ -2950,7 +2950,7 @@ static int do_brk_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 
 	ret = 1;
 	ma_next = *mas;
-	next = mas_next(&ma_next, -1);
+	next = mas_next(&ma_next, ULONG_MAX);
 	// Change the oldbrk of vma to the newbrk of the munmap area
 	vma_adjust_trans_huge(vma, vma->vm_start, newbrk, 0);
 	if (vma->anon_vma) {
