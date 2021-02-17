@@ -922,7 +922,7 @@ static int show_smaps_rollup(struct seq_file *m, void *v)
 			 *    Iterate VMA' from last_vma_end.
 			 */
 			mas.index = mas.last = last_vma_end - 1;
-			vma = mas_find(&mas, -1);
+			vma = mas_find(&mas, ULONG_MAX);
 			/* Case 3 above */
 			if (!vma)
 				break;
@@ -936,7 +936,7 @@ static int show_smaps_rollup(struct seq_file *m, void *v)
 				smap_gather_stats(vma, &mss, last_vma_end);
 		}
 		/* Case 2 above */
-	} while ((vma = mas_find(&mas, -1)) != NULL);
+	} while ((vma = mas_find(&mas, ULONG_MAX)) != NULL);
 
 empty_set:
 	show_vma_header_prefix(m, vma_start, last_vma_end, 0, 0, 0, 0);
