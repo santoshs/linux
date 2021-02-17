@@ -812,7 +812,7 @@ static int mbind_range(struct mm_struct *mm, unsigned long start,
 	unsigned long vmend;
 	MA_STATE(mas, &mm->mm_mt, start, start);
 
-	vma = mas_find(&mas, -1);
+	vma = mas_find(&mas, ULONG_MAX);
 	VM_BUG_ON(!vma);
 
 	prev = mas_prev(&mas, 0);
