@@ -89,7 +89,7 @@ void hash__flush_tlb_mm(struct mm_struct *mm)
 	 * unmap_region or exit_mmap, but not from vmtruncate on SMP -
 	 * but it seems dup_mmap is the only SMP case which gets here.
 	 */
-	mas_for_each(&mas, mp, -1)
+	mas_for_each(&mas, mp, ULONG_MAX)
 		flush_range(mp->vm_mm, mp->vm_start, mp->vm_end);
 }
 EXPORT_SYMBOL(hash__flush_tlb_mm);
