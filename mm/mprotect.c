@@ -550,7 +550,7 @@ static int do_mprotect_pkey(unsigned long start, size_t len,
 	if ((pkey != -1) && !mm_pkey_is_allocated(current->mm, pkey))
 		goto out;
 
-	vma = mas_find(&mas, -1);
+	vma = mas_find(&mas, ULONG_MAX);
 	error = -ENOMEM;
 	if (!vma)
 		goto out;
@@ -634,7 +634,7 @@ static int do_mprotect_pkey(unsigned long start, size_t len,
 		if (nstart >= end)
 			goto out;
 
-		vma = mas_next(&mas, -1);
+		vma = mas_next(&mas, ULONG_MAX);
 		if (!vma || vma->vm_start != nstart) {
 			error = -ENOMEM;
 			goto out;
