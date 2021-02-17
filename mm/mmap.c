@@ -2197,7 +2197,7 @@ static inline void remove_mt(struct mm_struct *mm, struct ma_state *mas)
 
 	/* Update high watermark before we lower total_vm */
 	update_hiwater_vm(mm);
-	mas_for_each(mas, vma, -1) {
+	mas_for_each(mas, vma, ULONG_MAX) {
 		long nrpages = vma_pages(vma);
 
 		if (vma->vm_flags & VM_ACCOUNT)
