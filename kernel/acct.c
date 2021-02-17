@@ -540,7 +540,7 @@ void acct_collect(long exitcode, int group_dead)
 		struct vm_area_struct *vma;
 
 		mmap_read_lock(current->mm);
-		mas_for_each(&mas, vma, -1)
+		mas_for_each(&mas, vma, ULONG_MAX)
 			vsize += vma->vm_end - vma->vm_start;
 		mmap_read_unlock(current->mm);
 	}
