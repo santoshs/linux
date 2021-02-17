@@ -2616,7 +2616,6 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 		goto expanded;
 	}
 
-	mas_set_range(&mas, addr, end - 1);
 cannot_expand:
 	/*
 	 * Determine the object being mapped and call the appropriate
@@ -2712,11 +2711,8 @@ cannot_expand:
 			goto free_vma;
 	}
 
-	// Very likely a shorter walk.
-	mas = ma_prev;
-	mas.last = end - 1;
-	mas.index = addr;
-	mas_walk(&mas);
+	// addr may have changed.
+	mas_set_range(&mas, addr, end - 1);
 	vma_mas_link(mm, vma, &mas);
 
 	/* Once vma denies write, undo our temporary denial count */
@@ -2763,6 +2759,7 @@ unmap_and_free_vma:
 	vma->vm_file = NULL;
 
 	/* Undo any partial mapping done by a device driver. */
+	mas_set_range(&mas, addr, end - 1);
 	unmap_region(mm, vma, &mas, vma->vm_start, vma->vm_end, prev, max);
 	charged = 0;
 	if (vm_flags & VM_SHARED)
