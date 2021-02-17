@@ -3182,7 +3182,7 @@ void exit_mmap(struct mm_struct *mm)
 	}
 
 	if (mm->locked_vm) {
-		mas_for_each(&mas, vma, -1) {
+		mas_for_each(&mas, vma, ULONG_MAX) {
 			if (vma->vm_flags & VM_LOCKED) {
 				mm->locked_vm -= vma_pages(vma);
 				munlock_vma_pages_all(vma);
@@ -3193,7 +3193,7 @@ void exit_mmap(struct mm_struct *mm)
 
 	arch_exit_mmap(mm);
 
-	vma = mas_find(&mas, -1);
+	vma = mas_find(&mas, ULONG_MAX);
 	if (!vma)	/* Can happen if dup_mmap() received an OOM */
 		return;
 
@@ -3212,7 +3212,7 @@ void exit_mmap(struct mm_struct *mm)
 	 * with preemption enabled, without holding any MM locks.
 	 */
 	mas_set(&mas, 0);
-	mas_for_each(&mas, vma, -1) {
+	mas_for_each(&mas, vma, ULONG_MAX) {
 		if (vma->vm_flags & VM_ACCOUNT)
 			nr_accounted += vma_pages(vma);
 		remove_vma(vma);
