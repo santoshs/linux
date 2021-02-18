@@ -5193,9 +5193,8 @@ void *mas_store(struct ma_state *mas, void *entry)
 int mas_store_gfp(struct ma_state *mas, void *entry, gfp_t gfp)
 {
 
-	// Detect spanning store.
-	if ((mas->last == mas->max && !entry) ||
-	    (mas->last > mas->max))
+	if (mas_is_span_wr(mas, mas->max, mte_node_type(mas->node), entry) ||
+	    mas_is_none(mas))
 		mas->node = MAS_START;
 
 retry:
