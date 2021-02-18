@@ -974,13 +974,12 @@ static int unmerge_and_remove_all_rmap_items(void)
 						struct mm_slot, mm_list);
 	spin_unlock(&ksm_mmlist_lock);
 
-	for (mm_slot = ksm_scan.mm_slot;
-			mm_slot != &ksm_mm_head; mm_slot = ksm_scan.mm_slot) {
-		mm = mm_slot->mm;
-		MA_STATE(mas, &mm->mm_mt, 0, 0);
+	for (mm_slot = ksm_scan.mm_slot; mm_slot != &ksm_mm_head;
+	     mm_slot = ksm_scan.mm_slot) {
+		MA_STATE(mas, &mm_slot->mm->mm_mt, 0, 0);
 
+		mm = mm_slot->mm;
 		mmap_read_lock(mm);
-		mas_set(&mas, 0);
 		mas_for_each(&mas, vma, ULONG_MAX) {
 			if (ksm_test_exit(mm))
 				break;
