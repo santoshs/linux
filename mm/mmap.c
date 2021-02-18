@@ -540,8 +540,8 @@ static inline void __insert_vm_struct(struct mm_struct *mm,
 	MA_STATE(mas, &mm->mm_mt, vma->vm_start, vma->vm_end - 1);
 
 	BUG_ON(mas_find(&mas, vma->vm_end - 1));
+	mas_reset(&mas);
 
-	mas_set_range(&mas, vma->vm_start, vma->vm_end - 1);
 	vma_mas_store(vma, &mas);
 	mm->map_count++;
 }
