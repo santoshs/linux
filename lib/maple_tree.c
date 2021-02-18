@@ -6289,6 +6289,7 @@ void mt_validate(struct maple_tree *mt)
 
 	mas_first_entry(&mas, ULONG_MAX, &r_start);
 	while (!mas_is_none(&mas)) {
+		MT_BUG_ON(mas.tree, mte_dead_node(mas.node));
 		if (!mte_is_root(mas.node)) {
 			end = mas_data_end(&mas);
 			if ((end < mt_min_slot_count(mas.node)) &&
