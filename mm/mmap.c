@@ -454,9 +454,14 @@ static void __vma_link_file(struct vm_area_struct *vma)
  */
 static inline int vma_mas_store(struct vm_area_struct *vma, struct ma_state *mas)
 {
+	int ret;
+
 	mas->index = vma->vm_start;
 	mas->last = vma->vm_end - 1;
-	return mas_store_gfp(mas, vma, GFP_KERNEL);
+	mas_lock(mas);
+	ret = mas_store_gfp(mas, vma, GFP_KERNEL);
+	mas_unlock(mas);
+	return ret;
 }
 
 /*
@@ -470,9 +475,14 @@ static inline int vma_mas_store(struct vm_area_struct *vma, struct ma_state *mas
  */
 static inline int vma_mas_remove(struct vm_area_struct *vma, struct ma_state *mas)
 {
+	int ret;
+
 	mas->index = vma->vm_start;
 	mas->last = vma->vm_end - 1;
-	return mas_store_gfp(mas, NULL, GFP_KERNEL);
+	mas_lock(mas);
+	ret = mas_store_gfp(mas, NULL, GFP_KERNEL);
+	mas_unlock(mas);
+	return ret;
 }
 
 /*
@@ -2335,7 +2345,9 @@ static inline unsigned long detach_range(struct mm_struct *mm,
 	mas_set(&mas, src->last + 1);
 	/* Drop removed area from the tree */
 	*vma = mas_find(&mas, ULONG_MAX);
+	mas_lock(src);
 	mas_store_gfp(src, NULL, GFP_KERNEL);
+	mas_unlock(src);
 	/* Decrement map_count */
 	mm->map_count -= count;
 	/* Set the upper limit */
@@ -3054,8 +3066,12 @@ static int do_brk_flags(struct ma_state *mas, struct ma_state *ma_prev,
 			}
 			vma->vm_end = addr + len;
 			vma->vm_flags |= VM_SOFTDIRTY;
-			if (mas_store_gfp(ma_prev, vma, GFP_KERNEL))
+			mas_lock(ma_prev);
+			if (mas_store_gfp(ma_prev, vma, GFP_KERNEL)) {
+				mas_unlock(ma_prev);
 				goto mas_mod_fail;
+			}
+			mas_unlock(ma_prev);
 			if (vma->anon_vma) {
 				anon_vma_interval_tree_post_update_vma(vma);
 				anon_vma_unlock_write(vma->anon_vma);
