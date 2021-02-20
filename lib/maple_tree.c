@@ -972,6 +972,7 @@ static inline struct maple_node *mas_pop_node(struct ma_state *mas)
 
 	if (!node->node_count) { // Single allocation in this node.
 		mas->alloc = node->slot[0];
+		node->slot[0] = NULL;
 		mas->alloc->total = node->total - 1;
 		ret = node;
 		goto new_head;
@@ -1014,7 +1015,6 @@ static inline void mas_push_node(struct ma_state *mas, struct maple_enode *used)
 		if (head->slot[0])
 			head->node_count++;
 		head->slot[head->node_count] = reuse;
-
 		head->total++;
 		goto done;
 	}

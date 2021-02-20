@@ -198,6 +198,20 @@ static noinline void check_nomem(struct maple_tree *mt)
 	mtree_destroy(mt);
 }
 
+static inline int zeroed(struct maple_node *node)
+{
+	int i;
+
+	if (node->parent)
+		return 1;
+
+	for (i = 0; i < ARRAY_SIZE(node->slot); i++)
+		if (node->slot[i])
+			return 1;
+
+	return 0;
+}
+
 static noinline void check_new_node(struct maple_tree *mt)
 {
 
@@ -220,6 +234,7 @@ static noinline void check_new_node(struct maple_tree *mt)
 
 	MT_BUG_ON(mt, mas_allocated(&mas) != 3);
 	mn = mas_pop_node(&mas);
+	MT_BUG_ON(mt, zeroed(mn));
 	MT_BUG_ON(mt, mn == NULL);
 	MT_BUG_ON(mt, mas.alloc == NULL);
 	MT_BUG_ON(mt, mas.alloc->slot[0] == NULL);
@@ -239,6 +254,7 @@ static noinline void check_new_node(struct maple_tree *mt)
 	MT_BUG_ON(mt, !mas_nomem(&mas, GFP_KERNEL));
 	// Eat the requested node.
 	mn = mas_pop_node(&mas);
+	MT_BUG_ON(mt, zeroed(mn));
 	MT_BUG_ON(mt, mn == NULL);
 	MT_BUG_ON(mt, mn->slot[0] != NULL);
 	MT_BUG_ON(mt, mn->slot[1] != NULL);
@@ -273,6 +289,7 @@ static noinline void check_new_node(struct maple_tree *mt)
 	MT_BUG_ON(mt, mas_allocated(&mas) != 1);
 	// Check the node is only one node.
 	mn = mas_pop_node(&mas);
+	MT_BUG_ON(mt, zeroed(mn));
 	MT_BUG_ON(mt, mas_allocated(&mas) != 0);
 	MT_BUG_ON(mt, mn == NULL);
 	MT_BUG_ON(mt, mn->slot[0] != NULL);
@@ -294,6 +311,7 @@ static noinline void check_new_node(struct maple_tree *mt)
 		mn = mas_pop_node(&mas);
 		MT_BUG_ON(mt, mas_allocated(&mas) != i);
 		MT_BUG_ON(mt, !mn);
+		MT_BUG_ON(mt, zeroed(mn));
 		ma_free_rcu(mn);
 	}
 
@@ -313,6 +331,7 @@ static noinline void check_new_node(struct maple_tree *mt)
 			e = i - 2;
 		MT_BUG_ON(mt, mas.alloc->node_count != e);
 		mn = mas_pop_node(&mas);
+		MT_BUG_ON(mt, zeroed(mn));
 		MT_BUG_ON(mt, mas_allocated(&mas) != i - 1);
 		MT_BUG_ON(mt, !mn);
 		ma_free_rcu(mn);
@@ -327,9 +346,11 @@ static noinline void check_new_node(struct maple_tree *mt)
 			mn = mas_pop_node(&mas);
 			MT_BUG_ON(mt, mas_allocated(&mas) != j - 1);
 			MT_BUG_ON(mt, !mn);
+			MT_BUG_ON(mt, zeroed(mn));
 			mas_push_node(&mas, (struct maple_enode *)mn);
 			MT_BUG_ON(mt, mas_allocated(&mas) != j);
 			mn = mas_pop_node(&mas);
+			MT_BUG_ON(mt, zeroed(mn));
 			MT_BUG_ON(mt, mas_allocated(&mas) != j - 1);
 			ma_free_rcu(mn);
 		}
@@ -353,6 +374,7 @@ static noinline void check_new_node(struct maple_tree *mt)
 		for (j = 0; j <= i/2; j++) {
 			MT_BUG_ON(mt, mas_allocated(&mas) != i - j);
 			mn = mas_pop_node(&mas);
+			MT_BUG_ON(mt, zeroed(mn));
 			ma_free_rcu(mn);
 			MT_BUG_ON(mt, mas_allocated(&mas) != i - j - 1);
 		}
@@ -388,6 +410,7 @@ static noinline void check_new_node(struct maple_tree *mt)
 		for (j = i; j > 0; j--) { //Free the requests
 			mn = mas_pop_node(&mas); // get the next node.
 			MT_BUG_ON(mt, mn == NULL);
+			MT_BUG_ON(mt, zeroed(mn));
 			ma_free_rcu(mn);
 		}
 		MT_BUG_ON(mt, mas_allocated(&mas) != 0);
@@ -401,6 +424,7 @@ static noinline void check_new_node(struct maple_tree *mt)
 		for (j = 1; j <= i; j++) { // Move the allocations to mas2
 			mn = mas_pop_node(&mas); // get the next node.
 			MT_BUG_ON(mt, mn == NULL);
+			MT_BUG_ON(mt, zeroed(mn));
 			mas_push_node(&mas2, (struct maple_enode *)mn);
 			MT_BUG_ON(mt, mas_allocated(&mas2) != j);
 		}
@@ -411,6 +435,7 @@ static noinline void check_new_node(struct maple_tree *mt)
 			MT_BUG_ON(mt, mas_allocated(&mas2) != j);
 			mn = mas_pop_node(&mas2); // get the next node.
 			MT_BUG_ON(mt, mn == NULL);
+			MT_BUG_ON(mt, zeroed(mn));
 			ma_free_rcu(mn);
 		}
 		MT_BUG_ON(mt, mas_allocated(&mas2) != 0);
@@ -426,6 +451,7 @@ static noinline void check_new_node(struct maple_tree *mt)
 
 	mn = mas_pop_node(&mas); // get the next node.
 	MT_BUG_ON(mt, mn == NULL);
+	MT_BUG_ON(mt, zeroed(mn));
 	MT_BUG_ON(mt, mas_allocated(&mas) != MAPLE_ALLOC_SLOTS);
 	MT_BUG_ON(mt, mas.alloc->node_count != MAPLE_ALLOC_SLOTS - 2);
 
@@ -442,15 +468,18 @@ static noinline void check_new_node(struct maple_tree *mt)
 	MT_BUG_ON(mt, mas.alloc->node_count);
 	MT_BUG_ON(mt, mas_allocated(&mas) != MAPLE_ALLOC_SLOTS + 2);
 	mn = mas_pop_node(&mas);
+	MT_BUG_ON(mt, zeroed(mn));
 	MT_BUG_ON(mt, mas_allocated(&mas) != MAPLE_ALLOC_SLOTS + 1);
 	MT_BUG_ON(mt, mas.alloc->node_count  != MAPLE_ALLOC_SLOTS - 1);
 	mas_push_node(&mas, (struct maple_enode *)mn);
 	MT_BUG_ON(mt, mas.alloc->node_count);
 	MT_BUG_ON(mt, mas_allocated(&mas) != MAPLE_ALLOC_SLOTS + 2);
 	mn = mas_pop_node(&mas);
+	MT_BUG_ON(mt, zeroed(mn));
 	ma_free_rcu(mn);
 	for (i = 1; i <= MAPLE_ALLOC_SLOTS + 1; i++) {
 		mn = mas_pop_node(&mas);
+		MT_BUG_ON(mt, zeroed(mn));
 		ma_free_rcu(mn);
 	}
 	MT_BUG_ON(mt, mas_allocated(&mas) != 0);
