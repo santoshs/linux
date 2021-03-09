@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+#define pr_fmt(fmt) "ndtest :" fmt
 
 #include <linux/platform_device.h>
 #include <linux/device.h>
@@ -42,6 +42,7 @@ static DEFINE_SPINLOCK(ndtest_lock);
 static struct ndtest_priv *instances[NUM_INSTANCES];
 static struct class *ndtest_dimm_class;
 static struct gen_pool *ndtest_pool;
+static struct workqueue_struct *ndtest_wq;
 
 static const struct nd_papr_pdsm_health health_defaults = {
 	.dimm_unarmed = 0,
@@ -496,6 +497,139 @@ static int ndtest_pdsm_health_set_threshold(struct ndtest_dimm *dimm,
 	return 0;
 }
 
+static void ars_complete_all(struct ndtest_priv *p)
+{
+	int i;
+
+	for (i = 0; i < p->config->num_regions; i++) {
+		struct ndtest_region *region = &p->config->regions[i];
+
+		if (region->region)
+			nvdimm_region_notify(region->region,
+					     NVDIMM_REVALIDATE_POISON);
+	}
+}
+
+static void ndtest_scrub(struct work_struct *work)
+{
+	struct ndtest_priv *p = container_of(work, typeof(struct ndtest_priv),
+					     dwork.work);
+	struct badrange_entry *be;
+	int rc, i = 0;
+
+	spin_lock(&p->badrange.lock);
+	list_for_each_entry(be, &p->badrange.list, list) {
+		rc = nvdimm_bus_add_badrange(p->bus, be->start, be->length);
+		if (rc)
+			dev_err(&p->pdev.dev, "Failed to process ARS records\n");
+		else
+			i++;
+	}
+	spin_unlock(&p->badrange.lock);
+
+	if (i == 0) {
+		queue_delayed_work(ndtest_wq, &p->dwork, HZ);
+		return;
+	}
+
+	ars_complete_all(p);
+	p->scrub_count++;
+
+	mutex_lock(&p->ars_lock);
+	sysfs_notify_dirent(p->scrub_state);
+	clear_bit(ARS_BUSY, &p->scrub_flags);
+	clear_bit(ARS_POLL, &p->scrub_flags);
+	set_bit(ARS_VALID, &p->scrub_flags);
+	mutex_unlock(&p->ars_lock);
+
+}
+
+static int ndtest_scrub_notify(struct ndtest_priv *p)
+{
+	if (!test_and_set_bit(ARS_BUSY, &p->scrub_flags))
+		queue_delayed_work(ndtest_wq, &p->dwork, HZ);
+
+	return 0;
+}
+
+static int ndtest_ars_inject(struct ndtest_priv *p,
+			     struct nd_cmd_ars_err_inj *inj,
+			     unsigned int buf_len)
+{
+	int rc;
+
+	if (buf_len != sizeof(*inj)) {
+		dev_dbg(&p->bus->dev, "buflen: %u, inj size: %lu\n",
+			buf_len, sizeof(*inj));
+		rc = -EINVAL;
+		goto err;
+	}
+
+	rc =  badrange_add(&p->badrange, inj->err_inj_spa_range_base,
+			   inj->err_inj_spa_range_length);
+
+	if (inj->err_inj_options & (1 << ND_ARS_ERR_INJ_OPT_NOTIFY))
+		ndtest_scrub_notify(p);
+
+	inj->status = 0;
+
+	return 0;
+
+err:
+	inj->status = NFIT_ARS_INJECT_INVALID;
+	return rc;
+}
+
+static int ndtest_ars_inject_clear(struct ndtest_priv *p,
+				   struct nd_cmd_ars_err_inj_clr *inj,
+				   unsigned int buf_len)
+{
+	int rc;
+
+	if (buf_len != sizeof(*inj)) {
+		rc = -EINVAL;
+		goto err;
+	}
+
+	if (inj->err_inj_clr_spa_range_length <= 0) {
+		rc = -EINVAL;
+		goto err;
+	}
+
+	badrange_forget(&p->badrange, inj->err_inj_clr_spa_range_base,
+			inj->err_inj_clr_spa_range_length);
+
+	inj->status = 0;
+	return 0;
+
+err:
+	inj->status = NFIT_ARS_INJECT_INVALID;
+	return rc;
+}
+
+static int ndtest_ars_inject_status(struct ndtest_priv *p,
+				    struct nd_cmd_ars_err_inj_stat *stat,
+				    unsigned int buf_len)
+{
+	struct badrange_entry *be;
+	int max = SZ_4K / sizeof(struct nd_error_stat_query_record);
+	int i = 0;
+
+	stat->status = 0;
+	spin_lock(&p->badrange.lock);
+	list_for_each_entry(be, &p->badrange.list, list) {
+		stat->record[i].err_inj_stat_spa_range_base = be->start;
+		stat->record[i].err_inj_stat_spa_range_length = be->length;
+		i++;
+		if (i > max)
+			break;
+	}
+	spin_unlock(&p->badrange.lock);
+	stat->inj_err_rec_count = i;
+
+	return 0;
+}
+
 static int ndtest_dimm_cmd_call(struct ndtest_dimm *dimm, unsigned int buf_len,
 			   void *buf)
 {
@@ -519,6 +653,157 @@ static int ndtest_dimm_cmd_call(struct ndtest_dimm *dimm, unsigned int buf_len,
 	return 0;
 }
 
+static int ndtest_bus_cmd_call(struct nvdimm_bus_descriptor *nd_desc, void *buf,
+			       unsigned int buf_len, int *cmd_rc)
+{
+	struct nd_cmd_pkg *pkg = buf;
+	struct ndtest_priv *p = container_of(nd_desc, struct ndtest_priv,
+					     bus_desc);
+	void *payload = pkg->nd_payload;
+	unsigned int func = pkg->nd_command;
+	unsigned int len = pkg->nd_size_in + pkg->nd_size_out;
+
+	switch (func) {
+	case PAPR_PDSM_INJECT_SET:
+		return ndtest_ars_inject(p, payload, len);
+	case PAPR_PDSM_INJECT_CLEAR:
+		return ndtest_ars_inject_clear(p, payload, len);
+	case PAPR_PDSM_INJECT_GET:
+		return ndtest_ars_inject_status(p, payload, len);
+	}
+
+	return -ENOTTY;
+}
+
+static int ndtest_cmd_ars_cap(struct ndtest_priv *p, struct nd_cmd_ars_cap *cmd,
+			      unsigned int buf_len)
+{
+	int ars_recs;
+
+	if (buf_len < sizeof(*cmd))
+		return -EINVAL;
+
+	/* for testing, only store up to n records that fit within a page */
+	ars_recs = SZ_4K / sizeof(struct nd_ars_record);
+
+	cmd->max_ars_out = sizeof(struct nd_cmd_ars_status)
+		+ ars_recs * sizeof(struct nd_ars_record);
+	cmd->status = (ND_ARS_PERSISTENT | ND_ARS_VOLATILE) << 16;
+	cmd->clear_err_unit = 256;
+	p->max_ars = cmd->max_ars_out;
+
+	return 0;
+}
+
+static void post_ars_status(struct ars_state *state,
+			    struct badrange *badrange, u64 addr, u64 len)
+{
+	struct nd_cmd_ars_status *status;
+	struct nd_ars_record *record;
+	struct badrange_entry *be;
+	u64 end = addr + len - 1;
+	int i = 0;
+
+	state->deadline = jiffies + 1*HZ;
+	status = state->ars_status;
+	status->status = 0;
+	status->address = addr;
+	status->length = len;
+	status->type = ND_ARS_PERSISTENT;
+
+	spin_lock(&badrange->lock);
+	list_for_each_entry(be, &badrange->list, list) {
+		u64 be_end = be->start + be->length - 1;
+		u64 rstart, rend;
+
+		/* skip entries outside the range */
+		if (be_end < addr || be->start > end)
+			continue;
+
+		rstart = (be->start < addr) ? addr : be->start;
+		rend = (be_end < end) ? be_end : end;
+		record = &status->records[i];
+		record->handle = 0;
+		record->err_address = rstart;
+		record->length = rend - rstart + 1;
+		i++;
+	}
+	spin_unlock(&badrange->lock);
+
+	status->num_records = i;
+	status->out_length = sizeof(struct nd_cmd_ars_status)
+		+ i * sizeof(struct nd_ars_record);
+}
+
+#define NFIT_ARS_STATUS_BUSY (1 << 16)
+#define NFIT_ARS_START_BUSY 6
+
+static int ndtest_cmd_ars_start(struct ndtest_priv *priv,
+				struct nd_cmd_ars_start *start,
+				unsigned int buf_len, int *cmd_rc)
+{
+	if (buf_len < sizeof(*start))
+		return -EINVAL;
+
+	spin_lock(&priv->state.lock);
+	if (time_before(jiffies, priv->state.deadline)) {
+		start->status = NFIT_ARS_START_BUSY;
+		*cmd_rc = -EBUSY;
+	} else {
+		start->status = 0;
+		start->scrub_time = 1;
+		post_ars_status(&priv->state, &priv->badrange,
+				start->address, start->length);
+		*cmd_rc = 0;
+	}
+	spin_unlock(&priv->state.lock);
+
+	return 0;
+}
+
+static int ndtest_cmd_ars_status(struct ndtest_priv *priv,
+				 struct nd_cmd_ars_status *status,
+				 unsigned int buf_len, int *cmd_rc)
+{
+	if (buf_len < priv->state.ars_status->out_length)
+		return -EINVAL;
+
+	spin_lock(&priv->state.lock);
+	if (time_before(jiffies, priv->state.deadline)) {
+		memset(status, 0, buf_len);
+		status->status = NFIT_ARS_STATUS_BUSY;
+		status->out_length = sizeof(*status);
+		*cmd_rc = -EBUSY;
+	} else {
+		memcpy(status, priv->state.ars_status,
+		       priv->state.ars_status->out_length);
+		*cmd_rc = 0;
+	}
+	spin_unlock(&priv->state.lock);
+
+	return 0;
+}
+
+static int ndtest_cmd_clear_error(struct ndtest_priv *priv,
+				     struct nd_cmd_clear_error *inj,
+				     unsigned int buf_len, int *cmd_rc)
+{
+	const u64 mask = 255;
+
+	if (buf_len < sizeof(*inj))
+		return -EINVAL;
+
+	if ((inj->address & mask) || (inj->length & mask))
+		return -EINVAL;
+
+	badrange_forget(&priv->badrange, inj->address, inj->length);
+	inj->status = 0;
+	inj->cleared = inj->length;
+	*cmd_rc = 0;
+
+	return 0;
+}
+
 static int ndtest_ctl(struct nvdimm_bus_descriptor *nd_desc,
 		      struct nvdimm *nvdimm, unsigned int cmd, void *buf,
 		      unsigned int buf_len, int *cmd_rc)
@@ -531,8 +816,32 @@ static int ndtest_ctl(struct nvdimm_bus_descriptor *nd_desc,
 
 	*cmd_rc = 0;
 
-	if (!nvdimm)
-		return -EINVAL;
+	if (!nvdimm) {
+		struct ndtest_priv *priv;
+
+		if (!nd_desc)
+			return -ENOTTY;
+
+		priv = container_of(nd_desc, struct ndtest_priv, bus_desc);
+		switch (cmd) {
+		case ND_CMD_CALL:
+			return ndtest_bus_cmd_call(nd_desc, buf, buf_len,
+						   cmd_rc);
+		case ND_CMD_ARS_CAP:
+			return ndtest_cmd_ars_cap(priv, buf, buf_len);
+		case ND_CMD_ARS_START:
+			return ndtest_cmd_ars_start(priv, buf, buf_len, cmd_rc);
+		case ND_CMD_ARS_STATUS:
+			return ndtest_cmd_ars_status(priv, buf, buf_len,
+						     cmd_rc);
+		case ND_CMD_CLEAR_ERROR:
+			return ndtest_cmd_clear_error(priv, buf, buf_len,
+						      cmd_rc);
+		default:
+			dev_dbg(&priv->pdev.dev, "Invalid command\n");
+			return -ENOTTY;
+		}
+	}
 
 	dimm = nvdimm_provider_data(nvdimm);
 	if (!dimm)
@@ -683,6 +992,9 @@ static void *ndtest_alloc_resource(struct ndtest_priv *p, size_t size,
 		return NULL;
 
 	buf = vmalloc(size);
+	if (!buf)
+		return NULL;
+
 	if (size >= DIMM_SIZE)
 		__dma = gen_pool_alloc_algo(ndtest_pool, size,
 					    gen_pool_first_fit_align, &data);
@@ -1052,6 +1364,7 @@ static ssize_t flags_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(flags);
 
+
 #define PAPR_PMEM_DIMM_CMD_MASK				\
 	 ((1U << PAPR_PDSM_HEALTH)			\
 	 | (1U << PAPR_PDSM_HEALTH_INJECT)		\
@@ -1195,10 +1508,101 @@ static const struct attribute_group of_node_attribute_group = {
 	.attrs = of_node_attributes,
 };
 
-static const struct attribute_group *ndtest_attribute_groups[] = {
-	&of_node_attribute_group,
+#define PAPR_PMEM_BUS_DSM_MASK				\
+	((1U << PAPR_PDSM_INJECT_SET)			\
+	 | (1U << PAPR_PDSM_INJECT_GET)			\
+	 | (1U << PAPR_PDSM_INJECT_CLEAR))
+
+static ssize_t bus_dsm_mask_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%#x\n", PAPR_PMEM_BUS_DSM_MASK);
+}
+static struct device_attribute dev_attr_bus_dsm_mask = {
+	.attr	= { .name = "dsm_mask", .mode = 0444 },
+	.show	= bus_dsm_mask_show,
+};
+
+static ssize_t scrub_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
+{
+	struct nvdimm_bus_descriptor *nd_desc;
+	struct ndtest_priv *p;
+	ssize_t rc = -ENXIO;
+	bool busy = 0;
+
+	device_lock(dev);
+	nd_desc = dev_get_drvdata(dev);
+	if (!nd_desc) {
+		device_unlock(dev);
+		return rc;
+	}
+
+	p = container_of(nd_desc, struct ndtest_priv, bus_desc);
+
+	mutex_lock(&p->ars_lock);
+	busy = test_bit(ARS_BUSY, &p->scrub_flags) &&
+		!test_bit(ARS_CANCEL, &p->scrub_flags);
+	rc = sprintf(buf, "%d%s", p->scrub_count, busy ? "+\n" : "\n");
+	if (busy && capable(CAP_SYS_RAWIO) &&
+	    !test_and_set_bit(ARS_POLL, &p->scrub_flags))
+		mod_delayed_work(ndtest_wq, &p->dwork, HZ);
+
+	mutex_unlock(&p->ars_lock);
+
+	device_unlock(dev);
+	return rc;
+}
+
+static ssize_t scrub_store(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t size)
+{
+	struct nvdimm_bus_descriptor *nd_desc;
+	struct ndtest_priv *p;
+	ssize_t rc = 0;
+	long val;
+
+	rc = kstrtol(buf, 0, &val);
+	if (rc)
+		return rc;
+	if (val != 1)
+		return -EINVAL;
+	device_lock(dev);
+	nd_desc = dev_get_drvdata(dev);
+	if (nd_desc) {
+		p = container_of(nd_desc, struct ndtest_priv, bus_desc);
+
+		ndtest_scrub_notify(p);
+	}
+	device_unlock(dev);
+
+	return size;
+}
+static DEVICE_ATTR_RW(scrub);
+
+static struct attribute *ndtest_attributes[] = {
+	&dev_attr_bus_dsm_mask.attr,
+	&dev_attr_scrub.attr,
 	NULL,
 };
+
+static const struct attribute_group ndtest_attribute_group = {
+	.name = "papr",
+	.attrs = ndtest_attributes,
+};
+
+static const struct attribute_group *ndtest_attribute_groups[] = {
+	&of_node_attribute_group,
+	&ndtest_attribute_group,
+	NULL,
+};
+
+#define PAPR_PMEM_BUS_CMD_MASK				   \
+	(1UL << ND_CMD_ARS_CAP				   \
+	 | 1UL << ND_CMD_ARS_START			   \
+	 | 1UL << ND_CMD_ARS_STATUS			   \
+	 | 1UL << ND_CMD_CLEAR_ERROR			   \
+	 | 1UL << ND_CMD_CALL)
 
 static int ndtest_bus_register(struct ndtest_priv *p)
 {
@@ -1207,7 +1611,9 @@ static int ndtest_bus_register(struct ndtest_priv *p)
 	p->bus_desc.ndctl = ndtest_ctl;
 	p->bus_desc.module = THIS_MODULE;
 	p->bus_desc.provider_name = NULL;
+	p->bus_desc.cmd_mask = PAPR_PMEM_BUS_CMD_MASK;
 	p->bus_desc.attr_groups = ndtest_attribute_groups;
+	p->bus_desc.bus_family_mask = NVDIMM_FAMILY_PAPR;
 
 	set_bit(NVDIMM_FAMILY_PAPR, &p->bus_desc.dimm_family_mask);
 
@@ -1225,6 +1631,33 @@ static int ndtest_remove(struct platform_device *pdev)
 	struct ndtest_priv *p = to_ndtest_priv(&pdev->dev);
 
 	nvdimm_bus_unregister(p->bus);
+	return 0;
+}
+
+static int ndtest_init_ars(struct ndtest_priv *p)
+{
+	struct kernfs_node *papr_node;
+	struct device *bus_dev;
+
+	p->state.ars_status = devm_kzalloc(
+		&p->pdev.dev, sizeof(struct nd_cmd_ars_status) + SZ_4K,
+		GFP_KERNEL);
+	if (!p->state.ars_status)
+		return -ENOMEM;
+
+	bus_dev = to_nvdimm_bus_dev(p->bus);
+	papr_node = sysfs_get_dirent(bus_dev->kobj.sd, "papr");
+	if (!papr_node) {
+		dev_err(&p->pdev.dev, "sysfs_get_dirent 'papr' failed\n");
+		return -ENOENT;
+	}
+
+	p->scrub_state = sysfs_get_dirent(papr_node, "scrub");
+	if (!p->scrub_state) {
+		dev_err(&p->pdev.dev, "sysfs_get_dirent 'scrub' failed\n");
+		return -ENOENT;
+	}
+
 	return 0;
 }
 
@@ -1249,6 +1682,10 @@ static int ndtest_probe(struct platform_device *pdev)
 		goto err;
 
 	rc = ndtest_init_regions(p);
+	if (rc)
+		goto err;
+
+	rc = ndtest_init_ars(p);
 	if (rc)
 		goto err;
 
@@ -1299,6 +1736,7 @@ static void cleanup_devices(void)
 	if (ndtest_pool)
 		gen_pool_destroy(ndtest_pool);
 
+	destroy_workqueue(ndtest_wq);
 
 	if (ndtest_dimm_class)
 		class_destroy(ndtest_dimm_class);
@@ -1318,6 +1756,10 @@ static __init int ndtest_init(void)
 #endif
 
 	nfit_test_setup(ndtest_resource_lookup, NULL);
+
+	ndtest_wq = create_singlethread_workqueue("nfit");
+	if (!ndtest_wq)
+		return -ENOMEM;
 
 	ndtest_dimm_class = class_create(THIS_MODULE, "nfit_test_dimm");
 	if (IS_ERR(ndtest_dimm_class)) {
@@ -1348,6 +1790,7 @@ static __init int ndtest_init(void)
 		}
 
 		INIT_LIST_HEAD(&priv->resources);
+		badrange_init(&priv->badrange);
 		pdev = &priv->pdev;
 		pdev->name = KBUILD_MODNAME;
 		pdev->id = i;
@@ -1360,6 +1803,11 @@ static __init int ndtest_init(void)
 		get_device(&pdev->dev);
 
 		instances[i] = priv;
+
+		/* Everything about ARS here */
+		INIT_DELAYED_WORK(&priv->dwork, ndtest_scrub);
+		mutex_init(&priv->ars_lock);
+		spin_lock_init(&priv->state.lock);
 	}
 
 	rc = platform_driver_register(&ndtest_driver);
@@ -1377,6 +1825,7 @@ err_register:
 
 static __exit void ndtest_exit(void)
 {
+	flush_workqueue(ndtest_wq);
 	cleanup_devices();
 	platform_driver_unregister(&ndtest_driver);
 }
