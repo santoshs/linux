@@ -83,17 +83,34 @@ enum dimm_type {
 	NDTEST_REGION_TYPE_BLK = 0x1,
 };
 
+struct ars_state {
+	struct nd_cmd_ars_status *ars_status;
+	unsigned long deadline;
+	spinlock_t lock;
+};
+
 struct ndtest_priv {
 	struct platform_device pdev;
 	struct device_node *dn;
 	struct list_head resources;
 	struct nvdimm_bus_descriptor bus_desc;
+	struct delayed_work dwork;
+	struct mutex ars_lock;
 	struct nvdimm_bus *bus;
 	struct ndtest_config *config;
+	struct ars_state state;
+	struct badrange badrange;
+	struct nd_cmd_ars_status *ars_status;
+	struct kernfs_node *scrub_state;
 
 	dma_addr_t *dcr_dma;
 	dma_addr_t *label_dma;
 	dma_addr_t *dimm_dma;
+
+	unsigned long scrub_flags;
+	unsigned long ars_state;
+	unsigned int max_ars;
+	int scrub_count;
 };
 
 struct ndtest_blk_mmio {
@@ -234,5 +251,13 @@ struct nd_pkg_pdsm {
 	__u16 reserved[2];      /* Ignored and to be set as '0' */
 	union nd_pdsm_payload payload;
 } __packed;
+
+enum scrub_flags {
+	ARS_BUSY,
+	ARS_CANCEL,
+	ARS_VALID,
+	ARS_POLL,
+	ARS_FAILED,
+};
 
 #endif /* NDTEST_H */
