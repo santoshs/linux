@@ -22,7 +22,6 @@ enum {
 	DIMM_SIZE = SZ_32M,
 	LABEL_SIZE = SZ_128K,
 	NUM_INSTANCES = 2,
-	NUM_DCR = 4,
 	NDTEST_MAX_MAPPING = 6,
 };
 
@@ -1606,8 +1605,6 @@ static const struct attribute_group *ndtest_attribute_groups[] = {
 
 static int ndtest_bus_register(struct ndtest_priv *p)
 {
-	p->config = &bus_configs[p->pdev.id];
-
 	p->bus_desc.ndctl = ndtest_ctl;
 	p->bus_desc.module = THIS_MODULE;
 	p->bus_desc.provider_name = NULL;
@@ -1667,14 +1664,16 @@ static int ndtest_probe(struct platform_device *pdev)
 	int rc;
 
 	p = to_ndtest_priv(&pdev->dev);
+	p->config = &bus_configs[pdev->id];
+
 	if (ndtest_bus_register(p))
 		return -ENOMEM;
 
-	p->dcr_dma = devm_kcalloc(&p->pdev.dev, NUM_DCR,
+	p->dcr_dma = devm_kcalloc(&p->pdev.dev, p->config->dimm_count,
 				 sizeof(dma_addr_t), GFP_KERNEL);
-	p->label_dma = devm_kcalloc(&p->pdev.dev, NUM_DCR,
+	p->label_dma = devm_kcalloc(&p->pdev.dev, p->config->dimm_count,
 				   sizeof(dma_addr_t), GFP_KERNEL);
-	p->dimm_dma = devm_kcalloc(&p->pdev.dev, NUM_DCR,
+	p->dimm_dma = devm_kcalloc(&p->pdev.dev, p->config->dimm_count,
 				  sizeof(dma_addr_t), GFP_KERNEL);
 
 	rc = ndtest_nvdimm_init(p);
