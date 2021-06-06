@@ -11,8 +11,7 @@
 use alloc::boxed::Box;
 use core::pin::Pin;
 use kernel::prelude::*;
-use kernel::{chrdev, cstr, file_operations::FileOperations};
-use std_semaphore::Semaphore;
+use kernel::{c_types, chrdev, cstr, file_operations::FileOperations};
 
 module! {
     type: RustScull,
@@ -56,8 +55,8 @@ impl FileOperations for RustScullFile {
     kernel::declare_file_operations!();
 }
 
-struct ScullQset<T> {
-    data: Box<T>,
+struct ScullQset {
+    data: Box<Box<c_types::c_void>>,
     next: *mut ScullQset,
 }
 
@@ -67,7 +66,6 @@ struct ScullDev {
     qset: i32,
     size: usize,
     access_key: u32,
-    sem: Semaphore,
 }
 
 struct RustScull {
@@ -81,7 +79,7 @@ impl KernelModule for RustScull {
 
         let mut chrdev_reg = chrdev::Registration::new_pinned(
             cstr!("rust_scull"),
-            scull_minors.read(),
+            scull_minor.read(),
             &THIS_MODULE,
         )?;
 
