@@ -13,6 +13,7 @@
 #include <nd-core.h>
 #include <linux/printk.h>
 #include <linux/seq_buf.h>
+#include <linux/papr_scm.h>
 
 #include "../watermark.h"
 #include "nfit_test.h"
@@ -1349,7 +1350,7 @@ static ssize_t flags_show(struct device *dev,
 	if (flags & PAPR_PMEM_BAD_RESTORE_MASK)
 		seq_buf_printf(&s, "restore_fail ");
 
-	if (flags & PAPR_PMEM_SAVE_MASK)
+	if (flags & PAPR_PMEM_SAVE_FAILED)
 		seq_buf_printf(&s, "save_fail ");
 
 	if (flags & PAPR_PMEM_SMART_EVENT_MASK)
